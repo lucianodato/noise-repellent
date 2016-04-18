@@ -46,10 +46,10 @@ connect_port(LV2_Handle instance,
 
 	switch ((PortIndex)port) {
 	case NREPEL_INPUT:
-		zameq2->input = (float*)data;
+		nrepel->input = (float*)data;
 		break;
 	case NREPEL_OUTPUT:
-		zameq2->output = (float*)data;
+		nrepel->output = (float*)data;
 		break;
 	}
 }
