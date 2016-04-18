@@ -1,0 +1,42 @@
+@prefix lv2:  <http://lv2plug.in/ns/lv2core#>.
+@prefix foaf: <http://xmlns.com/foaf/0.1/>.
+@prefix doap: <http://usefulinc.com/ns/doap#>.
+@prefix pprops: <http://lv2plug.in/ns/ext/port-props#>.
+@prefix ue: <http://lv2plug.in/ns/extensions/units#>.
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>.
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#>.
+@prefix param: <http://lv2plug.in/ns/ext/parameters#>.
+@prefix pg: <http://lv2plug.in/ns/ext/port-groups#>.
+
+<https://github.com/lucianodato/noise-repellent>
+  a lv2:Plugin;
+  a lv2:FilterPlugin;
+  a lv2:EQPlugin;
+
+  lv2:binary <nrepel.so>;
+  doap:name "Nrepel";
+  doap:maintainer [
+     foaf:name "Luciano Dato";
+     foaf:homepage <https://github.com/lucianodato/noise-repellent>;
+     foaf:mbox <mailto:lucianodato@gmail.com>;
+  ];
+  doap:license <http://usefulinc.com/doap/licenses/gpl>;
+  lv2:optionalFeature pprops:supportsStrictBounds ;
+  lv2:optionalFeature lv2:hardRTCapable ;
+
+  lv2:port [
+    a lv2:AudioPort, lv2:InputPort;
+    lv2:index 0;
+    lv2:symbol "input";
+    lv2:name "Input";
+  ],
+
+  [
+    a lv2:AudioPort, lv2:OutputPort;
+    lv2:index 1;
+    lv2:symbol "output";
+    lv2:name "Output";
+  ].
+
+
+
