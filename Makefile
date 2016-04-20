@@ -26,8 +26,8 @@ endif
 $(BUNDLE): manifest.ttl nrepel.ttl nrepel$(LIB_EXT)
 	rm -rf $(BUNDLE)
 	mkdir $(BUNDLE)
-	cp manifest.ttl nrepel.ttl nrepel$(LIB_EXT) $(BUNDLE)
-	rm -rf nrepel$(LIB_EXT)
+	cp manifest.ttl nrepel.ttl $(BUNDLE)
+	mv nrepel$(LIB_EXT) $(BUNDLE)
 
 #file compiling
 nrepel$(LIB_EXT): nrepel.c denoise.c
@@ -41,7 +41,7 @@ nrepel$(LIB_EXT): nrepel.c denoise.c
 nrepel.peg: nrepel.ttl
 	lv2peg nrepel.ttl nrepel.peg
 
-#make commands
+#make recipes
 install: $(BUNDLE)
 	install -d $(DESTDIR)$(LV2DIR)/$(BUNDLE)
 	install -t $(DESTDIR)$(LV2DIR)/$(BUNDLE) $(BUNDLE)/*

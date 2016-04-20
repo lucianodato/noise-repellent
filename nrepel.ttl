@@ -42,21 +42,24 @@
     a lv2:ControlPort, lv2:InputPort;
     lv2:index 2;
     lv2:symbol "capture";
-    lv2:name "Capture Noise" ,
-			 "Capturar Ruido"@es ;
+    lv2:name "Capture noise" ,
+			 "Capturar ruido"@es ;
     lv2:portProperty pprops:hasStrictBounds ;
-    lv2:minimum 0 ;
-    lv2:maximum 2 ;
-    lv2:default 0 ;
+    lv2:minimum 0.0 ;
+    lv2:maximum 2.0 ;
+    lv2:default 0.0 ;
     lv2:portProperty lv2:enumeration ;
     lv2:scalePoint [
-    	rdfs:label "Bypass" ;
+    	rdfs:label "Noise capture bypass" ,
+					"Captura de ruido apagada"@es ;
 		rdf:value 0.0
 		] , [
-		rdfs:label "Manual Capture On" ;
+		rdfs:label "Manual noise capture on" ,
+					"Captura manual de ruido encendida"@es ;
 		rdf:value 1.0
 		] , [
-		rdfs:label "Auto Capture On" ;
+		rdfs:label "Auto noise capture" ,
+					"Captura automatica de ruido"@es ;
 		rdf:value 2.0
 		]
   ],
@@ -65,11 +68,11 @@
     a lv2:ControlPort, lv2:InputPort;
     lv2:index 3;
     lv2:symbol "amountreduc";
-    lv2:name "Amount of Reduction";
+    lv2:name "Amount of reduction" ,
+			"Cantidad de reduccion"@es ;
     lv2:portProperty pprops:hasStrictBounds ;
-    lv2:designation param:gain ;
     lv2:minimum 0.0 ;
     lv2:maximum 20.0 ;
     lv2:default 0.0 ;
-    ue:unit ue:coef;
+    units:unit units:db ;
   ];
