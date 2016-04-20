@@ -13,8 +13,8 @@ CFLAGS ?= $(OPTIMIZATIONS) -Wall
 ###############################################################################
 BUNDLE = nrepel.lv2
 
-CXXFLAGS += -fPIC -DPIC
-CFLAGS += -fPIC -DPIC
+CXXFLAGS += -fPIC -DPIC -lfftw3 -lfftw3f -lm
+CFLAGS += -fPIC -DPIC -lfftw3 -lfftw3f -lm
 
 UNAME=$(shell uname)
 ifeq ($(UNAME),Darwin)
@@ -37,10 +37,11 @@ $(BUNDLE): manifest.ttl nrepel.ttl nrepel$(LIB_EXT)
 	mkdir $(BUNDLE)
 	cp manifest.ttl nrepel.ttl nrepel$(LIB_EXT) $(BUNDLE)
 
-nrepel$(LIB_EXT): nrepel.c
+nrepel$(LIB_EXT): nrepel.c denoise.c
 	$(CXX) -o nrepel$(LIB_EXT) \
 		$(CXXFLAGS) \
 		nrepel.c \
+		denoise.c \
 		$(LV2FLAGS) $(LDFLAGS)
 
 nrepel.peg: nrepel.ttl

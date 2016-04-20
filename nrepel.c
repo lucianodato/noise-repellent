@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include "denoise.c"
 
 #include "lv2/lv2plug.in/ns/lv2core/lv2.h"
 
