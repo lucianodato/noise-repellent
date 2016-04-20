@@ -27,6 +27,7 @@ $(BUNDLE): manifest.ttl nrepel.ttl nrepel$(LIB_EXT)
 	rm -rf $(BUNDLE)
 	mkdir $(BUNDLE)
 	cp manifest.ttl nrepel.ttl nrepel$(LIB_EXT) $(BUNDLE)
+	rm -rf nrepel$(LIB_EXT)
 
 #file compiling
 nrepel$(LIB_EXT): nrepel.c denoise.c
