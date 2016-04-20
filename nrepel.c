@@ -29,8 +29,7 @@ instantiate(const LV2_Descriptor*     descriptor,
             const char*               bundle_path,
             const LV2_Feature* const* features)
 {
-	int i;
-	Nrepel* nrepel = (Nreduc*)malloc(sizeof(Nrepel));
+	Nrepel* nrepel = (Nrepel*)malloc(sizeof(Nrepel));
 	
 	nrepel->srate = rate;
 	
@@ -108,7 +107,6 @@ run(LV2_Handle instance, uint32_t n_samples)
 			//finally
 			output[pos]=in;
 
-		}
 	}
 }
 
