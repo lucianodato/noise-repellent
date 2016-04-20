@@ -52,15 +52,15 @@
     lv2:scalePoint [
     	rdfs:label "Noise capture bypass" ,
 					"Captura de ruido apagada"@es ;
-		rdf:value 0.0
+		rdf:value 0.0 ;
 		] , [
 		rdfs:label "Manual noise capture on" ,
 					"Captura manual de ruido encendida"@es ;
-		rdf:value 1.0
+		rdf:value 1.0 ;
 		] , [
 		rdfs:label "Auto noise capture" ,
 					"Captura automatica de ruido"@es ;
-		rdf:value 2.0
+		rdf:value 2.0 ;
 		]
   ],
   
