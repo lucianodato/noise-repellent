@@ -35,14 +35,19 @@
 typedef enum {
 	NREPEL_INPUT  = 0,
 	NREPEL_OUTPUT = 1,
+	NREPEL_CAPTURE = 2,
+	NREPEL_AMOUNT = 3,
 
 } PortIndex;
 
 typedef struct {
-	float* input;
+	const float* input;
 	float* output;
 
 	float srate;
+	
+	const int* captstate;
+	const float* amountreduc;
 
 } Nrepel;
 
@@ -91,7 +96,7 @@ instantiate(const LV2_Descriptor*     descriptor,
 	Nrepel* nrepel = (Nrepel*)malloc(sizeof(Nrepel));
 	
 	nrepel->srate = rate;
-	
+		
 	return (LV2_Handle)nrepel;
 }
 
@@ -104,10 +109,16 @@ connect_port(LV2_Handle instance,
 
 	switch ((PortIndex)port) {
 	case NREPEL_INPUT:
-		nrepel->input = (float*)data;
+		nrepel->input = (const float*)data;
 		break;
 	case NREPEL_OUTPUT:
 		nrepel->output = (float*)data;
+		break;
+	case NREPEL_CAPTURE:
+		nrepel->captstate = (const int*)data;
+		break;
+	case NREPEL_AMOUNT:
+		nrepel->amountreduc = (const float*)data;
 		break;
 	}
 }
@@ -129,7 +140,8 @@ run(LV2_Handle instance, uint32_t n_samples)
 	
 			float in = input[pos];
 
-			sanitize_denormal(in);
+			
+			//sanitize_denormal(in);
 
 			//finally
 			output[pos]=in;

@@ -10,17 +10,17 @@
 
 <https://github.com/lucianodato/noise-repellent>
   a lv2:Plugin;
-  a lv2:FilterPlugin;
-  a lv2:EQPlugin;
+  a lv2:SpectralPlugin;
+  a lv2:UtilityPlugin;
 
   lv2:binary <nrepel.so>;
-  doap:name "Nrepel";
+  doap:name "noise-repellent";
   doap:maintainer [
      foaf:name "Luciano Dato";
      foaf:homepage <https://github.com/lucianodato/noise-repellent>;
      foaf:mbox <mailto:lucianodato@gmail.com>;
   ];
-  doap:license <http://usefulinc.com/doap/licenses/gpl>;
+  doap:license <https://opensource.org/licenses/LGPL-3.0>;
   lv2:optionalFeature pprops:supportsStrictBounds ;
   lv2:optionalFeature lv2:hardRTCapable ;
 
@@ -36,7 +36,40 @@
     lv2:index 1;
     lv2:symbol "output";
     lv2:name "Output";
-  ].
-
-
-
+  ],
+  
+  [
+    a lv2:ControlPort, lv2:InputPort;
+    lv2:index 2;
+    lv2:symbol "capture";
+    lv2:name "Capture Noise" ,
+			 "Capturar Ruido"@es ;
+    lv2:portProperty pprops:hasStrictBounds ;
+    lv2:minimum 0 ;
+    lv2:maximum 2 ;
+    lv2:default 0 ;
+    lv2:portProperty lv2:enumeration ;
+    lv2:scalePoint [
+    	rdfs:label "Bypass" ;
+		rdf:value 0.0
+		] , [
+		rdfs:label "Manual Capture On" ;
+		rdf:value 1.0
+		] , [
+		rdfs:label "Auto Capture On" ;
+		rdf:value 2.0
+		]
+  ],
+  
+  [
+    a lv2:ControlPort, lv2:InputPort;
+    lv2:index 3;
+    lv2:symbol "amountreduc";
+    lv2:name "Amount of Reduction";
+    lv2:portProperty pprops:hasStrictBounds ;
+    lv2:designation param:gain ;
+    lv2:minimum 0.0 ;
+    lv2:maximum 20.0 ;
+    lv2:default 0.0 ;
+    ue:unit ue:coef;
+  ];
