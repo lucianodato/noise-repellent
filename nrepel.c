@@ -7,6 +7,10 @@
 
 #define NREPEL_URI "https://github.com/lucianodato/noise-repellent"
 
+///---------------------------------------------------------------------
+
+//AUXILIARY STUFF
+
 typedef enum {
 	NREPEL_INPUT  = 0,
 	NREPEL_OUTPUT = 1,
@@ -20,38 +24,6 @@ typedef struct {
 	float srate;
 
 } Nrepel;
-
-
-
-static LV2_Handle
-instantiate(const LV2_Descriptor*     descriptor,
-            double                    rate,
-            const char*               bundle_path,
-            const LV2_Feature* const* features)
-{
-	Nrepel* nrepel = (Nrepel*)malloc(sizeof(Nrepel));
-	
-	nrepel->srate = rate;
-	
-	return (LV2_Handle)nrepel;
-}
-
-static void
-connect_port(LV2_Handle instance,
-             uint32_t   port,
-             void*      data)
-{
-	Nrepel* nrepel = (Nrepel*)instance;
-
-	switch ((PortIndex)port) {
-	case NREPEL_INPUT:
-		nrepel->input = (float*)data;
-		break;
-	case NREPEL_OUTPUT:
-		nrepel->output = (float*)data;
-		break;
-	}
-}
 
 // Works on little-endian machines only
 static inline bool 
@@ -83,6 +55,40 @@ from_dB(float gdb) {
 static inline float
 to_dB(float g) {
         return (20.f*log10(g));
+}
+
+///---------------------------------------------------------------------
+
+//LV2 CODE
+
+static LV2_Handle
+instantiate(const LV2_Descriptor*     descriptor,
+            double                    rate,
+            const char*               bundle_path,
+            const LV2_Feature* const* features)
+{
+	Nrepel* nrepel = (Nrepel*)malloc(sizeof(Nrepel));
+	
+	nrepel->srate = rate;
+	
+	return (LV2_Handle)nrepel;
+}
+
+static void
+connect_port(LV2_Handle instance,
+             uint32_t   port,
+             void*      data)
+{
+	Nrepel* nrepel = (Nrepel*)instance;
+
+	switch ((PortIndex)port) {
+	case NREPEL_INPUT:
+		nrepel->input = (float*)data;
+		break;
+	case NREPEL_OUTPUT:
+		nrepel->output = (float*)data;
+		break;
+	}
 }
 
 static void
@@ -127,7 +133,8 @@ extension_data(const char* uri)
 	return NULL;
 }
 
-static const LV2_Descriptor descriptor = {
+static const 
+LV2_Descriptor descriptor = {
 	NREPEL_URI,
 	instantiate,
 	connect_port,
