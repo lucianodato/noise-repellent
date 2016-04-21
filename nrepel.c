@@ -22,6 +22,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <vector>
 
 #include "denoise.c"
 #include "nestim.c"
@@ -88,9 +89,9 @@ typedef struct {
 	
 	const int* captstate;
 	const float* amountreduc;
-	const int* bufsize = DEFAULT_BUFFER;
+	const int* bufsize;
 	
-	float* tmpbuf[bufsize];
+	vector<float*> tmpbuf(BUFFER_SIZE);
 } Nrepel;
 
 static LV2_Handle
@@ -128,6 +129,7 @@ connect_port(LV2_Handle instance,
 		break;
 	case NREPEL_BUFFER:
 		nrepel->bufsize = (const int*)data;
+		//resize vector to selected buffer size
 		break;
 	}
 }
@@ -148,8 +150,8 @@ run(LV2_Handle instance, uint32_t n_samples)
 
 	for (uint32_t pos = 0; pos < n_samples; pos++) {
 			
-			nrepel->tmpbuf[bufptr] = input[pos];
-			if (++bufptr > sizeof(nrepel->tmpbuf)) {
+			nrepel->tmpbuf->data[bufptr] = input[pos];
+			if (++bufptr > sizeof(nrepel->tmpbuf->lenght)) {
 				bufptr = 0;
 				//call denoise function 
 			}

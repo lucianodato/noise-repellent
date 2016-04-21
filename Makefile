@@ -9,7 +9,7 @@ LV2DIR ?= $(PREFIX)/$(LIBDIR)/lv2
 OPTIMIZATIONS ?= -msse -msse2 -mfpmath=sse -ffast-math -fomit-frame-pointer -O3 -fno-finite-math-only
 
 LDFLAGS ?= -Wl,--as-needed -shared -Wl,-Bstatic -Wl,-Bdynamic
-CFLAGS ?= $(OPTIMIZATIONS) -Wall -fPIC -DPIC -lfftw3 -lfftw3f -lm
+CXXFLAGS ?= $(OPTIMIZATIONS) -Wall -fPIC -DPIC -lfftw3 -lfftw3f -lm
 
 BUNDLE = nrepel.lv2
 LIB_EXT=.so
@@ -32,7 +32,7 @@ $(BUNDLE): manifest.ttl nrepel.ttl nrepel$(LIB_EXT)
 #file compiling
 nrepel$(LIB_EXT): nrepel.c denoise.c nestim.c
 	$(CXX) -o nrepel$(LIB_EXT) \
-		$(CFLAGS) \
+		$(CXXFLAGS) \
 		nrepel.c \
 		denoise.c \
 		nestim.c \
