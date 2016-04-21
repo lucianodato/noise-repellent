@@ -29,29 +29,11 @@
 #include "lv2/lv2plug.in/ns/lv2core/lv2.h"
 
 #define NREPEL_URI "https://github.com/lucianodato/noise-repellent"
+#define DEFAULT_BUFFER 4096
 
 ///---------------------------------------------------------------------
 
 //AUXILIARY STUFF
-
-typedef enum {
-	NREPEL_INPUT  = 0,
-	NREPEL_OUTPUT = 1,
-	NREPEL_CAPTURE = 2,
-	NREPEL_AMOUNT = 3,
-
-} PortIndex;
-
-typedef struct {
-	const float* input;
-	float* output;
-
-	float srate;
-	
-	const int* captstate;
-	const float* amountreduc;
-
-} Nrepel;
 
 // Works on little-endian machines only
 static inline bool 
@@ -89,6 +71,28 @@ to_dB(float g) {
 
 //LV2 CODE
 
+typedef enum {
+	NREPEL_INPUT  = 0,
+	NREPEL_OUTPUT = 1,
+	NREPEL_CAPTURE = 2,
+	NREPEL_AMOUNT = 3,
+	NREPEL_BUFFER = 4,
+
+} PortIndex;
+
+typedef struct {
+	const float* input;
+	float* output;
+
+	float srate;
+	
+	const int* captstate;
+	const float* amountreduc;
+	const int* bufsize = DEFAULT_BUFFER;
+	
+	float* tmpbuf[bufsize];
+} Nrepel;
+
 static LV2_Handle
 instantiate(const LV2_Descriptor*     descriptor,
             double                    rate,
@@ -98,7 +102,7 @@ instantiate(const LV2_Descriptor*     descriptor,
 	Nrepel* nrepel = (Nrepel*)malloc(sizeof(Nrepel));
 	
 	nrepel->srate = rate;
-		
+			
 	return (LV2_Handle)nrepel;
 }
 
@@ -122,6 +126,9 @@ connect_port(LV2_Handle instance,
 	case NREPEL_AMOUNT:
 		nrepel->amountreduc = (const float*)data;
 		break;
+	case NREPEL_BUFFER:
+		nrepel->bufsize = (const int*)data;
+		break;
 	}
 }
 
@@ -137,16 +144,18 @@ run(LV2_Handle instance, uint32_t n_samples)
 
 	const float* const input  = nrepel->input;
 	float* const       output = nrepel->output;
+	static uint32_t bufptr = 0; 
 
 	for (uint32_t pos = 0; pos < n_samples; pos++) {
-	
-			float in = input[pos];
-
 			
-			//sanitize_denormal(in);
-
+			nrepel->tmpbuf[bufptr] = input[pos];
+			if (++bufptr > sizeof(nrepel->tmpbuf)) {
+				bufptr = 0;
+				//call denoise function 
+			}
+			
 			//finally
-			output[pos]=in;
+			output[pos] = input[pos];
 
 	}
 }
