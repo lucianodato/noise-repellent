@@ -93,7 +93,7 @@ typedef struct {
 	const float* amountreduc;
 	int* bufsize;
 	
-	vector<float*> tmpbuf;
+	vector<float*> *tmpbuf;
 } Nrepel;
 
 static LV2_Handle
@@ -130,9 +130,9 @@ connect_port(LV2_Handle instance,
 		nrepel->amountreduc = (const float*)data;
 		break;
 	case NREPEL_BUFFER:
-		nrepel->bufsize = (int)data;
+		nrepel->bufsize = (int*)data;
 		//resize vector to selected buffer size
-		nrepel->tmpbuf.resize(nrepel->bufsize);
+		nrepel->tmpbuf->resize(*nrepel->bufsize);
 		break;
 	}
 }
@@ -147,14 +147,14 @@ run(LV2_Handle instance, uint32_t n_samples)
 {
 	Nrepel* nrepel = (Nrepel*)instance;
 
-	const float* const input  = nrepel->input;
-	float* const       output = nrepel->output;
+	const float* input = nrepel->input;
+	float* const output = nrepel->output;
 	uint32_t bufptr = 0; 
 
 	for (uint32_t pos = 0; pos < n_samples; pos++) {
 
-			nrepel->tmpbuf[bufptr] = input[pos];
-			if (++bufptr > nrepel->tmpbuf.size()) {
+			nrepel->tmpbuf->data()[bufptr] = input[pos];
+			if (++bufptr > nrepel->tmpbuf->size()) {
 				bufptr = 0;
 				//call denoise function 
 			}
