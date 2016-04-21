@@ -7,7 +7,6 @@
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#>.
 @prefix param: <http://lv2plug.in/ns/ext/parameters#>.
 @prefix pg: <http://lv2plug.in/ns/ext/port-groups#>.
-@prefix bufsz: <http://lv2plug.in/ns/ext/buf-size#>
 
 <https://github.com/lucianodato/noise-repellent>
   a lv2:Plugin;

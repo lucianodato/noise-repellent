@@ -29,6 +29,8 @@
 
 #include "lv2/lv2plug.in/ns/lv2core/lv2.h"
 
+using namespace std;
+
 #define NREPEL_URI "https://github.com/lucianodato/noise-repellent"
 #define DEFAULT_BUFFER 4096
 
@@ -89,9 +91,9 @@ typedef struct {
 	
 	const int* captstate;
 	const float* amountreduc;
-	const int* bufsize;
+	int* bufsize;
 	
-	vector<float*> tmpbuf(BUFFER_SIZE);
+	vector<float*> tmpbuf;
 } Nrepel;
 
 static LV2_Handle
@@ -128,8 +130,9 @@ connect_port(LV2_Handle instance,
 		nrepel->amountreduc = (const float*)data;
 		break;
 	case NREPEL_BUFFER:
-		nrepel->bufsize = (const int*)data;
+		nrepel->bufsize = (int)data;
 		//resize vector to selected buffer size
+		nrepel->tmpbuf.resize(nrepel->bufsize);
 		break;
 	}
 }
@@ -146,12 +149,12 @@ run(LV2_Handle instance, uint32_t n_samples)
 
 	const float* const input  = nrepel->input;
 	float* const       output = nrepel->output;
-	static uint32_t bufptr = 0; 
+	uint32_t bufptr = 0; 
 
 	for (uint32_t pos = 0; pos < n_samples; pos++) {
-			
-			nrepel->tmpbuf->data[bufptr] = input[pos];
-			if (++bufptr > sizeof(nrepel->tmpbuf->lenght)) {
+
+			nrepel->tmpbuf[bufptr] = input[pos];
+			if (++bufptr > nrepel->tmpbuf.size()) {
 				bufptr = 0;
 				//call denoise function 
 			}
