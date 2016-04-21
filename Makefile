@@ -30,11 +30,12 @@ $(BUNDLE): manifest.ttl nrepel.ttl nrepel$(LIB_EXT)
 	mv nrepel$(LIB_EXT) $(BUNDLE)
 
 #file compiling
-nrepel$(LIB_EXT): nrepel.c denoise.c
+nrepel$(LIB_EXT): nrepel.c denoise.c nestim.c
 	$(CXX) -o nrepel$(LIB_EXT) \
 		$(CFLAGS) \
 		nrepel.c \
 		denoise.c \
+		nestim.c \
 		$(LV2FLAGS) $(LDFLAGS)
 
 #ttl files control
