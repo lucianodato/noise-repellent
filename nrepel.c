@@ -22,7 +22,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <vector>
 
 #include "denoise.c"
 #include "nestim.c"
@@ -130,9 +129,7 @@ connect_port(LV2_Handle instance,
 		nrepel->amountreduc = (const float*)data;
 		break;
 	case NREPEL_BUFFER:
-		nrepel->bufsize = (int)data;
-		//resize vector to selected buffer size
-		nrepel->tmpbuf.resize(nrepel->bufsize);
+		nrepel->bufsize = (int*)data;
 		break;
 	}
 }
