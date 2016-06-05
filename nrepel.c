@@ -1,8 +1,8 @@
 /*
     noise-repellent -- Noise Reduction LV2
-    
+
     Copyright 2016 Luciano Dato <lucianodato@gmail.com>
-    
+
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Lesser General Public License as published by
     the Free Software Foundation, either version 3 of the License, or
@@ -39,7 +39,7 @@ using namespace std;
 //AUXILIARY STUFF
 
 // Works on little-endian machines only
-static inline bool 
+static inline bool
 is_nan(float& value ) {
     if (((*(uint32_t *) &value) & 0x7fffffff) > 0x7f800000) {
       return true;
@@ -48,19 +48,19 @@ is_nan(float& value ) {
 }
 
 // Force already-denormal float value to zero
-static inline void 
+static inline void
 sanitize_denormal(float& value) {
     if (is_nan(value)) {
         value = 0.f;
     }
 }
 
-static inline int 
+static inline int
 sign(float x) {
         return (x >= 0.f ? 1 : -1);
 }
 
-static inline float 
+static inline float
 from_dB(float gdb) {
         return (exp(gdb/20.f*log(10.f)));
 }
@@ -88,31 +88,31 @@ typedef struct {
 	float* output;
 
 	float srate;
-	
+
 	const int* captstate;
 	const float* amountreduc;
 	int* bufsize;
-	
+
 	vector<float*> tmpbuf;
 } Nrepel;
 
 static LV2_Handle
 instantiate(const LV2_Descriptor*     descriptor,
-            double                    rate,
-            const char*               bundle_path,
-            const LV2_Feature* const* features)
+			double                    rate,
+			const char*               bundle_path,
+			const LV2_Feature* const* features)
 {
 	Nrepel* nrepel = (Nrepel*)malloc(sizeof(Nrepel));
-	
+
 	nrepel->srate = rate;
-			
+
 	return (LV2_Handle)nrepel;
 }
 
 static void
 connect_port(LV2_Handle instance,
-             uint32_t   port,
-             void*      data)
+			uint32_t   port,
+			void*      data)
 {
 	Nrepel* nrepel = (Nrepel*)instance;
 
@@ -149,16 +149,16 @@ run(LV2_Handle instance, uint32_t n_samples)
 
 	const float* const input  = nrepel->input;
 	float* const       output = nrepel->output;
-	uint32_t bufptr = 0; 
+	uint32_t bufptr = 0;
 
 	for (uint32_t pos = 0; pos < n_samples; pos++) {
 
 			nrepel->tmpbuf[bufptr] = input[pos];
 			if (++bufptr > nrepel->tmpbuf.size()) {
 				bufptr = 0;
-				//call denoise function 
+				//call denoise function
 			}
-			
+
 			//finally
 			output[pos] = input[pos];
 
@@ -182,7 +182,7 @@ extension_data(const char* uri)
 	return NULL;
 }
 
-static const 
+static const
 LV2_Descriptor descriptor = {
 	NREPEL_URI,
 	instantiate,
