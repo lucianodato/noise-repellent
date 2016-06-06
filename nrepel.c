@@ -22,13 +22,12 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <vector>
 
 #include "denoise.c"
 #include "nestim.c"
 
 #include "lv2/lv2plug.in/ns/lv2core/lv2.h"
-
-using namespace std;
 
 #define NREPEL_URI "https://github.com/lucianodato/noise-repellent"
 #define DEFAULT_BUFFER 4096
@@ -73,6 +72,9 @@ to_dB(float g) {
 
 //LV2 CODE
 
+//Temporary buffer to reach bufsize size
+std::vector<float> tmpbuf(DEFAULT_BUFFER);
+
 typedef enum {
 	NREPEL_INPUT  = 0,
 	NREPEL_OUTPUT = 1,
@@ -92,7 +94,6 @@ typedef struct {
 	const float* amountreduc;
 	int* bufsize;
 
-	vector<float*> tmpbuf;
 } Nrepel;
 
 static LV2_Handle
@@ -144,21 +145,20 @@ run(LV2_Handle instance, uint32_t n_samples)
 {
 	Nrepel* nrepel = (Nrepel*)instance;
 
-	const float* const input  = nrepel->input;
-	float* const       output = nrepel->output;
+	const float* input  = nrepel->input;
+	float* const output = nrepel->output;
 	uint32_t bufptr = 0;
 
 	for (uint32_t pos = 0; pos < n_samples; pos++) {
 
-			nrepel->tmpbuf[bufptr] = input[pos];
-			if (++bufptr > nrepel->tmpbuf.size()) {
+      tmpbuf[bufptr] = input[pos];
+			if (++bufptr > tmpbuf.size()) {
 				bufptr = 0;
-				//call denoise function
+        //Call denoise function
 			}
 
 			//finally
 			output[pos] = input[pos];
-
 	}
 }
 
