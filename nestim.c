@@ -1,8 +1,8 @@
 /*
     noise-repellent -- Noise Reduction LV2
-    
+
     Copyright 2016 Luciano Dato <lucianodato@gmail.com>
-    
+
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Lesser General Public License as published by
     the Free Software Foundation, either version 3 of the License, or
@@ -18,3 +18,7 @@
  */
 
 #include <fftw3.h>
+
+vector<float> estimate_spectrum(vector<float> signal,int type_noise_estimation){
+
+}
