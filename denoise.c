@@ -22,7 +22,6 @@
 
 
 void denoise_signal(vector<float> signal, int type_noise_estimation){
-  N = signal.size();
 
   //Estimate noise spectrum
   vector<float> noise_spectrum = estimate_spectrum(signal,type_noise_estimation);

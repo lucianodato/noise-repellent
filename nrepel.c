@@ -74,6 +74,7 @@ to_dB(float g) {
 
 //Temporary buffer to reach bufsize size
 std::vector<float> tmpbuf(DEFAULT_BUFFER);
+uint32_t bufptr = 0; //buffer position pointer
 
 typedef enum {
 	NREPEL_INPUT  = 0,
@@ -147,15 +148,15 @@ run(LV2_Handle instance, uint32_t n_samples)
 
 	const float* input  = nrepel->input;
 	float* const output = nrepel->output;
-	uint32_t bufptr = 0;
+
   int type_noise_estimation = nrepel->captstate;
 
 	for (uint32_t pos = 0; pos < n_samples; pos++) {
 
       tmpbuf[bufptr] = input[pos];
-      
+
       if (++bufptr > tmpbuf.size()) {
-				bufptr = 0;
+				bufptr = 0; //starting over
         //Call denoise function
         denoise_signal(tmpbuf,type_noise_estimation);
 			}

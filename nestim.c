@@ -20,5 +20,12 @@
 #include <fftw3.h>
 
 vector<float> estimate_spectrum(vector<float> signal,int type_noise_estimation){
-
+  switch (type_noise_estimation){
+    case 1:
+      //Manual Capture
+      break;
+    case 2:
+      //Auto Capture
+      break;
+  }
 }
