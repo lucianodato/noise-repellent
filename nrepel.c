@@ -22,78 +22,68 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <vector>
 
 #include "denoise.c"
 #include "nestim.c"
+#include "extrafunctions.c"
 
 #include "lv2/lv2plug.in/ns/lv2core/lv2.h"
 
 #define NREPEL_URI "https://github.com/lucianodato/noise-repellent"
-#define DEFAULT_BUFFER 4096
 
-///---------------------------------------------------------------------
+//Noise capture states
+#define MANUAL_CAPTURE_OFF_STATE 0
+#define MANUAL_CAPTURE_ON_STATE 1
+#define AUTO_CAPTURE_STATE 2
 
-//AUXILIARY STUFF
-
-// Works on little-endian machines only
-static inline bool
-is_nan(float& value ) {
-    if (((*(uint32_t *) &value) & 0x7fffffff) > 0x7f800000) {
-      return true;
-    }
-    return false;
-}
-
-// Force already-denormal float value to zero
-static inline void
-sanitize_denormal(float& value) {
-    if (is_nan(value)) {
-        value = 0.f;
-    }
-}
-
-static inline int
-sign(float x) {
-        return (x >= 0.f ? 1 : -1);
-}
-
-static inline float
-from_dB(float gdb) {
-        return (exp(gdb/20.f*log(10.f)));
-}
-
-static inline float
-to_dB(float g) {
-        return (20.f*log10(g));
-}
+//STFT default values
+#define DEFAULT_FFT_SIZE 2048 //This should be an even number (Cooley-Turkey)
+#define DEFAULT_WINDOW_SIZE 1555 //This should be an odd number (zerophase window)
 
 ///---------------------------------------------------------------------
 
 //LV2 CODE
-
-//Temporary buffer to reach bufsize size
-std::vector<float> tmpbuf(DEFAULT_BUFFER);
-uint32_t bufptr = 0; //buffer position pointer
 
 typedef enum {
 	NREPEL_INPUT  = 0,
 	NREPEL_OUTPUT = 1,
 	NREPEL_CAPTURE = 2,
 	NREPEL_AMOUNT = 3,
-	NREPEL_BUFFER = 4,
+  NREPEL_WINDOW_TYPE = 4
+  NREPEL_LATENCY = 5,
 
 } PortIndex;
 
 typedef struct {
 	const float* input;
 	float* output;
-
 	float srate;
 
+  //Parameters for the algorithm (user input)
 	const int* captstate;
 	const float* amountreduc;
-	int* bufsize;
+
+  //Parameters for the STFT
+  int* fftsize; //FFTW input size
+  int* window_size;
+  int* window_type;
+  int* overlap;
+
+  //Temporary buffer to reach fftsize
+  float* tmpbuf;
+  int* bufptr; //buffer position pointer
+
+  //FFTW related variables
+  int* input_size;
+  int* output_size;
+  float* input_fft_buffer;
+  fftwf_complex* output_fft_buffer;
+  int flags;
+  fftw_plan forward;
+  fftw_plan backward;
+  float* fft_magnitude;
+  float* fft_phase;
+
 
 } Nrepel;
 
@@ -105,9 +95,22 @@ instantiate(const LV2_Descriptor*     descriptor,
 {
 	Nrepel* nrepel = (Nrepel*)malloc(sizeof(Nrepel));
 
+  //Initialize variables
 	nrepel->srate = rate;
+  nrepel->bufptr = 0;
+  nrepel->tmpbuf = (float*)fftwf_malloc(sizeof(float)*fftsize);
+  nrepel->fftsize = DEFAULT_FFT_SIZE;
+  nrepel->window_size = DEFAULT_WINDOW_SIZE;
 
-	return (LV2_Handle)nrepel;
+  nrepel->flags = FFTW_ESTIMATE;
+  nrepel->input_size = fftsize;
+  nrepel->output_size = (nrepel->input_size/2 - 1);
+  nrepel->input_fft_buffer = (float*)fftwf_malloc(sizeof(float)*fftsize);
+  nrepel->output_fft_buffer = (fftwf_complex*)fftwf_malloc(sizeof(fftwf_complex)*output_size);
+  nrepel->forward = fftw_plan_dft_r2c_1d(input_size, input_fft_buffer, output_fft_buffer, flags);
+  nrepel->backward = fftw_plan_dft_c2r_1d(input_size, output_fft_buffer, input_fft_buffer, flags);
+
+  return (LV2_Handle)nrepel;
 }
 
 static void
@@ -130,8 +133,11 @@ connect_port(LV2_Handle instance,
 	case NREPEL_AMOUNT:
 		nrepel->amountreduc = (const float*)data;
 		break;
-	case NREPEL_BUFFER:
-		nrepel->bufsize = (int*)data;
+  case NREPEL_WINDOW_TYPE:
+		nrepel->window_type = (const float*)data;
+		break;
+	case NREPEL_LATENCY:
+		nrepel->latency = (int*)data;
 		break;
 	}
 }
@@ -151,19 +157,67 @@ run(LV2_Handle instance, uint32_t n_samples)
 
   int type_noise_estimation = nrepel->captstate;
 
+  //1-Cycle through the buffer given by the host (your daw)
 	for (uint32_t pos = 0; pos < n_samples; pos++) {
 
-      tmpbuf[bufptr] = input[pos];
+      //2-Store those samples in a temporary buffer
+      nrepel->tmpbuf[nrepel->bufptr] = input[pos];
+      nrepel->bufptr++;
 
-      if (++bufptr > tmpbuf.size()) {
-				bufptr = 0; //starting over
-        //Call denoise function
-        denoise_signal(tmpbuf,type_noise_estimation);
+      //3-If the window size selected is reached do processing
+      if (nrepel->bufptr > nrepel->window_size) {
+				nrepel->bufptr = 0; //restarting the pointer
+
+        //4-Do all STFT stuff before processing
+
+        //5-Zeropad the array if necessary
+
+        //6-Do FFT transform
+        fftw_execute(forward);
+
+        //7-Get the magnitude and the phase spectrum
+    		for (int k = 0; k <= nrepel->output_size; k++) {
+    			//de-interlace FFT buffer
+    			float real = nrepel->output_fft_buffer[k][0];
+    			float imag = nrepel->output_fft_buffer[k][1];
+
+    			//compute magnitude and phase
+    			nrepel->magnitude[k] = 2.*sqrt(real*real + imag*imag);
+    			nrepel->phase[k]=atan2(imag,real);
+    		}
+
+        //8-Call denoise function or spectrum estimation function
+        switch(nrepel->captstate){
+          case MANUAL_CAPTURE_ON_STATE:
+            estimate_spectrum(nrepel->magnitude,nrepel->type_noise_estimation);
+            break;
+          case MANUAL_CAPTURE_OFF_STATE:
+            denoise_signal(nrepel->magnitude);
+            break;
+          case AUTO_CAPTURE_STATE:
+            estimate_spectrum(nrepel->magnitude,nrepel->type_noise_estimation);
+            denoise_signal(nrepel->magnitude);
+            break;
+        }
+
+        //9-Reassemble complex spectrum (replace processed magnitude)
+        for (int k = 0; k <= nrepel->output_size; k++) {
+          float real = nrepel->magnitude[k] * cos(nrepel->phase[k]);
+    			float imag = nrepel->magnitude[k] * cos(nrepel->phase[k]);
+
+    			nrepel->output_fft_buffer[k][0] = real;
+    			nrepel->output_fft_buffer[k][1] = imag;
+    		}
+
+        //10-Do Inverse FFT
+        fftw_execute(backward);
+
+        //11-Assign the processed samples to the output buffer
+
 			}
-
-			//finally
-			output[pos] = input[pos];
 	}
+
+
 }
 
 static void
@@ -174,6 +228,10 @@ deactivate(LV2_Handle instance)
 static void
 cleanup(LV2_Handle instance)
 {
+  fftw_free(input_fft_buffer);
+  fftw_free(output_fft_buffer);
+  fftw_destroy_plan(forward);
+  fftw_destroy_plan(backward);
 	free(instance);
 }
 
