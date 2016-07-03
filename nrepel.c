@@ -158,7 +158,7 @@ run(LV2_Handle instance, uint32_t n_samples)
   int type_noise_estimation = nrepel->captstate;
 
   //1-Cycle through the buffer given by the host (your daw)
-	for (uint32_t pos = 0; pos < n_samples; pos++) {
+	for (int pos = 0; pos < n_samples; pos++) {
 
       //2-Store those samples in a temporary buffer
       nrepel->tmpbuf[nrepel->bufptr] = input[pos];
@@ -169,6 +169,7 @@ run(LV2_Handle instance, uint32_t n_samples)
 				nrepel->bufptr = 0; //restarting the pointer
 
         //4-Do all STFT stuff before processing
+        //Windowing
 
         //5-Zeropad the array if necessary
 
@@ -185,7 +186,7 @@ run(LV2_Handle instance, uint32_t n_samples)
     			nrepel->magnitude[k] = 2.*sqrt(real*real + imag*imag);
     			nrepel->phase[k]=atan2(imag,real);
     		}
-
+        //------------------------------------------------------
         //8-Call denoise function or spectrum estimation function
         switch(nrepel->captstate){
           case MANUAL_CAPTURE_ON_STATE:
@@ -199,6 +200,7 @@ run(LV2_Handle instance, uint32_t n_samples)
             denoise_signal(nrepel->magnitude);
             break;
         }
+        //------------------------------------------------------
 
         //9-Reassemble complex spectrum (replace processed magnitude)
         for (int k = 0; k <= nrepel->output_size; k++) {
@@ -216,6 +218,16 @@ run(LV2_Handle instance, uint32_t n_samples)
 
 			}
 	}
+
+  //12-Cycle through the processed buffer and output the processed signal
+  for (int pos = 0; pos < n_samples; pos++){
+    if(nrepel->captstate == MANUAL_CAPTURE_ON_STATE){
+      //No processing if the noise spectrum capture state is on
+      output[pos] = input[pos];
+    }else{
+      //Output the processed buffer
+    }
+  }
 
 
 }
