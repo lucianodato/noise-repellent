@@ -25,8 +25,8 @@
 
 //Window types
 #define HANNING_WINDOW 0
-#define BLACKMAN_WINDOW 1
-#define HAMMING_WINDOW 2
+#define HAMMING_WINDOW 1
+#define BLACKMAN_WINDOW 2
 
 //AUXILIARY Functions
 
@@ -79,15 +79,25 @@ float hamming(int k, int N) {
   return 0.54 - (0.46 * cos( 2 * PI * p ));
 }
 
-float fft_window(int k, int N, int window_type)
+void fft_window(float* window,int N, int window_type)
 {
-  switch (window_type){
-    case BLACKMAN_WINDOW:
-      return blackman(k, N);
-    break;
-    case HANNING_WINDOW:
-      return hanning(k, N);
-    break;
-    default:
-      return 0;
+  float value;
+  for (int k = 0; k < N; k++){
+    switch (window_type){
+      case BLACKMAN_WINDOW:
+        value = blackman(k, N);
+      break;
+      case HANNING_WINDOW:
+        value = hanning(k, N);
+      break;
+      case HAMMING_WINDOW:
+        value = hamming(k, N);
+      break;
+      default:
+        value = 0;
+      }
+      window[k]= value;
+  }
+
+  return window;
 }

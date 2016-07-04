@@ -93,8 +93,11 @@
       rdfs:label "Hanning";
 		  rdf:value 0.0 ;
 		] , [
-		  rdfs:label "Blackman";
+		  rdfs:label "Hamming";
 		    rdf:value 1.0 ;
+		] , [
+		  rdfs:label "Blackman";
+		    rdf:value 2.0 ;
 		]
   ],
 

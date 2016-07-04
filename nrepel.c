@@ -39,6 +39,7 @@
 //STFT default values
 #define DEFAULT_FFT_SIZE 2048 //This should be an even number (Cooley-Turkey)
 #define DEFAULT_WINDOW_SIZE 1555 //This should be an odd number (zerophase window)
+#define DEFAULT_HOP_SIZE  floor(DEFAULT_WINDOW_SIZE/2) //%50 overlap
 
 ///---------------------------------------------------------------------
 
@@ -64,10 +65,11 @@ typedef struct {
 	const float* amountreduc;
 
   //Parameters for the STFT
-  int* fftsize; //FFTW input size
+  int* fft_size; //FFTW input size
   int* window_size;
   int* window_type;
-  int* overlap;
+  int* hop;
+	float* window;
 
   //Temporary buffer to reach fftsize
   float* tmpbuf;
@@ -97,18 +99,22 @@ instantiate(const LV2_Descriptor*     descriptor,
 
   //Initialize variables
 	nrepel->srate = rate;
-  nrepel->bufptr = 0;
-  nrepel->tmpbuf = (float*)fftwf_malloc(sizeof(float)*fftsize);
-  nrepel->fftsize = DEFAULT_FFT_SIZE;
+  nrepel->fft_size = DEFAULT_FFT_SIZE;
   nrepel->window_size = DEFAULT_WINDOW_SIZE;
+	nrepel->window = (float*)fftwf_malloc(sizeof(float)*nrepel->window_size);
+	fft_window(nrepel->window,nrepel->window_size,nrepel->window_type);
+	nrepel->hop = DEFAULT_HOP_SIZE;
 
   nrepel->flags = FFTW_ESTIMATE;
-  nrepel->input_size = fftsize;
+  nrepel->input_size = fft_size;
   nrepel->output_size = (nrepel->input_size/2 - 1);
-  nrepel->input_fft_buffer = (float*)fftwf_malloc(sizeof(float)*fftsize);
+  nrepel->input_fft_buffer = (float*)fftwf_malloc(sizeof(float)*fft_size);
   nrepel->output_fft_buffer = (fftwf_complex*)fftwf_malloc(sizeof(fftwf_complex)*output_size);
   nrepel->forward = fftw_plan_dft_r2c_1d(input_size, input_fft_buffer, output_fft_buffer, flags);
   nrepel->backward = fftw_plan_dft_c2r_1d(input_size, output_fft_buffer, input_fft_buffer, flags);
+
+	nrepel->bufptr = 0;
+  nrepel->tmpbuf = (float*)fftwf_malloc(sizeof(float)*nrepel->fft_size);
 
   return (LV2_Handle)nrepel;
 }
@@ -157,6 +163,21 @@ run(LV2_Handle instance, uint32_t n_samples)
 
   int type_noise_estimation = nrepel->captstate;
 
+	//Add the necesary zeroz at the head and the tail to avoid distortion
+	int posfz1 = ;
+	int posfz2 = ;
+	//Move samples to the middle of the array
+
+	//Fill with zeros the head
+	for(int k = 0;k < posfz1; k++){
+		nrepel->tmpbuf[k] = 0;
+	}
+	//Fill with zeros the tail
+	for(int k = posfz2;k < nrepel->fft_size; k++){
+		nrepel->tmpbuf[k] = 0;
+	}
+
+
   //1-Cycle through the buffer given by the host (your daw)
 	for (int pos = 0; pos < n_samples; pos++) {
 
@@ -170,8 +191,14 @@ run(LV2_Handle instance, uint32_t n_samples)
 
         //4-Do all STFT stuff before processing
         //Windowing
+				for(int k = 0;k < nrepel->window_size; k++){
+					nrepel->tmpbuf[k] *= nrepel->window;
+				}
 
-        //5-Zeropad the array if necessary
+        //5-Zeropad the buffer if necessary
+				for(int k = nrepel->window_size;k < nrepel->fft_size; k++){
+					nrepel->tmpbuf[k] = 0;
+				}
 
         //6-Do FFT transform
         fftw_execute(forward);
@@ -214,12 +241,14 @@ run(LV2_Handle instance, uint32_t n_samples)
         //10-Do Inverse FFT
         fftw_execute(backward);
 
-        //11-Assign the processed samples to the output buffer
+				//11-Do OverlapAdd stuff
+
+        //12-Assign the processed samples to the output buffer
 
 			}
 	}
 
-  //12-Cycle through the processed buffer and output the processed signal
+  //13-Cycle through the processed buffer and output the processed signal
   for (int pos = 0; pos < n_samples; pos++){
     if(nrepel->captstate == MANUAL_CAPTURE_ON_STATE){
       //No processing if the noise spectrum capture state is on
@@ -240,10 +269,14 @@ deactivate(LV2_Handle instance)
 static void
 cleanup(LV2_Handle instance)
 {
-  fftw_free(input_fft_buffer);
-  fftw_free(output_fft_buffer);
-  fftw_destroy_plan(forward);
-  fftw_destroy_plan(backward);
+	Nrepel* nrepel = (Nrepel*)instance;
+
+	free(nrepel->window);
+	free(nrepel->tmpbuf);
+  fftw_free(nrepel->input_fft_buffer);
+  fftw_free(nrepel->output_fft_buffer);
+  fftw_destroy_plan(nrepel->forward);
+  fftw_destroy_plan(nrepel->backward);
 	free(instance);
 }
 
