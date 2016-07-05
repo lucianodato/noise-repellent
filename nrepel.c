@@ -38,7 +38,7 @@
 
 //STFT default values
 #define DEFAULT_FFT_SIZE 2048 //This should be an even number (Cooley-Turkey)
-#define DEFAULT_WINDOW_SIZE 1555 //This should be an odd number (zerophase window)
+#define DEFAULT_WINDOW_SIZE 1555 //This should be smaller than FFT size
 #define DEFAULT_HOP_SIZE  floor(DEFAULT_WINDOW_SIZE/2) //%50 overlap
 
 ///---------------------------------------------------------------------
@@ -71,10 +71,12 @@ typedef struct {
   int* window_type;
   int* hop;
 	float* window;
+	int* hWS1,hWS2; //first half and second half window size
+	int* pFFTsize; //size of positive spectrum, it includes sample 0
 
-  //Temporary buffer to reach fftsize
+  //Temporary buffer for processing
   float* tmpbuf;
-  int* bufptr; //buffer position pointer
+	float* current_proc_frame;
 
   //FFTW related variables
   int* input_size;
@@ -103,10 +105,15 @@ instantiate(const LV2_Descriptor*     descriptor,
   //Initialize variables
 	nrepel->srate = rate;
   nrepel->fft_size = DEFAULT_FFT_SIZE;
+	nrepel->pFFTsize = (nrepel->fft_size/2)+1;
   nrepel->window_size = DEFAULT_WINDOW_SIZE;
 	nrepel->window = (float*)fftwf_malloc(sizeof(float)*nrepel->window_size);
 	fft_window(nrepel->window,nrepel->window_size,nrepel->window_type);
 	nrepel->hop = DEFAULT_HOP_SIZE;
+	nrepel->hWS1 = int(floor((nrepel->window_size+1)/2)); //half analysis window size by rounding
+	nrepel->hWS2 = int(floor(M/2));//half analysis window size by floor
+	nrepel->samples_needed_tmpbfr = nrepel->hWS1 + nrepel->hWS2;
+	nrepel->current_proc_frame = (float*)fftwf_malloc(sizeof(float)*nrepel->window_size);
 
   nrepel->flags = FFTW_ESTIMATE;
   nrepel->input_size = fft_size;
@@ -165,48 +172,61 @@ run(LV2_Handle instance, uint32_t n_samples)
 
   int type_noise_estimation = nrepel->captstate;
 
+	//-------------------STFT start----------------------
 	/*Fill with window_size zeros at the beginning of the received buffer
-			and at the end too (or more). This is for correct STFT windowing.
+			and at the end too. This is for correct STFT windowing at the beginning
+			and at the end
 	*/
-	nrepel->bufptr = nrepel->window_size; //Start pointer window_size samples ahead
 	//Reserve the necessary buffer for correct STFT
-	nrepel->samples_needed = 2*nrepel->window_size + n_samples;
-	nrepel->samples_needed += (ceil(n_samples/nrepel->window_size)*nrepel->window_size - n_samples);
-  nrepel->tmpbuf = (float*)fftwf_malloc(sizeof(float)*nrepel->samples_needed);
-	// Fill buffer with zeros
-	for(int k = 0;k < nrepel->samples_needed; k++){
+	nrepel->samples_needed_tmpbfr += n_samples;
+  nrepel->tmpbuf = (float*)fftwf_malloc(sizeof(float)*nrepel->samples_needed_tmpbfr);
+
+	// Fill temporary buffer with zeros
+	for(int k = 0;k < nrepel->samples_needed_tmpbfr; k++){
 		nrepel->tmpbuf[k] = 0;
 	}
 
 	//Copy the received signal to the corresponding place in the buffer
+	// keep zeros at beginning to center first window at sample 0
+	// keep zeros at the end to analyze last sample
 	for (int pos = 0; pos < n_samples; pos++) {
-		nrepel->tmpbuf[nrepel->bufptr] = input[pos];
-		nrepel->bufptr++;
+		nrepel->tmpbuf[nrepel->hWS2+pos] = input[pos];
 	}
 
 	//Auxiliary variables
-	float* current_frame;
-	current_frame = (float*)fftwf_malloc(sizeof(float)*nrepel->fft_size);
+	int inptr = nrepel->hWS1 //initialize sound pointer in middle of analysis window
+	int endptr= nrepel->samples_needed_tmpbfr - nrepel->hWS2 //last sample to start a frame
 
   //Cycle through the temp buffer given by the host (your daw)
-	for (int pos = 0; pos < (nrepel->hop - (nrepel->window_size - nrepel->hop)); pos+nrepel->hop) {
+	while (inptr<=endptr) {
 
 		//Get the current frame
 		int indx = 0;
-		for (int j = pos;j<(pos+nrepel->window_size-1);j++){
-			current_frame[++indx] = nrepel->tmpbuf[j];
+		for (int j = inptr-nrepel->hWS1;j<=inptr+nrepel->hWS2;j++){
+			current_frame[indx] = nrepel->tmpbuf[j];
+			indx++;
 		}
 
-		//Do all STFT stuff before processing
-		//Windowing
+		//------------------FFTW start-------------------------
+		//Do Windowing
 		for(int k = 0;k < nrepel->window_size; k++){
-			current_frame[k] *= nrepel->window;
+			nrepel->current_frame[k] *= nrepel->window[k];
 		}
 
-		//Zeropad the buffer if necessary
-		for(int k = nrepel->window_size;k < nrepel->fft_size; k++){
-			current_frame[k] = 0;
+		//initialize the input_fft_buffer with zeros (zeropad)
+		for(int k = 0;k < nrepel->input_size; k++){
+			nrepel->input_fft_buffer[k] = 0;
 		}
+
+		//Zero-Phase Window in fft buffer to avoid phase distortion
+		for(int k = 0;k < nrepel->input_size; k++){
+			nrepel->input_fft_buffer[k+nrepel->hWS1] = nrepel->current_frame[k];
+		}
+
+		fftbuffer[:hM1] = xw[hM2:]                              # zero-phase window in fftbuffer
+		fftbuffer[-hM2:] = xw[:hM2]
+
+
 
 		//Copy the zeropadded frame to the input_buffer of the fftw
 		for(int k = 0;k < nrepel->fft_size; k++){
@@ -216,7 +236,6 @@ run(LV2_Handle instance, uint32_t n_samples)
 		//Do FFT transform
 		fftw_execute(forward);
 
-		//------------------Spectral Domain start----------------------
 		//Get the magnitude and the phase spectrum
 		for (int k = 0; k <= nrepel->output_size; k++) {
 			//de-interlace FFT buffer
@@ -240,7 +259,7 @@ run(LV2_Handle instance, uint32_t n_samples)
 				estimate_spectrum(nrepel->magnitude,nrepel->type_noise_estimation);
 				denoise_signal(nrepel->magnitude);
 				break;
-		}
+		} //switch
 		//------------------------------------------------------
 
 		//Reassemble complex spectrum (replace processed magnitude)
@@ -254,39 +273,34 @@ run(LV2_Handle instance, uint32_t n_samples)
 
 		//Do Inverse FFT
 		fftw_execute(backward);
-		//------------------Spectral Domain end-------------------------
 
-		//TODO what happens to the added samples?? investigate further
+		//------------------FFTW end-------------------------
 
 		//Update current frame with processed samples
 		for (int j = 0;j<nrepel->fft_size;j++){
 			current_frame[j] = nrepel->output_fft_buffer[j];
-
-			//Gain correction
-			if(nrepel->hop > nrepel->window_size/2){
-				current_frame[k] *= 1/nrepel->window[k]; //Not sure here!!!
-			}else{
-				current_frame[k] *= nrepel->hop/sum(nrepel->window[k]); //Not sure here!!!
-			}
 		}
 
-		//Do OverlapAdd
-		int indx = 0;
-		for (int j = pos;j<(pos+nrepel->window_size-1);j++){
-			nrepel->tmpbuf[j] += current_frame[++indx];
+		//Copy the processed frame to tmpbuf doig overlap-add
+		indx = 0;
+		for (int j = inptr-nrepel->hWS1;j<=inptr+nrepel->hWS2;j++){
+			nrepel->tmpbuf[j] += nrepel->hop * current_frame[indx] = ;
+			indx++;
 		}
+		inptr += nrepel->hop; //advance sound pointer
 
-		free(current_frame)
-	}
+	}//while
 
-  //Cycle through the processed buffer and output the processed signal
+	//-------------------STFT end----------------------
+
+	//Cycle through the processed buffer and output the processed signal
   for (int pos = 0; pos < n_samples; pos++){
     if(nrepel->captstate == MANUAL_CAPTURE_ON_STATE){
       //No processing if the noise spectrum capture state is on
       output[pos] = input[pos];
     }else{
-      //Output the processed buffer without the initial added zeros
-			output[pos] = nrepel->tmpbuf[pos+nrepel->window_size];
+      //Output the processed buffer without added zeros
+			output[pos] = nrepel->tmpbuf[pos+nrepel->hWS2];
     }
   }
 
@@ -305,6 +319,7 @@ cleanup(LV2_Handle instance)
 
 	free(nrepel->window);
 	free(nrepel->tmpbuf);
+	free(nrepel->current_frame)
 	free(nrepel->noise_print);
   fftw_free(nrepel->input_fft_buffer);
   fftw_free(nrepel->output_fft_buffer);

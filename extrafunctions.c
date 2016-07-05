@@ -81,7 +81,8 @@ float hamming(int k, int N) {
 
 void fft_window(float* window,int N, int window_type)
 {
-  float value;
+  float value,sum;
+  sum = 0;
   for (int k = 0; k < N; k++){
     switch (window_type){
       case BLACKMAN_WINDOW:
@@ -97,7 +98,8 @@ void fft_window(float* window,int N, int window_type)
         value = 0;
       }
       window[k]= value;
+      sum += value;
   }
 
-  return window;
+  return window/sum; //returns normalized window
 }
