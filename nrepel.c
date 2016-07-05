@@ -65,6 +65,7 @@ typedef struct {
 	const float* amountreduc;
 
   //Parameters for the STFT
+	int* samples_needed;
   int* fft_size; //FFTW input size
   int* window_size;
   int* window_type;
@@ -86,6 +87,8 @@ typedef struct {
   float* fft_magnitude;
   float* fft_phase;
 
+	//Store variables
+	float* nrepel->noise_print;
 
 } Nrepel;
 
@@ -113,10 +116,9 @@ instantiate(const LV2_Descriptor*     descriptor,
   nrepel->forward = fftw_plan_dft_r2c_1d(input_size, input_fft_buffer, output_fft_buffer, flags);
   nrepel->backward = fftw_plan_dft_c2r_1d(input_size, output_fft_buffer, input_fft_buffer, flags);
 
-	nrepel->bufptr = 0;
-  nrepel->tmpbuf = (float*)fftwf_malloc(sizeof(float)*nrepel->fft_size);
+	nrepel->noise_print = (float*)fftwf_malloc(sizeof(float)*nrepel->fft_size);
 
-  return (LV2_Handle)nrepel;
+	return (LV2_Handle)nrepel;
 }
 
 static void
@@ -163,98 +165,128 @@ run(LV2_Handle instance, uint32_t n_samples)
 
   int type_noise_estimation = nrepel->captstate;
 
-	//Add the necesary zeroz at the head and the tail to avoid distortion
-	int posfz1 = ;
-	int posfz2 = ;
-	//Move samples to the middle of the array
-
-	//Fill with zeros the head
-	for(int k = 0;k < posfz1; k++){
+	/*Fill with window_size zeros at the beginning of the received buffer
+			and at the end too (or more). This is for correct STFT windowing.
+	*/
+	nrepel->bufptr = nrepel->window_size; //Start pointer window_size samples ahead
+	//Reserve the necessary buffer for correct STFT
+	nrepel->samples_needed = 2*nrepel->window_size + n_samples;
+	nrepel->samples_needed += (ceil(n_samples/nrepel->window_size)*nrepel->window_size - n_samples);
+  nrepel->tmpbuf = (float*)fftwf_malloc(sizeof(float)*nrepel->samples_needed);
+	// Fill buffer with zeros
+	for(int k = 0;k < nrepel->samples_needed; k++){
 		nrepel->tmpbuf[k] = 0;
 	}
-	//Fill with zeros the tail
-	for(int k = posfz2;k < nrepel->fft_size; k++){
-		nrepel->tmpbuf[k] = 0;
-	}
 
-
-  //1-Cycle through the buffer given by the host (your daw)
+	//Copy the received signal to the corresponding place in the buffer
 	for (int pos = 0; pos < n_samples; pos++) {
-
-      //2-Store those samples in a temporary buffer
-      nrepel->tmpbuf[nrepel->bufptr] = input[pos];
-      nrepel->bufptr++;
-
-      //3-If the window size selected is reached do processing
-      if (nrepel->bufptr > nrepel->window_size) {
-				nrepel->bufptr = 0; //restarting the pointer
-
-        //4-Do all STFT stuff before processing
-        //Windowing
-				for(int k = 0;k < nrepel->window_size; k++){
-					nrepel->tmpbuf[k] *= nrepel->window;
-				}
-
-        //5-Zeropad the buffer if necessary
-				for(int k = nrepel->window_size;k < nrepel->fft_size; k++){
-					nrepel->tmpbuf[k] = 0;
-				}
-
-        //6-Do FFT transform
-        fftw_execute(forward);
-
-        //7-Get the magnitude and the phase spectrum
-    		for (int k = 0; k <= nrepel->output_size; k++) {
-    			//de-interlace FFT buffer
-    			float real = nrepel->output_fft_buffer[k][0];
-    			float imag = nrepel->output_fft_buffer[k][1];
-
-    			//compute magnitude and phase
-    			nrepel->magnitude[k] = 2.*sqrt(real*real + imag*imag);
-    			nrepel->phase[k]=atan2(imag,real);
-    		}
-        //------------------------------------------------------
-        //8-Call denoise function or spectrum estimation function
-        switch(nrepel->captstate){
-          case MANUAL_CAPTURE_ON_STATE:
-            estimate_spectrum(nrepel->magnitude,nrepel->type_noise_estimation);
-            break;
-          case MANUAL_CAPTURE_OFF_STATE:
-            denoise_signal(nrepel->magnitude);
-            break;
-          case AUTO_CAPTURE_STATE:
-            estimate_spectrum(nrepel->magnitude,nrepel->type_noise_estimation);
-            denoise_signal(nrepel->magnitude);
-            break;
-        }
-        //------------------------------------------------------
-
-        //9-Reassemble complex spectrum (replace processed magnitude)
-        for (int k = 0; k <= nrepel->output_size; k++) {
-          float real = nrepel->magnitude[k] * cos(nrepel->phase[k]);
-    			float imag = nrepel->magnitude[k] * cos(nrepel->phase[k]);
-
-    			nrepel->output_fft_buffer[k][0] = real;
-    			nrepel->output_fft_buffer[k][1] = imag;
-    		}
-
-        //10-Do Inverse FFT
-        fftw_execute(backward);
-
-				//11-Do OverlapAdd stuff
-
-        //12-Assign the processed samples to the output buffer
-
-			}
+		nrepel->tmpbuf[nrepel->bufptr] = input[pos];
+		nrepel->bufptr++;
 	}
 
-  //13-Cycle through the processed buffer and output the processed signal
+	//Auxiliary variables
+	float* current_frame;
+	current_frame = (float*)fftwf_malloc(sizeof(float)*nrepel->fft_size);
+
+  //Cycle through the temp buffer given by the host (your daw)
+	for (int pos = 0; pos < (nrepel->hop - (nrepel->window_size - nrepel->hop)); pos+nrepel->hop) {
+
+		//Get the current frame
+		int indx = 0;
+		for (int j = pos;j<(pos+nrepel->window_size-1);j++){
+			current_frame[++indx] = nrepel->tmpbuf[j];
+		}
+
+		//Do all STFT stuff before processing
+		//Windowing
+		for(int k = 0;k < nrepel->window_size; k++){
+			current_frame[k] *= nrepel->window;
+		}
+
+		//Zeropad the buffer if necessary
+		for(int k = nrepel->window_size;k < nrepel->fft_size; k++){
+			current_frame[k] = 0;
+		}
+
+		//Copy the zeropadded frame to the input_buffer of the fftw
+		for(int k = 0;k < nrepel->fft_size; k++){
+			nrepel->input_fft_buffer[k] = current_frame[k];
+		}
+
+		//Do FFT transform
+		fftw_execute(forward);
+
+		//------------------Spectral Domain start----------------------
+		//Get the magnitude and the phase spectrum
+		for (int k = 0; k <= nrepel->output_size; k++) {
+			//de-interlace FFT buffer
+			float real = nrepel->output_fft_buffer[k][0];
+			float imag = nrepel->output_fft_buffer[k][1];
+
+			//compute magnitude and phase
+			nrepel->magnitude[k] = 2.*sqrt(real*real + imag*imag);
+			nrepel->phase[k]=atan2(imag,real);
+		}
+		//------------------------------------------------------
+		//Call denoise function or spectrum estimation function
+		switch(nrepel->captstate){
+			case MANUAL_CAPTURE_ON_STATE:
+				estimate_spectrum(nrepel->magnitude,nrepel->type_noise_estimation,nrepel->noise_print);
+				break;
+			case MANUAL_CAPTURE_OFF_STATE:
+				denoise_signal(nrepel->magnitude);
+				break;
+			case AUTO_CAPTURE_STATE:
+				estimate_spectrum(nrepel->magnitude,nrepel->type_noise_estimation);
+				denoise_signal(nrepel->magnitude);
+				break;
+		}
+		//------------------------------------------------------
+
+		//Reassemble complex spectrum (replace processed magnitude)
+		for (int k = 0; k <= nrepel->output_size; k++) {
+			float real = nrepel->magnitude[k] * cos(nrepel->phase[k]);
+			float imag = nrepel->magnitude[k] * cos(nrepel->phase[k]);
+
+			nrepel->output_fft_buffer[k][0] = real;
+			nrepel->output_fft_buffer[k][1] = imag;
+		}
+
+		//Do Inverse FFT
+		fftw_execute(backward);
+		//------------------Spectral Domain end-------------------------
+
+		//TODO what happens to the added samples?? investigate further
+
+		//Update current frame with processed samples
+		for (int j = 0;j<nrepel->fft_size;j++){
+			current_frame[j] = nrepel->output_fft_buffer[j];
+
+			//Gain correction
+			if(nrepel->hop > nrepel->window_size/2){
+				current_frame[k] *= 1/nrepel->window[k]; //Not sure here!!!
+			}else{
+				current_frame[k] *= nrepel->hop/sum(nrepel->window[k]); //Not sure here!!!
+			}
+		}
+
+		//Do OverlapAdd
+		int indx = 0;
+		for (int j = pos;j<(pos+nrepel->window_size-1);j++){
+			nrepel->tmpbuf[j] += current_frame[++indx];
+		}
+
+		free(current_frame)
+	}
+
+  //Cycle through the processed buffer and output the processed signal
   for (int pos = 0; pos < n_samples; pos++){
     if(nrepel->captstate == MANUAL_CAPTURE_ON_STATE){
       //No processing if the noise spectrum capture state is on
       output[pos] = input[pos];
     }else{
-      //Output the processed buffer
+      //Output the processed buffer without the initial added zeros
+			output[pos] = nrepel->tmpbuf[pos+nrepel->window_size];
     }
   }
 
@@ -273,6 +305,7 @@ cleanup(LV2_Handle instance)
 
 	free(nrepel->window);
 	free(nrepel->tmpbuf);
+	free(nrepel->noise_print);
   fftw_free(nrepel->input_fft_buffer);
   fftw_free(nrepel->output_fft_buffer);
   fftw_destroy_plan(nrepel->forward);
