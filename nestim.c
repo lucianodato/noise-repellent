@@ -17,7 +17,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/
  */
 
-void estimate_spectrum(float* spectrum,int type_noise_estimation,float* noise_print){
+void estimate_spectrum(float* spectrum,int* type_noise_estimation,float* noise_print){
   switch (type_noise_estimation){
     case 1:
       //Manual Capture

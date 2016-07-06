@@ -17,6 +17,6 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/
  */
 
-void denoise_signal(vector<float> signal, int type_noise_estimation, float* noise_print){
+void denoise_signal(float* spectrum, int* type_noise_estimation, float* noise_print){
 
 }
