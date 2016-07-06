@@ -17,10 +17,6 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/
  */
 
-#include <fftw3.h>
-#include "nestim.c"
-
-
-void denoise_signal(vector<float> signal, int type_noise_estimation){
+void denoise_signal(vector<float> signal, int type_noise_estimation, float* noise_print){
 
 }

@@ -219,18 +219,9 @@ run(LV2_Handle instance, uint32_t n_samples)
 		}
 
 		//Zero-Phase Window in fft buffer to avoid phase distortion
-		for(int k = 0;k < nrepel->input_size; k++){
+		for(int k = 0;k < nrepel->hWS2; k++){
 			nrepel->input_fft_buffer[k+nrepel->hWS1] = nrepel->current_frame[k];
-		}
-
-		fftbuffer[:hM1] = xw[hM2:]                              # zero-phase window in fftbuffer
-		fftbuffer[-hM2:] = xw[:hM2]
-
-
-
-		//Copy the zeropadded frame to the input_buffer of the fftw
-		for(int k = 0;k < nrepel->fft_size; k++){
-			nrepel->input_fft_buffer[k] = current_frame[k];
+			nrepel->input_fft_buffer[k+nrepel->hWS2-k] = nrepel->current_frame[k+nrepel->hWS1]
 		}
 
 		//Do FFT transform

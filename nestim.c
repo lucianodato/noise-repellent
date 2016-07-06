@@ -17,9 +17,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/
  */
 
-#include <fftw3.h>
-
-vector<float> estimate_spectrum(vector<float> signal,int type_noise_estimation){
+void estimate_spectrum(float* spectrum,int type_noise_estimation,float* noise_print){
   switch (type_noise_estimation){
     case 1:
       //Manual Capture
