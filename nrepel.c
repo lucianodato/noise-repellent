@@ -22,6 +22,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <complex.h>
 
 #include "denoise.c"
 #include "nestim.c"
@@ -117,7 +118,7 @@ instantiate(const LV2_Descriptor*     descriptor,
 
   nrepel->flags = FFTW_ESTIMATE;
   nrepel->input_size = fft_size;
-  nrepel->output_size = (nrepel->input_size/2 - 1);
+  nrepel->output_size = nrepel->pFFTsize;
   nrepel->input_fft_buffer = (float*)fftwf_malloc(sizeof(float)*fft_size);
   nrepel->output_fft_buffer = (fftwf_complex*)fftwf_malloc(sizeof(fftwf_complex)*output_size);
   nrepel->forward = fftw_plan_dft_r2c_1d(input_size, input_fft_buffer, output_fft_buffer, flags);
@@ -203,14 +204,14 @@ run(LV2_Handle instance, uint32_t n_samples)
 		//Get the current frame
 		int indx = 0;
 		for (int j = inptr-nrepel->hWS1;j<=inptr+nrepel->hWS2;j++){
-			current_frame[indx] = nrepel->tmpbuf[j];
+			nrepel->current_proc_frame[indx] = nrepel->tmpbuf[j];
 			indx++;
 		}
 
 		//------------------FFTW start-------------------------
 		//Do Windowing
 		for(int k = 0;k < nrepel->window_size; k++){
-			nrepel->current_frame[k] *= nrepel->window[k];
+			nrepel->current_proc_frame[k] *= nrepel->window[k];
 		}
 
 		//initialize the input_fft_buffer with zeros (zeropad)
@@ -220,22 +221,29 @@ run(LV2_Handle instance, uint32_t n_samples)
 
 		//Zero-Phase Window in fft buffer to avoid phase distortion
 		for(int k = 0;k < nrepel->hWS2; k++){
-			nrepel->input_fft_buffer[k+nrepel->hWS1] = nrepel->current_frame[k];
-			nrepel->input_fft_buffer[k+nrepel->hWS2-k] = nrepel->current_frame[k+nrepel->hWS1]
+			nrepel->input_fft_buffer[k-1] = nrepel->current_proc_frame[nrepel->output_size-k];
+			nrepel->input_fft_buffer[nrepel->hWS1+k] = nrepel->current_proc_frame[k]
 		}
 
 		//Do FFT transform
 		fftw_execute(forward);
 
 		//Get the magnitude and the phase spectrum
-		for (int k = 0; k <= nrepel->output_size; k++) {
+		for (int k = 0; k < nrepel->output_size; k++) {
 			//de-interlace FFT buffer
 			float real = nrepel->output_fft_buffer[k][0];
 			float imag = nrepel->output_fft_buffer[k][1];
 
-			//compute magnitude and phase
-			nrepel->magnitude[k] = 2.*sqrt(real*real + imag*imag);
-			nrepel->phase[k]=atan2(imag,real);
+			//Magnitude spectrum in dB
+			float mag = fabs(real);
+			if (mag < FLT_MIN) mag = FLT_MIN;//If mag is smaller than the smallest float assign FLT_MIN
+			nrepel->magnitude[k] = 20 * log10f(mag);
+
+			//Phase spectrum
+			//Handle denormals
+			sanitize_denormal(real);
+			sanitize_denormal(imag);
+			nrepel->phase[k]=Unwarp(atan2(imag,real),nrepel->output_size);
 		}
 		//------------------------------------------------------
 		//Call denoise function or spectrum estimation function
@@ -247,19 +255,24 @@ run(LV2_Handle instance, uint32_t n_samples)
 				denoise_signal(nrepel->magnitude);
 				break;
 			case AUTO_CAPTURE_STATE:
-				estimate_spectrum(nrepel->magnitude,nrepel->type_noise_estimation);
+				estimate_spectrum(nrepel->magnitude,nrepel->type_noise_estimation,nrepel->noise_print);
 				denoise_signal(nrepel->magnitude);
 				break;
 		} //switch
 		//------------------------------------------------------
 
 		//Reassemble complex spectrum (replace processed magnitude)
-		for (int k = 0; k <= nrepel->output_size; k++) {
-			float real = nrepel->magnitude[k] * cos(nrepel->phase[k]);
-			float imag = nrepel->magnitude[k] * cos(nrepel->phase[k]);
-
-			nrepel->output_fft_buffer[k][0] = real;
-			nrepel->output_fft_buffer[k][1] = imag;
+		complex aux[(nrepel->output_size-1)*2];
+		for (int k = 0; k < nrepel->output_size; k++) {
+			// generate positive frequencies
+			aux[nrepel->output_size+k] = 10^(nrepel->magnitude[k]/20) * cexp(I*nrepel->phase[k]);
+			//generate negative frequencies
+			aux[nrepel->output_size-k] = 10^(nrepel->magnitude[nrepel->output_size-k-2]/20) * cexp(-I*nrepel->phase[nrepel->output_size-k-2]);
+		}
+		//Copy to the output fft buffer to run the plan
+		for (int k = 0; k < nrepel->output_size; k++) {
+			nrepel->output_fft_buffer[k][0] = crealf(aux[k]);
+			nrepel->output_fft_buffer[k][1] = cimagf(aux[k]);
 		}
 
 		//Do Inverse FFT
@@ -267,15 +280,16 @@ run(LV2_Handle instance, uint32_t n_samples)
 
 		//------------------FFTW end-------------------------
 
-		//Update current frame with processed samples
-		for (int j = 0;j<nrepel->fft_size;j++){
-			current_frame[j] = nrepel->output_fft_buffer[j];
+		//Undo zero-phase window
+		for(int k = 0;k < nrepel->hWS2; k++){
+			nrepel->current_proc_frame[k] = nrepel->input_fft_buffer[nrepel->hWS1+k];
+			nrepel->current_proc_frame[nrepel->output_size-k] = nrepel->input_fft_buffer[k-1]
 		}
 
 		//Copy the processed frame to tmpbuf doig overlap-add
 		indx = 0;
 		for (int j = inptr-nrepel->hWS1;j<=inptr+nrepel->hWS2;j++){
-			nrepel->tmpbuf[j] += nrepel->hop * current_frame[indx] = ;
+			nrepel->tmpbuf[j] += nrepel->hop * current_proc_frame[indx] = ;
 			indx++;
 		}
 		inptr += nrepel->hop; //advance sound pointer
@@ -310,7 +324,7 @@ cleanup(LV2_Handle instance)
 
 	free(nrepel->window);
 	free(nrepel->tmpbuf);
-	free(nrepel->current_frame)
+	free(nrepel->current_proc_frame)
 	free(nrepel->noise_print);
   fftw_free(nrepel->input_fft_buffer);
   fftw_free(nrepel->output_fft_buffer);
