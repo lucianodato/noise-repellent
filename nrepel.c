@@ -42,6 +42,7 @@
 #define DEFAULT_WINDOW_SIZE 1555 //This should be smaller than FFT size
 #define DEFAULT_HOP_SIZE  floor(DEFAULT_WINDOW_SIZE/2) //%50 overlap
 #define FLT_MIN 1e-14
+#define MAX_SAMPLES_RECIEVED 65536 //Biggest possible number host can send
 
 ///---------------------------------------------------------------------
 
@@ -114,7 +115,8 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->hop = DEFAULT_HOP_SIZE;
 	nrepel->hWS1 = int(floor((nrepel->window_size+1)/2)); //half analysis window size by rounding
 	nrepel->hWS2 = int(floor(nrepel->window_size/2));//half analysis window size by floor
-	nrepel->samples_needed_tmpbfr = nrepel->hWS1 + nrepel->hWS2;
+	nrepel->samples_needed_tmpbfr = nrepel->hWS1 + nrepel->hWS2 + MAX_SAMPLES_RECIEVED;
+	nrepel->tmpbuf = (float*)fftwf_malloc(sizeof(float)*nrepel->samples_needed_tmpbfr);
 	nrepel->current_proc_frame = (float*)fftwf_malloc(sizeof(float)*nrepel->window_size);
 
   nrepel->flags = FFTW_ESTIMATE;
@@ -172,17 +174,15 @@ run(LV2_Handle instance, uint32_t n_samples)
 	const float* input  = nrepel->input;
 	float* const output = nrepel->output;
 
+	//loops index
 	int k;
+	unsigned int pos;
 
   //-------------------STFT start----------------------
 	/*Fill with window_size zeros at the beginning of the received buffer
 			and at the end too. This is for correct STFT windowing at the beginning
 			and at the end
 	*/
-	//Reserve the necessary buffer for correct STFT
-	nrepel->samples_needed_tmpbfr += n_samples;
-  nrepel->tmpbuf = (float*)fftwf_malloc(sizeof(float)*nrepel->samples_needed_tmpbfr);
-
 	// Fill temporary buffer with zeros
 	for(k = 0;k < nrepel->samples_needed_tmpbfr; k++){
 		nrepel->tmpbuf[k] = 0;
@@ -191,13 +191,13 @@ run(LV2_Handle instance, uint32_t n_samples)
 	//Copy the received signal to the corresponding place in the buffer
 	// keep zeros at beginning to center first window at sample 0
 	// keep zeros at the end to analyze last sample
-	for (unsigned int pos = 0; pos < n_samples; pos++) {
+	for (pos = 0; pos < n_samples; pos++) {
 		nrepel->tmpbuf[nrepel->hWS2+pos] = input[pos];
 	}
 
 	//Auxiliary variables
 	int inptr = nrepel->hWS1; //initialize sound pointer in middle of analysis window
-	int endptr= nrepel->samples_needed_tmpbfr - nrepel->hWS2; //last sample to start a frame
+	int endptr= n_samples + nrepel->hWS2; //last sample to start a frame
 
   //Cycle through the temp buffer given by the host (your daw)
 	while (inptr<=endptr) {
@@ -305,7 +305,7 @@ run(LV2_Handle instance, uint32_t n_samples)
 	//-------------------STFT end----------------------
 
 	//Cycle through the processed buffer and output the processed signal
-  for (unsigned int pos = 0; pos < n_samples; pos++){
+  for (pos = 0; pos < n_samples; pos++){
     if(*nrepel->captstate == MANUAL_CAPTURE_ON_STATE){
       //No processing if the noise spectrum capture state is on
       output[pos] = input[pos];
