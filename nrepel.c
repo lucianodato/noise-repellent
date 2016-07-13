@@ -39,7 +39,7 @@
 #define AUTO_CAPTURE_STATE 2
 
 //STFT default values
-#define DEFAULT_FFT_SIZE 2048 //This should be an even number (Cooley-Turkey)
+#define DEFAULT_FFT_SIZE 512 //This should be an even number (Cooley-Turkey)
 #define DEFAULT_WINDOW_TYPE 0 //0 Hann 1 Hamm 2 Black
 #define DEFAULT_OVERSAMPLE_FACTOR 2 //2- 50% overlap 4 -75% overlap
 
@@ -56,8 +56,8 @@ typedef enum {
 } PortIndex;
 
 typedef struct {
-	const float* input;
-	float* output;
+	const float* input; //input of samples from host (changing size)
+	float* output; //output of samples to host (changing size)
 	float samp_rate; // Sample rate received from the host
 
   //Parameters for the algorithm (user input)
@@ -105,6 +105,7 @@ instantiate(const LV2_Descriptor*     descriptor,
 			const char*               bundle_path,
 			const LV2_Feature* const* features)
 {
+	//Actual struct declaration
 	Nrepel* nrepel = (Nrepel*)malloc(sizeof(Nrepel));
 
   //Initialize variables
@@ -130,12 +131,12 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->forward = fftwf_plan_dft_r2c_1d(nrepel->fft_size, nrepel->input_fft_buffer, nrepel->output_fft_buffer, nrepel->flags);
   nrepel->backward = fftwf_plan_dft_c2r_1d(nrepel->fft_size, nrepel->output_fft_buffer, nrepel->input_fft_buffer, nrepel->flags);
 
-	nrepel->ana_fft_magnitude = (float*)malloc(sizeof(float)*nrepel->fft_size_2);
-	nrepel->ana_fft_phase = (float*)malloc(sizeof(float)*nrepel->fft_size_2);
-	nrepel->syn_fft_magnitude = (float*)malloc(sizeof(float)*nrepel->fft_size_2);
-	nrepel->syn_fft_phase = (float*)malloc(sizeof(float)*nrepel->fft_size_2);
+	nrepel->ana_fft_magnitude = (float*)malloc(sizeof(float)*nrepel->fft_size);
+	nrepel->ana_fft_phase = (float*)malloc(sizeof(float)*nrepel->fft_size);
+	nrepel->syn_fft_magnitude = (float*)malloc(sizeof(float)*nrepel->fft_size);
+	nrepel->syn_fft_phase = (float*)malloc(sizeof(float)*nrepel->fft_size);
 
-	nrepel->noise_print = (float*)malloc(sizeof(float)*nrepel->fft_size_2);
+	nrepel->noise_print = (float*)malloc(sizeof(float)*nrepel->fft_size);
 
 	//Here we instantiate arrays
 	memset(nrepel->in_fifo, 0, nrepel->fft_size*sizeof(float));
@@ -186,9 +187,6 @@ run(LV2_Handle instance, uint32_t n_samples)
 {
 	Nrepel* nrepel = (Nrepel*)instance;
 
-	const float* input  = nrepel->input;
-	float* const output = nrepel->output;
-
 	//handy variables
 	int k;
 	unsigned int pos;
@@ -196,15 +194,14 @@ run(LV2_Handle instance, uint32_t n_samples)
 	//Inform latency
 	nrepel->report_latency = &nrepel->input_latency;
 
-	//Clear buffers
-
 	//main loop for processing
-	for (pos = 0; pos < n_samples; pos++) {
+	for (pos = 0; pos < n_samples; pos++){
 		//Store samples int the input buffer
-		nrepel->in_fifo[nrepel->read_ptr] = input[pos];
-		nrepel->read_ptr++;
+		nrepel->in_fifo[nrepel->read_ptr] = nrepel->input[pos];
 		//Output samples in the output buffer (even zeros introduced by latency)
-		output[pos] = nrepel->in_fifo[nrepel->read_ptr-nrepel->input_latency];
+		nrepel->output[pos] = nrepel->in_fifo[nrepel->read_ptr - nrepel->input_latency];
+		//Now move the read pointer
+		nrepel->read_ptr++;
 
 		//Once the buffer is full we must process
 		if (nrepel->read_ptr >= nrepel->fft_size){
@@ -212,7 +209,7 @@ run(LV2_Handle instance, uint32_t n_samples)
 			nrepel->read_ptr = nrepel->input_latency;
 
 			//Apply windowing
-			for (k = 0; k < nrepel->fft_size;k++) {
+			for (k = 0; k < nrepel->fft_size;k++){
 				nrepel->input_fft_buffer[k] = nrepel->in_fifo[k] * nrepel->window[k];
 			}
 
@@ -221,11 +218,11 @@ run(LV2_Handle instance, uint32_t n_samples)
 			fftwf_execute(nrepel->forward);
 
 			//Get the positive spectrum and compute magnitude and phase response
-			for (k = 0; k <= nrepel->fft_size_2; k++) {
+			for (k = 0; k <= nrepel->fft_size_2; k++){
 				nrepel->real = nrepel->output_fft_buffer[k][0];
 				nrepel->imag = nrepel->output_fft_buffer[k][1];
 
-				//Calc mag and phase
+				//Get mag and phase
 				nrepel->mag = 2*sqrt(nrepel->real*nrepel->real + nrepel->imag*nrepel->imag);
 				nrepel->phase = atan2(nrepel->imag,nrepel->real);
 
@@ -237,17 +234,17 @@ run(LV2_Handle instance, uint32_t n_samples)
 			//------------Processing---------------
 
 			//Initialize synthesis arrays and store processing results in them
-			memset(nrepel->syn_fft_magnitude, 0, nrepel->fft_size_2*sizeof(float));
-			memset(nrepel->syn_fft_phase, 0, nrepel->fft_size_2*sizeof(float));
-			//Right now not doing anything
-			for (k = 0; k <= nrepel->fft_size_2; k++) {
-					nrepel->syn_fft_magnitude[k] = nrepel->ana_fft_magnitude[k];
-					nrepel->syn_fft_phase[k] = nrepel->ana_fft_phase[k];
+			memset(nrepel->syn_fft_magnitude, 0, nrepel->fft_size*sizeof(float));
+			memset(nrepel->syn_fft_phase, 0, nrepel->fft_size*sizeof(float));
+			//Right now fancy muter just to test
+			for (k = 0; k <= nrepel->fft_size_2; k++){
+					nrepel->syn_fft_magnitude[k] = 0*nrepel->ana_fft_magnitude[k];
+					nrepel->syn_fft_phase[k] = 0*nrepel->ana_fft_phase[k];
 			}
 
 			//------------FFT Synthesis-------------
 
-			for (k = 0; k <= nrepel->fft_size_2; k++) {
+			for (k = 0; k <= nrepel->fft_size_2; k++){
 				nrepel->mag = nrepel->syn_fft_magnitude[k];
 				nrepel->phase = nrepel->syn_fft_phase[k];
 
@@ -262,13 +259,14 @@ run(LV2_Handle instance, uint32_t n_samples)
 			//zero negative frequencies of the spectrum
 			for (k = nrepel->fft_size_2+1; k < nrepel->fft_size; k++){
 				nrepel->output_fft_buffer[k][0] = 0;
+				nrepel->output_fft_buffer[k][1] = 0;
 			}
 
 			//Do inverse transform
 			fftwf_execute(nrepel->backward);
 
 			//Windowing and add to output_accum
-			for(k = 0; k < nrepel->fft_size; k++) {
+			for(k = 0; k < nrepel->fft_size; k++){
 				nrepel->output_accum[k] += 2*nrepel->window[k]*nrepel->input_fft_buffer[k]/(nrepel->fft_size_2*nrepel->overlap_factor);
 			}
 			//Output samples up to the hop size
@@ -277,7 +275,7 @@ run(LV2_Handle instance, uint32_t n_samples)
 			}
 
 			//shift FFT accumulator the hop size
-			memmove(nrepel->output_accum, nrepel->output_accum+nrepel->hop, nrepel->fft_size*sizeof(float));
+			memmove(nrepel->output_accum, nrepel->output_accum + nrepel->hop, nrepel->fft_size*sizeof(float));
 
 			//move inputFIFO
 			for (k = 0; k < nrepel->input_latency; k++){

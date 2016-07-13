@@ -27,7 +27,6 @@
 #define HANNING_WINDOW 0
 #define HAMMING_WINDOW 1
 #define BLACKMAN_WINDOW 2
-#define MAX_LENGTH 10000 //Unwrap - depends on fft size
 
 //AUXILIARY Functions
 
