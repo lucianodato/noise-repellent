@@ -5,7 +5,6 @@ LIBDIR ?= lib
 LV2DIR ?= $(PREFIX)/$(LIBDIR)/lv2
 
 #Basic Flags
-
 OPTIMIZATIONS ?= -msse -msse2 -mfpmath=sse -ffast-math -fomit-frame-pointer -O3 -fno-finite-math-only
 
 LDFLAGS ?= -Wl,--as-needed -shared -Wl,-Bstatic -Wl,-Bdynamic
