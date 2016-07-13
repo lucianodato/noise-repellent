@@ -192,7 +192,7 @@ run(LV2_Handle instance, uint32_t n_samples)
 	unsigned int pos;
 
 	//Inform latency
-	nrepel->report_latency = &nrepel->input_latency;
+	*(nrepel->report_latency) = nrepel->input_latency;
 
 	//main loop for processing
 	for (pos = 0; pos < n_samples; pos++){
