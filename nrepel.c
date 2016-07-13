@@ -58,27 +58,26 @@ typedef enum {
 typedef struct {
 	const float* input;
 	float* output;
-	float srate; // Sample rate received from the host
+	float samp_rate; // Sample rate received from the host
 
   //Parameters for the algorithm (user input)
-	int* captstate; // Capture Noise state (Manual-Off-Auto)
-	float* amountreduc; // Amount of noise to reduce in dB
+	int* capt_state; // Capture Noise state (Manual-Off-Auto)
+	float* amount_reduc; // Amount of noise to reduce in dB
 	int* report_latency; // Latency necessary
 
   //Parameters for the STFT
   int fft_size; //FFTW input size
 	int fft_size_2; //FFTW half input size
-	int windowtype; // Window type for the STFT
+	int window_type; // Window type for the STFT
 	int overlap_factor; //oversampling factor for overlap calculations
 	int hop; // Hop size for the STFT
 	float* window; // Window values
 
   //Temporary buffers for processing and outputting
 	int input_latency;
-  float* inFIFO; //internal input buffer
-	float* outFIFO; //internal output buffer
-	float* currentFFT; //The frame that is going to be denoised
-	float* outputFFTaccum; //FFT output accumulator
+  float* in_fifo; //internal input buffer
+	float* out_fifo; //internal output buffer
+	float* output_accum; //FFT output accumulator
 	int readPtr; //buffers read pointer
 
   //FFTW related variables
@@ -109,19 +108,19 @@ instantiate(const LV2_Descriptor*     descriptor,
 	Nrepel* nrepel = (Nrepel*)malloc(sizeof(Nrepel));
 
   //Initialize variables
-	nrepel->srate = rate;
+	nrepel->samp_rate = rate;
   nrepel->fft_size = DEFAULT_FFT_SIZE;
 	nrepel->fft_size_2 = (nrepel->fft_size/2);
-	nrepel->windowtype = DEFAULT_WINDOW_TYPE;
+	nrepel->window_type = DEFAULT_WINDOW_TYPE;
 	nrepel->window = (float*)malloc(sizeof(float)*nrepel->fft_size);
-	fft_window(nrepel->window,nrepel->fft_size,nrepel->windowtype); //Fill
+	fft_window(nrepel->window,nrepel->fft_size,nrepel->window_type); //Fill
 	nrepel->overlap_factor = DEFAULT_OVERSAMPLE_FACTOR;
 	nrepel->hop = nrepel->fft_size/nrepel->overlap_factor;
 	nrepel->input_latency = nrepel->fft_size - nrepel->hop;
 
-	nrepel->inFIFO = (float*)malloc(sizeof(float)*nrepel->fft_size);
-	nrepel->outFIFO = (float*)malloc(sizeof(float)*nrepel->fft_size);
-	nrepel->outputFFTaccum = (float*)malloc(sizeof(float)*nrepel->fft_size);
+	nrepel->in_fifo = (float*)malloc(sizeof(float)*nrepel->fft_size);
+	nrepel->out_fifo = (float*)malloc(sizeof(float)*nrepel->fft_size);
+	nrepel->output_accum = (float*)malloc(sizeof(float)*nrepel->fft_size);
 	//the initial position because we are that many samples ahead
 	nrepel->readPtr = nrepel->input_latency;
 
@@ -139,10 +138,10 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->noise_print = (float*)malloc(sizeof(float)*nrepel->fft_size_2);
 
 	//Here we instantiate arrays
-	memset(nrepel->inFIFO, 0, nrepel->fft_size*sizeof(float));
-	memset(nrepel->outFIFO, 0, nrepel->fft_size*sizeof(float));
+	memset(nrepel->in_fifo, 0, nrepel->fft_size*sizeof(float));
+	memset(nrepel->out_fifo, 0, nrepel->fft_size*sizeof(float));
 	memset(nrepel->input_fft_buffer, 0, nrepel->fft_size*sizeof(float));
-	memset(nrepel->outputFFTaccum, 0, nrepel->fft_size*sizeof(float));
+	memset(nrepel->output_accum, 0, nrepel->fft_size*sizeof(float));
 	memset(nrepel->ana_fft_magnitude, 0, nrepel->fft_size_2*sizeof(float));
 	memset(nrepel->ana_fft_phase, 0, nrepel->fft_size_2*sizeof(float));
 
@@ -166,10 +165,10 @@ connect_port(LV2_Handle instance,
 		nrepel->output = (float*)data;
 		break;
 	case NREPEL_CAPTURE:
-		nrepel->captstate = (int*)data;
+		nrepel->capt_state = (int*)data;
 		break;
 	case NREPEL_AMOUNT:
-		nrepel->amountreduc = (float*)data;
+		nrepel->amount_reduc = (float*)data;
 		break;
 	case NREPEL_LATENCY:
 		nrepel->report_latency = (int*)data;
@@ -202,10 +201,10 @@ run(LV2_Handle instance, uint32_t n_samples)
 	//main loop for processing
 	for (pos = 0; pos < n_samples; pos++) {
 		//Store samples int the input buffer
-		nrepel->inFIFO[nrepel->readPtr] = input[pos];
+		nrepel->in_fifo[nrepel->readPtr] = input[pos];
 		nrepel->readPtr++;
 		//Output samples in the output buffer (even zeros introduced by latency)
-		output[pos] = nrepel->inFIFO[nrepel->readPtr-nrepel->input_latency];
+		output[pos] = nrepel->in_fifo[nrepel->readPtr-nrepel->input_latency];
 
 		//Once the buffer is full we must process
 		if (nrepel->readPtr >= nrepel->fft_size){
@@ -214,7 +213,7 @@ run(LV2_Handle instance, uint32_t n_samples)
 
 			//Apply windowing
 			for (k = 0; k < nrepel->fft_size;k++) {
-				nrepel->input_fft_buffer[k] = nrepel->inFIFO[k] * nrepel->window[k];
+				nrepel->input_fft_buffer[k] = nrepel->in_fifo[k] * nrepel->window[k];
 			}
 
 			//----------FFT Analysis------------
@@ -263,21 +262,21 @@ run(LV2_Handle instance, uint32_t n_samples)
 			//Do inverse transform
 			fftwf_execute(nrepel->backward);
 
-			//Windowing and add to outputFFTaccum
+			//Windowing and add to output_accum
 			for(k = 0; k < nrepel->fft_size; k++) {
-				nrepel->outputFFTaccum[k] += nrepel->window[k]*nrepel->input_fft_buffer[k]/(nrepel->fft_size_2*nrepel->overlap_factor);
+				nrepel->output_accum[k] += 2*nrepel->window[k]*nrepel->input_fft_buffer[k]/(nrepel->fft_size_2*nrepel->overlap_factor);
 			}
 			//Output samples up to the hop size
 			for (k = 0; k < nrepel->hop; k++){
-				nrepel->outFIFO[k] = nrepel->outputFFTaccum[k];
+				nrepel->out_fifo[k] = nrepel->output_accum[k];
 			}
 
 			//shift FFT accumulator the hop size
-			memmove(nrepel->outputFFTaccum, nrepel->outputFFTaccum+nrepel->hop, nrepel->fft_size*sizeof(float));
+			memmove(nrepel->output_accum, nrepel->output_accum+nrepel->hop, nrepel->fft_size*sizeof(float));
 
 			//move inputFIFO
 			for (k = 0; k < nrepel->input_latency; k++){
-				nrepel->inFIFO[k] = nrepel->inFIFO[k+nrepel->hop];
+				nrepel->in_fifo[k] = nrepel->in_fifo[k+nrepel->hop];
 			}
 		}//if
 	}//main loop
@@ -295,9 +294,9 @@ cleanup(LV2_Handle instance)
 
 	free(nrepel->window);
 	free(nrepel->noise_print);
-	free(nrepel->inFIFO);
-	free(nrepel->outFIFO);
-	free(nrepel->outputFFTaccum);
+	free(nrepel->in_fifo);
+	free(nrepel->out_fifo);
+	free(nrepel->output_accum);
   fftwf_free(nrepel->input_fft_buffer);
   fftwf_free(nrepel->output_fft_buffer);
   fftwf_destroy_plan(nrepel->forward);

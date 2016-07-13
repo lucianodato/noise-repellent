@@ -54,24 +54,24 @@ to_dB(float g) {
         return (20.f*log10(g));
 }
 
-float blackman(int k, int N)
+static float blackman(int k, int N)
 {
   float p = ((float)(k))/(float)(N-1);
   return 0.42-0.5*cos(2.0*M_PI*p) + 0.08*cos(4.0*M_PI*p);
 }
 
-float hanning(int k, int N)
+static float hanning(int k, int N)
 {
   float p = ((float)(k))/(float)(N-1);
   return 0.5 - 0.5 * cos(2.0*M_PI*p);
 }
 
-float hamming(int k, int N) {
+static float hamming(int k, int N) {
   float p = ((float)(k))/(float)(N-1);
   return 0.54 - (0.46 * cos(2.0*M_PI*p));
 }
 
-void fft_window(float* window,int N, int window_type)
+static void fft_window(float* window,int N, int window_type)
 {
   float value,sum;
   sum = 0;
@@ -97,16 +97,4 @@ void fft_window(float* window,int N, int window_type)
   for (k = 0; k < N; k++){
     window[k]/=sum;
   }
-}
-
-float Atan2modif(float x, float y)
-{
-  float signx;
-  if (x > 0.) signx = 1.;
-  else signx = -1.;
-
-  if (x == 0.) return 0.;
-  if (y == 0.) return signx * M_PI / 2.;
-
-  return atan2(x, y);
 }
