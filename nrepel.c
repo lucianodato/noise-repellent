@@ -78,7 +78,7 @@ typedef struct {
   float* in_fifo; //internal input buffer
 	float* out_fifo; //internal output buffer
 	float* output_accum; //FFT output accumulator
-	int readPtr; //buffers read pointer
+	int read_ptr; //buffers read pointer
 
   //FFTW related variables
 	//currentFFT is the input of the fftw
@@ -122,7 +122,7 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->out_fifo = (float*)malloc(sizeof(float)*nrepel->fft_size);
 	nrepel->output_accum = (float*)malloc(sizeof(float)*nrepel->fft_size);
 	//the initial position because we are that many samples ahead
-	nrepel->readPtr = nrepel->input_latency;
+	nrepel->read_ptr = nrepel->input_latency;
 
   nrepel->flags = FFTW_ESTIMATE;
 	nrepel->input_fft_buffer = (float*)malloc(sizeof(float)*nrepel->fft_size);
@@ -201,15 +201,15 @@ run(LV2_Handle instance, uint32_t n_samples)
 	//main loop for processing
 	for (pos = 0; pos < n_samples; pos++) {
 		//Store samples int the input buffer
-		nrepel->in_fifo[nrepel->readPtr] = input[pos];
-		nrepel->readPtr++;
+		nrepel->in_fifo[nrepel->read_ptr] = input[pos];
+		nrepel->read_ptr++;
 		//Output samples in the output buffer (even zeros introduced by latency)
-		output[pos] = nrepel->in_fifo[nrepel->readPtr-nrepel->input_latency];
+		output[pos] = nrepel->in_fifo[nrepel->read_ptr-nrepel->input_latency];
 
 		//Once the buffer is full we must process
-		if (nrepel->readPtr >= nrepel->fft_size){
+		if (nrepel->read_ptr >= nrepel->fft_size){
 			//Reset the input buffer position
-			nrepel->readPtr = nrepel->input_latency;
+			nrepel->read_ptr = nrepel->input_latency;
 
 			//Apply windowing
 			for (k = 0; k < nrepel->fft_size;k++) {
