@@ -41,7 +41,7 @@
 //STFT default values
 #define DEFAULT_FFT_SIZE 2048 //This should be an even number (Cooley-Turkey)
 #define DEFAULT_WINDOW_TYPE 0 //0 Hann 1 Hamm 2 Black
-#define DEFAULT_OVERSAMPLE_FACTOR  2 //2- 50% overlap 4 -75% overlap
+#define DEFAULT_OVERSAMPLE_FACTOR 2 //2- 50% overlap 4 -75% overlap
 
 ///---------------------------------------------------------------------
 
@@ -229,8 +229,8 @@ run(LV2_Handle instance, uint32_t n_samples)
 				nrepel->mag = 2*sqrt(nrepel->real*nrepel->real + nrepel->imag*nrepel->imag);
 				nrepel->phase = atan2(nrepel->imag,nrepel->real);
 
-				//Store values in magnitude (in dB) and phase arrays
-				nrepel->ana_fft_magnitude[k] = to_dB(nrepel->mag);
+				//Store values in magnitude and phase arrays
+				nrepel->ana_fft_magnitude[k] = nrepel->mag;
 				nrepel->ana_fft_phase[k] = nrepel->phase;
 			}
 
@@ -239,6 +239,11 @@ run(LV2_Handle instance, uint32_t n_samples)
 			//Initialize synthesis arrays and store processing results in them
 			memset(nrepel->syn_fft_magnitude, 0, nrepel->fft_size_2*sizeof(float));
 			memset(nrepel->syn_fft_phase, 0, nrepel->fft_size_2*sizeof(float));
+			//Right now not doing anything
+			for (k = 0; k <= nrepel->fft_size_2; k++) {
+					nrepel->syn_fft_magnitude[k] = nrepel->ana_fft_magnitude[k];
+					nrepel->syn_fft_phase[k] = nrepel->ana_fft_phase[k];
+			}
 
 			//------------FFT Synthesis-------------
 
@@ -246,8 +251,8 @@ run(LV2_Handle instance, uint32_t n_samples)
 				nrepel->mag = nrepel->syn_fft_magnitude[k];
 				nrepel->phase = nrepel->syn_fft_phase[k];
 
-				nrepel->real = from_dB(nrepel->mag)*cos(nrepel->phase);
-				nrepel->imag = from_dB(nrepel->mag)*sin(nrepel->phase);
+				nrepel->real = nrepel->mag*cos(nrepel->phase);
+				nrepel->imag = nrepel->mag*sin(nrepel->phase);
 
 				//Store values in the FFT vector by suming real and the imag part
 				nrepel->output_fft_buffer[k][0] = nrepel->real;
