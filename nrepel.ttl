@@ -14,7 +14,7 @@
   a lv2:UtilityPlugin;
 
   lv2:binary <nrepel.so>;
-  doap:name "noise-repellent";
+  doap:name "Noise Repellent";
   doap:maintainer [
      foaf:name "Luciano Dato";
      foaf:homepage <https://github.com/lucianodato/noise-repellent>;

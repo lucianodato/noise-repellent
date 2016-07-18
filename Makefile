@@ -7,8 +7,8 @@ LV2DIR ?= $(PREFIX)/$(LIBDIR)/lv2
 #Basic Flags
 OPTIMIZATIONS ?= -msse -msse2 -mfpmath=sse -ffast-math -fomit-frame-pointer -O3 -fno-finite-math-only
 
-LDFLAGS ?= -Wl,--as-needed -shared -Wl,-Bstatic -Wl,-Bdynamic
-CFLAGS ?= $(OPTIMIZATIONS) -Wall -fPIC -DPIC -lfftw3 -lfftw3f -lm
+LDFLAGS ?= -Wl,--as-needed -shared -Wl,-Bstatic -Wl,-Bdynamic `pkg-config lv2core lv2-plugin fftw3f --libs`
+CFLAGS ?= $(OPTIMIZATIONS) -Wall -fPIC -DPIC -lm `pkg-config lv2core lv2-plugin fftw3f --cflags --libs`
 
 BUNDLE = nrepel.lv2
 LIB_EXT=.so

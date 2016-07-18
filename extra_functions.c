@@ -31,49 +31,42 @@
 //AUXILIARY Functions
 
 // Force already-denormal float value to zero
-static inline void
-sanitize_denormal(float& value) {
+static inline void sanitize_denormal(float& value) {
     if (isnan(value)) {
         value = 0.f;
     }
 }
 
-static inline int
-sign(float x) {
+static inline int sign(float x) {
         return (x >= 0.f ? 1 : -1);
 }
 
-static inline float
-from_dB(float gdb) {
+static inline float from_dB(float gdb) {
         return (exp(gdb/20.f*log(10.f)));
 }
 
-static inline float
-to_dB(float g) {
+static inline float to_dB(float g) {
         return (20.f*log10(g));
 }
 
-static float blackman(int k, int N)
-{
-  float p = ((float)(k))/(float)(N-1);
-  return 0.42-0.5*cos(2.0*M_PI*p) + 0.08*cos(4.0*M_PI*p);
+static float blackman(int k, int N) {
+  float p = ((float)(k))/((float)(N));
+  return 0.42-0.5*cos(2.f*M_PI*p) + 0.08*cos(4.f*M_PI*p);
 }
 
-static float hanning(int k, int N)
-{
-  float p = ((float)(k))/(float)(N-1);
-  return 0.5 - 0.5 * cos(2.0*M_PI*p);
+static float hanning(int k, int N) {
+  float p = ((float)(k))/((float)(N));
+  return 0.5 - 0.5 * cos(2.f*M_PI*p);
 }
 
 static float hamming(int k, int N) {
-  float p = ((float)(k))/(float)(N-1);
-  return 0.54 - (0.46 * cos(2.0*M_PI*p));
+  float p = ((float)(k))/((float)(N));
+  return 0.54 - (0.46 * cos(2.f*M_PI*p));
 }
 
-static void fft_window(float* window,int N, int window_type)
-{
-  float value,sum;
-  sum = 0;
+static void fft_window(float* window, int N, int window_type) {
+  float value = 0.f;
+  float sum_values = 0.f;
   int k;
   for (k = 0; k < N; k++){
     switch (window_type){
@@ -86,14 +79,12 @@ static void fft_window(float* window,int N, int window_type)
       case HAMMING_WINDOW:
         value = hamming(k, N);
       break;
-      default:
-        value = 0;
-      }
-      window[k]= value;
-      sum += value;
+    }
+    window[k] = value;
+    sum_values += value;
   }
-  //Normalize Window
+
   for (k = 0; k < N; k++){
-    window[k]/=sum;
+    window[k]/=sum_values; //Normalized Window
   }
 }
