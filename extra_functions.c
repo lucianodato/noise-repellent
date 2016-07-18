@@ -33,7 +33,7 @@
 // Force already-denormal float value to zero
 static inline float sanitize_denormal(float value) {
     if (isnan(value)) {
-      return 0.f;
+      return FLT_MIN;
     } else {
       return value;
     }
@@ -64,7 +64,7 @@ static float hanning(int k, int N) {
 
 static float hamming(int k, int N) {
   float p = ((float)(k))/((float)(N));
-  return 0.54 - (0.46 * cos(2.f*M_PI*p));
+  return 0.54 - 0.46 * cos(2.f*M_PI*p);
 }
 
 static void fft_window(float* window, int N, int window_type) {
@@ -88,7 +88,7 @@ static void fft_window(float* window, int N, int window_type) {
   }
 
   for (k = 0; k < N; k++){
-    window[k]/=sum_values; //Normalized Window
+    window[k] /= sum_values; //Normalized Window
   }
 }
 

@@ -39,8 +39,8 @@
 #define AUTO_CAPTURE_STATE 2
 
 //STFT default values
-#define MAX_FFT_SIZE 8192 //This should be an even number (Cooley-Turkey)
-#define DEFAULT_WINDOW_TYPE 0 //0 Hann 1 Hamm 2 Black
+#define MAX_FFT_SIZE 2048 //This should be an even number (Cooley-Turkey)
+#define DEFAULT_WINDOW_TYPE 1 //0 Hann 1 Hamm 2 Black
 #define DEFAULT_OVERLAP_FACTOR 4 //2- 50% overlap 4 -75% overlap
 
 ///---------------------------------------------------------------------
@@ -135,7 +135,7 @@ static void destroy_buffers(Nrepel* nrepel){
 }
 
 static void initialize_values(Nrepel* nrepel){
-	// switch(){
+	// switch(*(nrepel->fft_option)){
 	// 	case 0:
 	// 		nrepel->fft_size = 1024;
 	// 		break;
@@ -159,11 +159,11 @@ static void initialize_values(Nrepel* nrepel){
 	memset(nrepel->input_fft_buffer, 0, nrepel->fft_size*sizeof(float));
 	memset(nrepel->output_fft_buffer, 0, nrepel->fft_size*sizeof(fftwf_complex));
 	memset(nrepel->output_accum, 0, nrepel->fft_size*sizeof(float));
-	memset(nrepel->ana_fft_magnitude, 0, (nrepel->fft_size)*sizeof(float));
-	memset(nrepel->ana_fft_phase, 0, (nrepel->fft_size)*sizeof(float));
-	memset(nrepel->syn_fft_magnitude, 0, (nrepel->fft_size)*sizeof(float));
-	memset(nrepel->syn_fft_phase, 0, (nrepel->fft_size)*sizeof(float));
-	memset(nrepel->noise_print, 0, (nrepel->fft_size)*sizeof(float));
+	memset(nrepel->ana_fft_magnitude, 0, nrepel->fft_size*sizeof(float));
+	memset(nrepel->ana_fft_phase, 0, nrepel->fft_size*sizeof(float));
+	memset(nrepel->syn_fft_magnitude, 0, nrepel->fft_size*sizeof(float));
+	memset(nrepel->syn_fft_phase, 0, nrepel->fft_size*sizeof(float));
+	memset(nrepel->noise_print, 0, nrepel->fft_size*sizeof(float));
 }
 
 static LV2_Handle
@@ -269,9 +269,6 @@ run(LV2_Handle instance, uint32_t n_samples)
 				nrepel->mag = sanitize_denormal(2.f*sqrtf(nrepel->real*nrepel->real + nrepel->imag*nrepel->imag));
 				nrepel->phase = sanitize_denormal(atan2f(nrepel->imag,nrepel->real));
 
-				//If less than FLT_MIN use FLT_MIN as floor
-				if(nrepel->mag < FLT_MIN) nrepel->mag = FLT_MIN;
-
 				//Store values in magnitude and phase arrays
 				nrepel->ana_fft_magnitude[k] = nrepel->mag;
 				nrepel->ana_fft_phase[k] = nrepel->phase;
@@ -312,7 +309,7 @@ run(LV2_Handle instance, uint32_t n_samples)
 			//This is scaling the output of the fft
 			//Divide by half the fft size is because ifft is unnormalized
 			for(k = 0; k < nrepel->fft_size; k++){
-				nrepel->output_accum[k] += sanitize_denormal((nrepel->input_fft_buffer[k]/nrepel->fft_size)*(nrepel->hop/2));
+				nrepel->output_accum[k] += (nrepel->input_fft_buffer[k]/nrepel->fft_size)*(nrepel->hop/2.f);
 			}
 
 			//Output samples up to the hop size
