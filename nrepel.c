@@ -39,7 +39,7 @@
 #define AUTO_CAPTURE_STATE 2
 
 //STFT default values
-#define DEFAULT_FFT_SIZE 4096 //This should be an even number (Cooley-Turkey)
+#define MAX_FFT_SIZE 4096 //This should be an even number (Cooley-Turkey)
 #define DEFAULT_WINDOW_TYPE 0 //0 Hann 1 Hamm 2 Black
 #define DEFAULT_OVERLAP_FACTOR 4 //2- 50% overlap 4 -75% overlap
 
@@ -176,10 +176,11 @@ instantiate(const LV2_Descriptor*     descriptor,
 
   //Initialize variables
 	nrepel->samp_rate = rate;
-  nrepel->fft_size = DEFAULT_FFT_SIZE;
+  nrepel->fft_size = MAX_FFT_SIZE;
 	nrepel->window_type = DEFAULT_WINDOW_TYPE;
 	nrepel->overlap_factor = DEFAULT_OVERLAP_FACTOR;
 
+	//Reserve the max fft size for every array in memory
 	allocate_buffers(nrepel);
 	initialize_buffers(nrepel);
 
