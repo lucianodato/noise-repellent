@@ -39,7 +39,7 @@
 #define AUTO_CAPTURE_STATE 2
 
 //STFT default values
-#define MAX_FFT_SIZE 4096 //This should be an even number (Cooley-Turkey)
+#define MAX_FFT_SIZE 8192 //This should be an even number (Cooley-Turkey)
 #define DEFAULT_WINDOW_TYPE 0 //0 Hann 1 Hamm 2 Black
 #define DEFAULT_OVERLAP_FACTOR 4 //2- 50% overlap 4 -75% overlap
 
@@ -63,9 +63,9 @@ typedef struct {
 
   //Parameters for the algorithm (user input)
 	int* capt_state; // Capture Noise state (Manual-Off-Auto)
+	int* fft_option; //selected fft size by the user
 	float* amount_reduc; // Amount of noise to reduce in dB
 	int* report_latency; // Latency necessary
-	int* fft_option; //selected fft size by the user
 
   //Parameters for the STFT
   int fft_size; //FFTW input size
@@ -99,7 +99,7 @@ typedef struct {
 
 } Nrepel;
 
-void allocate_buffers(Nrepel* nrepel){
+static void allocate_buffers(Nrepel* nrepel){
 	nrepel->in_fifo = (float*)malloc(sizeof(float)*nrepel->fft_size);
 	nrepel->out_fifo = (float*)malloc(sizeof(float)*nrepel->fft_size);
 	nrepel->output_accum = (float*)malloc(sizeof(float)*nrepel->fft_size);
@@ -117,18 +117,35 @@ void allocate_buffers(Nrepel* nrepel){
 
 	nrepel->noise_print = (float*)malloc(sizeof(float)*nrepel->fft_size);
 }
-void initialize_buffers(Nrepel*nrepel){
-	switch((int)nrepel->fft_option){
-		case 0:
-			nrepel->fft_size = 1024;
-			break;
-		case 1:
-			nrepel->fft_size = 2048;
-			break;
-		case 2:
-			nrepel->fft_size = 4096;
-			break;
-	}
+
+static void destroy_buffers(Nrepel* nrepel){
+	free(nrepel->window);
+	free(nrepel->noise_print);
+	free(nrepel->in_fifo);
+	free(nrepel->out_fifo);
+	free(nrepel->output_accum);
+	free(nrepel->input_fft_buffer);
+	fftwf_free(nrepel->output_fft_buffer);
+	fftwf_destroy_plan(nrepel->forward);
+	fftwf_destroy_plan(nrepel->backward);
+	free(nrepel->ana_fft_magnitude);
+	free(nrepel->ana_fft_phase);
+	free(nrepel->syn_fft_magnitude);
+	free(nrepel->syn_fft_phase);
+}
+
+static void initialize_values(Nrepel* nrepel){
+	// switch(){
+	// 	case 0:
+	// 		nrepel->fft_size = 1024;
+	// 		break;
+	// 	case 1:
+	// 		nrepel->fft_size = 2048;
+	// 		break;
+	// 	case 2:
+	// 		nrepel->fft_size = 4096;
+	// 		break;
+	// }
 	nrepel->fft_size_2 = nrepel->fft_size/2;
 	nrepel->hop = nrepel->fft_size/nrepel->overlap_factor;
 	nrepel->input_latency = nrepel->fft_size - nrepel->hop;
@@ -148,22 +165,6 @@ void initialize_buffers(Nrepel*nrepel){
 	memset(nrepel->syn_fft_phase, 0, (nrepel->fft_size)*sizeof(float));
 	memset(nrepel->noise_print, 0, (nrepel->fft_size)*sizeof(float));
 }
-void destroy_buffers(Nrepel* nrepel){
-	free(nrepel->window);
-	free(nrepel->noise_print);
-	free(nrepel->in_fifo);
-	free(nrepel->out_fifo);
-	free(nrepel->output_accum);
-	free(nrepel->input_fft_buffer);
-	fftwf_free(nrepel->output_fft_buffer);
-	fftwf_destroy_plan(nrepel->forward);
-	fftwf_destroy_plan(nrepel->backward);
-	free(nrepel->ana_fft_magnitude);
-	free(nrepel->ana_fft_phase);
-	free(nrepel->syn_fft_magnitude);
-	free(nrepel->syn_fft_phase);
-}
-
 
 static LV2_Handle
 instantiate(const LV2_Descriptor*     descriptor,
@@ -182,7 +183,7 @@ instantiate(const LV2_Descriptor*     descriptor,
 
 	//Reserve the max fft size for every array in memory
 	allocate_buffers(nrepel);
-	initialize_buffers(nrepel);
+	initialize_values(nrepel);
 
 	return (LV2_Handle)nrepel;
 }
@@ -208,6 +209,7 @@ connect_port(LV2_Handle instance,
 		break;
 	case NREPEL_FTT_OPT:
 		nrepel->fft_option = (int*)data;
+		initialize_values(nrepel);
 		break;
 	case NREPEL_AMOUNT:
 		nrepel->amount_reduc = (float*)data;
@@ -221,9 +223,6 @@ connect_port(LV2_Handle instance,
 static void
 activate(LV2_Handle instance)
 {
-	//Nrepel* nrepel = (Nrepel*)instance;
-	//allocate_buffers(nrepel);
-	//initialize_buffers(nrepel);
 }
 
 static void
@@ -248,13 +247,13 @@ run(LV2_Handle instance, uint32_t n_samples)
 		nrepel->read_ptr++;
 
 		//Once the buffer is full we can do stuff
-		if (nrepel->read_ptr >= nrepel->fft_size /*|| nrepel->last_frame*/){
+		if (nrepel->read_ptr >= nrepel->fft_size){
 			//Reset the input buffer position
 			nrepel->read_ptr = nrepel->input_latency;
 
 			//Apply windowing (Could be any window type)
 			for (k = 0; k < nrepel->fft_size; k++){
-				nrepel->input_fft_buffer[k] = sanitize_denormal(nrepel->in_fifo[k] * nrepel->window[k]);
+				nrepel->input_fft_buffer[k] = nrepel->in_fifo[k] * nrepel->window[k];
 			}
 
 			//----------FFT Analysis------------
@@ -267,8 +266,8 @@ run(LV2_Handle instance, uint32_t n_samples)
 				nrepel->imag = nrepel->output_fft_buffer[k][1];
 
 				//Get mag and phase
-				nrepel->mag = sanitize_denormal(2.f*sqrt(nrepel->real*nrepel->real + nrepel->imag*nrepel->imag));
-				nrepel->phase = sanitize_denormal(atan2(nrepel->imag,nrepel->real));
+				nrepel->mag = sanitize_denormal(2.f*sqrtf(nrepel->real*nrepel->real + nrepel->imag*nrepel->imag));
+				nrepel->phase = sanitize_denormal(atan2f(nrepel->imag,nrepel->real));
 
 				//If less than FLT_MIN use FLT_MIN as floor
 				if(nrepel->mag < FLT_MIN) nrepel->mag = FLT_MIN;
@@ -292,8 +291,8 @@ run(LV2_Handle instance, uint32_t n_samples)
 				nrepel->mag = nrepel->syn_fft_magnitude[k];
 				nrepel->phase = nrepel->syn_fft_phase[k];
 
-				nrepel->real = sanitize_denormal(nrepel->mag*cos(nrepel->phase));
-				nrepel->imag = sanitize_denormal(nrepel->mag*sin(nrepel->phase));
+				nrepel->real = sanitize_denormal(nrepel->mag*cosf(nrepel->phase));
+				nrepel->imag = sanitize_denormal(nrepel->mag*sinf(nrepel->phase));
 
 				//Store values in the FFT vector by suming real and the imag part
 				nrepel->output_fft_buffer[k][0] = nrepel->real;
@@ -335,8 +334,6 @@ run(LV2_Handle instance, uint32_t n_samples)
 static void
 deactivate(LV2_Handle instance)
 {
-	//Nrepel* nrepel = (Nrepel*)instance;
-	//destroy_buffers(nrepel);
 }
 
 static void
