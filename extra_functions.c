@@ -31,10 +31,13 @@
 //AUXILIARY Functions
 
 // Force already-denormal float value to zero
-static inline void sanitize_denormal(float& value) {
+static inline float sanitize_denormal(float value) {
     if (isnan(value)) {
-        value = 0.f;
+      return 0.f;
+    } else {
+      return value;
     }
+
 }
 
 static inline int sign(float x) {
@@ -87,4 +90,14 @@ static void fft_window(float* window, int N, int window_type) {
   for (k = 0; k < N; k++){
     window[k]/=sum_values; //Normalized Window
   }
+}
+
+float my_atan2(float x, float y)
+{
+  float signx = sign(x);
+
+  if (x == 0.f) return 0.f;
+  if (y == 0.f) return signx * M_PI / 2.;
+
+  return atan2(x, y);
 }

@@ -122,17 +122,17 @@ instantiate(const LV2_Descriptor*     descriptor,
 
 	nrepel->window = (float*)malloc(sizeof(float)*nrepel->fft_size);
 	nrepel->input_fft_buffer = (float*)malloc(sizeof(float)*nrepel->fft_size);
-	nrepel->output_fft_buffer = (fftwf_complex*)fftwf_malloc(sizeof(fftwf_complex)*(nrepel->fft_size));
+	nrepel->output_fft_buffer = (fftwf_complex*)fftwf_malloc(sizeof(fftwf_complex)*nrepel->fft_size);
 	nrepel->forward = fftwf_plan_dft_r2c_1d(nrepel->fft_size, nrepel->input_fft_buffer, nrepel->output_fft_buffer, FFTW_ESTIMATE);
   nrepel->backward = fftwf_plan_dft_c2r_1d(nrepel->fft_size, nrepel->output_fft_buffer, nrepel->input_fft_buffer, FFTW_ESTIMATE);
 
 	//Only reserve memory for half the fft size. We are using the positive spectrum including frequency zero
-	nrepel->ana_fft_magnitude = (float*)malloc(sizeof(float)*nrepel->fft_size_2);
-	nrepel->ana_fft_phase = (float*)malloc(sizeof(float)*nrepel->fft_size_2);
-	nrepel->syn_fft_magnitude = (float*)malloc(sizeof(float)*nrepel->fft_size_2);
-	nrepel->syn_fft_phase = (float*)malloc(sizeof(float)*nrepel->fft_size_2);
+	nrepel->ana_fft_magnitude = (float*)malloc(sizeof(float)*(nrepel->fft_size_2));
+	nrepel->ana_fft_phase = (float*)malloc(sizeof(float)*(nrepel->fft_size_2));
+	nrepel->syn_fft_magnitude = (float*)malloc(sizeof(float)*(nrepel->fft_size_2));
+	nrepel->syn_fft_phase = (float*)malloc(sizeof(float)*(nrepel->fft_size_2));
 
-	nrepel->noise_print = (float*)malloc(sizeof(float)*nrepel->fft_size_2);
+	nrepel->noise_print = (float*)malloc(sizeof(float)*(nrepel->fft_size_2));
 
 	//Window precalculations
 	fft_window(nrepel->window,nrepel->fft_size,nrepel->window_type); //Init window
@@ -143,8 +143,8 @@ instantiate(const LV2_Descriptor*     descriptor,
 	memset(nrepel->input_fft_buffer, 0, nrepel->fft_size*sizeof(float));
 	memset(nrepel->output_fft_buffer, 0, nrepel->fft_size*sizeof(fftwf_complex));
 	memset(nrepel->output_accum, 0, nrepel->fft_size*sizeof(float));
-	memset(nrepel->ana_fft_magnitude, 0, nrepel->fft_size_2*sizeof(float));
-	memset(nrepel->ana_fft_phase, 0, nrepel->fft_size_2*sizeof(float));
+	memset(nrepel->ana_fft_magnitude, 0, (nrepel->fft_size_2)*sizeof(float));
+	memset(nrepel->ana_fft_phase, 0, (nrepel->fft_size_2)*sizeof(float));
 
 	return (LV2_Handle)nrepel;
 }
@@ -205,7 +205,7 @@ run(LV2_Handle instance, uint32_t n_samples)
 		nrepel->read_ptr++;
 
 		//Once the buffer is full we can do stuff
-		if (nrepel->read_ptr >= nrepel->fft_size){
+		if (nrepel->read_ptr >= nrepel->fft_size /*|| nrepel->last_frame*/){
 			//Reset the input buffer position
 			nrepel->read_ptr = nrepel->input_latency;
 
@@ -224,8 +224,11 @@ run(LV2_Handle instance, uint32_t n_samples)
 				nrepel->imag = nrepel->output_fft_buffer[k][1];
 
 				//Get mag and phase
-				nrepel->mag = 2.f*sqrt(nrepel->real*nrepel->real + nrepel->imag*nrepel->imag);
-				nrepel->phase = atan2(nrepel->imag,nrepel->real);
+				nrepel->mag = sanitize_denormal(2.f*sqrt(nrepel->real*nrepel->real + nrepel->imag*nrepel->imag));
+				nrepel->phase = sanitize_denormal(atan2(nrepel->imag,nrepel->real));
+
+				//If less than FLT_MIN use FLT_MIN as floor
+				if(nrepel->mag < FLT_MIN) nrepel->mag = FLT_MIN;
 
 				//Store values in magnitude and phase arrays
 				nrepel->ana_fft_magnitude[k] = nrepel->mag;
@@ -235,8 +238,8 @@ run(LV2_Handle instance, uint32_t n_samples)
 			//------------Processing---------------
 
 			//Initialize synthesis arrays and store processing results in them
-			memset(nrepel->syn_fft_magnitude, 0, nrepel->fft_size_2*sizeof(float));
-			memset(nrepel->syn_fft_phase, 0, nrepel->fft_size_2*sizeof(float));
+			memset(nrepel->syn_fft_magnitude, 0, (nrepel->fft_size_2)*sizeof(float));
+			memset(nrepel->syn_fft_phase, 0, (nrepel->fft_size_2)*sizeof(float));
 
 			//Call processing functions and send nrepel->ana_fft_magnitude[k]
 
@@ -251,12 +254,18 @@ run(LV2_Handle instance, uint32_t n_samples)
 				nrepel->mag = nrepel->syn_fft_magnitude[k];
 				nrepel->phase = nrepel->syn_fft_phase[k];
 
-				nrepel->real = nrepel->mag*cos(nrepel->phase);
-				nrepel->imag = nrepel->mag*sin(nrepel->phase);
+				nrepel->real = sanitize_denormal(nrepel->mag*cos(nrepel->phase));
+				nrepel->imag = sanitize_denormal(nrepel->mag*sin(nrepel->phase));
 
 				//Store values in the FFT vector by suming real and the imag part
 				nrepel->output_fft_buffer[k][0] = nrepel->real;
 				nrepel->output_fft_buffer[k][1] = nrepel->imag;
+			}
+
+			//Make the negative spectrum zero
+			for (k = nrepel->fft_size_2; k < nrepel->fft_size; k++){
+				nrepel->output_fft_buffer[k][0] = 0;
+				nrepel->output_fft_buffer[k][1] = 0;
 			}
 
 			//Do inverse transform
@@ -266,9 +275,8 @@ run(LV2_Handle instance, uint32_t n_samples)
 			//This is scaling the output of the fft
 			//Divide by half the fft size is because ifft is unnormalized
 			for(k = 0; k < nrepel->fft_size; k++){
-				nrepel->output_accum[k] += (nrepel->input_fft_buffer[k]/nrepel->fft_size)*(nrepel->hop/2);
+				nrepel->output_accum[k] += sanitize_denormal((nrepel->input_fft_buffer[k]/nrepel->fft_size)*(nrepel->hop/2));
 			}
-
 
 			//Output samples up to the hop size
 			for (k = 0; k < nrepel->hop; k++){
