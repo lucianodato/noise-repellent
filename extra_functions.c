@@ -69,7 +69,7 @@ static float hamming(int k, int N) {
 
 static void fft_window(float* window, int N, int window_type) {
   float value = 0.f;
-  float sum_values = 0.f;
+  //float sum_values = 0.f;
   int k;
   for (k = 0; k < N; k++){
     switch (window_type){
@@ -84,12 +84,12 @@ static void fft_window(float* window, int N, int window_type) {
       break;
     }
     window[k] = value;
-    sum_values += value;
+    //sum_values += value;
   }
 
-  for (k = 0; k < N; k++){
-    window[k] /= sum_values; //Normalized Window
-  }
+  //for (k = 0; k < N; k++){
+  //  window[k] /= sum_values; //Normalized Window
+  //}
 }
 
 float my_atan2(float x, float y)
