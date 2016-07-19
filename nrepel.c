@@ -39,9 +39,9 @@
 #define AUTO_CAPTURE_STATE 2
 
 //STFT default values
-#define MAX_FFT_SIZE 8192 //This should be an even number (Cooley-Turkey)
+#define MAX_FFT_SIZE 2048 //This should be an even number (Cooley-Turkey)
 #define DEFAULT_WINDOW_TYPE 0 //0 Hann 1 Hamm 2 Black
-#define DEFAULT_OVERLAP_FACTOR 8 //2- 50% overlap 4 -75% overlap
+#define DEFAULT_OVERLAP_FACTOR 2 //2- 50% overlap 4 -75% overlap
 
 ///---------------------------------------------------------------------
 
@@ -294,7 +294,7 @@ run(LV2_Handle instance, uint32_t n_samples)
 
 			//Windowing Scaling and add to output_accum
 			for(k = 0; k < nrepel->fft_size; k++){
-				nrepel->output_accum[k] += sanitize_denormal(nrepel->window[k]*nrepel->input_fft_buffer[k]/(nrepel->fft_size_2*nrepel->overlap_factor));
+				nrepel->output_accum[k] += nrepel->window[k]*nrepel->input_fft_buffer[k]/(nrepel->fft_size_2*nrepel->overlap_factor);
 			}
 
 			//Output samples up to the hop size
@@ -340,6 +340,7 @@ cleanup(LV2_Handle instance)
 	free(nrepel->ana_fft_phase);
 	free(nrepel->syn_fft_magnitude);
 	free(nrepel->syn_fft_phase);
+
 	free(instance);
 }
 
