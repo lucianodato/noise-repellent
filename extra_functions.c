@@ -32,8 +32,7 @@
 // Force already-denormal float value to zero
 static inline float sanitize_denormal(float value) {
     if (isnan(value)) {
-      return FLT_MIN;
-      //return 0.f;
+      return FLT_MIN; //to avoid log errors
     } else {
       return value;
     }

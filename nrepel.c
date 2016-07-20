@@ -53,7 +53,7 @@ typedef enum {
 	NREPEL_CAPTURE = 2,
 	NREPEL_FTT_OPT = 3,
 	NREPEL_AMOUNT = 4,
-  NREPEL_LATENCY = 5,
+	NREPEL_LATENCY = 5,
 } PortIndex;
 
 typedef struct {
@@ -102,7 +102,7 @@ typedef struct {
 static void allocate_buffers(Nrepel* nrepel){
 	nrepel->in_fifo = (float*)malloc(sizeof(float)*nrepel->fft_size);
 	nrepel->out_fifo = (float*)malloc(sizeof(float)*nrepel->fft_size);
-	nrepel->output_accum = (float*)malloc(sizeof(float)*nrepel->fft_size*2);
+	nrepel->output_accum = (float*)malloc(sizeof(float)*nrepel->fft_size);
 
 	nrepel->window = (float*)malloc(sizeof(float)*nrepel->fft_size);
 	nrepel->input_fft_buffer = (float*)malloc(sizeof(float)*nrepel->fft_size);
@@ -146,7 +146,7 @@ static void initialize_values(Nrepel* nrepel){
 	memset(nrepel->out_fifo, 0, nrepel->fft_size*sizeof(float));
 	memset(nrepel->input_fft_buffer, 0, nrepel->fft_size*sizeof(float));
 	memset(nrepel->output_fft_buffer, 0, nrepel->fft_size*sizeof(fftwf_complex));
-	memset(nrepel->output_accum, 0, 2*nrepel->fft_size*sizeof(float));
+	memset(nrepel->output_accum, 0, nrepel->fft_size*sizeof(float));
 	memset(nrepel->ana_fft_magnitude, 0, nrepel->fft_size*sizeof(float));
 	memset(nrepel->ana_fft_phase, 0, nrepel->fft_size*sizeof(float));
 	memset(nrepel->syn_fft_magnitude, 0, nrepel->fft_size*sizeof(float));
@@ -310,7 +310,7 @@ run(LV2_Handle instance, uint32_t n_samples)
 			for(k = 0; k < nrepel->fft_size; k++){
 				//Scaling FFT (because is unnormalized)
 				nrepel->input_fft_buffer[k] /= nrepel->fft_size;
-				//Accumulate
+				//Accumulate (Overlapadd)
 				nrepel->output_accum[k] += nrepel->input_fft_buffer[k]*nrepel->hop;
 			}
 
