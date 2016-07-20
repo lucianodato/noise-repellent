@@ -40,8 +40,8 @@
 
 //STFT default values
 #define MAX_FFT_SIZE 2048 //This should be an even number (Cooley-Turkey)
-#define DEFAULT_WINDOW_TYPE 0 //0 Hann 1 Hamm 2 Black
-#define DEFAULT_OVERLAP_FACTOR 2 //2- 50% overlap 4 -75% overlap
+#define DEFAULT_WINDOW_TYPE 1 //0 Hann 1 Hamming
+#define DEFAULT_OVERLAP_FACTOR 2 //2 is 50% and 4 is 75% overlap
 
 ///---------------------------------------------------------------------
 
@@ -292,9 +292,15 @@ run(LV2_Handle instance, uint32_t n_samples)
 			//Do inverse transform
 			fftwf_execute(nrepel->backward);
 
-			//Windowing Scaling and add to output_accum
+
+
+
+			//Scaling and add to output_accum
 			for(k = 0; k < nrepel->fft_size; k++){
-				nrepel->output_accum[k] += nrepel->window[k]*nrepel->input_fft_buffer[k]/(nrepel->fft_size_2*nrepel->overlap_factor);
+				//Scaling FFT (because is unnormalized)
+				nrepel->input_fft_buffer[k] /= nrepel->fft_size;
+				//Accumulate
+				nrepel->output_accum[k] += nrepel->input_fft_buffer[k]*nrepel->hop/2.f;
 			}
 
 			//Output samples up to the hop size

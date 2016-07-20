@@ -26,7 +26,6 @@
 //Window types
 #define HANNING_WINDOW 0
 #define HAMMING_WINDOW 1
-#define BLACKMAN_WINDOW 2
 
 //AUXILIARY Functions
 
@@ -34,6 +33,7 @@
 static inline float sanitize_denormal(float value) {
     if (isnan(value)) {
       return FLT_MIN;
+      //return 0.f;
     } else {
       return value;
     }
@@ -52,11 +52,6 @@ static inline float to_dB(float g) {
         return (20.f*log10(g));
 }
 
-static float blackman(int k, int N) {
-  float p = ((float)(k))/((float)(N));
-  return 0.42-0.5*cos(2.f*M_PI*p) + 0.08*cos(4.f*M_PI*p);
-}
-
 static float hanning(int k, int N) {
   float p = ((float)(k))/((float)(N));
   return 0.5 - 0.5 * cos(2.f*M_PI*p);
@@ -69,13 +64,10 @@ static float hamming(int k, int N) {
 
 static void fft_window(float* window, int N, int window_type) {
   float value = 0.f;
-  //float sum_values = 0.f;
+  float sum_values = 0.f;
   int k;
   for (k = 0; k < N; k++){
     switch (window_type){
-      case BLACKMAN_WINDOW:
-        value = blackman(k, N);
-      break;
       case HANNING_WINDOW:
         value = hanning(k, N);
       break;
@@ -84,20 +76,10 @@ static void fft_window(float* window, int N, int window_type) {
       break;
     }
     window[k] = value;
-    //sum_values += value;
+    sum_values += value;
   }
 
-  //for (k = 0; k < N; k++){
-  //  window[k] /= sum_values; //Normalized Window
-  //}
-}
-
-float my_atan2(float x, float y)
-{
-  float signx = sign(x);
-
-  if (x == 0.f) return 0.f;
-  if (y == 0.f) return signx * M_PI / 2.;
-
-  return atan2(x, y);
+  for (k = 0; k < N; k++){
+    window[k] /= sum_values; //Normalized Window
+  }
 }
