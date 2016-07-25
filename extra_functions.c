@@ -45,26 +45,26 @@ static inline int sign(float x) {
 }
 
 static inline float from_dB(float gdb) {
-        return (exp(gdb/20.f*log(10.f)));
+        return (expf(gdb/20.f*log(10.f)));
 }
 
 static inline float to_dB(float g) {
-        return (20.f*log10(g));
+        return (20.f*log10f(g));
 }
 
 static float blackman(int k, int N) {
   float p = ((float)(k))/((float)(N));
-  return 0.42-0.5*cos(2.f*M_PI*p) + 0.08*cos(4.f*M_PI*p);
+  return 0.42-0.5*cosf(2.f*M_PI*p) + 0.08*cosf(4.f*M_PI*p);
 }
 
 static float hanning(int k, int N) {
   float p = ((float)(k))/((float)(N));
-  return 0.5 - 0.5 * cos(2.f*M_PI*p);
+  return 0.5 - 0.5 * cosf(2.f*M_PI*p);
 }
 
 static float hamming(int k, int N) {
   float p = ((float)(k))/((float)(N));
-  return 0.54 - 0.46 * cos(2.f*M_PI*p);
+  return 0.54 - 0.46 * cosf(2.f*M_PI*p);
 }
 
 static void fft_window(float* window, int N, int window_type) {
@@ -90,26 +90,4 @@ static void fft_window(float* window, int N, int window_type) {
   for (k = 0; k < N; k++){
     window[k] /= sum_values; //Normalized Window
   }
-}
-
-
-static void reverse(float* arr, int start, int end)
-{
-    while (start < end)
-    {
-        int tmp = arr[start];
-        arr[start] = arr[end];
-        arr[end] = tmp;
-        start++;
-        end--;
-    }
-}
-
-static void zero_phase_window(float* arr, int k, int N)
-{
-    int n = N;
-    k = k % n;
-    reverse(arr, 0, n - 1);
-    reverse(arr, 0, n - k - 1);
-    reverse(arr, n - k, n - 1);
 }

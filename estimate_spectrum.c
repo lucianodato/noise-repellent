@@ -17,10 +17,29 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/
  */
 
-void estimate_spectrum(float* spectrum,int type_noise_estimation,float* noise_print){
+ #define MAX(a,b) (((a) > (b)) ? (a) : (b))
+ #define MIN(a,b) (((a) < (b)) ? (a) : (b))
+
+void estimate_spectrum(float* spectrum,int type_noise_estimation,float* noise_print_min,float* noise_print_max,float* noise_print_avg,int fft_size_2,int window_size){
+  int k;
+  float p2;
   switch (type_noise_estimation){
     case 1:
       //Manual Capture
+
+      /* convert noise sample to power spectrum */
+      for(k = 1 ; k <= fft_size_2 ; k++) {
+        p2 = spectrum[k]*spectrum[k];
+        noise_print_min[k] = MIN(noise_print_min[k], p2);
+        noise_print_max[k] = MAX(noise_print_max[k], p2);
+        noise_print_avg[k] += p2;
+      }
+
+      /* average out the power spectrum samples */
+      for(k = 1 ; k <= fft_size_2 ; k++) {
+        noise_print_avg[k] /= (float)window_size;
+      }
+
       break;
     case 2:
       //Auto Capture
