@@ -1,21 +1,21 @@
 /*
-    noise-repellent -- Noise Reduction LV2
+noise-repellent -- Noise Reduction LV2
 
-    Copyright 2016 Luciano Dato <lucianodato@gmail.com>
+Copyright 2016 Luciano Dato <lucianodato@gmail.com>
 
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU Lesser General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Lesser General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
 
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU Lesser General Public License for more details.
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Lesser General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/
- */
+You should have received a copy of the GNU Lesser General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/
+*/
 
 
 #include <stdlib.h>
@@ -40,7 +40,7 @@
 
 //STFT default values
 #define DEFAULT_FFT_SIZE 2048 //This should be an even number (Cooley-Turkey)
-#define DEFAULT_WINDOW_SIZE 2001 //This should be an odd number fft/2<=WS<fft
+#define DEFAULT_WINDOW_SIZE 2048 //This should be an odd number fft/2<=WS<fft
 #define DEFAULT_WINDOW_TYPE 0 //0 Hann 1 Hamming 2 Blackman
 #define DEFAULT_OVERLAP_FACTOR 2 //2 is 50% and 4 is 75% overlap
 
@@ -64,7 +64,7 @@ typedef struct {
 	float* output; //output of samples to host (changing size)
 	float samp_rate; // Sample rate received from the host
 
-  //Parameters for the algorithm (user input)
+	//Parameters for the algorithm (user input)
 	int* capt_state; // Capture Noise state (Manual-Off-Auto)
 	int* fft_option; //selected fft size by the user
 	float* amount_reduc; // Amount of noise to reduce in dB
@@ -72,8 +72,8 @@ typedef struct {
 	int noise_mean_choise;
 	int denoise_method;
 
-  //Parameters for the STFT
-  int fft_size; //FFTW input size
+	//Parameters for the STFT
+	int fft_size; //FFTW input size
 	int fft_size_2; //FFTW half input size
 	int window_size; //Window size odd number
 	int w_fh, w_sh; //Window firts half and second half
@@ -82,44 +82,45 @@ typedef struct {
 	int hop; // Hop size for the STFT
 	float* window; // Window values
 
-  //Temporary buffers for processing and outputting
+	//Temporary buffers for processing and outputting
 	int input_latency;
-  float* in_fifo; //internal input buffer
+	float* in_fifo; //internal input buffer
 	float* out_fifo; //internal output buffer
 	float* output_accum; //FFT output accumulator
 	int read_ptr; //buffers read pointer
 
-  //FFTW related variables
+	//FFTW related variables
 	float* input_fft_buffer;
 	fftwf_complex* output_fft_buffer;
-  fftwf_plan forward;
-  fftwf_plan backward;
+	fftwf_plan forward;
+	fftwf_plan backward;
 
 	float real,imag,mag,phase;
 	float* ana_fft_magnitude;//analysis magnitude
-  float* ana_fft_phase;//analysis phase
+	float* ana_fft_phase;//analysis phase
 	float* syn_fft_magnitude;//synthesis magnitude
-  float* syn_fft_phase;//synthesis phase
+	float* syn_fft_phase;//synthesis phase
 
 	//Store variables
 	float* noise_print_min; // The min noise spectrum computed by the captured signal
 	float* noise_print_max; // The max noise spectrum computed by the captured signal
 	float* noise_print_avg; // The avg noise spectrum computed by the captured signal
+	float* noise_spectrum;
+	float* Y2;
 
 } Nrepel;
 
 static LV2_Handle
 instantiate(const LV2_Descriptor*     descriptor,
-			double                    rate,
-			const char*               bundle_path,
-			const LV2_Feature* const* features)
-{
+						double                    rate,
+						const char*               bundle_path,
+						const LV2_Feature* const* features) {
 	//Actual struct declaration
 	Nrepel* nrepel = (Nrepel*)malloc(sizeof(Nrepel));
 
-  //Initialize variables
+	//Initialize variables
 	nrepel->samp_rate = rate;
-  nrepel->fft_size = DEFAULT_FFT_SIZE;
+	nrepel->fft_size = DEFAULT_FFT_SIZE;
 	nrepel->window_size = DEFAULT_WINDOW_SIZE;
 	nrepel->window_type = DEFAULT_WINDOW_TYPE;
 	nrepel->overlap_factor = DEFAULT_OVERLAP_FACTOR;
@@ -141,7 +142,7 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->input_fft_buffer = (float*)malloc(sizeof(float)*nrepel->fft_size);
 	nrepel->output_fft_buffer = (fftwf_complex*)fftwf_malloc(sizeof(fftwf_complex)*nrepel->fft_size);
 	nrepel->forward = fftwf_plan_dft_r2c_1d(nrepel->fft_size, nrepel->input_fft_buffer, nrepel->output_fft_buffer, FFTW_ESTIMATE);
-  nrepel->backward = fftwf_plan_dft_c2r_1d(nrepel->fft_size, nrepel->output_fft_buffer, nrepel->input_fft_buffer, FFTW_ESTIMATE);
+	nrepel->backward = fftwf_plan_dft_c2r_1d(nrepel->fft_size, nrepel->output_fft_buffer, nrepel->input_fft_buffer, FFTW_ESTIMATE);
 
 	nrepel->ana_fft_magnitude = (float*)malloc(sizeof(float)*nrepel->fft_size);
 	nrepel->ana_fft_phase = (float*)malloc(sizeof(float)*nrepel->fft_size);
@@ -151,6 +152,8 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->noise_print_min = (float*)malloc(sizeof(float)*nrepel->fft_size);
 	nrepel->noise_print_max = (float*)malloc(sizeof(float)*nrepel->fft_size);
 	nrepel->noise_print_avg = (float*)malloc(sizeof(float)*nrepel->fft_size);
+	nrepel->noise_spectrum = (float*)malloc(sizeof(float)*nrepel->fft_size);
+	nrepel->Y2 = (float*)malloc(sizeof(float)*nrepel->fft_size);
 
 	//Here we initialize arrays with zeros
 	memset(nrepel->in_fifo, 0, nrepel->window_size*sizeof(float));
@@ -166,6 +169,8 @@ instantiate(const LV2_Descriptor*     descriptor,
 	memset(nrepel->noise_print_min, FLT_MAX, nrepel->fft_size*sizeof(float));
 	memset(nrepel->noise_print_max, 0, nrepel->fft_size*sizeof(float));
 	memset(nrepel->noise_print_min, 0, nrepel->fft_size*sizeof(float));
+	memset(nrepel->noise_spectrum, 0, nrepel->fft_size*sizeof(float));
+	memset(nrepel->Y2, 0, nrepel->fft_size*sizeof(float));
 
 	fft_window(nrepel->window,nrepel->window_size,nrepel->window_type); //Init window
 
@@ -176,25 +181,24 @@ instantiate(const LV2_Descriptor*     descriptor,
 
 static void
 connect_port(LV2_Handle instance,
-			uint32_t   port,
-			void*      data)
-{
+						 uint32_t   port,
+						 void*      data) {
 	Nrepel* nrepel = (Nrepel*)instance;
 
 	switch ((PortIndex)port) {
-	case NREPEL_INPUT:
+		case NREPEL_INPUT:
 		nrepel->input = (const float*)data;
 		break;
-	case NREPEL_OUTPUT:
+		case NREPEL_OUTPUT:
 		nrepel->output = (float*)data;
 		break;
-	case NREPEL_CAPTURE:
+		case NREPEL_CAPTURE:
 		nrepel->capt_state = (int*)data;
 		break;
-	case NREPEL_AMOUNT:
+		case NREPEL_AMOUNT:
 		nrepel->amount_reduc = (float*)data;
 		break;
-	case NREPEL_LATENCY:
+		case NREPEL_LATENCY:
 		nrepel->report_latency = (int*)data;
 		break;
 	}
@@ -206,8 +210,7 @@ activate(LV2_Handle instance)
 }
 
 static void
-run(LV2_Handle instance, uint32_t n_samples)
-{
+run(LV2_Handle instance, uint32_t n_samples) {
 	Nrepel* nrepel = (Nrepel*)instance;
 
 	//handy variables
@@ -244,7 +247,7 @@ run(LV2_Handle instance, uint32_t n_samples)
 			fftwf_execute(nrepel->forward);
 
 			//Get the positive spectrum and compute magnitude and phase response
-			//k=0 is DC freq so it dont get considereds
+			//k=0 is DC freq so it dont get considered
 			for (k = 1; k <= nrepel->fft_size_2; k++){
 				nrepel->real = nrepel->output_fft_buffer[k][0];
 				nrepel->imag = nrepel->output_fft_buffer[k][1];
@@ -261,11 +264,10 @@ run(LV2_Handle instance, uint32_t n_samples)
 			//------------Processing---------------
 
 			//Call processing functions and send nrepel->ana_fft_magnitude[k]
+			estimate_spectrum(nrepel->ana_fft_magnitude,*(nrepel->capt_state),nrepel->noise_print_min,nrepel->noise_print_max,nrepel->noise_print_avg,nrepel->fft_size_2,nrepel->window_size);
+			//Only denoise if noise spectrum is already estimated
+			denoise_signal(nrepel->noise_mean_choise,nrepel->denoise_method,from_dB(*(nrepel->amount_reduc)),nrepel->ana_fft_magnitude,nrepel->noise_print_min,nrepel->noise_print_max,nrepel->noise_print_avg,nrepel->fft_size_2,nrepel->noise_spectrum,nrepel->Y2);
 
-			if(*(nrepel->capt_state) != 0){
-				estimate_spectrum(nrepel->ana_fft_magnitude,*(nrepel->capt_state),nrepel->noise_print_min,nrepel->noise_print_max,nrepel->noise_print_avg,nrepel->fft_size_2,nrepel->window_size);
-			}
-			denoise_signal(nrepel->noise_mean_choise,nrepel->denoise_method,from_dB(*(nrepel->amount_reduc)),nrepel->ana_fft_magnitude,nrepel->noise_print_min,nrepel->noise_print_max,nrepel->noise_print_avg,nrepel->fft_size_2);
 
 			//Copy results in Synthesis arrays
 			nrepel->syn_fft_magnitude = nrepel->ana_fft_magnitude;
@@ -289,7 +291,7 @@ run(LV2_Handle instance, uint32_t n_samples)
 			//Make the negative spectrum zero
 			for (k = nrepel->fft_size_2+1; k < nrepel->fft_size; k++){
 				nrepel->output_fft_buffer[k][0] = 0.f;
-				nrepel->output_fft_buffer[k][1] = 0.f;
+				//nrepel->output_fft_buffer[k][1] = 0.f;
 			}
 
 			//Do inverse transform
@@ -331,24 +333,6 @@ deactivate(LV2_Handle instance)
 static void
 cleanup(LV2_Handle instance)
 {
-	Nrepel* nrepel = (Nrepel*)instance;
-
-	free(nrepel->window);
-	free(nrepel->noise_print_min);
-	free(nrepel->noise_print_max);
-	free(nrepel->noise_print_avg);
-	free(nrepel->in_fifo);
-	free(nrepel->out_fifo);
-	free(nrepel->output_accum);
-	free(nrepel->input_fft_buffer);
-	fftwf_free(nrepel->output_fft_buffer);
-	fftwf_destroy_plan(nrepel->forward);
-	fftwf_destroy_plan(nrepel->backward);
-	free(nrepel->ana_fft_magnitude);
-	free(nrepel->ana_fft_phase);
-	free(nrepel->syn_fft_magnitude);
-	free(nrepel->syn_fft_phase);
-
 	free(instance);
 }
 
@@ -375,9 +359,9 @@ const LV2_Descriptor*
 lv2_descriptor(uint32_t index)
 {
 	switch (index) {
-	case 0:
+		case 0:
 		return &descriptor;
-	default:
+		default:
 		return NULL;
 	}
 }

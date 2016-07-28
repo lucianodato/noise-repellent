@@ -1,21 +1,21 @@
 /*
-    noise-repellent -- Noise Reduction LV2
+noise-repellent -- Noise Reduction LV2
 
-    Copyright 2016 Luciano Dato <lucianodato@gmail.com>
+Copyright 2016 Luciano Dato <lucianodato@gmail.com>
 
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU Lesser General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Lesser General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
 
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU Lesser General Public License for more details.
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Lesser General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/
- */
+You should have received a copy of the GNU Lesser General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/
+*/
 
 
 #include <math.h>
@@ -31,25 +31,25 @@
 //AUXILIARY Functions
 
 // Force already-denormal float value to zero
-static inline float sanitize_denormal(float value) {
-    if (isnan(value)) {
-      return FLT_MIN; //to avoid log errors
-    } else {
-      return value;
-    }
+inline float sanitize_denormal(float value) {
+  if (isnan(value)) {
+    return FLT_MIN; //to avoid log errors
+  } else {
+    return value;
+  }
 
 }
 
-static inline int sign(float x) {
-        return (x >= 0.f ? 1 : -1);
+inline int sign(float x) {
+  return (x >= 0.f ? 1 : -1);
 }
 
-static inline float from_dB(float gdb) {
-        return (expf(gdb/20.f*log(10.f)));
+inline float from_dB(float gdb) {
+  return (expf(gdb/20.f*logf(10.f)));
 }
 
-static inline float to_dB(float g) {
-        return (20.f*log10f(g));
+inline float to_dB(float g) {
+  return (20.f*log10f(g));
 }
 
 static float blackman(int k, int N) {
@@ -67,21 +67,21 @@ static float hamming(int k, int N) {
   return 0.54 - 0.46 * cosf(2.f*M_PI*p);
 }
 
-static void fft_window(float* window, int N, int window_type) {
+void fft_window(float* window, int N, int window_type) {
   float value = 0.f;
   float sum_values = 0.f;
   int k;
   for (k = 0; k < N; k++){
     switch (window_type){
       case BLACKMAN_WINDOW:
-        value = blackman(k, N);
-        break;
+      value = blackman(k, N);
+      break;
       case HANNING_WINDOW:
-        value = hanning(k, N);
-        break;
+      value = hanning(k, N);
+      break;
       case HAMMING_WINDOW:
-        value = hamming(k, N);
-        break;
+      value = hamming(k, N);
+      break;
     }
     window[k] = value;
     sum_values += value;
