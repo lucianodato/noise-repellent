@@ -29,25 +29,25 @@ static float gain_weiner(float Yk2, float Dk2) {
   if(Yk2 > Dk2)
   gain = (Xk2) / (Xk2+Dk2);
   else
-  gain = 0.0;
+  gain = 0.f;
 
   return gain;
 }
 
 static float gain_power_subtraction(float Yk2, float Dk2) {
-  float level = MAX(Yk2-Dk2, 0.0);
+  float level = MAX(Yk2-Dk2, 0.f);
 
   if(Yk2 > FLT_MIN)
   return level/Yk2;
   else
-  return 0.0;
+  return 0.f;
 }
 
-void denoise_signal(int noise_mean_choise,int denoise_method,float amount,float* spectrum,float* noise_print_min,float* noise_print_max,float* noise_print_avg,int fft_size_2,float* noise_spectrum,float* Y2) {
+void denoise_signal(int noise_mean_choise,int denoise_method,float amount,float* p2,float* noise_print_min,float* noise_print_max,float* noise_print_avg,int fft_size_2,float* noise_spectrum,float* Gk) {
   int k;
 
   //convert input to power spectrum
-  for(k = 1 ; k <= fft_size_2 ; k++) {
+  for(k = 0 ; k <= fft_size_2 ; k++) {
     switch(noise_mean_choise){
       case 0:
       noise_spectrum[k] = noise_print_max[k]; // max spectrum
@@ -59,32 +59,29 @@ void denoise_signal(int noise_mean_choise,int denoise_method,float amount,float*
       noise_spectrum[k] = noise_print_avg[k]; // mean spectrum
       break;
     }
-    Y2[k] = spectrum[k]*spectrum[k]; //Signal power spectrum
   }
 
-  float gain, Fk, Gk;
+  float gain, Fk;
 
   //Computing gain and applying the Reduction
-  for (k = 1; k <= fft_size_2 ; k++) {
+  for (k = 0; k <= fft_size_2 ; k++) {
     gain = 0;
 
     switch (denoise_method) {// supression rule
       case 0: // Wiener Filter
-      gain = gain_weiner(Y2[k], noise_spectrum[k]) ;
+      gain = gain_weiner(p2[k], noise_spectrum[k]) ;
       break;
       case 1: // Power Subtraction
-      gain = gain_power_subtraction(Y2[k], noise_spectrum[k]) ;
+      gain = gain_power_subtraction(p2[k], noise_spectrum[k]) ;
       break;
     }
 
-    Fk = amount*(1.0-gain);
+    Fk = amount*(1.f-gain);
 
-    if(Fk < 0.0) Fk = 0.0;
-    if(Fk > 1.0) Fk = 1.0;
+    if(Fk < 0.f) Fk = 0.f;
+    if(Fk > 1.f) Fk = 1.f;
 
-    Gk =  1.0 - Fk;
-
-    spectrum[k] *= Gk;
+    Gk[k] =  1.f - Fk;
   }
 
 }

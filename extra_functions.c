@@ -33,7 +33,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 // Force already-denormal float value to zero
 inline float sanitize_denormal(float value) {
   if (isnan(value)) {
-    return FLT_MIN; //to avoid log errors
+    //return FLT_MIN; //to avoid log errors
+    return 0.f; //to avoid log errors
   } else {
     return value;
   }
@@ -53,17 +54,17 @@ inline float to_dB(float g) {
 }
 
 static float blackman(int k, int N) {
-  float p = ((float)(k))/((float)(N));
+  float p = ((float)(k))/((float)(N-1));
   return 0.42-0.5*cosf(2.f*M_PI*p) + 0.08*cosf(4.f*M_PI*p);
 }
 
 static float hanning(int k, int N) {
-  float p = ((float)(k))/((float)(N));
+  float p = ((float)(k))/((float)(N-1));
   return 0.5 - 0.5 * cosf(2.f*M_PI*p);
 }
 
 static float hamming(int k, int N) {
-  float p = ((float)(k))/((float)(N));
+  float p = ((float)(k))/((float)(N-1));
   return 0.54 - 0.46 * cosf(2.f*M_PI*p);
 }
 

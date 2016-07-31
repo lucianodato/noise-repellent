@@ -42,7 +42,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define DEFAULT_FFT_SIZE 2048 //This should be an even number (Cooley-Turkey)
 #define DEFAULT_WINDOW_SIZE 2048 //This should be an odd number fft/2<=WS<fft
 #define DEFAULT_WINDOW_TYPE 0 //0 Hann 1 Hamming 2 Blackman
-#define DEFAULT_OVERLAP_FACTOR 2 //2 is 50% and 4 is 75% overlap
+#define DEFAULT_OVERLAP_FACTOR 4 //2 is 50% and 4 is 75% overlap
+
 
 #define NOISE_MEAN_CHOISE 0 //0 max 1 geometric mean 2 average
 #define DENOISE_METHOD 0 //0 Wiener 1 Power Substraction
@@ -91,22 +92,20 @@ typedef struct {
 
 	//FFTW related variables
 	float* input_fft_buffer;
-	fftwf_complex* output_fft_buffer;
+	float* output_fft_buffer;
 	fftwf_plan forward;
 	fftwf_plan backward;
 
-	float real,imag,mag,phase;
-	float* ana_fft_magnitude;//analysis magnitude
-	float* ana_fft_phase;//analysis phase
-	float* syn_fft_magnitude;//synthesis magnitude
-	float* syn_fft_phase;//synthesis phase
+	float real_p,real_n,mag,p2;
+	float* fft_magnitude;//magnitude
+	float* fft_p2;//power
 
 	//Store variables
 	float* noise_print_min; // The min noise spectrum computed by the captured signal
 	float* noise_print_max; // The max noise spectrum computed by the captured signal
 	float* noise_print_avg; // The avg noise spectrum computed by the captured signal
 	float* noise_spectrum;
-	float* Y2;
+	float* Gk;
 
 } Nrepel;
 
@@ -140,37 +139,33 @@ instantiate(const LV2_Descriptor*     descriptor,
 
 	nrepel->window = (float*)malloc(sizeof(float)*nrepel->window_size);
 	nrepel->input_fft_buffer = (float*)malloc(sizeof(float)*nrepel->fft_size);
-	nrepel->output_fft_buffer = (fftwf_complex*)fftwf_malloc(sizeof(fftwf_complex)*nrepel->fft_size);
-	nrepel->forward = fftwf_plan_dft_r2c_1d(nrepel->fft_size, nrepel->input_fft_buffer, nrepel->output_fft_buffer, FFTW_ESTIMATE);
-	nrepel->backward = fftwf_plan_dft_c2r_1d(nrepel->fft_size, nrepel->output_fft_buffer, nrepel->input_fft_buffer, FFTW_ESTIMATE);
+	nrepel->output_fft_buffer = (float*)malloc(sizeof(float)*nrepel->fft_size);
+	nrepel->forward = fftwf_plan_r2r_1d(nrepel->fft_size, nrepel->input_fft_buffer, nrepel->output_fft_buffer, FFTW_R2HC, FFTW_ESTIMATE);
+	nrepel->backward = fftwf_plan_r2r_1d(nrepel->fft_size, nrepel->output_fft_buffer, nrepel->input_fft_buffer, FFTW_HC2R, FFTW_ESTIMATE);
 
-	nrepel->ana_fft_magnitude = (float*)malloc(sizeof(float)*nrepel->fft_size);
-	nrepel->ana_fft_phase = (float*)malloc(sizeof(float)*nrepel->fft_size);
-	nrepel->syn_fft_magnitude = (float*)malloc(sizeof(float)*nrepel->fft_size);
-	nrepel->syn_fft_phase = (float*)malloc(sizeof(float)*nrepel->fft_size);
+	nrepel->fft_magnitude = (float*)malloc(sizeof(float)*nrepel->fft_size);
+	nrepel->fft_p2 = (float*)malloc(sizeof(float)*nrepel->fft_size);
 
 	nrepel->noise_print_min = (float*)malloc(sizeof(float)*nrepel->fft_size);
 	nrepel->noise_print_max = (float*)malloc(sizeof(float)*nrepel->fft_size);
 	nrepel->noise_print_avg = (float*)malloc(sizeof(float)*nrepel->fft_size);
 	nrepel->noise_spectrum = (float*)malloc(sizeof(float)*nrepel->fft_size);
-	nrepel->Y2 = (float*)malloc(sizeof(float)*nrepel->fft_size);
+	nrepel->Gk = (float*)malloc(sizeof(float)*nrepel->fft_size);
 
 	//Here we initialize arrays with zeros
 	memset(nrepel->in_fifo, 0, nrepel->window_size*sizeof(float));
 	memset(nrepel->out_fifo, 0, nrepel->window_size*sizeof(float));
 	memset(nrepel->input_fft_buffer, 0, nrepel->fft_size*sizeof(float));
-	memset(nrepel->output_fft_buffer, 0, nrepel->fft_size*sizeof(fftwf_complex));
+	memset(nrepel->output_fft_buffer, 0, nrepel->fft_size*sizeof(float));
 	memset(nrepel->output_accum, 0, nrepel->window_size*sizeof(float));
-	memset(nrepel->ana_fft_magnitude, 0, nrepel->fft_size*sizeof(float));
-	memset(nrepel->ana_fft_phase, 0, nrepel->fft_size*sizeof(float));
-	memset(nrepel->syn_fft_magnitude, 0, nrepel->fft_size*sizeof(float));
-	memset(nrepel->syn_fft_phase, 0, nrepel->fft_size*sizeof(float));
+	memset(nrepel->fft_magnitude, 0, nrepel->fft_size*sizeof(float));
+	memset(nrepel->fft_p2, 0, nrepel->fft_size*sizeof(float));
 
 	memset(nrepel->noise_print_min, FLT_MAX, nrepel->fft_size*sizeof(float));
 	memset(nrepel->noise_print_max, 0, nrepel->fft_size*sizeof(float));
 	memset(nrepel->noise_print_min, 0, nrepel->fft_size*sizeof(float));
 	memset(nrepel->noise_spectrum, 0, nrepel->fft_size*sizeof(float));
-	memset(nrepel->Y2, 0, nrepel->fft_size*sizeof(float));
+	memset(nrepel->Gk, 1, nrepel->fft_size*sizeof(float));
 
 	fft_window(nrepel->window,nrepel->window_size,nrepel->window_type); //Init window
 
@@ -234,12 +229,12 @@ run(LV2_Handle instance, uint32_t n_samples) {
 			//Reset the input buffer position
 			nrepel->read_ptr = nrepel->input_latency;
 
-			//Reinitialize fft buffer (zeros are already there)
+			//Reinitialize fft buffer (if window is less than fft size)
 			memset(nrepel->input_fft_buffer, 0, nrepel->fft_size*sizeof(float));
 
 			//Apply windowing (Could be any window type)
 			for (k = 0; k < nrepel->window_size; k++){
-				nrepel->input_fft_buffer[k] = nrepel->in_fifo[k] * nrepel->window[k];
+				nrepel->input_fft_buffer[k] = sanitize_denormal(nrepel->in_fifo[k] * nrepel->window[k]);
 			}
 
 			//----------FFT Analysis------------
@@ -248,60 +243,54 @@ run(LV2_Handle instance, uint32_t n_samples) {
 
 			//Get the positive spectrum and compute magnitude and phase response
 			//k=0 is DC freq so it dont get considered
-			for (k = 1; k <= nrepel->fft_size_2; k++){
-				nrepel->real = nrepel->output_fft_buffer[k][0];
-				nrepel->imag = nrepel->output_fft_buffer[k][1];
+			for (k = 0; k <= nrepel->fft_size_2; k++){
+				nrepel->real_p = nrepel->output_fft_buffer[k];
+				nrepel->real_n = nrepel->output_fft_buffer[nrepel->fft_size-k];
 
-				//Get mag and phase
-				nrepel->mag = sanitize_denormal(sqrtf(nrepel->real*nrepel->real + nrepel->imag*nrepel->imag));
-				nrepel->phase = sanitize_denormal(atan2f(nrepel->imag,nrepel->real));
+				//Get mag and power
+				if(k < nrepel->fft_size){
+					nrepel->p2 = nrepel->real_p*nrepel->real_p + nrepel->real_n*nrepel->real_n;
+					nrepel->mag = sqrtf(nrepel->p2);
+				} else {
+					//Nyquist
+					nrepel->p2 = nrepel->real_p*nrepel->real_p;
+					nrepel->mag = nrepel->real_p;
+				}
 
 				//Store values in magnitude and phase arrays
-				nrepel->ana_fft_magnitude[k] = nrepel->mag;
-				nrepel->ana_fft_phase[k] = nrepel->phase;
+				nrepel->fft_magnitude[k] = sanitize_denormal(nrepel->mag);
+				nrepel->fft_p2[k] = sanitize_denormal(nrepel->p2);
 			}
 
 			//------------Processing---------------
 
-			//Call processing functions and send nrepel->ana_fft_magnitude[k]
-			estimate_spectrum(nrepel->ana_fft_magnitude,*(nrepel->capt_state),nrepel->noise_print_min,nrepel->noise_print_max,nrepel->noise_print_avg,nrepel->fft_size_2,nrepel->window_size);
-			//Only denoise if noise spectrum is already estimated
-			denoise_signal(nrepel->noise_mean_choise,nrepel->denoise_method,from_dB(*(nrepel->amount_reduc)),nrepel->ana_fft_magnitude,nrepel->noise_print_min,nrepel->noise_print_max,nrepel->noise_print_avg,nrepel->fft_size_2,nrepel->noise_spectrum,nrepel->Y2);
+			//If selected estimate noise spectrum
+			if (*(nrepel->capt_state) == MANUAL_CAPTURE_ON_STATE || *(nrepel->capt_state) == AUTO_CAPTURE_STATE){
+				estimate_spectrum(nrepel->fft_p2,*(nrepel->capt_state),nrepel->noise_print_min,nrepel->noise_print_max,nrepel->noise_print_avg,nrepel->fft_size_2,nrepel->window_size);
+			}
 
+			//Apply denoising based on previously computed spectrum (manual or automatic)
+			denoise_signal(nrepel->noise_mean_choise,nrepel->denoise_method,from_dB(*(nrepel->amount_reduc)),nrepel->fft_p2,nrepel->noise_print_min,nrepel->noise_print_max,nrepel->noise_print_avg,nrepel->fft_size_2,nrepel->noise_spectrum,nrepel->Gk);
 
-			//Copy results in Synthesis arrays
-			nrepel->syn_fft_magnitude = nrepel->ana_fft_magnitude;
-			nrepel->syn_fft_phase = nrepel->ana_fft_phase;
-
+			//Apply the calculated gain to the singal
+			for (k = 0; k <= nrepel->fft_size_2; k++) {
+				nrepel->output_fft_buffer[k] *=nrepel->Gk[k];
+				if(k < nrepel->fft_size_2)
+					nrepel->output_fft_buffer[nrepel->fft_size-k] *= nrepel->Gk[k];
+			}
 
 			//------------FFT Synthesis-------------
-
-			for (k = 1; k <= nrepel->fft_size_2; k++){
-				nrepel->mag = nrepel->syn_fft_magnitude[k];
-				nrepel->phase = nrepel->syn_fft_phase[k];
-
-				nrepel->real = sanitize_denormal(nrepel->mag*cosf(nrepel->phase));
-				nrepel->imag = sanitize_denormal(nrepel->mag*sinf(nrepel->phase));
-
-				//Store values in the FFT vector by suming real and the imag part
-				nrepel->output_fft_buffer[k][0] = nrepel->real;
-				nrepel->output_fft_buffer[k][1] = nrepel->imag;
-			}
-
-			//Make the negative spectrum zero
-			for (k = nrepel->fft_size_2+1; k < nrepel->fft_size; k++){
-				nrepel->output_fft_buffer[k][0] = 0.f;
-				//nrepel->output_fft_buffer[k][1] = 0.f;
-			}
 
 			//Do inverse transform
 			fftwf_execute(nrepel->backward);
 
-			//Scaling and add to output_accum
+			//Scaling FFT (because is unnormalized)
 			for(k = 0; k < nrepel->window_size; k++){
-				//Scaling FFT (because is unnormalized)
-				nrepel->input_fft_buffer[k] /= nrepel->fft_size;
-				//Accumulate (Overlapadd)
+				nrepel->input_fft_buffer[k] = sanitize_denormal(nrepel->input_fft_buffer[k]/nrepel->fft_size);
+			}
+
+			//Accumulate (Overlapadd)
+			for(k = 0; k < nrepel->window_size; k++){
 				nrepel->output_accum[k] += nrepel->input_fft_buffer[k]*nrepel->hop;
 			}
 
@@ -313,11 +302,12 @@ run(LV2_Handle instance, uint32_t n_samples) {
 			//shift FFT accumulator the hop size
 			memmove(nrepel->output_accum, nrepel->output_accum + nrepel->hop, nrepel->window_size*sizeof(float));
 
-			for (k = 0; k < nrepel->input_latency; k++){
-				nrepel->in_fifo[k] = nrepel->in_fifo[k+nrepel->hop];
+			//Make sure the non overlaping section to be 0
+			for (k = (nrepel->window_size-nrepel->hop); k < nrepel->window_size; k++){
+				nrepel->output_accum[k] = 0.f;
 			}
 
-			//move inputFIFO
+			//move input FIFO
 			for (k = 0; k < nrepel->input_latency; k++){
 				nrepel->in_fifo[k] = nrepel->in_fifo[k+nrepel->hop];
 			}
