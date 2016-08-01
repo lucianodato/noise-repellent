@@ -223,6 +223,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 		memset(nrepel->noise_print_max, 0, nrepel->fft_size*sizeof(float));
 		memset(nrepel->noise_print_min, 0, nrepel->fft_size*sizeof(float));
 		memset(nrepel->noise_spectrum, 0, nrepel->fft_size*sizeof(float));
+		memset(nrepel->Gk, 1, nrepel->fft_size*sizeof(float));
 		*(nrepel->reset_print) = 0.f;
 
 		for (pos = 0; pos < n_samples; pos++) {
