@@ -44,7 +44,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define DEFAULT_OVERLAP_FACTOR 4 //2 is 50% and 4 is 75% overlap
 
 //Denoise related options
-#define NOISE_MEAN_CHOISE 2 //0 max 1 geometric mean 2 average
+#define NOISE_MEAN_CHOISE 1 //0 max 1 geometric mean 2 average
 #define DENOISE_METHOD 0 //0 Wiener 1 Power Substraction
 
 ///---------------------------------------------------------------------
@@ -217,6 +217,21 @@ run(LV2_Handle instance, uint32_t n_samples) {
 	//Inform latency at run call
 	*(nrepel->report_latency) = (float) nrepel->input_latency;
 
+	//Reset reset button state
+	if (*(nrepel->reset_print) == 1.f) {
+		memset(nrepel->noise_print_min, nrepel->max_float, nrepel->fft_size*sizeof(float));
+		memset(nrepel->noise_print_max, 0, nrepel->fft_size*sizeof(float));
+		memset(nrepel->noise_print_min, 0, nrepel->fft_size*sizeof(float));
+		memset(nrepel->noise_spectrum, 0, nrepel->fft_size*sizeof(float));
+		*(nrepel->reset_print) = 0.f;
+
+		for (pos = 0; pos < n_samples; pos++) {
+			nrepel->output[pos] = nrepel->input[pos];
+		}
+
+		return;
+	}
+
 	//main loop for processing
 	for (pos = 0; pos < n_samples; pos++){
 		//Store samples int the input buffer
@@ -321,9 +336,6 @@ run(LV2_Handle instance, uint32_t n_samples) {
 			}
 		}//if
 	}//main loop
-
-	//Reset reset button state
-	if (*(nrepel->reset_print) == 1) *(nrepel->reset_print) = 0;
 }
 
 static void

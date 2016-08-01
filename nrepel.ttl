@@ -71,7 +71,7 @@
 		lv2:default 0 ;
 		lv2:minimum 0 ;
 		lv2:maximum 1;
-		lv2:portProperty <http://lv2plug.in/ns/ext/port-props#trigger>, lv2:toggled;
+		lv2:portProperty lv2:toggled, lv2:integer;
 	], [
     a lv2:AudioPort, lv2:InputPort;
     lv2:index 4;
