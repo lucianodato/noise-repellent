@@ -43,7 +43,7 @@ static float gain_power_subtraction(float Yk2, float Dk2) {
   return 0.f;
 }
 
-void denoise_gain(int denoise_method,bool use_mag,float amount,float* mag,float* p2,int fft_size_2,float* Gk,float* noise_spectrum) {
+void denoise_gain(int denoise_method,float amount,float* p2,int fft_size_2,float* Gk,float* noise_spectrum) {
   int k;
   float gain, Fk;
 
@@ -51,24 +51,13 @@ void denoise_gain(int denoise_method,bool use_mag,float amount,float* mag,float*
   for (k = 0; k <= fft_size_2 ; k++) {
     gain = 0;
 
-    if (use_mag){
-      switch (denoise_method) {// supression rule
-        case 0: // Wiener Filter
-        gain = gain_weiner(mag[k], noise_spectrum[k]) ;
-        break;
-        case 1: // Power Subtraction
-        gain = gain_power_subtraction(mag[k], noise_spectrum[k]) ;
-        break;
-      }
-    }else{
-      switch (denoise_method) {// supression rule
-        case 0: // Wiener Filter
-        gain = gain_weiner(p2[k], noise_spectrum[k]) ;
-        break;
-        case 1: // Power Subtraction
-        gain = gain_power_subtraction(p2[k], noise_spectrum[k]) ;
-        break;
-      }
+    switch (denoise_method) {// supression rule
+      case 0: // Wiener Filter
+      gain = gain_weiner(p2[k], noise_spectrum[k]) ;
+      break;
+      case 1: // Power Subtraction
+      gain = gain_power_subtraction(p2[k], noise_spectrum[k]) ;
+      break;
     }
 
     Fk = amount*(1.f-gain);
