@@ -1,7 +1,7 @@
 @prefix lv2:  <http://lv2plug.in/ns/lv2core#>.
 @prefix foaf: <http://xmlns.com/foaf/0.1/>.
 @prefix doap: <http://usefulinc.com/ns/doap#>.
-@prefix pprops: <http://lv2plug.in/ns/ext/port-props#>.
+@prefix pprops: <http://lv2plug.in/ns/ext/port-props#> .
 @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>.
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#>.
 @prefix param: <http://lv2plug.in/ns/ext/parameters#>.
@@ -28,7 +28,7 @@
     a lv2:ControlPort, lv2:InputPort;
     lv2:index 0;
     lv2:symbol "capture";
-    lv2:name "Capture noise";
+    lv2:name "Capture noise print";
     lv2:minimum 0.0 ;
     lv2:maximum 2.0 ;
     lv2:default 0.0 ;
@@ -63,13 +63,23 @@
 		lv2:portProperty lv2:reportsLatency, lv2:integer;
 		units:unit units:frame;
   ], [
+		a lv2:InputPort ,
+			lv2:ControlPort ;
+		lv2:index 3 ;
+		lv2:symbol "reset_noise_print" ;
+		lv2:name "Reset noise print" ;
+		lv2:default 0 ;
+		lv2:minimum 0 ;
+		lv2:maximum 1;
+		lv2:portProperty <http://lv2plug.in/ns/ext/port-props#trigger>, lv2:toggled;
+	], [
     a lv2:AudioPort, lv2:InputPort;
-    lv2:index 3;
+    lv2:index 4;
     lv2:symbol "input";
     lv2:name "Input";
   ], [
     a lv2:AudioPort, lv2:OutputPort;
-    lv2:index 4;
+    lv2:index 5;
     lv2:symbol "output";
     lv2:name "Output";
   ];

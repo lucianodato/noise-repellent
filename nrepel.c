@@ -55,8 +55,9 @@ typedef enum {
 	NREPEL_CAPTURE = 0,
 	NREPEL_AMOUNT = 1,
 	NREPEL_LATENCY = 2,
-	NREPEL_INPUT  = 3,
-	NREPEL_OUTPUT = 4,
+	NREPEL_RESET = 3,
+	NREPEL_INPUT  = 4,
+	NREPEL_OUTPUT = 5,
 } PortIndex;
 
 typedef struct {
@@ -68,6 +69,7 @@ typedef struct {
 	float* capt_state; // Capture Noise state (Manual-Off-Auto)
 	float* amount_reduc; // Amount of noise to reduce in dB
 	float* report_latency; // Latency necessary
+	float* reset_print; // Latency necessary
 	int noise_mean_choise;
 	int denoise_method;
 	float max_float;
@@ -102,6 +104,7 @@ typedef struct {
 	float* noise_print_max; // The max noise spectrum computed by the captured signal
 	float* noise_print_avg; // The avg noise spectrum computed by the captured signal
 	float* noise_spectrum;
+
 	float* Gk;
 
 } Nrepel;
@@ -145,6 +148,7 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->noise_print_max = (float*)malloc(sizeof(float)*nrepel->fft_size);
 	nrepel->noise_print_avg = (float*)malloc(sizeof(float)*nrepel->fft_size);
 	nrepel->noise_spectrum = (float*)malloc(sizeof(float)*nrepel->fft_size);
+
 	nrepel->Gk = (float*)malloc(sizeof(float)*nrepel->fft_size);
 
 	//Here we initialize arrays with zeros
@@ -184,6 +188,9 @@ connect_port(LV2_Handle instance,
 		break;
 		case NREPEL_LATENCY:
 		nrepel->report_latency = (float*)data;
+		break;
+		case NREPEL_RESET:
+		nrepel->reset_print = (float*)data;
 		break;
 		case NREPEL_INPUT:
 		nrepel->input = (const float*)data;
@@ -314,6 +321,9 @@ run(LV2_Handle instance, uint32_t n_samples) {
 			}
 		}//if
 	}//main loop
+
+	//Reset reset button state
+	if (*(nrepel->reset_print) == 1) *(nrepel->reset_print) = 0;
 }
 
 static void
