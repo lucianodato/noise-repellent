@@ -44,7 +44,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define DEFAULT_OVERLAP_FACTOR 4 //2 is 50% and 4 is 75% overlap
 
 //Denoise related options
-#define NOISE_MEAN_CHOISE 0 //0 max 1 geometric mean 2 average
+#define NOISE_MEAN_CHOISE 2 //0 max 1 geometric mean 2 average
 #define DENOISE_METHOD 0 //0 Wiener 1 Power Substraction
 
 ///---------------------------------------------------------------------
@@ -259,11 +259,11 @@ run(LV2_Handle instance, uint32_t n_samples) {
 			switch ((int) *(nrepel->capt_state)) {
 				case MANUAL_CAPTURE_ON_STATE:
 					//If selected estimate noise spectrum based on selected portion of signal
-					estimate_noise_spectrum(nrepel->noise_mean_choise,nrepel->fft_p2,1,nrepel->noise_print_min,nrepel->noise_print_max,nrepel->noise_print_avg,nrepel->fft_size_2,nrepel->fft_size,nrepel->noise_spectrum);
+					estimate_noise_spectrum(nrepel->noise_mean_choise,nrepel->fft_p2,1,nrepel->noise_print_min,nrepel->noise_print_max,nrepel->noise_print_avg,nrepel->fft_size_2,nrepel->noise_spectrum);
 					break;
 				case AUTO_CAPTURE_STATE:
 					//if slected auto estimate noise spectrum and apply denoising
-					estimate_noise_spectrum(nrepel->noise_mean_choise,nrepel->fft_p2,2,nrepel->noise_print_min,nrepel->noise_print_max,nrepel->noise_print_avg,nrepel->fft_size_2,nrepel->fft_size,nrepel->noise_spectrum);
+					estimate_noise_spectrum(nrepel->noise_mean_choise,nrepel->fft_p2,2,nrepel->noise_print_min,nrepel->noise_print_max,nrepel->noise_print_avg,nrepel->fft_size_2,nrepel->noise_spectrum);
 					//Compute denoising gain based on previously computed spectrum (manual or automatic)
 					denoise_gain(nrepel->denoise_method,from_dB(*(nrepel->amount_reduc)),nrepel->fft_p2,nrepel->fft_size_2,nrepel->Gk,nrepel->noise_spectrum);
 					break;
