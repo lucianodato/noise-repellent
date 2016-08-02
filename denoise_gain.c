@@ -59,11 +59,10 @@ void denoise_gain(int denoise_method,
                   float* p2_prev,
                   int fft_size_2,
                   float* Gk,
-                  float* Gk_prev,
                   float* gain_prev,
                   float* noise_spectrum,
                   float alpha_set,
-                  int prev_frame) {
+                  int* prev_frame) {
   int k;
   float gain, Fk;
 
@@ -91,7 +90,7 @@ void denoise_gain(int denoise_method,
           }
           float Rprio;
 
-          if(prev_frame == 1) {
+          if(*(prev_frame) == 1) {
             Rprio = (1.f-alpha)*Rpost+alpha*gain_prev[k]*gain_prev[k]*p2_prev[k]/noise_spectrum[k];
           }else{
             Rprio = Rpost;
@@ -111,9 +110,8 @@ void denoise_gain(int denoise_method,
       if(Fk > 1.f) Fk = 1.f;
 
       Gk[k] =  1.f - Fk;
-      Gk_prev[k] = Gk[k];
     } //if
   } //for
 
-  prev_frame = 1;
+  *(prev_frame) = 1;
 }
