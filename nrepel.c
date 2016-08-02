@@ -41,8 +41,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define DEFAULT_OVERLAP_FACTOR 4 //2 is 50% and 4 is 75% overlap
 
 //Denoise related options
-#define NOISE_MEAN_CHOISE 0 //0 max 1 geometric mean 2 average
-#define DENOISE_METHOD 0 //0 Wiener 1 Power Substraction 2 EM with CM
+#define NOISE_MEAN_CHOISE 2 //0 max 1 geometric mean 2 average
+#define DENOISE_METHOD 2 //0 Wiener 1 Power Substraction 2 EM with CM
 #define ALPHA 0.98
 
 ///---------------------------------------------------------------------
@@ -321,7 +321,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 											 nrepel->alpha,
 											 &nrepel->prev_frame);
 
-					 //Apply the calculated gain to the signal
+					 //Apply the computed gain to the signal
  					for (k = 0; k <= nrepel->fft_size_2; k++) {
  						nrepel->output_fft_buffer[k] *= nrepel->Gk[k];
  						if(k < nrepel->fft_size_2)
@@ -342,7 +342,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 											 nrepel->alpha,
 											 &nrepel->prev_frame);
 
-					 //Apply the calculated gain to the signal
+					 //Apply the computed gain to the signal
  					for (k = 0; k <= nrepel->fft_size_2; k++) {
  						nrepel->output_fft_buffer[k] *= nrepel->Gk[k];
  						if(k < nrepel->fft_size_2)

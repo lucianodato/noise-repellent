@@ -46,9 +46,9 @@ static float gain_em(float Rprio, float Rpost) {
   float gain;
 
   //Ephraim-Malah noise suppression, from Godsill and Wolfe 2001 paper (cheaper)
-  float r = MAX(Rprio/(1.0+Rprio),FLT_MIN) ;
-  float V = (Rprio/(1.0+Rprio))*(Rpost+1.0) ;
-  gain = sqrtf( r * (1.0+V)/(Rpost+1.0) ) ;
+  float r = MAX(Rprio/(1.f+Rprio),FLT_MIN) ;
+  float V = (Rprio/(1.f+Rprio))*(Rpost+1.f) ;
+  gain = sqrt( r * (1.f+V)/(Rpost+1.f) ) ;
 
   return gain;
 }
@@ -67,51 +67,53 @@ void denoise_gain(int denoise_method,
   float gain, Fk;
 
   //Computing gain and applying the Reduction
-  for (k = 0; k <= fft_size_2 ; k++) {
-    gain = 0;
 
-    if (noise_spectrum[k] > FLT_MIN) { //This protects against denormals
-      switch (denoise_method) {// supression rule
-        case 0: // Wiener Filter
-          gain = gain_weiner(p2[k], noise_spectrum[k]) ;
-          break;
-        case 1: // Power Subtraction
-          gain = gain_power_subtraction(p2[k], noise_spectrum[k]) ;
-          break;
-        case 2:
-          // Ephraim-Mallat based - Using CMSR rule
-          float Rpost = MAX(p2[k]/noise_spectrum[k]-1.f, 0.f);
+    for (k = 0; k <= fft_size_2 ; k++) {
+      gain = 0.f;
+      if (noise_spectrum[k] > FLT_MIN){
+        //We can compute gain if print was previously captured
+        switch (denoise_method) {// supression rule
+          case 0: // Wiener Filter
+            gain = gain_weiner(p2[k], noise_spectrum[k]) ;
+            break;
+          case 1: // Power Subtraction
+            gain = gain_power_subtraction(p2[k], noise_spectrum[k]) ;
+            break;
+          case 2:
+            // Ephraim-Mallat - Using CMSR rule
+            float Rpost = MAX(p2[k]/noise_spectrum[k]-1.f, 0.f);
 
-          float alpha;
-          if (Rpost > 0.f){ // Canazza-Mian Condition (TODO correct this)
-            alpha = alpha_set; // Traditional EM
-          }else{
-            alpha = 0.f; // Wiener like
-          }
-          float Rprio;
+            float alpha;
+            if (Rpost > 0.f){ // Canazza-Mian Condition
+              alpha = alpha_set; // Traditional EM
+            }else{
+              alpha = 0.f; // Wiener like
+            }
+            float Rprio;
 
-          if(*(prev_frame) == 1) {
-            Rprio = (1.f-alpha)*Rpost+alpha*gain_prev[k]*gain_prev[k]*p2_prev[k]/noise_spectrum[k];
-          }else{
-            Rprio = Rpost;
-          }
+            if(*(prev_frame) == 1) {
+              Rprio = (1.f-alpha)*Rpost+alpha*gain_prev[k]*gain_prev[k]*p2_prev[k]/noise_spectrum[k];
+            }else{
+              Rprio = Rpost;
+            }
 
-          gain = gain_em(Rprio, Rpost);
+            gain = gain_em(Rprio, Rpost);
+            break;
+        }
 
-          p2_prev[k] = p2[k];
+        Fk = amount*(1.f-gain);
 
-          gain_prev[k] = gain;
-          break;
-      }
+        if(Fk < 0.f) Fk = 0.f;
+        if(Fk > 1.f) Fk = 1.f;
 
-      Fk = amount*(1.f-gain);
+        Gk[k] =  1.f - Fk;
 
-      if(Fk < 0.f) Fk = 0.f;
-      if(Fk > 1.f) Fk = 1.f;
-
-      Gk[k] =  1.f - Fk;
-    } //if
+        p2_prev[k] = p2[k];
+        gain_prev[k] = gain;
+        *(prev_frame) = 1;
+      } else {
+      //Otherwise we keep everything as is
+      Gk[k] = 1.f;
+    }
   } //for
-
-  *(prev_frame) = 1;
 }
