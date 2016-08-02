@@ -41,7 +41,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define DEFAULT_OVERLAP_FACTOR 4 //2 is 50% and 4 is 75% overlap
 
 //Denoise related options
-#define NOISE_MEAN_CHOISE 1 //0 max 1 geometric mean 2 average
+#define NOISE_MEAN_CHOISE 0 //0 max 1 geometric mean 2 average
 #define DENOISE_METHOD 0 //0 Wiener 1 Power Substraction 2 EM with CM
 #define ALPHA 0.98
 
@@ -169,7 +169,7 @@ instantiate(const LV2_Descriptor*     descriptor,
 
 	memset(nrepel->noise_print_min, nrepel->max_float, nrepel->fft_size*sizeof(float));
 	memset(nrepel->noise_print_max, 0, nrepel->fft_size*sizeof(float));
-	memset(nrepel->noise_print_min, 0, nrepel->fft_size*sizeof(float));
+	memset(nrepel->noise_print_avg, 0, nrepel->fft_size*sizeof(float));
 	memset(nrepel->noise_spectrum, 0, nrepel->fft_size*sizeof(float));
 	memset(nrepel->Gk, 1, nrepel->fft_size*sizeof(float));
 	memset(nrepel->gain_prev, 1, nrepel->fft_size*sizeof(float));
@@ -229,7 +229,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 	if (*(nrepel->reset_print) == 1.f) {
 		memset(nrepel->noise_print_min, nrepel->max_float, nrepel->fft_size*sizeof(float));
 		memset(nrepel->noise_print_max, 0, nrepel->fft_size*sizeof(float));
-		memset(nrepel->noise_print_min, 0, nrepel->fft_size*sizeof(float));
+		memset(nrepel->noise_print_avg, 0, nrepel->fft_size*sizeof(float));
 		memset(nrepel->noise_spectrum, 0, nrepel->fft_size*sizeof(float));
 		memset(nrepel->Gk, 1, nrepel->fft_size*sizeof(float));
 		memset(nrepel->gain_prev, 1, nrepel->fft_size*sizeof(float));
