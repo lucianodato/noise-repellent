@@ -237,12 +237,12 @@ run(LV2_Handle instance, uint32_t n_samples) {
 		memset(nrepel->Gk, 1, nrepel->fft_size*sizeof(float));
 		memset(nrepel->Gk_prev, 1, nrepel->fft_size*sizeof(float));
 		memset(nrepel->gain_prev, 1, nrepel->fft_size*sizeof(float));
-		*(nrepel->reset_print) = 0.f;
 
 		for (pos = 0; pos < n_samples; pos++) {
 			nrepel->output[pos] = nrepel->input[pos];
 		}
 
+		*(nrepel->reset_print) = 0.f;
 		return;
 	}
 
@@ -277,16 +277,16 @@ run(LV2_Handle instance, uint32_t n_samples) {
 				//Get mag and power
 				if(k < nrepel->fft_size){
 					nrepel->p2 = nrepel->real_p*nrepel->real_p + nrepel->real_n*nrepel->real_n;
-					nrepel->mag = sqrtf(nrepel->p2);
+					//nrepel->mag = sqrtf(nrepel->p2);
 				} else {
 					//Nyquist
 					nrepel->p2 = nrepel->real_p*nrepel->real_p;
-					nrepel->mag = nrepel->real_p;
+					//nrepel->mag = nrepel->real_p;
 				}
 
 				//Store values in magnitude and phase arrays
 				nrepel->fft_magnitude[k] = sanitize_denormal(nrepel->mag);
-				nrepel->fft_p2[k] = sanitize_denormal(nrepel->p2);
+				//nrepel->fft_p2[k] = sanitize_denormal(nrepel->p2);
 			}
 
 			//------------Processing---------------
@@ -325,14 +325,6 @@ run(LV2_Handle instance, uint32_t n_samples) {
 											 nrepel->noise_spectrum,
 											 nrepel->alpha,
 											 nrepel->prev_frame);
-
-					//Apply the calculated gain to the signal
-					for (k = 0; k <= nrepel->fft_size_2; k++) {
-						nrepel->output_fft_buffer[k] *= nrepel->Gk[k];
-						if(k < nrepel->fft_size_2)
-							nrepel->output_fft_buffer[nrepel->fft_size-k] *= nrepel->Gk[k];
-					}
-
 					break;
 				case MANUAL_CAPTURE_OFF_STATE:
 					//Compute denoising gain based on previously computed spectrum (manual or automatic)
@@ -347,15 +339,15 @@ run(LV2_Handle instance, uint32_t n_samples) {
 											 nrepel->noise_spectrum,
 											 nrepel->alpha,
 											 nrepel->prev_frame);
-
-					//Apply the calculated gain to the signal
-					for (k = 0; k <= nrepel->fft_size_2; k++) {
-						nrepel->output_fft_buffer[k] *= nrepel->Gk[k];
-						if(k < nrepel->fft_size_2)
-							nrepel->output_fft_buffer[nrepel->fft_size-k] *= nrepel->Gk[k];
-					}
-					break;
 			}
+
+			//Apply the calculated gain to the signal
+			for (k = 0; k <= nrepel->fft_size_2; k++) {
+				nrepel->output_fft_buffer[k] *= nrepel->Gk[k];
+				if(k < nrepel->fft_size_2)
+					nrepel->output_fft_buffer[nrepel->fft_size-k] *= nrepel->Gk[k];
+			}
+			break;
 
 			//------------FFT Synthesis-------------
 

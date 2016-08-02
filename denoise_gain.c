@@ -71,7 +71,7 @@ void denoise_gain(int denoise_method,
   for (k = 0; k <= fft_size_2 ; k++) {
     gain = 0;
 
-    if (noise_spectrum[k] > FLT_MIN) { //This protects agains denormals
+    if (noise_spectrum[k] > FLT_MIN) { //This protects against denormals
       switch (denoise_method) {// supression rule
         case 0: // Wiener Filter
           gain = gain_weiner(p2[k], noise_spectrum[k]) ;
@@ -84,7 +84,7 @@ void denoise_gain(int denoise_method,
           float Rpost = MAX(p2[k]/noise_spectrum[k]-1.f, 0.f);
 
           float alpha;
-          if (Rpost > 0.f){ // Canazza-Mian Condition (TODO got to correct this)
+          if (Rpost > 0.f){ // Canazza-Mian Condition (TODO correct this)
             alpha = alpha_set; // Traditional EM
           }else{
             alpha = 0.f; // Wiener like
