@@ -30,11 +30,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 //AUXILIARY Functions
 
+#define MAX(a,b) (((a) > (b)) ? (a) : (b))
+#define MIN(a,b) (((a) < (b)) ? (a) : (b))
+
 // Force already-denormal float value to zero
 inline float sanitize_denormal(float value) {
   if (isnan(value)) {
-    //return FLT_MIN; //to avoid log errors
-    return 0.f; //to avoid log errors
+    return FLT_MIN; //to avoid log errors
+    //return 0.f; //to avoid log errors
   } else {
     return value;
   }

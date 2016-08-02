@@ -17,10 +17,16 @@ You should have received a copy of the GNU Lesser General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
-#define MAX(a,b) (((a) > (b)) ? (a) : (b))
-#define MIN(a,b) (((a) < (b)) ? (a) : (b))
+#include "extra_functions.c"
 
-void estimate_noise_spectrum(int noise_mean_choise,float* p2,int type_noise_estimation,float* noise_print_min,float* noise_print_max,float* noise_print_avg,int fft_size_2,float* noise_spectrum){
+void estimate_noise_spectrum(int noise_mean_choise,
+                             float* p2,
+                             int type_noise_estimation,
+                             float* noise_print_min,
+                             float* noise_print_max,
+                             float* noise_print_avg,
+                             int fft_size_2,
+                             float* noise_spectrum){
   int k;
   switch (type_noise_estimation){
     case 1:
@@ -35,10 +41,12 @@ void estimate_noise_spectrum(int noise_mean_choise,float* p2,int type_noise_esti
 
       //average out the power spectrum samples a factor of 2
       for(k = 0 ; k <= fft_size_2 ; k++) {
-        noise_print_avg[k] /= 2;
+        if (noise_print_avg[k] > 0){ //frame to frame averaging
+            noise_print_avg[k] /= 2;
+        }
       }
 
-      //smoothing of the captured spectrum
+      //time smoothing of the captured spectrum
       for(k = 0 ; k <= fft_size_2 ; k++) {
         switch(noise_mean_choise){
           case 0:

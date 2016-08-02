@@ -25,9 +25,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 
 #include "denoise_gain.c"
-#include "estimate_noise_spectrum.c"
-#include "extra_functions.c"
-
 
 #include "lv2/lv2plug.in/ns/lv2core/lv2.h"
 
@@ -45,7 +42,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 //Denoise related options
 #define NOISE_MEAN_CHOISE 1 //0 max 1 geometric mean 2 average
-#define DENOISE_METHOD 0 //0 Wiener 1 Power Substraction
+#define DENOISE_METHOD 0 //0 Wiener 1 Power Substraction 2 EM with CM
+#define ALPHA 0.98
 
 ///---------------------------------------------------------------------
 
@@ -98,6 +96,7 @@ typedef struct {
 	float real_p,real_n,mag,p2;
 	float* fft_magnitude;//magnitude
 	float* fft_p2;//power
+	float* fft_p2_prev;//power previous frame
 
 	//Store variables
 	float* noise_print_min; // The min noise spectrum computed by the captured signal
@@ -105,7 +104,11 @@ typedef struct {
 	float* noise_print_avg; // The avg noise spectrum computed by the captured signal
 	float* noise_spectrum;
 
-	float* Gk;
+	float* Gk; //gain to be applied
+	float* Gk_prev; //previously gain to be applied
+	float* gain_prev; //previously gain computed
+	float alpha;
+	int prev_frame;
 
 } Nrepel;
 
@@ -125,6 +128,8 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->noise_mean_choise = NOISE_MEAN_CHOISE;
 	nrepel->denoise_method = DENOISE_METHOD;
 	nrepel->max_float = FLT_MAX;
+	nrepel->alpha = ALPHA;
+	nrepel->prev_frame = 0;
 
 	nrepel->fft_size_2 = nrepel->fft_size/2;
 	nrepel->hop = nrepel->fft_size/nrepel->overlap_factor;
@@ -143,6 +148,7 @@ instantiate(const LV2_Descriptor*     descriptor,
 
 	nrepel->fft_magnitude = (float*)malloc(sizeof(float)*nrepel->fft_size);
 	nrepel->fft_p2 = (float*)malloc(sizeof(float)*nrepel->fft_size);
+	nrepel->fft_p2_prev = (float*)malloc(sizeof(float)*nrepel->fft_size);
 
 	nrepel->noise_print_min = (float*)malloc(sizeof(float)*nrepel->fft_size);
 	nrepel->noise_print_max = (float*)malloc(sizeof(float)*nrepel->fft_size);
@@ -150,6 +156,8 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->noise_spectrum = (float*)malloc(sizeof(float)*nrepel->fft_size);
 
 	nrepel->Gk = (float*)malloc(sizeof(float)*nrepel->fft_size);
+	nrepel->Gk_prev = (float*)malloc(sizeof(float)*nrepel->fft_size);
+	nrepel->gain_prev = (float*)malloc(sizeof(float)*nrepel->fft_size);
 
 	//Here we initialize arrays with zeros
 	memset(nrepel->in_fifo, 0, nrepel->fft_size*sizeof(float));
@@ -159,12 +167,15 @@ instantiate(const LV2_Descriptor*     descriptor,
 	memset(nrepel->output_accum, 0, nrepel->fft_size*sizeof(float));
 	memset(nrepel->fft_magnitude, 0, nrepel->fft_size*sizeof(float));
 	memset(nrepel->fft_p2, 0, nrepel->fft_size*sizeof(float));
+	memset(nrepel->fft_p2_prev, 0, nrepel->fft_size*sizeof(float));
 
 	memset(nrepel->noise_print_min, nrepel->max_float, nrepel->fft_size*sizeof(float));
 	memset(nrepel->noise_print_max, 0, nrepel->fft_size*sizeof(float));
 	memset(nrepel->noise_print_min, 0, nrepel->fft_size*sizeof(float));
 	memset(nrepel->noise_spectrum, 0, nrepel->fft_size*sizeof(float));
 	memset(nrepel->Gk, 1, nrepel->fft_size*sizeof(float));
+	memset(nrepel->Gk_prev, 1, nrepel->fft_size*sizeof(float));
+	memset(nrepel->gain_prev, 1, nrepel->fft_size*sizeof(float));
 
 	fft_window(nrepel->window,nrepel->fft_size,nrepel->window_type); //Init window
 
@@ -224,6 +235,8 @@ run(LV2_Handle instance, uint32_t n_samples) {
 		memset(nrepel->noise_print_min, 0, nrepel->fft_size*sizeof(float));
 		memset(nrepel->noise_spectrum, 0, nrepel->fft_size*sizeof(float));
 		memset(nrepel->Gk, 1, nrepel->fft_size*sizeof(float));
+		memset(nrepel->Gk_prev, 1, nrepel->fft_size*sizeof(float));
+		memset(nrepel->gain_prev, 1, nrepel->fft_size*sizeof(float));
 		*(nrepel->reset_print) = 0.f;
 
 		for (pos = 0; pos < n_samples; pos++) {
@@ -257,7 +270,6 @@ run(LV2_Handle instance, uint32_t n_samples) {
 			fftwf_execute(nrepel->forward);
 
 			//Get the positive spectrum and compute magnitude and phase response
-			//k=0 is DC freq so it dont get considered
 			for (k = 0; k <= nrepel->fft_size_2; k++){
 				nrepel->real_p = nrepel->output_fft_buffer[k];
 				nrepel->real_n = nrepel->output_fft_buffer[nrepel->fft_size-k];
@@ -282,25 +294,67 @@ run(LV2_Handle instance, uint32_t n_samples) {
 			switch ((int) *(nrepel->capt_state)) {
 				case MANUAL_CAPTURE_ON_STATE:
 					//If selected estimate noise spectrum based on selected portion of signal
-					estimate_noise_spectrum(nrepel->noise_mean_choise,nrepel->fft_p2,1,nrepel->noise_print_min,nrepel->noise_print_max,nrepel->noise_print_avg,nrepel->fft_size_2,nrepel->noise_spectrum);
+					estimate_noise_spectrum(nrepel->noise_mean_choise,
+																	nrepel->fft_p2,
+																	1,
+																	nrepel->noise_print_min,
+																	nrepel->noise_print_max,
+																	nrepel->noise_print_avg,
+																	nrepel->fft_size_2,
+																	nrepel->noise_spectrum);
 					break;
 				case AUTO_CAPTURE_STATE:
 					//if slected auto estimate noise spectrum and apply denoising
-					estimate_noise_spectrum(nrepel->noise_mean_choise,nrepel->fft_p2,2,nrepel->noise_print_min,nrepel->noise_print_max,nrepel->noise_print_avg,nrepel->fft_size_2,nrepel->noise_spectrum);
+					estimate_noise_spectrum(nrepel->noise_mean_choise,
+																	nrepel->fft_p2,
+																	2,
+																	nrepel->noise_print_min,
+																	nrepel->noise_print_max,
+																	nrepel->noise_print_avg,
+																	nrepel->fft_size_2,
+																	nrepel->noise_spectrum);
 					//Compute denoising gain based on previously computed spectrum (manual or automatic)
-					denoise_gain(nrepel->denoise_method,from_dB(*(nrepel->amount_reduc)),nrepel->fft_p2,nrepel->fft_size_2,nrepel->Gk,nrepel->noise_spectrum);
+					denoise_gain(nrepel->denoise_method,
+											 from_dB(*(nrepel->amount_reduc)),
+											 nrepel->fft_p2,
+											 nrepel->fft_p2_prev,
+											 nrepel->fft_size_2,
+											 nrepel->Gk,
+											 nrepel->Gk_prev,
+											 nrepel->gain_prev,
+											 nrepel->noise_spectrum,
+											 nrepel->alpha,
+											 nrepel->prev_frame);
+
+					//Apply the calculated gain to the signal
+					for (k = 0; k <= nrepel->fft_size_2; k++) {
+						nrepel->output_fft_buffer[k] *= nrepel->Gk[k];
+						if(k < nrepel->fft_size_2)
+							nrepel->output_fft_buffer[nrepel->fft_size-k] *= nrepel->Gk[k];
+					}
+
 					break;
 				case MANUAL_CAPTURE_OFF_STATE:
 					//Compute denoising gain based on previously computed spectrum (manual or automatic)
-					denoise_gain(nrepel->denoise_method,from_dB(*(nrepel->amount_reduc)),nrepel->fft_p2,nrepel->fft_size_2,nrepel->Gk,nrepel->noise_spectrum);
-					break;
-			}
+					denoise_gain(nrepel->denoise_method,
+											 from_dB(*(nrepel->amount_reduc)),
+											 nrepel->fft_p2,
+											 nrepel->fft_p2_prev,
+											 nrepel->fft_size_2,
+											 nrepel->Gk,
+											 nrepel->Gk_prev,
+											 nrepel->gain_prev,
+											 nrepel->noise_spectrum,
+											 nrepel->alpha,
+											 nrepel->prev_frame);
 
-			//Apply the calculated gain to the signal
-			for (k = 0; k <= nrepel->fft_size_2; k++) {
-				nrepel->output_fft_buffer[k] *= nrepel->Gk[k];
-				if(k < nrepel->fft_size_2)
-					nrepel->output_fft_buffer[nrepel->fft_size-k] *= nrepel->Gk[k];
+					//Apply the calculated gain to the signal
+					for (k = 0; k <= nrepel->fft_size_2; k++) {
+						nrepel->output_fft_buffer[k] *= nrepel->Gk[k];
+						if(k < nrepel->fft_size_2)
+							nrepel->output_fft_buffer[nrepel->fft_size-k] *= nrepel->Gk[k];
+					}
+					break;
 			}
 
 			//------------FFT Synthesis-------------
