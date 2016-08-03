@@ -40,7 +40,7 @@
 		  rdfs:label "ON";
 		  rdf:value 1
 		] , [
-		  rdfs:label "AUTO";
+		  rdfs:label "ADAPTIVE";
 		  rdf:value 2
 		]
   ], [
