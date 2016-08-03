@@ -243,11 +243,6 @@ run(LV2_Handle instance, uint32_t n_samples) {
 		memset(nrepel->gain_prev, 1, nrepel->fft_size*sizeof(float));
 		nrepel->prev_frame = 0;
 		*(nrepel->reset_print) = 0.f;
-
-		for (pos = 0; pos < n_samples; pos++) {
-			nrepel->output[pos] = nrepel->input[pos];
-		}
-		return;
 	}
 
 	//main loop for processing
@@ -319,7 +314,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 																	nrepel->noise_spectrum);
 					//Compute denoising gain based on previously computed spectrum (manual or automatic)
 					denoise_gain(*(nrepel->denoise_method),
-											 from_dB(*(nrepel->amount_reduc)),
+											 *(nrepel->amount_reduc),
 											 nrepel->fft_p2,
 											 nrepel->fft_p2_prev,
 											 nrepel->fft_size_2,
@@ -340,7 +335,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 				case MANUAL_CAPTURE_OFF_STATE:
 					//Compute denoising gain based on previously computed spectrum (manual or automatic)
 					denoise_gain(*(nrepel->denoise_method),
-											 from_dB(*(nrepel->amount_reduc)),
+											 *(nrepel->amount_reduc),
 											 nrepel->fft_p2,
 											 nrepel->fft_p2_prev,
 											 nrepel->fft_size_2,
