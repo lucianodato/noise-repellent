@@ -66,52 +66,64 @@ void denoise_gain(int denoise_method,
   int k;
   float gain, Fk;
 
-  //Computing gain and applying the Reduction
+  //noise spectrum scaling
+  for (k = 0; k <= fft_size_2 ; k++) {
+    noise_spectrum[k] *= amount;
+  }
 
+  //Precalculation for Canazza-Mian Rule
+  float rpost_sum = 0.f;
+  if (denoise_method == 2){
     for (k = 0; k <= fft_size_2 ; k++) {
-      gain = 0.f;
-      if (noise_spectrum[k] > FLT_MIN){
-        //We can compute gain if print was previously captured
-        switch (denoise_method) {// supression rule
-          case 0: // Wiener Filter
-            gain = gain_weiner(p2[k], noise_spectrum[k]) ;
-            break;
-          case 1: // Power Subtraction
-            gain = gain_power_subtraction(p2[k], noise_spectrum[k]) ;
-            break;
-          case 2:
-            // Ephraim-Mallat - Using CMSR rule
-            float Rpost = MAX(p2[k]/noise_spectrum[k]-1.f, 0.f);
+      rpost_sum += MAX(p2[k]/noise_spectrum[k]-1.f, 0.f);
+    }
+  }
 
-            float alpha;
-            if (Rpost > 0.f){ // Canazza-Mian Condition
-              alpha = alpha_set; // Traditional EM
-            }else{
-              alpha = 0.f; // Wiener like
-            }
-            float Rprio;
+  //Computing gain and applying the Reduction
+  for (k = 0; k <= fft_size_2 ; k++) {
+    gain = 0.f;
+    if (noise_spectrum[k] > FLT_MIN){
+      //We can compute gain if print was previously captured
+      switch (denoise_method) {// supression rule
+        case 0: // Wiener Filter
+          gain = gain_weiner(p2[k], noise_spectrum[k]) ;
+          break;
+        case 1: // Power Subtraction
+          gain = gain_power_subtraction(p2[k], noise_spectrum[k]) ;
+          break;
+        case 2:
+          // Ephraim-Mallat - Using CMSR rule
+          float Rpost = MAX(p2[k]/noise_spectrum[k]-1.f, 0.f);
 
-            if(*(prev_frame) == 1) {
-              Rprio = (1.f-alpha)*Rpost+alpha*gain_prev[k]*gain_prev[k]*p2_prev[k]/noise_spectrum[k];
-            }else{
-              Rprio = Rpost;
-            }
+          float alpha;
+          if (Rpost > 0.f && rpost_sum < 0.f){ // Canazza-Mian Condition
+            alpha = 0.f; // Wiener like
+          }else{
+            alpha = alpha_set; // Traditional EM
+          }
+          float Rprio;
 
-            gain = gain_em(Rprio, Rpost);
-            break;
-        }
+          if(*(prev_frame) == 1) {
+            Rprio = (1.f-alpha)*Rpost+alpha*gain_prev[k]*gain_prev[k]*p2_prev[k]/noise_spectrum[k];
+          }else{
+            Rprio = Rpost;
+          }
 
-        Fk = amount*(1.f-gain);
+          gain = gain_em(Rprio, Rpost);
 
-        if(Fk < 0.f) Fk = 0.f;
-        if(Fk > 1.f) Fk = 1.f;
+          p2_prev[k] = p2[k];
+          gain_prev[k] = gain;
+          *(prev_frame) = 1;
+          break;
+      }
 
-        Gk[k] =  1.f - Fk;
+      Fk = 1.f*(1.f-gain); // originally amount*(1.f-gain)
 
-        p2_prev[k] = p2[k];
-        gain_prev[k] = gain;
-        *(prev_frame) = 1;
-      } else {
+      if(Fk < 0.f) Fk = 0.f;
+      if(Fk > 1.f) Fk = 1.f;
+
+      Gk[k] =  1.f - Fk;
+    } else {
       //Otherwise we keep everything as is
       Gk[k] = 1.f;
     }
