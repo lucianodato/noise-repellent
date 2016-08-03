@@ -46,6 +46,44 @@
   ], [
     a lv2:ControlPort, lv2:InputPort;
     lv2:index 1;
+    lv2:symbol "noisesmoothing";
+    lv2:name "Noise Time Smoothing";
+    lv2:minimum 0.0 ;
+    lv2:maximum 2.0 ;
+    lv2:default 0.0 ;
+    lv2:portProperty lv2:enumeration, lv2:integer;
+    lv2:scalePoint [
+    	rdfs:label "Max";
+		  rdf:value 0
+		] , [
+		  rdfs:label "Geometric Mean";
+		  rdf:value 1
+		] , [
+		  rdfs:label "Average";
+		  rdf:value 2
+		]
+  ], [
+    a lv2:ControlPort, lv2:InputPort;
+    lv2:index 2;
+    lv2:symbol "denoisemethod";
+    lv2:name "Denoise algorithm";
+    lv2:minimum 0.0 ;
+    lv2:maximum 2.0 ;
+    lv2:default 2.0 ;
+    lv2:portProperty lv2:enumeration, lv2:integer;
+    lv2:scalePoint [
+    	rdfs:label "Wiener";
+		  rdf:value 0
+		] , [
+		  rdfs:label "Power Subtraction";
+		  rdf:value 1
+		] , [
+		  rdfs:label "Ephraim-Mallat";
+		  rdf:value 2
+		]
+  ], [
+    a lv2:ControlPort, lv2:InputPort;
+    lv2:index 3;
     lv2:symbol "amountreduc";
     lv2:name "Amount of reduction";
     lv2:portProperty pprops:hasStrictBounds;
@@ -56,7 +94,7 @@
   ], [
     a lv2:OutputPort, lv2:ControlPort ;
     lv2:name "latency";
-    lv2:index 2;
+    lv2:index 4;
     lv2:symbol "latency";
     lv2:minimum 0;
 		lv2:maximum 8196;
@@ -65,7 +103,7 @@
   ], [
 		a lv2:InputPort ,
 			lv2:ControlPort ;
-		lv2:index 3 ;
+		lv2:index 5 ;
 		lv2:symbol "reset_noise_print" ;
 		lv2:name "Reset noise print" ;
 		lv2:default 0 ;
@@ -74,12 +112,12 @@
 		lv2:portProperty lv2:toggled, lv2:integer;
 	], [
     a lv2:AudioPort, lv2:InputPort;
-    lv2:index 4;
+    lv2:index 6;
     lv2:symbol "input";
     lv2:name "Input";
   ], [
     a lv2:AudioPort, lv2:OutputPort;
-    lv2:index 5;
+    lv2:index 7;
     lv2:symbol "output";
     lv2:name "Output";
   ];

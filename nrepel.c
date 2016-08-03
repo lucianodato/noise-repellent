@@ -51,11 +51,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 typedef enum {
 	NREPEL_CAPTURE = 0,
-	NREPEL_AMOUNT = 1,
-	NREPEL_LATENCY = 2,
-	NREPEL_RESET = 3,
-	NREPEL_INPUT  = 4,
-	NREPEL_OUTPUT = 5,
+	NREPEL_SMOOTHING = 1,
+	NREPEL_METHOD = 2,
+	NREPEL_AMOUNT = 3,
+	NREPEL_LATENCY = 4,
+	NREPEL_RESET = 5,
+	NREPEL_INPUT  = 6,
+	NREPEL_OUTPUT = 7,
 } PortIndex;
 
 typedef struct {
@@ -68,8 +70,8 @@ typedef struct {
 	float* amount_reduc; // Amount of noise to reduce in dB
 	float* report_latency; // Latency necessary
 	float* reset_print; // Latency necessary
-	int noise_mean_choise;
-	int denoise_method;
+	float* noise_mean_choise;
+	float* denoise_method;
 	float max_float;
 
 	//Parameters for the STFT
@@ -124,8 +126,8 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->fft_size = DEFAULT_FFT_SIZE;
 	nrepel->window_type = DEFAULT_WINDOW_TYPE;
 	nrepel->overlap_factor = DEFAULT_OVERLAP_FACTOR;
-	nrepel->noise_mean_choise = NOISE_MEAN_CHOISE;
-	nrepel->denoise_method = DENOISE_METHOD;
+	//nrepel->noise_mean_choise = NOISE_MEAN_CHOISE;
+	//nrepel->denoise_method = DENOISE_METHOD;
 	nrepel->max_float = FLT_MAX;
 	nrepel->alpha = ALPHA;
 	nrepel->prev_frame = 0;
@@ -190,6 +192,12 @@ connect_port(LV2_Handle instance,
 	switch ((PortIndex)port) {
 		case NREPEL_CAPTURE:
 		nrepel->capt_state = (float*)data;
+		break;
+		case NREPEL_SMOOTHING:
+		nrepel->noise_mean_choise = (float*)data;
+		break;
+		case NREPEL_METHOD:
+		nrepel->denoise_method = (float*)data;
 		break;
 		case NREPEL_AMOUNT:
 		nrepel->amount_reduc = (float*)data;
@@ -290,7 +298,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 			switch ((int) *(nrepel->capt_state)) {
 				case MANUAL_CAPTURE_ON_STATE:
 					//If selected estimate noise spectrum based on selected portion of signal
-					estimate_noise_spectrum(nrepel->noise_mean_choise,
+					estimate_noise_spectrum(*(nrepel->noise_mean_choise),
 																	nrepel->fft_p2,
 																	1,
 																	nrepel->noise_print_min,
@@ -301,7 +309,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 					break;
 				case AUTO_CAPTURE_STATE:
 					//if slected auto estimate noise spectrum and apply denoising
-					estimate_noise_spectrum(nrepel->noise_mean_choise,
+					estimate_noise_spectrum(*(nrepel->noise_mean_choise),
 																	nrepel->fft_p2,
 																	2,
 																	nrepel->noise_print_min,
@@ -310,7 +318,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 																	nrepel->fft_size_2,
 																	nrepel->noise_spectrum);
 					//Compute denoising gain based on previously computed spectrum (manual or automatic)
-					denoise_gain(nrepel->denoise_method,
+					denoise_gain(*(nrepel->denoise_method),
 											 from_dB(*(nrepel->amount_reduc)),
 											 nrepel->fft_p2,
 											 nrepel->fft_p2_prev,
@@ -331,7 +339,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 					break;
 				case MANUAL_CAPTURE_OFF_STATE:
 					//Compute denoising gain based on previously computed spectrum (manual or automatic)
-					denoise_gain(nrepel->denoise_method,
+					denoise_gain(*(nrepel->denoise_method),
 											 from_dB(*(nrepel->amount_reduc)),
 											 nrepel->fft_p2,
 											 nrepel->fft_p2_prev,
@@ -344,7 +352,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 
 					 //Apply the computed gain to the signal
  					for (k = 0; k <= nrepel->fft_size_2; k++) {
- 						nrepel->output_fft_buffer[k] *= nrepel->Gk[k];
+						nrepel->output_fft_buffer[k] *= nrepel->Gk[k];
  						if(k < nrepel->fft_size_2)
  							nrepel->output_fft_buffer[nrepel->fft_size-k] *= nrepel->Gk[k];
  					}

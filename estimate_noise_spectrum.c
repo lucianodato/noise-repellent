@@ -60,7 +60,6 @@ void estimate_noise_spectrum(int noise_mean_choise,
           break;
         }
       }
-
       break;
     case 2:
       //Auto Capture
