@@ -33,7 +33,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 //Noise capture states
 #define MANUAL_CAPTURE_OFF_STATE 0
 #define MANUAL_CAPTURE_ON_STATE 1
-#define AUTO_CAPTURE_STATE 2
+#define ADAPTIVE_CAPTURE_STATE 2
 
 //STFT default values
 #define DEFAULT_FFT_SIZE 2048 //max is 8192
@@ -307,7 +307,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 																	nrepel->fft_size_2,
 																	nrepel->noise_spectrum);
 					break;
-				case AUTO_CAPTURE_STATE:
+				case ADAPTIVE_CAPTURE_STATE:
 					//if slected auto estimate noise spectrum and apply denoising
 					estimate_noise_spectrum(*(nrepel->noise_mean_choise),
 																	nrepel->fft_p2,
