@@ -112,7 +112,7 @@ void denoise_gain(int denoise_method,
           break;
       }
 
-      Fk = (amount/100.f)*(1.f-gain); // originally amount*(1.f-gain)
+      Fk = amount*(1.f-gain);
 
       if(Fk < 0.f) Fk = 0.f;
       if(Fk > 1.f) Fk = 1.f;
