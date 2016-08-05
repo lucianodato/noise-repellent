@@ -30,6 +30,15 @@ static float max_spectral_value(float* noise_print, int N){
   return max;
 }
 
+static float min_spectral_value(float* noise_print, int N){
+  int k;
+  float min = FLT_MAX;
+  for(k = 0; k <= N; k++){
+    if (noise_print[k] < min) min = noise_print[k];
+  }
+  return min;
+}
+
 static float gain_weiner(float Yk2, float Dk2) {
   float gain;
   float Xk2 = Yk2 - Dk2;
