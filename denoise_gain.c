@@ -54,7 +54,7 @@ static float gain_em(float Rprio, float Rpost) {
 }
 
 void denoise_gain(int denoise_method,
-                  float amount,
+                  float over_reduc,
                   float* p2,
                   float* p2_prev,
                   int fft_size_2,
@@ -66,22 +66,6 @@ void denoise_gain(int denoise_method,
                   int* prev_frame) {
   int k;
   float gain, Fk;
-
-  // //Scale noise based on reduction selected by the user
-  // float tmp_noise[fft_size_2+1];
-  // for (k = 0; k <= fft_size_2 ; k++) {
-  //     tmp_noise[k] = noise_spectrum[k] * (amount-1.f);
-  // }
-
-  //Precalculation for Canazza-Mian Rule
-  float rpost_sum = 0.f;
-  if (denoise_method == 2){
-    for (k = 0; k <= fft_size_2 ; k++) {
-      if (noise_spectrum[k] > FLT_MIN) {
-        rpost_sum += MAX(p2[k]/noise_spectrum[k]-1.f, 0.f);
-      }
-    }
-  }
 
   //Computing gain and applying the Reduction
   for (k = 0; k <= fft_size_2 ; k++) {
@@ -100,11 +84,12 @@ void denoise_gain(int denoise_method,
           float Rpost = MAX(p2[k]/noise_spectrum[k]-1.f, 0.f);
 
           float alpha;
-          if (Rpost > 0.f && rpost_sum < 0.f){ // Canazza-Mian Condition
-            alpha = 0.f; // Wiener like
+          if (Rpost > 0.f){ // Canazza-Mian Condition
+            alpha = alpha_set; // Wiener like
           }else{
-            alpha = alpha_set; // Traditional EM
+            alpha = 0.f; // Traditional EM
           }
+
           float Rprio;
 
           if(*(prev_frame) == 1) {
@@ -122,7 +107,7 @@ void denoise_gain(int denoise_method,
       }
 
       //To avoid excesive distortion
-      Fk = (1.f-gain);
+      Fk = over_reduc*(1.f-gain);
 
       if(Fk < 0.f) Fk = 0.f;
       if(Fk > 1.f) Fk = 1.f;

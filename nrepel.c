@@ -37,13 +37,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 //STFT default values
 #define DEFAULT_FFT_SIZE 2048 //max is 8192
-#define DEFAULT_WINDOW_TYPE 0 //0 Hann 1 Hamming 2 Blackman
+#define DEFAULT_WINDOW_TYPE 1 //0 Hann 1 Hamming 2 Blackman
 #define DEFAULT_OVERLAP_FACTOR 4 //2 is 50% and 4 is 75% overlap
 
 //Denoise related options
 #define NOISE_STAT_CHOISE 1 //0 max 1 geometric mean 2 average
 #define DENOISE_METHOD 2 //0 Wiener 1 Power Substraction 2 EM with CM
-#define ALPHA 0.95
+#define ALPHA 0.98
 
 ///---------------------------------------------------------------------
 
@@ -54,10 +54,12 @@ typedef enum {
 	NREPEL_SMOOTHING = 1,
 	NREPEL_METHOD = 2,
 	NREPEL_AMOUNT = 3,
-	NREPEL_LATENCY = 4,
-	NREPEL_RESET = 5,
-	NREPEL_INPUT  = 6,
-	NREPEL_OUTPUT = 7,
+	NREPEL_OVERRED = 4,
+	NREPEL_LATENCY = 5,
+	NREPEL_RESET = 6,
+	NREPEL_NOISE_LISTEN = 7,
+	NREPEL_INPUT  = 8,
+	NREPEL_OUTPUT = 9,
 } PortIndex;
 
 typedef struct {
@@ -68,10 +70,12 @@ typedef struct {
 	//Parameters for the algorithm (user input)
 	float* capt_state; // Capture Noise state (Manual-Off-Auto)
 	float* amount_reduc; // Amount of noise to reduce in dB
+	float* over_reduc; // Amount of noise to reduce in dB
 	float* report_latency; // Latency necessary
 	float* reset_print; // Latency necessary
-	float* noise_stat_choise;
-	float* denoise_method;
+	float* noise_listen; //For noise only listening
+	float* noise_stat_choise; //Choise of statistic to use for noise spectrum
+	float* denoise_method; //Choise of denoise method
 
 	//Parameters for the STFT
 	int fft_size; //FFTW input size
@@ -210,11 +214,17 @@ connect_port(LV2_Handle instance,
 		case NREPEL_AMOUNT:
 		nrepel->amount_reduc = (float*)data;
 		break;
+		case NREPEL_OVERRED:
+		nrepel->over_reduc = (float*)data;
+		break;
 		case NREPEL_LATENCY:
 		nrepel->report_latency = (float*)data;
 		break;
 		case NREPEL_RESET:
 		nrepel->reset_print = (float*)data;
+		break;
+		case NREPEL_NOISE_LISTEN:
+		nrepel->noise_listen = (float*)data;
 		break;
 		case NREPEL_INPUT:
 		nrepel->input = (const float*)data;
@@ -327,7 +337,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 																	nrepel->noise_spectrum);
 					//Compute denoising gain based on previously computed spectrum (manual or automatic)
 					denoise_gain(*(nrepel->denoise_method),
-											 from_dB(*(nrepel->amount_reduc)),
+											 *(nrepel->over_reduc),
 											 nrepel->fft_p2,
 											 nrepel->fft_p2_prev,
 											 nrepel->fft_size_2,
@@ -349,7 +359,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 				case MANUAL_CAPTURE_OFF_STATE:
 					//Compute denoising gain based on previously computed spectrum (manual or automatic)
 					denoise_gain(*(nrepel->denoise_method),
-											 from_dB(*(nrepel->amount_reduc)),
+											 *(nrepel->over_reduc),
 											 nrepel->fft_p2,
 											 nrepel->fft_p2_prev,
 											 nrepel->fft_size_2,
@@ -363,7 +373,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 					//Post processing
 
  		      //Time smoothing of spectral gains
- 		      float interpol_factor = 0.7;
+ 		      float interpol_factor = 0.9;
  		      for (k = 0; k <= nrepel->fft_size_2; k++) {
  		        if (nrepel->Gk[k] > 0.f && nrepel->Gk[k] < 1.f) {
  		          nrepel->Gk[k] = (1.f-interpol_factor)*nrepel->Gk[k] + interpol_factor*nrepel->Gk_prev[k];
@@ -372,24 +382,34 @@ run(LV2_Handle instance, uint32_t n_samples) {
 
 					//Residual signal
 					for (k = 0; k <= nrepel->fft_size_2; k++) {
-						nrepel->residual_spectrum[k] = nrepel->output_fft_buffer[k] * nrepel->Gk[k];
+						nrepel->residual_spectrum[k] = nrepel->output_fft_buffer[k] - (nrepel->output_fft_buffer[k] * nrepel->Gk[k]);
 						if(k < nrepel->fft_size_2)
-							nrepel->residual_spectrum[nrepel->fft_size-k] *= nrepel->output_fft_buffer[k] * nrepel->Gk[k];
+							nrepel->residual_spectrum[nrepel->fft_size-k] = nrepel->output_fft_buffer[nrepel->fft_size-k] - (nrepel->output_fft_buffer[nrepel->fft_size-k] * nrepel->Gk[k]);
 					}
 
-					//Apply the computed gain to the signal
- 					for (k = 0; k <= nrepel->fft_size_2; k++) {
-						nrepel->output_fft_buffer[k] *= nrepel->Gk[k];
- 						if(k < nrepel->fft_size_2)
- 							nrepel->output_fft_buffer[nrepel->fft_size-k] *= nrepel->Gk[k];
- 					}
+					if (*(nrepel->noise_listen) == 0.f){
+						//Apply the computed gain to the signal
+	 					for (k = 0; k <= nrepel->fft_size_2; k++) {
+							nrepel->output_fft_buffer[k] *= nrepel->Gk[k];
+	 						if(k < nrepel->fft_size_2)
+	 							nrepel->output_fft_buffer[nrepel->fft_size-k] *= nrepel->Gk[k];
+	 					}
 
-					//Mix residual and processed
-					for (k = 0; k <= nrepel->fft_size_2; k++) {
-						nrepel->output_fft_buffer[k] += nrepel->residual_spectrum[k]*(1.f/from_dB(*(nrepel->amount_reduc)));
- 						if(k < nrepel->fft_size_2)
- 							nrepel->output_fft_buffer[nrepel->fft_size-k] *= nrepel->residual_spectrum[k]*(1.f/from_dB(*(nrepel->amount_reduc)));
- 					}
+						//Mix residual and processed
+						for (k = 0; k <= nrepel->fft_size_2; k++) {
+							nrepel->output_fft_buffer[k] += nrepel->residual_spectrum[k]*(1.f/from_dB(*(nrepel->amount_reduc)));
+	 						if(k < nrepel->fft_size_2)
+	 							nrepel->output_fft_buffer[nrepel->fft_size-k] += nrepel->residual_spectrum[nrepel->fft_size-k]*(1.f/from_dB(*(nrepel->amount_reduc)));
+	 					}
+					} else {
+						//Output noise only
+						for (k = 0; k <= nrepel->fft_size_2; k++) {
+							nrepel->output_fft_buffer[k] = nrepel->residual_spectrum[k];
+	 						if(k < nrepel->fft_size_2)
+	 							nrepel->output_fft_buffer[nrepel->fft_size-k] *= nrepel->residual_spectrum[nrepel->fft_size-k];
+	 					}
+					}
+
 
 					break;
 			}
