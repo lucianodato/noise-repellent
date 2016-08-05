@@ -36,8 +36,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define ADAPTIVE_CAPTURE_STATE 2
 
 //STFT default values
-#define DEFAULT_FFT_SIZE 2048 //max is 8192
-#define DEFAULT_WINDOW_TYPE 1 //0 Hann 1 Hamming 2 Blackman
+#define DEFAULT_FFT_SIZE 1024 //max is 8192
+#define DEFAULT_WINDOW_TYPE 2 //0 Hann 1 Hamming 2 Blackman
 #define DEFAULT_OVERLAP_FACTOR 4 //2 is 50% and 4 is 75% overlap
 
 //Denoise related options
