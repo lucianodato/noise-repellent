@@ -21,6 +21,15 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <math.h>
 #include "estimate_noise_spectrum.c"
 
+static float max_spectral_value(float* noise_print, int N){
+  int k;
+  float max = 0.f;
+  for(k = 0; k <= N; k++){
+    if (noise_print[k] > max) max = noise_print[k];
+  }
+  return max;
+}
+
 static float gain_weiner(float Yk2, float Dk2) {
   float gain;
   float Xk2 = Yk2 - Dk2;
@@ -58,6 +67,10 @@ void denoise_gain(int denoise_method,
                   float* p2,
                   float* p2_prev,
                   int fft_size_2,
+                  int noise_stat_choise,
+                  float* noise_print_min,
+                  float* noise_print_max,
+                  float* noise_print_avg,
                   float* Gk,
                   float* Gk_prev,
                   float* gain_prev,
@@ -66,6 +79,33 @@ void denoise_gain(int denoise_method,
                   int* prev_frame) {
   int k;
   float gain, Fk;
+
+  //time smoothing for each bin of the captured spectrum
+  for(k = 0 ; k <= fft_size_2 ; k++) {
+    switch(noise_stat_choise){
+      case 0:
+      noise_spectrum[k] = noise_print_max[k]; // max spectrum
+      break;
+      case 1:
+      noise_spectrum[k] = noise_print_min[k] + 0.5*(noise_print_max[k] - noise_print_min[k]); // geometric mean spectrum
+      break;
+      case 2:
+      noise_spectrum[k] = noise_print_avg[k]; // mean spectrum
+      break;
+    }
+  }
+
+  //Find max value of all noise vectors
+  float overall_max = max_spectral_value(noise_print_max,fft_size_2);
+  float max_value = max_spectral_value(noise_spectrum,fft_size_2);
+
+  //Normalize noise spectrum
+  for(k = 0 ; k <= fft_size_2 ; k++) {
+    noise_spectrum[k] /= max_value;
+    //Rescale it based on overall max_value
+    noise_spectrum[k] *= overall_max;
+  }
+
 
   //Computing gain and applying the Reduction
   for (k = 0; k <= fft_size_2 ; k++) {

@@ -19,15 +19,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 #include "extra_functions.c"
 
-void estimate_noise_spectrum(int noise_stat_choise,
-                             float* p2,
+void estimate_noise_spectrum(float* p2,
                              int type_noise_estimation,
-                             float* noise_print_min,
-                             float* noise_print_max,
-                             float* noise_print_avg,
-                             int count,
                              int fft_size_2,
-                             float* noise_spectrum){
+                             int count,
+                             float* noise_print_min,
+      											 float* noise_print_max,
+      											 float* noise_print_avg){
   int k;
   switch (type_noise_estimation){
     case 1:
@@ -43,21 +41,7 @@ void estimate_noise_spectrum(int noise_stat_choise,
         noise_print_avg[k] += (p2[k]-noise_print_avg[k])/count; //Moving average
       }
 
-      //time smoothing for each bin of the captured spectrum
-      for(k = 0 ; k <= fft_size_2 ; k++) {
-        switch(noise_stat_choise){
-          case 0:
-          noise_spectrum[k] = noise_print_max[k]; // max spectrum
-          break;
-          case 1:
-          noise_spectrum[k] = noise_print_min[k] + 0.5*(noise_print_max[k] - noise_print_min[k]); // geometric mean spectrum
-          break;
-          case 2:
-          noise_spectrum[k] = noise_print_avg[k]; // mean spectrum
-          break;
-        }
-      }
-      break;      
+      break;
     case 2:
       //Auto Capture
       break;

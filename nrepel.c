@@ -314,33 +314,33 @@ run(LV2_Handle instance, uint32_t n_samples) {
 			switch ((int) *(nrepel->capt_state)) {
 				case MANUAL_CAPTURE_ON_STATE:
 					//If selected estimate noise spectrum based on selected portion of signal
-					estimate_noise_spectrum(*(nrepel->noise_stat_choise),
-																	nrepel->fft_p2,
+					estimate_noise_spectrum(nrepel->fft_p2,
 																	1,
-																	nrepel->noise_print_min,
-																	nrepel->noise_print_max,
-																	nrepel->noise_print_avg,
-																	nrepel->avg_noise_count,
 																	nrepel->fft_size_2,
-																	nrepel->noise_spectrum);
+																	nrepel->avg_noise_count,
+																	nrepel->noise_print_min,
+					 											  nrepel->noise_print_max,
+					 											  nrepel->noise_print_avg);
 					break;
 				case ADAPTIVE_CAPTURE_STATE:
 					//if slected auto estimate noise spectrum and apply denoising
-					estimate_noise_spectrum(*(nrepel->noise_stat_choise),
-																	nrepel->fft_p2,
+					estimate_noise_spectrum(nrepel->fft_p2,
 																	2,
-																	nrepel->noise_print_min,
-																	nrepel->noise_print_max,
-																	nrepel->noise_print_avg,
-																	nrepel->avg_noise_count,
 																	nrepel->fft_size_2,
-																	nrepel->noise_spectrum);
+																	nrepel->avg_noise_count,
+																	nrepel->noise_print_min,
+					 											  nrepel->noise_print_max,
+					 											  nrepel->noise_print_avg);
 					//Compute denoising gain based on previously computed spectrum (manual or automatic)
 					denoise_gain(*(nrepel->denoise_method),
 											 *(nrepel->over_reduc),
 											 nrepel->fft_p2,
 											 nrepel->fft_p2_prev,
 											 nrepel->fft_size_2,
+											 *(nrepel->noise_stat_choise),
+											 nrepel->noise_print_min,
+											 nrepel->noise_print_max,
+											 nrepel->noise_print_avg,
 											 nrepel->Gk,
 											 nrepel->Gk_prev,
 											 nrepel->gain_prev,
@@ -363,6 +363,10 @@ run(LV2_Handle instance, uint32_t n_samples) {
 											 nrepel->fft_p2,
 											 nrepel->fft_p2_prev,
 											 nrepel->fft_size_2,
+											 *(nrepel->noise_stat_choise),
+											 nrepel->noise_print_min,
+											 nrepel->noise_print_max,
+											 nrepel->noise_print_avg,
 											 nrepel->Gk,
 											 nrepel->Gk_prev,
 											 nrepel->gain_prev,
