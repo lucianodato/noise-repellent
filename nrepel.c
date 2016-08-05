@@ -384,8 +384,12 @@ run(LV2_Handle instance, uint32_t n_samples) {
  							nrepel->output_fft_buffer[nrepel->fft_size-k] *= nrepel->Gk[k];
  					}
 
-					//Mix residual and processed 
-
+					//Mix residual and processed
+					for (k = 0; k <= nrepel->fft_size_2; k++) {
+						nrepel->output_fft_buffer[k] += nrepel->residual_spectrum[k]*(1.f/from_dB(*(nrepel->amount_reduc)));
+ 						if(k < nrepel->fft_size_2)
+ 							nrepel->output_fft_buffer[nrepel->fft_size-k] *= nrepel->residual_spectrum[k]*(1.f/from_dB(*(nrepel->amount_reduc)));
+ 					}
 
 					break;
 			}

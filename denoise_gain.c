@@ -75,16 +75,18 @@ void denoise_gain(int denoise_method,
 
   //Precalculation for Canazza-Mian Rule
   float rpost_sum = 0.f;
-  if (denoise_method == 2 && tmp_noise[k] > FLT_MIN){
+  if (denoise_method == 2){
     for (k = 0; k <= fft_size_2 ; k++) {
-      rpost_sum += MAX(p2[k]/noise_spectrum[k]-1.f, 0.f);
+      if (noise_spectrum[k] > FLT_MIN) {
+        rpost_sum += MAX(p2[k]/noise_spectrum[k]-1.f, 0.f);
+      }
     }
   }
 
   //Computing gain and applying the Reduction
   for (k = 0; k <= fft_size_2 ; k++) {
     gain = 0.f;
-    if (tmp_noise[k] > FLT_MIN){
+    if (noise_spectrum[k] > FLT_MIN){
       //We can compute gain if print was previously captured
       switch (denoise_method) {// supression rule
         case 0: // Wiener Filter
