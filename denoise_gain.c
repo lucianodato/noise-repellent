@@ -65,30 +65,36 @@ void denoise_gain(int denoise_method,
                   int* prev_frame) {
   int k;
   float gain, Fk;
+  float tmp_noise[fft_size_2+1];
+
+  //Scale noise based on reduction selected by the user
+  for (k = 0; k <= fft_size_2 ; k++) {
+      tmp_noise[k] = noise_spectrum[k] * (amount-1);
+  }
 
   //Precalculation for Canazza-Mian Rule
   float rpost_sum = 0.f;
-  if (denoise_method == 2){
+  if (denoise_method == 2 && tmp_noise[k] > FLT_MIN){
     for (k = 0; k <= fft_size_2 ; k++) {
-      rpost_sum += MAX(p2[k]/noise_spectrum[k]-1.f, 0.f);
+      rpost_sum += MAX(p2[k]/tmp_noise[k]-1.f, 0.f);
     }
   }
 
   //Computing gain and applying the Reduction
   for (k = 0; k <= fft_size_2 ; k++) {
     gain = 0.f;
-    if (noise_spectrum[k] > FLT_MIN){
+    if (tmp_noise[k] > FLT_MIN){
       //We can compute gain if print was previously captured
       switch (denoise_method) {// supression rule
         case 0: // Wiener Filter
-          gain = gain_weiner(p2[k], noise_spectrum[k]) ;
+          gain = gain_weiner(p2[k], tmp_noise[k]) ;
           break;
         case 1: // Power Subtraction
-          gain = gain_power_subtraction(p2[k], noise_spectrum[k]) ;
+          gain = gain_power_subtraction(p2[k], tmp_noise[k]) ;
           break;
         case 2:
           // Ephraim-Mallat - Using CMSR rule
-          float Rpost = MAX(p2[k]/noise_spectrum[k]-1.f, 0.f);
+          float Rpost = MAX(p2[k]/tmp_noise[k]-1.f, 0.f);
 
           float alpha;
           if (Rpost > 0.f && rpost_sum < 0.f){ // Canazza-Mian Condition
@@ -99,7 +105,7 @@ void denoise_gain(int denoise_method,
           float Rprio;
 
           if(*(prev_frame) == 1) {
-            Rprio = (1.f-alpha)*Rpost+alpha*gain_prev[k]*gain_prev[k]*p2_prev[k]/noise_spectrum[k];
+            Rprio = (1.f-alpha)*Rpost+alpha*gain_prev[k]*gain_prev[k]*p2_prev[k]/tmp_noise[k];
           }else{
             Rprio = Rpost;
           }
@@ -112,7 +118,8 @@ void denoise_gain(int denoise_method,
           break;
       }
 
-      Fk = amount*(1.f-gain);
+      //To avoid excesive distortion
+      Fk = (1.f-gain);
 
       if(Fk < 0.f) Fk = 0.f;
       if(Fk > 1.f) Fk = 1.f;
