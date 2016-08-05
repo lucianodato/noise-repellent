@@ -41,9 +41,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define DEFAULT_OVERLAP_FACTOR 4 //2 is 50% and 4 is 75% overlap
 
 //Denoise related options
-#define NOISE_STAT_CHOISE 2 //0 max 1 geometric mean 2 average
+#define NOISE_STAT_CHOISE 1 //0 max 1 geometric mean 2 average
 #define DENOISE_METHOD 2 //0 Wiener 1 Power Substraction 2 EM with CM
-#define ALPHA 0.98
+#define ALPHA 0.95
 
 ///---------------------------------------------------------------------
 
@@ -105,12 +105,14 @@ typedef struct {
 	float* noise_print_max; // The max noise spectrum computed by the captured signal
 	float* noise_print_avg; // The avg noise spectrum computed by the captured signal
 	float* noise_spectrum;
+	float* residual_spectrum;
 	int avg_noise_count;
 
 	float* Gk; //gain to be applied
+	float* Gk_prev; //last gain applied
 	float* gain_prev; //previously gain computed
-	float alpha;
-	int prev_frame;
+	float alpha;//for EM
+	int prev_frame;//for EM
 
 } Nrepel;
 
@@ -157,8 +159,10 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->noise_print_max = (float*)malloc(sizeof(float)*nrepel->fft_size);
 	nrepel->noise_print_avg = (float*)malloc(sizeof(float)*nrepel->fft_size);
 	nrepel->noise_spectrum = (float*)malloc(sizeof(float)*nrepel->fft_size);
+	nrepel->residual_spectrum = (float*)malloc(sizeof(float)*nrepel->fft_size);
 
 	nrepel->Gk = (float*)malloc(sizeof(float)*nrepel->fft_size);
+	nrepel->Gk_prev = (float*)malloc(sizeof(float)*nrepel->fft_size);
 	nrepel->gain_prev = (float*)malloc(sizeof(float)*nrepel->fft_size);
 
 	//Here we initialize arrays with zeros
@@ -175,7 +179,9 @@ instantiate(const LV2_Descriptor*     descriptor,
 	memset(nrepel->noise_print_max, 0, nrepel->fft_size*sizeof(float));
 	memset(nrepel->noise_print_avg, 0, nrepel->fft_size*sizeof(float));
 	memset(nrepel->noise_spectrum, 0, nrepel->fft_size*sizeof(float));
+	memset(nrepel->residual_spectrum, 0, nrepel->fft_size*sizeof(float));
 	memset(nrepel->Gk, 1, nrepel->fft_size*sizeof(float));
+	memset(nrepel->Gk_prev, 1, nrepel->fft_size*sizeof(float));
 	memset(nrepel->gain_prev, 1, nrepel->fft_size*sizeof(float));
 
 	fft_window(nrepel->window,nrepel->fft_size,nrepel->window_type); //Init window
@@ -241,7 +247,9 @@ run(LV2_Handle instance, uint32_t n_samples) {
 		memset(nrepel->noise_print_max, 0, nrepel->fft_size*sizeof(float));
 		memset(nrepel->noise_print_avg, 0, nrepel->fft_size*sizeof(float));
 		memset(nrepel->noise_spectrum, 0, nrepel->fft_size*sizeof(float));
+		memset(nrepel->residual_spectrum, 0, nrepel->fft_size*sizeof(float));
 		memset(nrepel->Gk, 1, nrepel->fft_size*sizeof(float));
+		memset(nrepel->Gk_prev, 1, nrepel->fft_size*sizeof(float));
 		memset(nrepel->gain_prev, 1, nrepel->fft_size*sizeof(float));
 		nrepel->prev_frame = 0;
 		*(nrepel->reset_print) = 0.f;
@@ -324,6 +332,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 											 nrepel->fft_p2_prev,
 											 nrepel->fft_size_2,
 											 nrepel->Gk,
+											 nrepel->Gk_prev,
 											 nrepel->gain_prev,
 											 nrepel->noise_spectrum,
 											 nrepel->alpha,
@@ -345,17 +354,38 @@ run(LV2_Handle instance, uint32_t n_samples) {
 											 nrepel->fft_p2_prev,
 											 nrepel->fft_size_2,
 											 nrepel->Gk,
+											 nrepel->Gk_prev,
 											 nrepel->gain_prev,
 											 nrepel->noise_spectrum,
 											 nrepel->alpha,
 											 &nrepel->prev_frame);
 
-					 //Apply the computed gain to the signal
+					//Post processing
+
+ 		      //Time smoothing of spectral gains
+ 		      float interpol_factor = 0.7;
+ 		      for (k = 0; k <= nrepel->fft_size_2; k++) {
+ 		        if (nrepel->Gk[k] > 0.f && nrepel->Gk[k] < 1.f) {
+ 		          nrepel->Gk[k] = (1.f-interpol_factor)*nrepel->Gk[k] + interpol_factor*nrepel->Gk_prev[k];
+ 		        }
+ 		      }
+
+					//Residual signal
+					for (k = 0; k <= nrepel->fft_size_2; k++) {
+						nrepel->residual_spectrum[k] = nrepel->output_fft_buffer[k] * nrepel->Gk[k];
+						if(k < nrepel->fft_size_2)
+							nrepel->residual_spectrum[nrepel->fft_size-k] *= nrepel->output_fft_buffer[k] * nrepel->Gk[k];
+					}
+
+					//Apply the computed gain to the signal
  					for (k = 0; k <= nrepel->fft_size_2; k++) {
 						nrepel->output_fft_buffer[k] *= nrepel->Gk[k];
  						if(k < nrepel->fft_size_2)
  							nrepel->output_fft_buffer[nrepel->fft_size-k] *= nrepel->Gk[k];
  					}
+
+					//Mix residual and processed 
+
 
 					break;
 			}

@@ -59,24 +59,25 @@ void denoise_gain(int denoise_method,
                   float* p2_prev,
                   int fft_size_2,
                   float* Gk,
+                  float* Gk_prev,
                   float* gain_prev,
                   float* noise_spectrum,
                   float alpha_set,
                   int* prev_frame) {
   int k;
   float gain, Fk;
-  float tmp_noise[fft_size_2+1];
 
-  //Scale noise based on reduction selected by the user
-  for (k = 0; k <= fft_size_2 ; k++) {
-      tmp_noise[k] = noise_spectrum[k] * (amount-1);
-  }
+  // //Scale noise based on reduction selected by the user
+  // float tmp_noise[fft_size_2+1];
+  // for (k = 0; k <= fft_size_2 ; k++) {
+  //     tmp_noise[k] = noise_spectrum[k] * (amount-1.f);
+  // }
 
   //Precalculation for Canazza-Mian Rule
   float rpost_sum = 0.f;
   if (denoise_method == 2 && tmp_noise[k] > FLT_MIN){
     for (k = 0; k <= fft_size_2 ; k++) {
-      rpost_sum += MAX(p2[k]/tmp_noise[k]-1.f, 0.f);
+      rpost_sum += MAX(p2[k]/noise_spectrum[k]-1.f, 0.f);
     }
   }
 
@@ -87,14 +88,14 @@ void denoise_gain(int denoise_method,
       //We can compute gain if print was previously captured
       switch (denoise_method) {// supression rule
         case 0: // Wiener Filter
-          gain = gain_weiner(p2[k], tmp_noise[k]) ;
+          gain = gain_weiner(p2[k], noise_spectrum[k]) ;
           break;
         case 1: // Power Subtraction
-          gain = gain_power_subtraction(p2[k], tmp_noise[k]) ;
+          gain = gain_power_subtraction(p2[k], noise_spectrum[k]) ;
           break;
         case 2:
           // Ephraim-Mallat - Using CMSR rule
-          float Rpost = MAX(p2[k]/tmp_noise[k]-1.f, 0.f);
+          float Rpost = MAX(p2[k]/noise_spectrum[k]-1.f, 0.f);
 
           float alpha;
           if (Rpost > 0.f && rpost_sum < 0.f){ // Canazza-Mian Condition
@@ -105,7 +106,7 @@ void denoise_gain(int denoise_method,
           float Rprio;
 
           if(*(prev_frame) == 1) {
-            Rprio = (1.f-alpha)*Rpost+alpha*gain_prev[k]*gain_prev[k]*p2_prev[k]/tmp_noise[k];
+            Rprio = (1.f-alpha)*Rpost+alpha*gain_prev[k]*gain_prev[k]*p2_prev[k]/noise_spectrum[k];
           }else{
             Rprio = Rpost;
           }
@@ -125,6 +126,8 @@ void denoise_gain(int denoise_method,
       if(Fk > 1.f) Fk = 1.f;
 
       Gk[k] =  1.f - Fk;
+      Gk_prev[k] = Gk[k];
+
     } else {
       //Otherwise we keep everything as is
       Gk[k] = 1.f;
