@@ -148,9 +148,9 @@ void denoise_gain(int denoise_method,
           Rpost = MAX(p2[k]/noise_spectrum[k]-1.f, 0.f);
 
           if (Rpost > 0.f) {
-            alpha = alpha_set;
+            alpha = alpha_set; //EM like when Posteriori estimation is null
           } else {
-            alpha = 0.f;
+            alpha = 0.f; //Wiener like punctual supression when Posteriori estimation is not null
           }
 
           if(*(prev_frame) == 1) {
