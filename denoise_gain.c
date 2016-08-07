@@ -190,7 +190,7 @@ void denoise_gain(int denoise_method,
           break;
       }
 
-      //To avoid excesive distortion
+      //To avoid excesive distortion limit gain to be applied
       Fk = over_reduc*(1.f-gain);
 
       if(Fk < 0.f) Fk = 0.f;
