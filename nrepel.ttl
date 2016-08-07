@@ -65,8 +65,8 @@
     lv2:symbol "denoisemethod";
     lv2:name "Denoise algorithm";
     lv2:minimum 0.0 ;
-    lv2:maximum 2.0 ;
-    lv2:default 2.0 ;
+    lv2:maximum 3.0 ;
+    lv2:default 3.0 ;
     lv2:portProperty lv2:enumeration, lv2:integer;
     lv2:scalePoint [
     	rdfs:label "Wiener";
@@ -77,6 +77,9 @@
 		] , [
 		  rdfs:label "Ephraim-Mallat";
 		  rdf:value 2
+		] , [
+		  rdfs:label "CMSR";
+		  rdf:value 3
 		]
   ], [
     a lv2:ControlPort, lv2:InputPort;

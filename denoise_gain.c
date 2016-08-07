@@ -86,7 +86,7 @@ void denoise_gain(int denoise_method,
                   float alpha_set,
                   int* prev_frame) {
   int k;
-  float gain, Fk;
+  float gain, Fk, Rpost, Rprio, alpha;
 
   //----------------------PREPROCESSING-----------------------
 
@@ -129,11 +129,32 @@ void denoise_gain(int denoise_method,
           break;
         case 2:
           // Ephraim-Mallat
-          float Rpost = MAX(p2[k]/noise_spectrum[k]-1.f, 0.f);
+          Rpost = MAX(p2[k]/noise_spectrum[k]-1.f, 0.f);
 
-          float Rprio;
           if(*(prev_frame) == 1) {
             Rprio = (1.f-alpha_set)*Rpost + alpha_set*gain_prev[k]*gain_prev[k]*(p2_prev[k]/noise_spectrum[k]);
+          }else{
+            Rprio = Rpost;
+          }
+
+          gain = gain_em(Rprio, Rpost);
+
+          p2_prev[k] = p2[k];
+          gain_prev[k] = gain;
+          *(prev_frame) = 1;
+          break;
+        case 3:
+          // CMSR (modified EM)
+          Rpost = MAX(p2[k]/noise_spectrum[k]-1.f, 0.f);
+
+          if (Rpost > 0.f) {
+            alpha = alpha_set;
+          } else {
+            alpha = 0.f;
+          }
+
+          if(*(prev_frame) == 1) {
+            Rprio = (1.f-alpha)*Rpost + alpha*gain_prev[k]*gain_prev[k]*(p2_prev[k]/noise_spectrum[k]);
           }else{
             Rprio = Rpost;
           }
