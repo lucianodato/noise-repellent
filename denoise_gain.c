@@ -39,42 +39,6 @@ static float min_spectral_value(float* noise_print, int N){
   return min;
 }
 
-// //Spectral smoothing (Based on Audacity code)
-// static void gain_spectral_smoothing(float* gain_spectrum, float* gains, int smoothing_bins,int N){
-//   int k;
-//   float smoothing_tmp[N+1];
-//   int middle_bin = N/4;
-//
-//   //Initialize smothingbins_tmp
-//   for (k = 0; k <= N; ++k) {
-//     gains[k] = log(gain_spectrum);
-//     smoothing_tmp[k] = 0.f;
-//   }
-//
-//   //do not smooth up to the middle bin not even DC
-//   for (k = 0; k < middle_bin; ++k) {
-//     smoothing_tmp[k] = gain_spectrum[k];
-//   }
-//
-//   for (k = middle_bin; k < N; ++k) {
-//     const int j0 = MAX(middle_bin, k - smoothing_bins);
-//     const int j1 = MIN(N, k + smoothing_bins);
-//     for(int l = j0; l <= j1; ++l) {
-//        smoothing_tmp[k] += gain_spectrum[l];
-//     }
-//     smoothing_tmp[k] /= (j1 - j0 + 1);
-//   }
-//
-//   for (k = 0; k <= N; ++k){
-//     //if (gain_spectrum[k] < 1.f) {
-//       gain_spectrum[k] = smoothing_tmp[k];
-//   		if(k < N)
-//   			gain_spectrum[N-k] = smoothing_tmp[k];
-//     //}
-//   }
-// }
-
-
 static float gain_weiner(float Yk2, float Dk2) {
   float gain;
   float Xk2 = Yk2 - Dk2;
@@ -126,7 +90,7 @@ void denoise_gain(int denoise_method,
 
   //----------------------PREPROCESSING-----------------------
 
-  //NOISE SPECTUM COMSTRUCTIOM BASED ON STATISTICS
+  //NOISE SPECTUM COMSTRUCTIOM BASED ON STATISTICS SELECTED
 
   //time smoothing for each bin of the captured spectrum
   for(k = 0 ; k <= fft_size_2 ; k++) {
@@ -164,20 +128,12 @@ void denoise_gain(int denoise_method,
           gain = gain_power_subtraction(p2[k], noise_spectrum[k]) ;
           break;
         case 2:
-          // Ephraim-Mallat - Using CMSR rule
+          // Ephraim-Mallat
           float Rpost = MAX(p2[k]/noise_spectrum[k]-1.f, 0.f);
 
-          float alpha;
-          if (Rpost > 0.f){ // Canazza-Mian Condition
-            alpha = alpha_set; // Traditional EM when Rpost is high
-          }else{
-            alpha = 0.f; //Wiener like when low Rpost
-          }
-
           float Rprio;
-
           if(*(prev_frame) == 1) {
-            Rprio = (1.f-alpha)*Rpost + alpha*gain_prev[k]*gain_prev[k]*(p2_prev[k]/noise_spectrum[k]);
+            Rprio = (1.f-alpha_set)*Rpost + alpha_set*gain_prev[k]*gain_prev[k]*(p2_prev[k]/noise_spectrum[k]);
           }else{
             Rprio = Rpost;
           }
