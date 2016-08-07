@@ -6,7 +6,7 @@ For debian based systems you will need this packages to compile: lv2-dev lv2-c++
 
 Compiling instructions: make and make install then
 
-This plugin is intended to use with Ardour. The plugin introduce latency so it only can be used on tracks in Ardour and not in busses.
+This plugin is intended to be used with Ardour. The plugin introduce latency so it only can be used on tracks in Ardour and not in busses.
 It's a work in progress so don't expect it to be like the best comercial options.
 
 To use it you first have to select a section of noise in your track and play it looped
