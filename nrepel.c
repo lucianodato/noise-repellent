@@ -413,7 +413,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 						for (k = 0; k <= nrepel->fft_size_2; k++) {
 							nrepel->output_fft_buffer[k] = nrepel->residual_spectrum[k];
 	 						if(k < nrepel->fft_size_2)
-	 							nrepel->output_fft_buffer[nrepel->fft_size-k] *= nrepel->residual_spectrum[nrepel->fft_size-k];
+	 							nrepel->output_fft_buffer[nrepel->fft_size-k] = nrepel->residual_spectrum[nrepel->fft_size-k];
 	 					}
 					}
 
