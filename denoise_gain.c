@@ -39,6 +39,42 @@ static float min_spectral_value(float* noise_print, int N){
   return min;
 }
 
+// //Spectral smoothing (Based on Audacity code)
+// static void gain_spectral_smoothing(float* gain_spectrum, float* gains, int smoothing_bins,int N){
+//   int k;
+//   float smoothing_tmp[N+1];
+//   int middle_bin = N/4;
+//
+//   //Initialize smothingbins_tmp
+//   for (k = 0; k <= N; ++k) {
+//     gains[k] = log(gain_spectrum);
+//     smoothing_tmp[k] = 0.f;
+//   }
+//
+//   //do not smooth up to the middle bin not even DC
+//   for (k = 0; k < middle_bin; ++k) {
+//     smoothing_tmp[k] = gain_spectrum[k];
+//   }
+//
+//   for (k = middle_bin; k < N; ++k) {
+//     const int j0 = MAX(middle_bin, k - smoothing_bins);
+//     const int j1 = MIN(N, k + smoothing_bins);
+//     for(int l = j0; l <= j1; ++l) {
+//        smoothing_tmp[k] += gain_spectrum[l];
+//     }
+//     smoothing_tmp[k] /= (j1 - j0 + 1);
+//   }
+//
+//   for (k = 0; k <= N; ++k){
+//     //if (gain_spectrum[k] < 1.f) {
+//       gain_spectrum[k] = smoothing_tmp[k];
+//   		if(k < N)
+//   			gain_spectrum[N-k] = smoothing_tmp[k];
+//     //}
+//   }
+// }
+
+
 static float gain_weiner(float Yk2, float Dk2) {
   float gain;
   float Xk2 = Yk2 - Dk2;
@@ -79,7 +115,6 @@ void denoise_gain(int denoise_method,
                   int noise_stat_choise,
                   float* noise_print_min,
                   float* noise_print_max,
-                  float* noise_print_avg,
                   float* Gk,
                   float* Gk_prev,
                   float* gain_prev,
@@ -89,6 +124,10 @@ void denoise_gain(int denoise_method,
   int k;
   float gain, Fk;
 
+  //----------------------PREPROCESSING-----------------------
+
+  //NOISE SPECTUM COMSTRUCTIOM BASED ON STATISTICS
+
   //time smoothing for each bin of the captured spectrum
   for(k = 0 ; k <= fft_size_2 ; k++) {
     switch(noise_stat_choise){
@@ -97,9 +136,6 @@ void denoise_gain(int denoise_method,
       break;
       case 1:
       noise_spectrum[k] = noise_print_min[k] + 0.5*(noise_print_max[k] - noise_print_min[k]); // geometric mean spectrum
-      break;
-      case 2:
-      noise_spectrum[k] = noise_print_avg[k]; // mean spectrum
       break;
     }
   }
@@ -115,8 +151,7 @@ void denoise_gain(int denoise_method,
     noise_spectrum[k] *= overall_max;
   }
 
-
-  //Computing gain and applying the Reduction
+  //Computing gain for selected algorithm
   for (k = 0; k <= fft_size_2 ; k++) {
     gain = 0.f;
     if (noise_spectrum[k] > FLT_MIN){
@@ -134,15 +169,15 @@ void denoise_gain(int denoise_method,
 
           float alpha;
           if (Rpost > 0.f){ // Canazza-Mian Condition
-            alpha = alpha_set; // Wiener like
+            alpha = alpha_set; // Traditional EM when Rpost is high
           }else{
-            alpha = 0.f; // Traditional EM
+            alpha = 0.f; //Wiener like when low Rpost
           }
 
           float Rprio;
 
           if(*(prev_frame) == 1) {
-            Rprio = (1.f-alpha)*Rpost+alpha*gain_prev[k]*gain_prev[k]*p2_prev[k]/noise_spectrum[k];
+            Rprio = (1.f-alpha)*Rpost + alpha*gain_prev[k]*gain_prev[k]*(p2_prev[k]/noise_spectrum[k]);
           }else{
             Rprio = Rpost;
           }
@@ -169,4 +204,5 @@ void denoise_gain(int denoise_method,
       Gk[k] = 1.f;
     }
   } //for
+
 }

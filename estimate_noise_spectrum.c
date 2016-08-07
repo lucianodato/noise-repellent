@@ -22,23 +22,17 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 void estimate_noise_spectrum(float* p2,
                              int type_noise_estimation,
                              int fft_size_2,
-                             int count,
                              float* noise_print_min,
-      											 float* noise_print_max,
-      											 float* noise_print_avg){
+      											 float* noise_print_max){
   int k;
   switch (type_noise_estimation){
     case 1:
       //Manual Capture
 
-      //Increment number of windows processed to correctly average
-      count++;
-
-      //get min max and average of thes power spectrum
+      //get min max of the power spectrum
       for(k = 0 ; k <= fft_size_2 ; k++) {
         noise_print_min[k] = MIN(noise_print_min[k], p2[k]);
         noise_print_max[k] = MAX(noise_print_max[k], p2[k]);
-        noise_print_avg[k] += (p2[k]-noise_print_avg[k])/count; //Moving average
       }
 
       break;

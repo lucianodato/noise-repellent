@@ -36,15 +36,15 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define ADAPTIVE_CAPTURE_STATE 2
 
 //STFT default values
-#define DEFAULT_FFT_SIZE 1024 //max is 8192
+#define DEFAULT_FFT_SIZE 2048 //max should be 8192 otherwise is too expensive
 #define DEFAULT_WINDOW_TYPE 2 //0 Hann 1 Hamming 2 Blackman
 #define DEFAULT_OVERLAP_FACTOR 4 //2 is 50% and 4 is 75% overlap
 
 //Denoise related options
-#define NOISE_STAT_CHOISE 1 //0 max 1 geometric mean 2 average
-#define DENOISE_METHOD 2 //0 Wiener 1 Power Substraction 2 EM with CM
+// #define NOISE_STAT_CHOISE 1 //0 max 1 geometric mean 2 average
+// #define DENOISE_METHOD 2 //0 Wiener 1 Power Substraction 2 EM with CM
 #define ALPHA 0.98 //For EM denoising
-#define WA 0.5 //For spectral whitening 0-1
+#define WA 0.05 //For spectral whitening 0-1
 
 ///---------------------------------------------------------------------
 
@@ -56,13 +56,12 @@ typedef enum {
 	NREPEL_METHOD = 2,
 	NREPEL_AMOUNT = 3,
 	NREPEL_OVERRED = 4,
-	NREPEL_GAIN_TIME_SMOOTH = 5,
-	NREPEL_LATENCY = 6,
-	NREPEL_WHITENING = 7,
-	NREPEL_RESET = 8,
-	NREPEL_NOISE_LISTEN = 9,
-	NREPEL_INPUT  = 10,
-	NREPEL_OUTPUT = 11,
+	NREPEL_LATENCY = 5,
+	NREPEL_WHITENING = 6,
+	NREPEL_RESET = 7,
+	NREPEL_NOISE_LISTEN = 8,
+	NREPEL_INPUT  = 9,
+	NREPEL_OUTPUT = 10,
 } PortIndex;
 
 typedef struct {
@@ -79,7 +78,6 @@ typedef struct {
 	float* noise_listen; //For noise only listening
 	float* noise_stat_choise; //Choise of statistic to use for noise spectrum
 	float* denoise_method; //Choise of denoise method
-	float* gain_t_smooth; //Time smoothing for spectral gains
 	float* residue_whitening; //Whitening of the residual spectrum
 
 	//Parameters for the STFT
@@ -112,14 +110,13 @@ typedef struct {
 	float max_float;
 	float* noise_print_min; // The min noise spectrum computed by the captured signal
 	float* noise_print_max; // The max noise spectrum computed by the captured signal
-	float* noise_print_avg; // The avg noise spectrum computed by the captured signal
 	float* noise_spectrum;
 	float* residual_spectrum;
-	int avg_noise_count;
 
 	float* Gk; //gain to be applied
 	float* Gk_prev; //last gain applied
 	float* gain_prev; //previously gain computed
+	float* tappering_window;
 	float alpha;//for EM
 	int prev_frame;//for EM
 
@@ -141,7 +138,6 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->max_float = FLT_MAX;
 	nrepel->alpha = ALPHA;
 	nrepel->prev_frame = 0;
-	nrepel->avg_noise_count = 0;
 
 	nrepel->fft_size_2 = nrepel->fft_size/2;
 	nrepel->hop = nrepel->fft_size/nrepel->overlap_factor;
@@ -164,13 +160,13 @@ instantiate(const LV2_Descriptor*     descriptor,
 
 	nrepel->noise_print_min = (float*)malloc(sizeof(float)*nrepel->fft_size);
 	nrepel->noise_print_max = (float*)malloc(sizeof(float)*nrepel->fft_size);
-	nrepel->noise_print_avg = (float*)malloc(sizeof(float)*nrepel->fft_size);
 	nrepel->noise_spectrum = (float*)malloc(sizeof(float)*nrepel->fft_size);
 	nrepel->residual_spectrum = (float*)malloc(sizeof(float)*nrepel->fft_size);
 
 	nrepel->Gk = (float*)malloc(sizeof(float)*nrepel->fft_size);
 	nrepel->Gk_prev = (float*)malloc(sizeof(float)*nrepel->fft_size);
 	nrepel->gain_prev = (float*)malloc(sizeof(float)*nrepel->fft_size);
+	nrepel->tappering_window = (float*)malloc(sizeof(float)*nrepel->fft_size);
 
 	//Here we initialize arrays with zeros
 	memset(nrepel->in_fifo, 0, nrepel->fft_size*sizeof(float));
@@ -184,7 +180,6 @@ instantiate(const LV2_Descriptor*     descriptor,
 
 	memset(nrepel->noise_print_min, nrepel->max_float, nrepel->fft_size*sizeof(float));
 	memset(nrepel->noise_print_max, 0, nrepel->fft_size*sizeof(float));
-	memset(nrepel->noise_print_avg, 0, nrepel->fft_size*sizeof(float));
 	memset(nrepel->noise_spectrum, 0, nrepel->fft_size*sizeof(float));
 	memset(nrepel->residual_spectrum, 0, nrepel->fft_size*sizeof(float));
 	memset(nrepel->Gk, 1, nrepel->fft_size*sizeof(float));
@@ -192,6 +187,7 @@ instantiate(const LV2_Descriptor*     descriptor,
 	memset(nrepel->gain_prev, 1, nrepel->fft_size*sizeof(float));
 
 	fft_window(nrepel->window,nrepel->fft_size,nrepel->window_type); //Init window
+	tappering_window_calc(nrepel->tappering_window,nrepel->fft_size); //Tappering window
 
 	return (LV2_Handle)nrepel;
 }
@@ -219,9 +215,6 @@ connect_port(LV2_Handle instance,
 		break;
 		case NREPEL_OVERRED:
 		nrepel->over_reduc = (float*)data;
-		break;
-		case NREPEL_GAIN_TIME_SMOOTH:
-		nrepel->gain_t_smooth = (float*)data;
 		break;
 		case NREPEL_LATENCY:
 		nrepel->report_latency = (float*)data;
@@ -264,15 +257,12 @@ run(LV2_Handle instance, uint32_t n_samples) {
 	if (*(nrepel->reset_print) == 1.f) {
 		memset(nrepel->noise_print_min, nrepel->max_float, nrepel->fft_size*sizeof(float));
 		memset(nrepel->noise_print_max, 0, nrepel->fft_size*sizeof(float));
-		memset(nrepel->noise_print_avg, 0, nrepel->fft_size*sizeof(float));
 		memset(nrepel->noise_spectrum, 0, nrepel->fft_size*sizeof(float));
 		memset(nrepel->residual_spectrum, 0, nrepel->fft_size*sizeof(float));
 		memset(nrepel->Gk, 1, nrepel->fft_size*sizeof(float));
 		memset(nrepel->Gk_prev, 1, nrepel->fft_size*sizeof(float));
 		memset(nrepel->gain_prev, 1, nrepel->fft_size*sizeof(float));
 		nrepel->prev_frame = 0;
-		//*(nrepel->reset_print) = 0.f;
-		nrepel->avg_noise_count = 0;
 	}
 
 	//main loop for processing
@@ -297,6 +287,8 @@ run(LV2_Handle instance, uint32_t n_samples) {
 			//----------FFT Analysis------------
 			//Do transform
 			fftwf_execute(nrepel->forward);
+
+			//-----------GET INFO FROM BINS--------------
 
 			//Get the positive spectrum and compute magnitude and phase response
 			for (k = 0; k <= nrepel->fft_size_2; k++){
@@ -326,20 +318,16 @@ run(LV2_Handle instance, uint32_t n_samples) {
 					estimate_noise_spectrum(nrepel->fft_p2,
 																	1,
 																	nrepel->fft_size_2,
-																	nrepel->avg_noise_count,
 																	nrepel->noise_print_min,
-					 											  nrepel->noise_print_max,
-					 											  nrepel->noise_print_avg);
+					 											  nrepel->noise_print_max);
 					break;
 				case ADAPTIVE_CAPTURE_STATE:
 					//if slected auto estimate noise spectrum and apply denoising
 					estimate_noise_spectrum(nrepel->fft_p2,
 																	2,
 																	nrepel->fft_size_2,
-																	nrepel->avg_noise_count,
 																	nrepel->noise_print_min,
-					 											  nrepel->noise_print_max,
-					 											  nrepel->noise_print_avg);
+					 											  nrepel->noise_print_max);
 					//Compute denoising gain based on previously computed spectrum (manual or automatic)
 					denoise_gain(*(nrepel->denoise_method),
 											 *(nrepel->over_reduc),
@@ -349,7 +337,6 @@ run(LV2_Handle instance, uint32_t n_samples) {
 											 *(nrepel->noise_stat_choise),
 											 nrepel->noise_print_min,
 											 nrepel->noise_print_max,
-											 nrepel->noise_print_avg,
 											 nrepel->Gk,
 											 nrepel->Gk_prev,
 											 nrepel->gain_prev,
@@ -375,49 +362,12 @@ run(LV2_Handle instance, uint32_t n_samples) {
 											 *(nrepel->noise_stat_choise),
 											 nrepel->noise_print_min,
 											 nrepel->noise_print_max,
-											 nrepel->noise_print_avg,
 											 nrepel->Gk,
 											 nrepel->Gk_prev,
 											 nrepel->gain_prev,
 											 nrepel->noise_spectrum,
 											 nrepel->alpha,
 											 &nrepel->prev_frame);
-
-					//Post processing
-
- 		      //Time smoothing of spectral gains (linear interpolation with previous)
- 		      for (k = 0; k <= nrepel->fft_size_2; k++) {
- 		        if (nrepel->Gk[k] > 0.f && nrepel->Gk[k] < 1.f) {
- 		          nrepel->Gk[k] = (1.f - *(nrepel->gain_t_smooth))*nrepel->Gk[k] + *(nrepel->gain_t_smooth) * nrepel->Gk_prev[k];
- 		        }
- 		      }
-
-					// //Gain spectral smoothing (Based on Audacity code)
-					// float smothingbins = 3.f;
-					// float smoothing_tmp[nrepel->fft_size_2+1];
-					// for (k = 0; k <= nrepel->fft_size_2; k++) {
-					// 		nrepel->Gk[k] = logf(nrepel->Gk[k]);
-					// 		smoothing_tmp[k] = 0.f;
-					// 		if(k < nrepel->fft_size_2){
-					// 			nrepel->Gk[nrepel->fft_size-k] = logf(nrepel->Gk[k]);
-					// 			smoothing_tmp[nrepel->fft_size-k] = 0.f;
-					// 		}
-					// }
-					//
-				  // for (k = 0; k <= nrepel->fft_size_2; k++) {
-			    //   const int j0 = MAX(0, k - smothingbins);
-			    //   const int j1 = MIN(nrepel->fft_size_2 - 1, k + smothingbins);
-			    //   for(int l = j0; l <= j1; l++) {
-			    //      smoothing_tmp[k] += nrepel->Gk[l];
-			    //   }
-			    //   smoothing_tmp[k] /= (j1 - j0 + 1);
-			  	// }
-					//
-					// for (k = 0; k <= nrepel->fft_size_2; k++){
-					// 		nrepel->Gk[k] = expf(smoothing_tmp[k]);
-					// 		if(k < nrepel->fft_size_2)
-					// 			nrepel->Gk[nrepel->fft_size-k] = expf(smoothing_tmp[k]);
-					// }
 
 					//APPLY REDUCTION
 
@@ -435,7 +385,11 @@ run(LV2_Handle instance, uint32_t n_samples) {
 						for (k = 0; k <= nrepel->fft_size_2; k++) {
 							if (nrepel->residual_spectrum[k] > FLT_MIN){
 								nrepel->residual_spectrum[k] /= powf((nrepel->noise_spectrum[k]/(tmp_max-tmp_min)),WA);
-								nrepel->residual_spectrum[k] *= powf(nrepel->window[k],WA);
+								nrepel->residual_spectrum[k] *= powf(nrepel->tappering_window[k],WA);//Half hann window tappering in favor of high frequencies
+								if(k < nrepel->fft_size_2) {
+									nrepel->residual_spectrum[nrepel->fft_size-k] /= powf((nrepel->noise_spectrum[k]/(tmp_max-tmp_min)),WA);
+									nrepel->residual_spectrum[nrepel->fft_size-k] *= powf(nrepel->tappering_window[k],WA);
+								}
 							}
 						}
 					}
@@ -462,7 +416,6 @@ run(LV2_Handle instance, uint32_t n_samples) {
 	 							nrepel->output_fft_buffer[nrepel->fft_size-k] *= nrepel->residual_spectrum[nrepel->fft_size-k];
 	 					}
 					}
-
 
 					break;
 			}

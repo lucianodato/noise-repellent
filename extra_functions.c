@@ -95,3 +95,11 @@ void fft_window(float* window, int N, int window_type) {
     window[k] /= sum_values; //Normalized Window
   }
 }
+
+//unnormalized Hann windows for whitening tappering
+void tappering_window_calc(float* window, int N) {
+  int k;
+  for (k = 0; k < N; k++){
+    window[k]  = hanning(k, N);
+  }
+}
