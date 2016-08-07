@@ -39,6 +39,9 @@
 		] , [
 		  rdfs:label "ON";
 		  rdf:value 1
+		] , [
+		  rdfs:label "ADAPTIVE";
+		  rdf:value 2
 		]
   ], [
     a lv2:ControlPort, lv2:InputPort;

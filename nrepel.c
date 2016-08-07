@@ -318,25 +318,26 @@ run(LV2_Handle instance, uint32_t n_samples) {
 					estimate_noise_spectrum(nrepel->fft_p2,
 																	1,
 																	nrepel->fft_size_2,
+																	nrepel->noise_spectrum,
 																	nrepel->noise_print_min,
-					 											  nrepel->noise_print_max);
+					 											  nrepel->noise_print_max,
+																	*(nrepel->noise_stat_choise));
 					break;
 				case ADAPTIVE_CAPTURE_STATE:
 					//if slected auto estimate noise spectrum and apply denoising
 					estimate_noise_spectrum(nrepel->fft_p2,
 																	2,
 																	nrepel->fft_size_2,
+																	nrepel->noise_spectrum,
 																	nrepel->noise_print_min,
-					 											  nrepel->noise_print_max);
+					 											  nrepel->noise_print_max,
+																	*(nrepel->noise_stat_choise));
 					//Compute denoising gain based on previously computed spectrum (manual or automatic)
 					denoise_gain(*(nrepel->denoise_method),
 											 *(nrepel->over_reduc),
 											 nrepel->fft_p2,
 											 nrepel->fft_p2_prev,
 											 nrepel->fft_size_2,
-											 *(nrepel->noise_stat_choise),
-											 nrepel->noise_print_min,
-											 nrepel->noise_print_max,
 											 nrepel->Gk,
 											 nrepel->Gk_prev,
 											 nrepel->gain_prev,
@@ -359,9 +360,6 @@ run(LV2_Handle instance, uint32_t n_samples) {
 											 nrepel->fft_p2,
 											 nrepel->fft_p2_prev,
 											 nrepel->fft_size_2,
-											 *(nrepel->noise_stat_choise),
-											 nrepel->noise_print_min,
-											 nrepel->noise_print_max,
 											 nrepel->Gk,
 											 nrepel->Gk_prev,
 											 nrepel->gain_prev,
