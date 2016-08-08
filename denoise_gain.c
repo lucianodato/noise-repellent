@@ -204,8 +204,6 @@ void denoise_gain(int denoise_method,
             alpha = 0.f; //Wiener like punctual supression when Posteriori estimation is not null
           }
 
-          alpha = alpha_set;
-
           if(*(prev_frame) == 1) {
             Rprio = (1.f-alpha)*Rpost + alpha*gain_prev[k]*gain_prev[k]*(p2_prev[k]/noise_spectrum[k]);
           }else{
@@ -225,15 +223,16 @@ void denoise_gain(int denoise_method,
       }
 
       //Apply over sustraction - This is intended to be used with powerspectrum
-      //sustraction but it works with Wiener and EM or CMSR too
-      //To avoid excesive distortion limit gain to be applied
+      //sustraction but it works with Wiener too
+
+      //Limit gain to be applied
       Fk = over_reduc*(1.f-gain);
 
       if(Fk < 0.f) Fk = 0.f;
       if(Fk > 1.f) Fk = 1.f;
 
       Gk[k] =  1.f - Fk;
-      //Gk_prev[k] = Gk[k];
+      Gk_prev[k] = Gk[k];
 
     } else {
       //Otherwise we keep everything as is

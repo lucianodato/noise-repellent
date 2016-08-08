@@ -94,91 +94,97 @@ static void estimate_noise_loizou(float thresh,
   }
 }
 
-void estimate_noise_spectrum(float* p2,
-                             int type_noise_estimation,
+//Manual Capture
+void estimate_noise_spectrum_manual(float* p2,
                              int fft_size_2,
                              float* noise_spectrum,
                              float* noise_print_min,
       											 float* noise_print_max,
                              int noise_stat_choise,
-                             float thresh,
-                             float* prev_noise,
-                             float* s_pow_spec,
-                             float* prev_s_pow_spec,
-                             float* p_min,
-                             float* prev_p_min,
-                             float* speech_p_p,
-                             float* prev_speech_p_p,
                              float wa,
                              float* whitening_spectrum){
   int k;
   float overall_max, max_value;
 
-  switch (type_noise_estimation){
-    case MANUAL:
-      //Manual Capture
+  //get min max of the power spectrum
+  for(k = 0 ; k <= fft_size_2 ; k++) {
+    noise_print_min[k] = MIN(noise_print_min[k], p2[k]);
+    noise_print_max[k] = MAX(noise_print_max[k], p2[k]);
+  }
 
-      //get min max of the power spectrum
-      for(k = 0 ; k <= fft_size_2 ; k++) {
-        noise_print_min[k] = MIN(noise_print_min[k], p2[k]);
-        noise_print_max[k] = MAX(noise_print_max[k], p2[k]);
-      }
+  //NOISE SPECTUM COMSTRUCTIOM BASED ON STATISTICS SELECTED
 
-      //NOISE SPECTUM COMSTRUCTIOM BASED ON STATISTICS SELECTED
-
-      //time smoothing for each bin of the captured spectrum
-      for(k = 0 ; k <= fft_size_2 ; k++) {
-        switch(noise_stat_choise){
-          case 0:
-          noise_spectrum[k] = noise_print_max[k]; // max spectrum
-          break;
-          case 1:
-          noise_spectrum[k] = noise_print_min[k] + 0.5*(noise_print_max[k] - noise_print_min[k]); // geometric mean spectrum
-          break;
-        }
-      }
-
-      //Find max value of all noise vectors
-      overall_max = max_spectral_value(noise_print_max,fft_size_2);
-      max_value = max_spectral_value(noise_spectrum,fft_size_2);
-
-      //Normalize noise spectrum (to get the same level while changing statistic)
-      for(k = 0 ; k <= fft_size_2 ; k++) {
-        noise_spectrum[k] /= max_value;
-        //Rescale it based on overall max_value
-        noise_spectrum[k] *= overall_max;
-      }
-
+  //time smoothing for each bin of the captured spectrum
+  for(k = 0 ; k <= fft_size_2 ; k++) {
+    switch(noise_stat_choise){
+      case 0:
+      noise_spectrum[k] = noise_print_max[k]; // max spectrum
       break;
-    case ADAPTIVE:
-      //Adaptive noise estimation
-      estimate_noise_loizou(thresh,
-                            fft_size_2,
-                            p2,
-                            s_pow_spec,
-                            prev_s_pow_spec,
-                            noise_spectrum,
-                            prev_noise,
-                            p_min,
-                            prev_p_min,
-                            speech_p_p,
-                            prev_speech_p_p);
-
-      //Update previous variables
-      for(k = 0 ; k <= fft_size_2 ; k++) {
-        prev_noise[k] = noise_spectrum[k];
-        prev_s_pow_spec[k] = s_pow_spec[k];
-        prev_p_min[k] = p_min[k];
-        prev_speech_p_p[k] = speech_p_p[k];
-      }
-
+      case 1:
+      noise_spectrum[k] = noise_print_min[k] + 0.5*(noise_print_max[k] - noise_print_min[k]); // geometric mean spectrum
       break;
+    }
+  }
+
+  //Find max value of all noise vectors
+  overall_max = max_spectral_value(noise_print_max,fft_size_2);
+  max_value = max_spectral_value(noise_spectrum,fft_size_2);
+
+  //Normalize noise spectrum (to get the same level while changing statistic)
+  for(k = 0 ; k <= fft_size_2 ; k++) {
+    noise_spectrum[k] /= max_value;
+    //Rescale it based on overall max_value
+    noise_spectrum[k] *= overall_max;
   }
 
   //Residue Whitening precalculations
   float tmp_min = min_spectral_value(noise_spectrum,fft_size_2);
   float tmp_max = max_spectral_value(noise_spectrum,fft_size_2);
   for (k = 0; k <= fft_size_2; k++) {
-    whitening_spectrum[k] = powf((noise_spectrum[k]/(tmp_max-tmp_min)),wa);
+    whitening_spectrum[k] = pow((noise_spectrum[k]/(tmp_max-tmp_min)),wa);
+  }
+}
+
+//Adaptive noise estimation
+void estimate_noise_spectrum_adaptive(float* p2,
+                                      int fft_size_2,
+                                      float* noise_spectrum,
+                                      float thresh,
+                                      float* prev_noise,
+                                      float* s_pow_spec,
+                                      float* prev_s_pow_spec,
+                                      float* p_min,
+                                      float* prev_p_min,
+                                      float* speech_p_p,
+                                      float* prev_speech_p_p,
+                                      float wa,
+                                      float* whitening_spectrum){
+  int k;
+
+  estimate_noise_loizou(thresh,
+                        fft_size_2,
+                        p2,
+                        s_pow_spec,
+                        prev_s_pow_spec,
+                        noise_spectrum,
+                        prev_noise,
+                        p_min,
+                        prev_p_min,
+                        speech_p_p,
+                        prev_speech_p_p);
+
+  //Update previous variables
+  for(k = 0 ; k <= fft_size_2 ; k++) {
+    prev_noise[k] = noise_spectrum[k];
+    prev_s_pow_spec[k] = s_pow_spec[k];
+    prev_p_min[k] = p_min[k];
+    prev_speech_p_p[k] = speech_p_p[k];
+  }
+
+  //Residue Whitening precalculations
+  float tmp_min = min_spectral_value(noise_spectrum,fft_size_2);
+  float tmp_max = max_spectral_value(noise_spectrum,fft_size_2);
+  for (k = 0; k <= fft_size_2; k++) {
+    whitening_spectrum[k] = pow((noise_spectrum[k]/(tmp_max-tmp_min)),wa);
   }
 }

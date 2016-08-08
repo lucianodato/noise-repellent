@@ -49,7 +49,7 @@ inline int sign(float x) {
 }
 
 inline float from_dB(float gdb) {
-  return (expf(gdb/20.f*log(10.f)));
+  return (exp(gdb/20.f*log(10.f)));
 }
 
 inline float to_dB(float g) {
