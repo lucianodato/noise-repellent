@@ -112,9 +112,7 @@ void estimate_noise_spectrum_manual(float* p2,
     noise_print_max[k] = MAX(noise_print_max[k], p2[k]);
   }
 
-  //NOISE SPECTUM COMSTRUCTIOM BASED ON STATISTICS SELECTED
-
-  //time smoothing for each bin of the captured spectrum
+  //NOISE SPECTUM COMSTRUCTIOM BASED ON STATISTIC SELECTED
   for(k = 0 ; k <= fft_size_2 ; k++) {
     switch(noise_stat_choise){
       case 0:

@@ -19,7 +19,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 
 #include <math.h>
-#include <cmath>
 #include <float.h>
 
 
@@ -72,23 +71,21 @@ static float hamming(int k, int N) {
 }
 
 void fft_window(float* window, int N, int window_type) {
-  float value = 0.f;
   float sum_values = 0.f;
   int k;
   for (k = 0; k < N; k++){
     switch (window_type){
       case BLACKMAN_WINDOW:
-      value = blackman(k, N);
+      window[k] = blackman(k, N);
       break;
       case HANNING_WINDOW:
-      value = hanning(k, N);
+      window[k] = hanning(k, N);
       break;
       case HAMMING_WINDOW:
-      value = hamming(k, N);
+      window[k] = hamming(k, N);
       break;
     }
-    window[k] = value;
-    sum_values += value;
+    sum_values += window[k];
   }
 
   for (k = 0; k < N; k++){
@@ -97,9 +94,9 @@ void fft_window(float* window, int N, int window_type) {
 }
 
 //unnormalized Hann windows for whitening tappering
-void tappering_filter_calc(float* window, int N,float WA) {
+void tappering_filter_calc(float* filter, int N,float WA) {
   int k;
   for (k = 0; k < N; k++){
-    window[k] = powf(hanning(k, N),WA);//Half hann window tappering in favor of high frequencies
+    filter[k] = powf(hanning(k, N),WA);//Half hann window tappering in favor of high frequencies
   }
 }

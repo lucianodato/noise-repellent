@@ -155,7 +155,7 @@ void denoise_gain(float denoise_method,
 
     if (noise_spectrum[k] > FLT_MIN){
       //We can compute gain if print was previously captured
-      switch ((int)denoise_method) {// supression rule
+      switch (int(denoise_method)) {// supression rule
         case 0: // Wiener Filter
           gain = gain_weiner(p2[k], noise_spectrum[k]) ;
           break;

@@ -114,6 +114,7 @@ typedef struct {
 	float* noise_print_max; // The max noise spectrum computed by the captured signal
 	float* noise_spectrum;
 	float* residual_spectrum;
+	float wa;
 	float* tappering_filter;
 	float* whitening_spectrum;
 
@@ -160,13 +161,14 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->overlap_factor = DEFAULT_OVERLAP_FACTOR;
 	nrepel->max_float = FLT_MAX;
 	nrepel->alpha = ALPHA;
+	nrepel->wa = WA;
 	nrepel->prev_frame = 0;
 
 	nrepel->fft_size_2 = nrepel->fft_size/2;
 	nrepel->hop = nrepel->fft_size/nrepel->overlap_factor;
 	nrepel->input_latency = nrepel->fft_size - nrepel->hop;
 	nrepel->read_ptr = nrepel->input_latency; //the initial position because we are that many samples ahead
-	nrepel->kinv	= 1.f/(float)(nrepel->fft_size_2);
+	nrepel->kinv	= 1.f/float(nrepel->fft_size_2);
 
 	nrepel->in_fifo = (float*)calloc(nrepel->fft_size,sizeof(float));
 	nrepel->out_fifo = (float*)calloc(nrepel->fft_size,sizeof(float));
@@ -212,6 +214,7 @@ instantiate(const LV2_Descriptor*     descriptor,
 	}
 
 	//Here we initialize arrays with intended default values
+	memset(nrepel->noise_print_min, nrepel->max_float, (nrepel->fft_size_2+1)*sizeof(float));
 	memset(nrepel->Gk, 1, (nrepel->fft_size_2+1)*sizeof(float));
 	memset(nrepel->Gk_prev, 1, (nrepel->fft_size_2+1)*sizeof(float));
 	memset(nrepel->gain_prev, 1, (nrepel->fft_size_2+1)*sizeof(float));
@@ -338,7 +341,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 				nrepel->real_p = nrepel->output_fft_buffer[k];
 				nrepel->real_n = nrepel->output_fft_buffer[nrepel->fft_size-k];
 
-				//Get mag and power
+				//Get mag and/or power
 				if(k < nrepel->fft_size){
 					nrepel->p2 = nrepel->real_p*nrepel->real_p + nrepel->real_n*nrepel->real_n;
 					//nrepel->mag = sqrtf(nrepel->p2);
@@ -379,7 +382,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 																	nrepel->noise_print_min,
 					 											  nrepel->noise_print_max,
 																	*(nrepel->noise_stat_choise),
-																	float(WA),
+																	nrepel->wa,
 		                              nrepel->whitening_spectrum);
 					break;
 				case ADAPTIVE_CAPTURE_STATE:
@@ -395,7 +398,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 																					 nrepel->prev_p_min,
 																					 nrepel->speech_p_p,
 																					 nrepel->prev_speech_p_p,
-																					 float(WA),
+																					 nrepel->wa,
 																					 nrepel->whitening_spectrum);
 					//Compute denoising gain based on previously computed spectrum
 					denoise_gain(*(nrepel->denoise_method),
