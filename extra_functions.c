@@ -45,30 +45,30 @@ inline float sanitize_denormal(float value) {
 }
 
 inline int sign(float x) {
-  return (x >= 0.f ? 1 : -1);
+  return (x >= 0.f ? 1.f : -1.f);
 }
 
 inline float from_dB(float gdb) {
-  return (exp(gdb/20.f*log(10.f)));
+  return (expf(gdb/20.f*logf(10.f)));
 }
 
 inline float to_dB(float g) {
-  return (20.f*log10(g));
+  return (20.f*log10f(g));
 }
 
 static float blackman(int k, int N) {
   float p = ((float)(k))/((float)(N-1));
-  return 0.42-0.5*cos(2.f*M_PI*p) + 0.08*cos(4.f*M_PI*p);
+  return 0.42-0.5*cosf(2.f*M_PI*p) + 0.08*cosf(4.f*M_PI*p);
 }
 
 static float hanning(int k, int N) {
   float p = ((float)(k))/((float)(N-1));
-  return 0.5 - 0.5 * cos(2.f*M_PI*p);
+  return 0.5 - 0.5 * cosf(2.f*M_PI*p);
 }
 
 static float hamming(int k, int N) {
   float p = ((float)(k))/((float)(N-1));
-  return 0.54 - 0.46 * cos(2.f*M_PI*p);
+  return 0.54 - 0.46 * cosf(2.f*M_PI*p);
 }
 
 void fft_window(float* window, int N, int window_type) {

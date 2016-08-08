@@ -141,7 +141,7 @@ void estimate_noise_spectrum_manual(float* p2,
   float tmp_min = min_spectral_value(noise_spectrum,fft_size_2);
   float tmp_max = max_spectral_value(noise_spectrum,fft_size_2);
   for (k = 0; k <= fft_size_2; k++) {
-    whitening_spectrum[k] = pow((noise_spectrum[k]/(tmp_max-tmp_min)),wa);
+    whitening_spectrum[k] = powf((noise_spectrum[k]/(tmp_max-tmp_min)),wa);
   }
 }
 
@@ -185,6 +185,6 @@ void estimate_noise_spectrum_adaptive(float* p2,
   float tmp_min = min_spectral_value(noise_spectrum,fft_size_2);
   float tmp_max = max_spectral_value(noise_spectrum,fft_size_2);
   for (k = 0; k <= fft_size_2; k++) {
-    whitening_spectrum[k] = pow((noise_spectrum[k]/(tmp_max-tmp_min)),wa);
+    whitening_spectrum[k] = powf((noise_spectrum[k]/(tmp_max-tmp_min)),wa);
   }
 }

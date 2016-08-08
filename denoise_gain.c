@@ -27,13 +27,13 @@ void compute_bark_z(float* bark_z,int fft_size_2, int srate) {
   /* compute the bark z value for this frequency bin */
   for(k = 1 ; k <= fft_size_2 ; k++) {
     freq = (float)srate / 2.f /(float)(fft_size_2)*(float)k ;
-    bark_z[k] = 7.f*log(freq/650.f + sqrt(1.f + (freq/650.f)*(freq/650.f))) ;
+    bark_z[k] = 7.f*logf(freq/650.f + sqrtf(1.f + (freq/650.f)*(freq/650.f))) ;
   }
 }
 
 void compute_johnston_gain(float* bark_z,float** jg_upper,float** jg_lower,int fft_size_2, float tonality_factor) {
   int k ;
-  float bark_diff,johnston,johnston_masked,gain;
+  float bark_diff,johnston,johnston_masked,gain_j;
 
   for (k = 1; k <= fft_size_2 ; ++k) {
     int j;
@@ -41,11 +41,11 @@ void compute_johnston_gain(float* bark_z,float** jg_upper,float** jg_lower,int f
     for(j = k-1 ; j > 0 ; j--) {
       bark_diff = bark_z[k] - bark_z[j];
 
-      johnston = 15.81 + 7.5*(bark_diff+0.474) - 17.5*sqrt(1.f+(bark_diff+0.474)*(bark_diff+0.474));
+      johnston = 15.81 + 7.5*(bark_diff+0.474) - 17.5*sqrtf(1.f+(bark_diff+0.474)*(bark_diff+0.474));
       johnston_masked = johnston - (tonality_factor*(14.5+bark_z[j])+5.5*(1.f - tonality_factor));
-      gain = pow(10.f, johnston_masked/10.f);
+      gain_j = powf(10.f, johnston_masked/10.f);
 
-      jg_lower[k][k-j] = gain;
+      jg_lower[k][k-j] = gain_j;
 
       if(k - j > 10) break;
     }
@@ -53,11 +53,11 @@ void compute_johnston_gain(float* bark_z,float** jg_upper,float** jg_lower,int f
     for(j = k ; j <= fft_size_2 ; j++) {
       bark_diff = bark_z[j] - bark_z[k];
 
-      johnston = 15.81 + 7.5*(bark_diff+0.474) - 17.5*sqrt(1.f+(bark_diff+0.474)*(bark_diff+0.474));
+      johnston = 15.81 + 7.5*(bark_diff+0.474) - 17.5*sqrtf(1.f+(bark_diff+0.474)*(bark_diff+0.474));
       johnston_masked = johnston - (tonality_factor*(14.5+bark_z[j])+5.5*(1.f - tonality_factor));
-      gain = pow(10.f, johnston_masked/10.f);
+      gain_j = powf(10.f, johnston_masked/10.f);
 
-      jg_upper[k][j-k] = gain;
+      jg_upper[k][j-k] = gain_j;
 
       if(j - k > 10) break;
 
@@ -67,40 +67,40 @@ void compute_johnston_gain(float* bark_z,float** jg_upper,float** jg_lower,int f
 
 void compute_masked(float* p2, float* noise_spectrum,float** jg_upper,float** jg_lower, float* masked, int fft_size_2) {
   int j,k;
-  double gain;
+  double gain_m;
 
   for (k = 1; k <= fft_size_2 ; k++) {
     masked[k] = 0.f;
 
     for(j = k-1 ; j > 0 ; j--) {
-      gain = jg_lower[k][k-j];
+      gain_m = jg_lower[k][k-j];
       if(k - j > 10) break;
 
-      masked[k] += MAX((p2[j]-noise_spectrum[j]),0.f)*gain;
+      masked[k] += MAX((p2[j]-noise_spectrum[j]),0.f)*gain_m;
     }
 
     for(j = k ; j <= fft_size_2 ; j++) {
-      gain = jg_upper[k][j-k];
+      gain_m = jg_upper[k][j-k];
 
-      if(gain < 1.e-2) break;
+      if(gain_m < 1.e-2) break;
       if(j - k > 10) break;
 
-      masked[k] += MAX((p2[j]-noise_spectrum[j]),0.f)*gain;
+      masked[k] += MAX((p2[j]-noise_spectrum[j]),0.f)*gain_m;
     }
   }
 
 }
 
 static float gain_weiner(float Yk2, float Dk2) {
-  float gain;
+  float gain_w;
   float Xk2 = Yk2 - Dk2;
 
   if(Yk2 > Dk2)
-  gain = (Xk2) / (Xk2+Dk2);
+  gain_w = (Xk2) / (Xk2+Dk2);
   else
-  gain = 0.f;
+  gain_w = 0.f;
 
-  return gain;
+  return gain_w;
 }
 
 static float gain_power_subtraction(float Yk2, float Dk2) {
@@ -113,14 +113,14 @@ static float gain_power_subtraction(float Yk2, float Dk2) {
 }
 
 static float gain_em(float Rprio, float Rpost) {
-  float gain;
+  float gain_em;
 
   //Ephraim-Malah noise suppression, from Godsill and Wolfe 2001 paper (cheaper)
-  float r = MAX(Rprio/(1.f+Rprio),FLT_MIN) ;
-  float V = (Rprio/(1.f+Rprio))*(Rpost+1.f) ;
-  gain = sqrt( r * (1.f+V)/(Rpost+1.f) ) ;
+  float r = MAX(Rprio/(1.f+Rprio),FLT_MIN);
+  float V = (Rprio/(1.f+Rprio))*(Rpost+1.f);
+  gain_em = sqrtf( r * (1.f+V)/(Rpost+1.f) );
 
-  return gain;
+  return gain_em;
 }
 
 void denoise_gain(float denoise_method,
@@ -138,7 +138,7 @@ void denoise_gain(float denoise_method,
                   float** jg_upper,
                   float** jg_lower) {
   int k;
-  float gain, Fk, Rpost, Rprio, alpha;
+  float gain, Fk, Rpost = 0.f, Rprio  = 0.f, alpha  = 0.f;
 
   if (denoise_method == 4.f) {
     compute_masked(p2,noise_spectrum,jg_upper,jg_lower,masked,fft_size_2);
@@ -146,7 +146,13 @@ void denoise_gain(float denoise_method,
 
   //Computing gain for selected algorithm
   for (k = 0; k <= fft_size_2 ; k++) {
+
     gain = 0.f;
+    Fk = 0.f;
+    Rpost = 0.f;
+    Rprio  = 0.f;
+    alpha  = 0.f;
+
     if (noise_spectrum[k] > FLT_MIN){
       //We can compute gain if print was previously captured
       switch ((int)denoise_method) {// supression rule
@@ -161,7 +167,7 @@ void denoise_gain(float denoise_method,
           Rpost = MAX(p2[k]/noise_spectrum[k]-1.f, 0.f);
 
           if(*(prev_frame) == 1) {
-            Rprio = (1.f-alpha_set)*Rpost + alpha_set*gain_prev[k]*gain_prev[k]*(p2_prev[k]/noise_spectrum[k]);
+            Rprio = (1.f-alpha_set)*Rpost + alpha_set*gain_prev[k]*gain_prev[k]*p2_prev[k]/noise_spectrum[k];
           }else{
             Rprio = Rpost;
           }
@@ -183,7 +189,7 @@ void denoise_gain(float denoise_method,
           }
 
           if(*(prev_frame) == 1) {
-            Rprio = (1.f-alpha)*Rpost + alpha*gain_prev[k]*gain_prev[k]*(p2_prev[k]/noise_spectrum[k]);
+            Rprio = (1.f-alpha)*Rpost + alpha*gain_prev[k]*gain_prev[k]*p2_prev[k]/noise_spectrum[k];
           }else{
             Rprio = Rpost;
           }
@@ -205,7 +211,7 @@ void denoise_gain(float denoise_method,
           }
 
           if(*(prev_frame) == 1) {
-            Rprio = (1.f-alpha)*Rpost + alpha*gain_prev[k]*gain_prev[k]*(p2_prev[k]/noise_spectrum[k]);
+            Rprio = (1.f-alpha)*Rpost + alpha*gain_prev[k]*gain_prev[k]*p2_prev[k]/noise_spectrum[k];
           }else{
             Rprio = Rpost;
           }

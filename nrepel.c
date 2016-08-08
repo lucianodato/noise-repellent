@@ -324,7 +324,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 
 			//Apply windowing (Could be any window type)
 			for (k = 0; k < nrepel->fft_size; k++){
-				nrepel->input_fft_buffer[k] = sanitize_denormal(nrepel->in_fifo[k] * nrepel->window[k]);
+				nrepel->input_fft_buffer[k] = nrepel->in_fifo[k] * nrepel->window[k];
 			}
 
 			//----------FFT Analysis------------
@@ -354,14 +354,14 @@ run(LV2_Handle instance, uint32_t n_samples) {
 
 				//FOR MASKING THRESHOLDS
 				if (*(nrepel->denoise_method) == 4.f) {
-					nrepel->sum_log_p += log10(nrepel->fft_p2[k]);
+					nrepel->sum_log_p += log10f(nrepel->fft_p2[k]);
 			    nrepel->sum_p += nrepel->fft_p2[k];
 				}
 			}
 
 			//FOR MASKING THRESHOLDS
 			if (*(nrepel->denoise_method) == 4.f) {
-				nrepel->SFM = 10.f*( nrepel->kinv*nrepel->sum_log_p - log10(nrepel->sum_p*nrepel->kinv));
+				nrepel->SFM = 10.f*( nrepel->kinv*nrepel->sum_log_p - log10f(nrepel->sum_p*nrepel->kinv));
 				nrepel->tonality_factor = MIN(nrepel->SFM/-60.f, 1.f);
 				compute_johnston_gain(nrepel->bark_z,nrepel->jg_upper,nrepel->jg_lower,nrepel->fft_size_2,nrepel->tonality_factor);
 			}
@@ -370,7 +370,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 
 			//------------Processing---------------
 
-			switch ((int) *(nrepel->capt_state)) {
+			switch (int(*(nrepel->capt_state))) {
 				case MANUAL_CAPTURE_ON_STATE:
 					//If selected estimate noise spectrum based on selected portion of signal
 					estimate_noise_spectrum_manual(nrepel->fft_p2,
@@ -379,7 +379,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 																	nrepel->noise_print_min,
 					 											  nrepel->noise_print_max,
 																	*(nrepel->noise_stat_choise),
-																	WA,
+																	float(WA),
 		                              nrepel->whitening_spectrum);
 					break;
 				case ADAPTIVE_CAPTURE_STATE:
@@ -395,7 +395,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 																					 nrepel->prev_p_min,
 																					 nrepel->speech_p_p,
 																					 nrepel->prev_speech_p_p,
-																					 WA,
+																					 float(WA),
 																					 nrepel->whitening_spectrum);
 					//Compute denoising gain based on previously computed spectrum
 					denoise_gain(*(nrepel->denoise_method),
@@ -437,7 +437,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
  						 nrepel->output_fft_buffer[k] += nrepel->residual_spectrum[k]*(1.f/from_dB(*(nrepel->amount_reduc)));
  						 if(k < nrepel->fft_size_2)
  						 	nrepel->output_fft_buffer[nrepel->fft_size-k] *= nrepel->Gk[k];
- 						 	nrepel->output_fft_buffer[nrepel->fft_size-k] += nrepel->residual_spectrum[k]*(1.f/from_dB(*(nrepel->amount_reduc)));
+ 						 	nrepel->output_fft_buffer[nrepel->fft_size-k] += nrepel->residual_spectrum[k]*(1.f/from_dB(*(nrepel->amount_reduc)));//
  					 }
 					} else {
 					 //Output noise only
@@ -509,12 +509,12 @@ run(LV2_Handle instance, uint32_t n_samples) {
 
 			//Scaling FFT (because is not scaled down when backward plan is executed)
 			for(k = 0; k < nrepel->fft_size; k++){
-				nrepel->input_fft_buffer[k] = sanitize_denormal(nrepel->input_fft_buffer[k]/nrepel->fft_size);
+				nrepel->input_fft_buffer[k] = nrepel->input_fft_buffer[k]/nrepel->fft_size;
 			}
 
 			//Accumulate (Overlapadd)
 			for(k = 0; k < nrepel->fft_size; k++){
-				nrepel->output_accum[k] += sanitize_denormal(nrepel->input_fft_buffer[k]*nrepel->hop);
+				nrepel->output_accum[k] += nrepel->input_fft_buffer[k]*nrepel->hop;
 			}
 
 			//Output samples up to the hop size
