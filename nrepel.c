@@ -192,7 +192,7 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->Gk_prev = (float*)malloc((nrepel->fft_size_2+1)*sizeof(float));
 	nrepel->gain_prev = (float*)malloc((nrepel->fft_size_2+1)*sizeof(float));
 	nrepel->whitening_spectrum = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
-	nrepel->tappering_filter = (float*)calloc(nrepel->fft_size,sizeof(float));
+	nrepel->tappering_filter = (float*)calloc(nrepel->fft_size_2+1,sizeof(float));
 
 	nrepel->prev_noise = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->s_pow_spec = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
@@ -218,7 +218,7 @@ instantiate(const LV2_Descriptor*     descriptor,
 	memset(nrepel->gain_prev, 1, (nrepel->fft_size_2+1)*sizeof(float));
 
 	fft_window(nrepel->window,nrepel->fft_size,nrepel->window_type); //Init window
-	tappering_filter_calc(nrepel->tappering_filter,nrepel->fft_size,WA); //Tappering window
+	tappering_filter_calc(nrepel->tappering_filter,(nrepel->fft_size_2+1),WA); //Tappering window
 
 	//MASKING THRESHOLDS (this should be precomputed and in a file to be more efficient)
 	compute_bark_z(nrepel->bark_z,nrepel->fft_size_2,nrepel->samp_rate);
