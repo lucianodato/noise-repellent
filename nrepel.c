@@ -166,7 +166,6 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->hop = nrepel->fft_size/nrepel->overlap_factor;
 	nrepel->input_latency = nrepel->fft_size - nrepel->hop;
 	nrepel->read_ptr = nrepel->input_latency; //the initial position because we are that many samples ahead
-
 	nrepel->kinv	= 1.f/(float)(nrepel->fft_size_2);
 
 	nrepel->in_fifo = (float*)calloc(nrepel->fft_size,sizeof(float));
@@ -325,7 +324,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 
 			//Apply windowing (Could be any window type)
 			for (k = 0; k < nrepel->fft_size; k++){
-				nrepel->input_fft_buffer[k] = nrepel->in_fifo[k] * nrepel->window[k];
+				nrepel->input_fft_buffer[k] = sanitize_denormal(nrepel->in_fifo[k] * nrepel->window[k]);
 			}
 
 			//----------FFT Analysis------------
@@ -423,10 +422,12 @@ run(LV2_Handle instance, uint32_t n_samples) {
 
 					//Residue Whitening and tappering
 					if(*(nrepel->residue_whitening) == 1.f) {
-					 for (k = 0; k <= nrepel->fft_size_2; k++) {
-						 nrepel->residual_spectrum[k] /= nrepel->whitening_spectrum[k];
-						 nrepel->residual_spectrum[k] *= nrepel->tappering_filter[k];//Half hann window tappering in favor of high frequencies
-					 }
+						for (k = 0; k <= nrepel->fft_size_2; k++) {
+							if(nrepel->residual_spectrum[k] > FLT_MIN) {
+								nrepel->residual_spectrum[k] /= nrepel->whitening_spectrum[k];
+								nrepel->residual_spectrum[k] *= nrepel->tappering_filter[k];//Half hann window tappering in favor of high frequencies
+							}
+						}
 					}
 
 					if (*(nrepel->noise_listen) == 0.f){
@@ -472,12 +473,14 @@ run(LV2_Handle instance, uint32_t n_samples) {
 					}
 
 					//Residue Whitening and tappering
- 					if(*(nrepel->residue_whitening) == 1.f) {
- 						for (k = 0; k <= nrepel->fft_size_2; k++) {
- 							nrepel->residual_spectrum[k] /= nrepel->whitening_spectrum[k];
-							nrepel->residual_spectrum[k] *= nrepel->tappering_filter[k];//Half hann window tappering in favor of high frequencies
- 						}
- 					}
+					if(*(nrepel->residue_whitening) == 1.f) {
+						for (k = 0; k <= nrepel->fft_size_2; k++) {
+							if(nrepel->residual_spectrum[k] > FLT_MIN) {
+								nrepel->residual_spectrum[k] /= nrepel->whitening_spectrum[k];
+								nrepel->residual_spectrum[k] *= nrepel->tappering_filter[k];//Half hann window tappering in favor of high frequencies
+							}
+						}
+					}
 
 					if (*(nrepel->noise_listen) == 0.f){
 					 //Apply the computed gain to the signal and Mix residual and processed
@@ -506,12 +509,12 @@ run(LV2_Handle instance, uint32_t n_samples) {
 
 			//Scaling FFT (because is not scaled down when backward plan is executed)
 			for(k = 0; k < nrepel->fft_size; k++){
-				nrepel->input_fft_buffer[k] = nrepel->input_fft_buffer[k]/nrepel->fft_size;
+				nrepel->input_fft_buffer[k] = sanitize_denormal(nrepel->input_fft_buffer[k]/nrepel->fft_size);
 			}
 
 			//Accumulate (Overlapadd)
 			for(k = 0; k < nrepel->fft_size; k++){
-				nrepel->output_accum[k] += nrepel->input_fft_buffer[k]*nrepel->hop;
+				nrepel->output_accum[k] += sanitize_denormal(nrepel->input_fft_buffer[k]*nrepel->hop);
 			}
 
 			//Output samples up to the hop size

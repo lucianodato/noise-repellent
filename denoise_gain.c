@@ -123,7 +123,7 @@ static float gain_em(float Rprio, float Rpost) {
   return gain;
 }
 
-void denoise_gain(int denoise_method,
+void denoise_gain(float denoise_method,
                   float over_reduc,
                   float* p2,
                   float* p2_prev,
@@ -140,7 +140,7 @@ void denoise_gain(int denoise_method,
   int k;
   float gain, Fk, Rpost, Rprio, alpha;
 
-  if (denoise_method == 4) {
+  if (denoise_method == 4.f) {
     compute_masked(p2,noise_spectrum,jg_upper,jg_lower,masked,fft_size_2);
   }
 
@@ -149,7 +149,7 @@ void denoise_gain(int denoise_method,
     gain = 0.f;
     if (noise_spectrum[k] > FLT_MIN){
       //We can compute gain if print was previously captured
-      switch (denoise_method) {// supression rule
+      switch ((int)denoise_method) {// supression rule
         case 0: // Wiener Filter
           gain = gain_weiner(p2[k], noise_spectrum[k]) ;
           break;
