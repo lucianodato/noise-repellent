@@ -179,37 +179,37 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->forward = fftwf_plan_r2r_1d(nrepel->fft_size, nrepel->input_fft_buffer, nrepel->output_fft_buffer, FFTW_R2HC, FFTW_ESTIMATE);
 	nrepel->backward = fftwf_plan_r2r_1d(nrepel->fft_size, nrepel->output_fft_buffer, nrepel->input_fft_buffer, FFTW_HC2R, FFTW_ESTIMATE);
 
-	nrepel->fft_magnitude = (float*)calloc(nrepel->fft_size_2+1,sizeof(float));
-	nrepel->fft_p2 = (float*)calloc(nrepel->fft_size_2+1,sizeof(float));
-	nrepel->fft_p2_prev = (float*)calloc(nrepel->fft_size_2+1,sizeof(float));
+	nrepel->fft_magnitude = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
+	nrepel->fft_p2 = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
+	nrepel->fft_p2_prev = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 
-	nrepel->noise_print_min = (float*)calloc(nrepel->fft_size_2+1,sizeof(float));
-	nrepel->noise_print_max = (float*)calloc(nrepel->fft_size_2+1,sizeof(float));
-	nrepel->noise_spectrum = (float*)calloc(nrepel->fft_size_2+1,sizeof(float));
-	nrepel->residual_spectrum = (float*)calloc(nrepel->fft_size_2+1,sizeof(float));
+	nrepel->noise_print_min = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
+	nrepel->noise_print_max = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
+	nrepel->noise_spectrum = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
+	nrepel->residual_spectrum = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 
-	nrepel->Gk = (float*)calloc(nrepel->fft_size_2+1,sizeof(float));
-	nrepel->Gk_prev = (float*)calloc(nrepel->fft_size_2+1,sizeof(float));
-	nrepel->gain_prev = (float*)calloc(nrepel->fft_size_2+1,sizeof(float));
-	nrepel->whitening_spectrum = (float*)calloc(nrepel->fft_size_2+1,sizeof(float));
-	nrepel->tappering_filter = (float*)calloc(nrepel->fft_size_2+1,sizeof(float));
+	nrepel->Gk = (float*)malloc((nrepel->fft_size_2+1)*sizeof(float));
+	nrepel->Gk_prev = (float*)malloc((nrepel->fft_size_2+1)*sizeof(float));
+	nrepel->gain_prev = (float*)malloc((nrepel->fft_size_2+1)*sizeof(float));
+	nrepel->whitening_spectrum = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
+	nrepel->tappering_filter = (float*)calloc(nrepel->fft_size,sizeof(float));
 
-	nrepel->prev_noise = (float*)calloc(nrepel->fft_size_2+1,sizeof(float));
-	nrepel->s_pow_spec = (float*)calloc(nrepel->fft_size_2+1,sizeof(float));
-	nrepel->prev_s_pow_spec = (float*)calloc(nrepel->fft_size_2+1,sizeof(float));
-	nrepel->p_min = (float*)calloc(nrepel->fft_size_2+1,sizeof(float));
-	nrepel->prev_p_min = (float*)calloc(nrepel->fft_size_2+1,sizeof(float));
-	nrepel->speech_p_p = (float*)calloc(nrepel->fft_size_2+1,sizeof(float));
-	nrepel->prev_speech_p_p = (float*)calloc(nrepel->fft_size_2+1,sizeof(float));
+	nrepel->prev_noise = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
+	nrepel->s_pow_spec = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
+	nrepel->prev_s_pow_spec = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
+	nrepel->p_min = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
+	nrepel->prev_p_min = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
+	nrepel->speech_p_p = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
+	nrepel->prev_speech_p_p = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 
-	nrepel->masked = (float*)calloc(nrepel->fft_size_2+1,sizeof(float));
-	nrepel->jg_upper = (float**)malloc(sizeof(float)*nrepel->fft_size_2+1);
-	nrepel->jg_lower = (float**)malloc(sizeof(float)*nrepel->fft_size_2+1);
-	nrepel->bark_z = (float*)calloc(nrepel->fft_size_2+1,sizeof(float));
+	nrepel->masked = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
+	nrepel->jg_upper = (float**)malloc(sizeof(float)*(nrepel->fft_size_2+1));
+	nrepel->jg_lower = (float**)malloc(sizeof(float)*(nrepel->fft_size_2+1));
+	nrepel->bark_z = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 
 	for(int k = 0; k < nrepel->fft_size; k++){
-		nrepel->jg_upper[k] = (float*)malloc(sizeof(float)*11);
-		nrepel->jg_lower[k] = (float*)malloc(sizeof(float)*11);
+		nrepel->jg_upper[k] = (float*)calloc(11,sizeof(float));
+		nrepel->jg_lower[k] = (float*)calloc(11,sizeof(float));
 	}
 
 	//Here we initialize arrays with intended default values
@@ -431,7 +431,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 
 					//Residual signal
 					for (k = 0; k <= nrepel->fft_size_2; k++) {
-					 nrepel->residual_spectrum[k] = nrepel->output_fft_buffer[k] - nrepel->output_fft_buffer[k] * nrepel->Gk[k];
+					 nrepel->residual_spectrum[k] = nrepel->output_fft_buffer[k] - (nrepel->output_fft_buffer[k] * nrepel->Gk[k]);
 					}
 
 					//Residue Whitening and tappering
@@ -486,7 +486,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 
 					//Residual signal
 					for (k = 0; k <= nrepel->fft_size_2; k++) {
-					 nrepel->residual_spectrum[k] = nrepel->output_fft_buffer[k] - nrepel->output_fft_buffer[k] * nrepel->Gk[k];
+					 nrepel->residual_spectrum[k] = nrepel->output_fft_buffer[k] - (nrepel->output_fft_buffer[k] * nrepel->Gk[k]);
 					}
 
 					//Residue Whitening and tappering
