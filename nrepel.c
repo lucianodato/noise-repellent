@@ -52,16 +52,17 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 typedef enum {
 	NREPEL_CAPTURE = 0,
-	NREPEL_SMOOTHING = 1,
-	NREPEL_METHOD = 2,
-	NREPEL_AMOUNT = 3,
-	NREPEL_OVERRED = 4,
-	NREPEL_LATENCY = 5,
-	NREPEL_WHITENING = 6,
-	NREPEL_RESET = 7,
-	NREPEL_NOISE_LISTEN = 8,
-	NREPEL_INPUT  = 9,
-	NREPEL_OUTPUT = 10,
+	NREPEL_N_THRESH = 1,
+	NREPEL_SMOOTHING = 2,
+	NREPEL_METHOD = 3,
+	NREPEL_AMOUNT = 4,
+	NREPEL_OVERRED = 5,
+	NREPEL_LATENCY = 6,
+	NREPEL_WHITENING = 7,
+	NREPEL_RESET = 8,
+	NREPEL_NOISE_LISTEN = 9,
+	NREPEL_INPUT = 10,
+	NREPEL_OUTPUT = 11,
 } PortIndex;
 
 typedef struct {
@@ -79,6 +80,7 @@ typedef struct {
 	float* noise_stat_choise; //Choise of statistic to use for noise spectrum
 	float* denoise_method; //Choise of denoise method
 	float* residue_whitening; //Whitening of the residual spectrum
+	float* noise_thresh; //detection threshold for louizou estimation
 
 	//Parameters for the STFT
 	int fft_size; //FFTW input size
@@ -112,13 +114,34 @@ typedef struct {
 	float* noise_print_max; // The max noise spectrum computed by the captured signal
 	float* noise_spectrum;
 	float* residual_spectrum;
+	float* tappering_filter;
+	float* whitening_spectrum;
+
 
 	float* Gk; //gain to be applied
 	float* Gk_prev; //last gain applied
 	float* gain_prev; //previously gain computed
-	float* tappering_window;
 	float alpha;//for EM
 	int prev_frame;//for EM
+
+
+	float* prev_noise;
+	float* s_pow_spec;
+	float* prev_s_pow_spec;
+	float* p_min;
+	float* prev_p_min;
+	float* speech_p_p;
+	float* prev_speech_p_p;
+
+	float sum_log_p;
+	float sum_p;
+	float kinv;
+	float SFM;
+	float tonality_factor;
+	float* masked;
+	float** jg_upper;
+	float** jg_lower;
+	float* bark_z;
 
 } Nrepel;
 
@@ -144,50 +167,61 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->input_latency = nrepel->fft_size - nrepel->hop;
 	nrepel->read_ptr = nrepel->input_latency; //the initial position because we are that many samples ahead
 
-	nrepel->in_fifo = (float*)malloc(sizeof(float)*nrepel->fft_size);
-	nrepel->out_fifo = (float*)malloc(sizeof(float)*nrepel->fft_size);
-	nrepel->output_accum = (float*)malloc(sizeof(float)*nrepel->fft_size);
+	nrepel->kinv	= 1.f/(float)(nrepel->fft_size_2);
 
-	nrepel->window = (float*)malloc(sizeof(float)*nrepel->fft_size);
-	nrepel->input_fft_buffer = (float*)malloc(sizeof(float)*nrepel->fft_size);
-	nrepel->output_fft_buffer = (float*)malloc(sizeof(float)*nrepel->fft_size);
+	nrepel->in_fifo = (float*)calloc(nrepel->fft_size,sizeof(float));
+	nrepel->out_fifo = (float*)calloc(nrepel->fft_size,sizeof(float));
+	nrepel->output_accum = (float*)calloc(nrepel->fft_size,sizeof(float));
+
+	nrepel->window = (float*)calloc(nrepel->fft_size,sizeof(float));
+	nrepel->input_fft_buffer = (float*)calloc(nrepel->fft_size,sizeof(float));
+	nrepel->output_fft_buffer = (float*)calloc(nrepel->fft_size,sizeof(float));
 	nrepel->forward = fftwf_plan_r2r_1d(nrepel->fft_size, nrepel->input_fft_buffer, nrepel->output_fft_buffer, FFTW_R2HC, FFTW_ESTIMATE);
 	nrepel->backward = fftwf_plan_r2r_1d(nrepel->fft_size, nrepel->output_fft_buffer, nrepel->input_fft_buffer, FFTW_HC2R, FFTW_ESTIMATE);
 
-	nrepel->fft_magnitude = (float*)malloc(sizeof(float)*nrepel->fft_size);
-	nrepel->fft_p2 = (float*)malloc(sizeof(float)*nrepel->fft_size);
-	nrepel->fft_p2_prev = (float*)malloc(sizeof(float)*nrepel->fft_size);
+	nrepel->fft_magnitude = (float*)calloc(nrepel->fft_size_2+1,sizeof(float));
+	nrepel->fft_p2 = (float*)calloc(nrepel->fft_size_2+1,sizeof(float));
+	nrepel->fft_p2_prev = (float*)calloc(nrepel->fft_size_2+1,sizeof(float));
 
-	nrepel->noise_print_min = (float*)malloc(sizeof(float)*nrepel->fft_size);
-	nrepel->noise_print_max = (float*)malloc(sizeof(float)*nrepel->fft_size);
-	nrepel->noise_spectrum = (float*)malloc(sizeof(float)*nrepel->fft_size);
-	nrepel->residual_spectrum = (float*)malloc(sizeof(float)*nrepel->fft_size);
+	nrepel->noise_print_min = (float*)calloc(nrepel->fft_size_2+1,sizeof(float));
+	nrepel->noise_print_max = (float*)calloc(nrepel->fft_size_2+1,sizeof(float));
+	nrepel->noise_spectrum = (float*)calloc(nrepel->fft_size_2+1,sizeof(float));
+	nrepel->residual_spectrum = (float*)calloc(nrepel->fft_size_2+1,sizeof(float));
 
-	nrepel->Gk = (float*)malloc(sizeof(float)*nrepel->fft_size);
-	nrepel->Gk_prev = (float*)malloc(sizeof(float)*nrepel->fft_size);
-	nrepel->gain_prev = (float*)malloc(sizeof(float)*nrepel->fft_size);
-	nrepel->tappering_window = (float*)malloc(sizeof(float)*nrepel->fft_size);
+	nrepel->Gk = (float*)calloc(nrepel->fft_size_2+1,sizeof(float));
+	nrepel->Gk_prev = (float*)calloc(nrepel->fft_size_2+1,sizeof(float));
+	nrepel->gain_prev = (float*)calloc(nrepel->fft_size_2+1,sizeof(float));
+	nrepel->whitening_spectrum = (float*)calloc(nrepel->fft_size_2+1,sizeof(float));
+	nrepel->tappering_filter = (float*)calloc(nrepel->fft_size_2+1,sizeof(float));
 
-	//Here we initialize arrays with zeros
-	memset(nrepel->in_fifo, 0, nrepel->fft_size*sizeof(float));
-	memset(nrepel->out_fifo, 0, nrepel->fft_size*sizeof(float));
-	memset(nrepel->input_fft_buffer, 0, nrepel->fft_size*sizeof(float));
-	memset(nrepel->output_fft_buffer, 0, nrepel->fft_size*sizeof(float));
-	memset(nrepel->output_accum, 0, nrepel->fft_size*sizeof(float));
-	memset(nrepel->fft_magnitude, 0, nrepel->fft_size*sizeof(float));
-	memset(nrepel->fft_p2, 0, nrepel->fft_size*sizeof(float));
-	memset(nrepel->fft_p2_prev, 0, nrepel->fft_size*sizeof(float));
+	nrepel->prev_noise = (float*)calloc(nrepel->fft_size_2+1,sizeof(float));
+	nrepel->s_pow_spec = (float*)calloc(nrepel->fft_size_2+1,sizeof(float));
+	nrepel->prev_s_pow_spec = (float*)calloc(nrepel->fft_size_2+1,sizeof(float));
+	nrepel->p_min = (float*)calloc(nrepel->fft_size_2+1,sizeof(float));
+	nrepel->prev_p_min = (float*)calloc(nrepel->fft_size_2+1,sizeof(float));
+	nrepel->speech_p_p = (float*)calloc(nrepel->fft_size_2+1,sizeof(float));
+	nrepel->prev_speech_p_p = (float*)calloc(nrepel->fft_size_2+1,sizeof(float));
 
-	memset(nrepel->noise_print_min, nrepel->max_float, nrepel->fft_size*sizeof(float));
-	memset(nrepel->noise_print_max, 0, nrepel->fft_size*sizeof(float));
-	memset(nrepel->noise_spectrum, 0, nrepel->fft_size*sizeof(float));
-	memset(nrepel->residual_spectrum, 0, nrepel->fft_size*sizeof(float));
-	memset(nrepel->Gk, 1, nrepel->fft_size*sizeof(float));
-	memset(nrepel->Gk_prev, 1, nrepel->fft_size*sizeof(float));
-	memset(nrepel->gain_prev, 1, nrepel->fft_size*sizeof(float));
+	nrepel->masked = (float*)calloc(nrepel->fft_size_2+1,sizeof(float));
+	nrepel->jg_upper = (float**)malloc(sizeof(float)*nrepel->fft_size_2+1);
+	nrepel->jg_lower = (float**)malloc(sizeof(float)*nrepel->fft_size_2+1);
+	nrepel->bark_z = (float*)calloc(nrepel->fft_size_2+1,sizeof(float));
+
+	for(int k = 0; k < nrepel->fft_size; k++){
+		nrepel->jg_upper[k] = (float*)malloc(sizeof(float)*11);
+		nrepel->jg_lower[k] = (float*)malloc(sizeof(float)*11);
+	}
+
+	//Here we initialize arrays with intended default values
+	memset(nrepel->Gk, 1, (nrepel->fft_size_2+1)*sizeof(float));
+	memset(nrepel->Gk_prev, 1, (nrepel->fft_size_2+1)*sizeof(float));
+	memset(nrepel->gain_prev, 1, (nrepel->fft_size_2+1)*sizeof(float));
 
 	fft_window(nrepel->window,nrepel->fft_size,nrepel->window_type); //Init window
-	tappering_window_calc(nrepel->tappering_window,nrepel->fft_size); //Tappering window
+	tappering_filter_calc(nrepel->tappering_filter,nrepel->fft_size,WA); //Tappering window
+
+	//MASKING THRESHOLDS (this should be precomputed and in a file to be more efficient)
+	compute_bark_z(nrepel->bark_z,nrepel->fft_size_2,nrepel->samp_rate);
 
 	return (LV2_Handle)nrepel;
 }
@@ -203,6 +237,9 @@ connect_port(LV2_Handle instance,
 	switch ((PortIndex)port) {
 		case NREPEL_CAPTURE:
 		nrepel->capt_state = (float*)data;
+		break;
+		case NREPEL_N_THRESH:
+		nrepel->noise_thresh = (float*)data;
 		break;
 		case NREPEL_SMOOTHING:
 		nrepel->noise_stat_choise = (float*)data;
@@ -255,13 +292,20 @@ run(LV2_Handle instance, uint32_t n_samples) {
 
 	//Reset reset button state
 	if (*(nrepel->reset_print) == 1.f) {
-		memset(nrepel->noise_print_min, nrepel->max_float, nrepel->fft_size*sizeof(float));
-		memset(nrepel->noise_print_max, 0, nrepel->fft_size*sizeof(float));
-		memset(nrepel->noise_spectrum, 0, nrepel->fft_size*sizeof(float));
-		memset(nrepel->residual_spectrum, 0, nrepel->fft_size*sizeof(float));
-		memset(nrepel->Gk, 1, nrepel->fft_size*sizeof(float));
-		memset(nrepel->Gk_prev, 1, nrepel->fft_size*sizeof(float));
-		memset(nrepel->gain_prev, 1, nrepel->fft_size*sizeof(float));
+		memset(nrepel->noise_print_min, nrepel->max_float, (nrepel->fft_size_2+1)*sizeof(float));
+		memset(nrepel->noise_print_max, 0, (nrepel->fft_size_2+1)*sizeof(float));
+		memset(nrepel->noise_spectrum, 0, (nrepel->fft_size_2+1)*sizeof(float));
+		memset(nrepel->residual_spectrum, 0, (nrepel->fft_size_2+1)*sizeof(float));
+		memset(nrepel->Gk, 1, (nrepel->fft_size_2+1)*sizeof(float));
+		memset(nrepel->Gk_prev, 1, (nrepel->fft_size_2+1)*sizeof(float));
+		memset(nrepel->gain_prev, 1, (nrepel->fft_size_2+1)*sizeof(float));
+		memset(nrepel->prev_noise, 0, (nrepel->fft_size_2+1)*sizeof(float));
+		memset(nrepel->s_pow_spec, 0, (nrepel->fft_size_2+1)*sizeof(float));
+		memset(nrepel->prev_s_pow_spec, 0, (nrepel->fft_size_2+1)*sizeof(float));
+		memset(nrepel->p_min, 0, (nrepel->fft_size_2+1)*sizeof(float));
+		memset(nrepel->prev_p_min, 0, (nrepel->fft_size_2+1)*sizeof(float));
+		memset(nrepel->speech_p_p, 0, (nrepel->fft_size_2+1)*sizeof(float));
+		memset(nrepel->prev_speech_p_p, 0, (nrepel->fft_size_2+1)*sizeof(float));
 		nrepel->prev_frame = 0;
 	}
 
@@ -305,10 +349,25 @@ run(LV2_Handle instance, uint32_t n_samples) {
 					//nrepel->mag = nrepel->real_p;
 				}
 
-				//Store values in magnitude and phase arrays
+				//Store values in magnitude and power arrays
 				nrepel->fft_p2[k] = sanitize_denormal(nrepel->p2);
 				//nrepel->fft_magnitude[k] = sanitize_denormal(nrepel->mag);
+
+				//FOR MASKING THRESHOLDS
+				if (*(nrepel->denoise_method) == 4.f) {
+					nrepel->sum_log_p += log10(nrepel->fft_p2[k]);
+			    nrepel->sum_p += nrepel->fft_p2[k];
+				}
 			}
+
+			//FOR MASKING THRESHOLDS
+			if (*(nrepel->denoise_method) == 4.f) {
+				nrepel->SFM = 10.f*( nrepel->kinv*nrepel->sum_log_p - log10(nrepel->sum_p*nrepel->kinv));
+				nrepel->tonality_factor = MIN(nrepel->SFM/-60.f, 1.f);
+				compute_johnston_gain(nrepel->bark_z,nrepel->jg_upper,nrepel->jg_lower,nrepel->fft_size_2,nrepel->tonality_factor);
+			}
+
+			//More info could be useful like onsets for example to modify the amount of reduction taking in to account transients
 
 			//------------Processing---------------
 
@@ -321,7 +380,17 @@ run(LV2_Handle instance, uint32_t n_samples) {
 																	nrepel->noise_spectrum,
 																	nrepel->noise_print_min,
 					 											  nrepel->noise_print_max,
-																	*(nrepel->noise_stat_choise));
+																	*(nrepel->noise_stat_choise),
+																	from_dB(*(nrepel->noise_thresh)),
+		                              nrepel->prev_noise,
+		                              nrepel->s_pow_spec,
+		                              nrepel->prev_s_pow_spec,
+		                              nrepel->p_min,
+		                              nrepel->prev_p_min,
+		                              nrepel->speech_p_p,
+		                              nrepel->prev_speech_p_p,
+																	WA,
+		                              nrepel->whitening_spectrum);
 					break;
 				case ADAPTIVE_CAPTURE_STATE:
 					//if slected auto estimate noise spectrum and apply denoising
@@ -331,8 +400,18 @@ run(LV2_Handle instance, uint32_t n_samples) {
 																	nrepel->noise_spectrum,
 																	nrepel->noise_print_min,
 					 											  nrepel->noise_print_max,
-																	*(nrepel->noise_stat_choise));
-					//Compute denoising gain based on previously computed spectrum (manual or automatic)
+																	*(nrepel->noise_stat_choise),
+																	from_dB(*(nrepel->noise_thresh)),
+																	nrepel->prev_noise,
+																	nrepel->s_pow_spec,
+																	nrepel->prev_s_pow_spec,
+																	nrepel->p_min,
+																	nrepel->prev_p_min,
+																	nrepel->speech_p_p,
+																	nrepel->prev_speech_p_p,
+																	WA,
+		                              nrepel->whitening_spectrum);
+					//Compute denoising gain based on previously computed spectrum
 					denoise_gain(*(nrepel->denoise_method),
 											 *(nrepel->over_reduc),
 											 nrepel->fft_p2,
@@ -343,15 +422,48 @@ run(LV2_Handle instance, uint32_t n_samples) {
 											 nrepel->gain_prev,
 											 nrepel->noise_spectrum,
 											 nrepel->alpha,
-											 &nrepel->prev_frame);
+											 &nrepel->prev_frame,
+										 	 nrepel->masked,
+											 nrepel->jg_upper,
+		                   nrepel->jg_lower);
 
+					 //APPLY REDUCTION
+
+					//Residual signal
+					for (k = 0; k <= nrepel->fft_size_2; k++) {
+					 nrepel->residual_spectrum[k] = nrepel->output_fft_buffer[k] - nrepel->output_fft_buffer[k] * nrepel->Gk[k];
+					}
+
+					//Residue Whitening and tappering
+					if(*(nrepel->residue_whitening) == 1.f) {
+					 for (k = 0; k <= nrepel->fft_size_2; k++) {
+						 nrepel->residual_spectrum[k] /= nrepel->whitening_spectrum[k];
+						 nrepel->residual_spectrum[k] *= nrepel->tappering_filter[k];//Half hann window tappering in favor of high frequencies
+					 }
+					}
+
+					if (*(nrepel->noise_listen) == 0.f){
 					 //Apply the computed gain to the signal
- 					for (k = 0; k <= nrepel->fft_size_2; k++) {
- 						nrepel->output_fft_buffer[k] *= nrepel->Gk[k];
- 						if(k < nrepel->fft_size_2)
- 							nrepel->output_fft_buffer[nrepel->fft_size-k] *= nrepel->Gk[k];
- 					}
+					 for (k = 0; k <= nrepel->fft_size_2; k++) {
+						 nrepel->output_fft_buffer[k] *= nrepel->Gk[k];
+						 if(k < nrepel->fft_size_2)
+						 	nrepel->output_fft_buffer[nrepel->fft_size-k] *= nrepel->Gk[k];
+					 }
 
+					 //Mix residual and processed
+					 for (k = 0; k <= nrepel->fft_size_2; k++) {
+						 nrepel->output_fft_buffer[k] += nrepel->residual_spectrum[k]*(1.f/from_dB(*(nrepel->amount_reduc)));
+						 if(k < nrepel->fft_size_2)
+						 	nrepel->output_fft_buffer[nrepel->fft_size-k] += nrepel->residual_spectrum[k]*(1.f/from_dB(*(nrepel->amount_reduc)));
+					 }
+					} else {
+					 //Output noise only
+					 for (k = 0; k <= nrepel->fft_size_2; k++) {
+						 nrepel->output_fft_buffer[k] = nrepel->residual_spectrum[k];
+						 if(k < nrepel->fft_size_2)
+						 	nrepel->output_fft_buffer[nrepel->fft_size-k] = nrepel->residual_spectrum[k];
+					 }
+					}
 					break;
 				case MANUAL_CAPTURE_OFF_STATE:
 					//Compute denoising gain based on previously computed spectrum (manual or automatic)
@@ -365,56 +477,48 @@ run(LV2_Handle instance, uint32_t n_samples) {
 											 nrepel->gain_prev,
 											 nrepel->noise_spectrum,
 											 nrepel->alpha,
-											 &nrepel->prev_frame);
+											 &nrepel->prev_frame,
+											 nrepel->masked,
+											 nrepel->jg_upper,
+											 nrepel->jg_lower);
 
 					//APPLY REDUCTION
 
 					//Residual signal
 					for (k = 0; k <= nrepel->fft_size_2; k++) {
-						nrepel->residual_spectrum[k] = nrepel->output_fft_buffer[k] - (nrepel->output_fft_buffer[k] * nrepel->Gk[k]);
-						if(k < nrepel->fft_size_2)
-							nrepel->residual_spectrum[nrepel->fft_size-k] = nrepel->output_fft_buffer[nrepel->fft_size-k] - (nrepel->output_fft_buffer[nrepel->fft_size-k] * nrepel->Gk[k]);
+					 nrepel->residual_spectrum[k] = nrepel->output_fft_buffer[k] - nrepel->output_fft_buffer[k] * nrepel->Gk[k];
 					}
 
 					//Residue Whitening and tappering
-					if(*(nrepel->residue_whitening) == 1.f) {
-						float tmp_max = max_spectral_value(nrepel->noise_spectrum,nrepel->fft_size_2);
-						float tmp_min = min_spectral_value(nrepel->noise_spectrum,nrepel->fft_size_2);
-						for (k = 0; k <= nrepel->fft_size_2; k++) {
-							if (nrepel->residual_spectrum[k] > FLT_MIN){
-								nrepel->residual_spectrum[k] /= powf((nrepel->noise_spectrum[k]/(tmp_max-tmp_min)),WA);
-								nrepel->residual_spectrum[k] *= powf(nrepel->tappering_window[k],WA);//Half hann window tappering in favor of high frequencies
-								if(k < nrepel->fft_size_2) {
-									nrepel->residual_spectrum[nrepel->fft_size-k] /= powf((nrepel->noise_spectrum[k]/(tmp_max-tmp_min)),WA);
-									nrepel->residual_spectrum[nrepel->fft_size-k] *= powf(nrepel->tappering_window[k],WA);
-								}
-							}
-						}
-					}
+ 					if(*(nrepel->residue_whitening) == 1.f) {
+ 						for (k = 0; k <= nrepel->fft_size_2; k++) {
+ 							nrepel->residual_spectrum[k] /= nrepel->whitening_spectrum[k];
+							nrepel->residual_spectrum[k] *= nrepel->tappering_filter[k];//Half hann window tappering in favor of high frequencies
+ 						}
+ 					}
 
 					if (*(nrepel->noise_listen) == 0.f){
-						//Apply the computed gain to the signal
-	 					for (k = 0; k <= nrepel->fft_size_2; k++) {
-							nrepel->output_fft_buffer[k] *= nrepel->Gk[k];
-	 						if(k < nrepel->fft_size_2)
-	 							nrepel->output_fft_buffer[nrepel->fft_size-k] *= nrepel->Gk[k];
-	 					}
+					 //Apply the computed gain to the signal
+					 for (k = 0; k <= nrepel->fft_size_2; k++) {
+						 nrepel->output_fft_buffer[k] *= nrepel->Gk[k];
+						 if(k < nrepel->fft_size_2)
+							 nrepel->output_fft_buffer[nrepel->fft_size-k] *= nrepel->Gk[k];
+					 }
 
-						//Mix residual and processed
-						for (k = 0; k <= nrepel->fft_size_2; k++) {
-							nrepel->output_fft_buffer[k] += nrepel->residual_spectrum[k]*(1.f/from_dB(*(nrepel->amount_reduc)));
-	 						if(k < nrepel->fft_size_2)
-	 							nrepel->output_fft_buffer[nrepel->fft_size-k] += nrepel->residual_spectrum[nrepel->fft_size-k]*(1.f/from_dB(*(nrepel->amount_reduc)));
-	 					}
+					 //Mix residual and processed
+					 for (k = 0; k <= nrepel->fft_size_2; k++) {
+						 nrepel->output_fft_buffer[k] += nrepel->residual_spectrum[k]*(1.f/from_dB(*(nrepel->amount_reduc)));
+						 if(k < nrepel->fft_size_2)
+							 nrepel->output_fft_buffer[nrepel->fft_size-k] += nrepel->residual_spectrum[k]*(1.f/from_dB(*(nrepel->amount_reduc)));
+					 }
 					} else {
-						//Output noise only
-						for (k = 0; k <= nrepel->fft_size_2; k++) {
-							nrepel->output_fft_buffer[k] = nrepel->residual_spectrum[k];
-	 						if(k < nrepel->fft_size_2)
-	 							nrepel->output_fft_buffer[nrepel->fft_size-k] = nrepel->residual_spectrum[nrepel->fft_size-k];
-	 					}
+					 //Output noise only
+					 for (k = 0; k <= nrepel->fft_size_2; k++) {
+						 nrepel->output_fft_buffer[k] = nrepel->residual_spectrum[k];
+						 if(k < nrepel->fft_size_2)
+							 nrepel->output_fft_buffer[nrepel->fft_size-k] = nrepel->residual_spectrum[k];
+					 }
 					}
-
 					break;
 			}
 
@@ -423,7 +527,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 			//Do inverse transform
 			fftwf_execute(nrepel->backward);
 
-			//Scaling FFT (because is unnormalized)
+			//Scaling FFT (because is not scaled down when backward plan is executed)
 			for(k = 0; k < nrepel->fft_size; k++){
 				nrepel->input_fft_buffer[k] = sanitize_denormal(nrepel->input_fft_buffer[k]/nrepel->fft_size);
 			}
@@ -441,7 +545,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 			//shift FFT accumulator the hop size
 			memmove(nrepel->output_accum, nrepel->output_accum + nrepel->hop, nrepel->fft_size*sizeof(float));
 
-			//Make sure the non overlaping section to be 0
+			//Make sure that the non overlaping section is 0
 			for (k = (nrepel->fft_size-nrepel->hop); k < nrepel->fft_size; k++){
 				nrepel->output_accum[k] = 0.f;
 			}

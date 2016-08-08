@@ -97,9 +97,9 @@ void fft_window(float* window, int N, int window_type) {
 }
 
 //unnormalized Hann windows for whitening tappering
-void tappering_window_calc(float* window, int N) {
+void tappering_filter_calc(float* window, int N,float WA) {
   int k;
   for (k = 0; k < N; k++){
-    window[k]  = hanning(k, N);
+    window[k] = powf(hanning(k, N),WA);//Half hann window tappering in favor of high frequencies
   }
 }

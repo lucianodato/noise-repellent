@@ -1,6 +1,6 @@
 # noise-repellent
 
-An lv2 spectral noise reduction plugin inspired in GWC and Audacity noise reduction modules with some extras.
+An lv2 spectral noise reduction plugin.
 
 For debian based systems you will need this packages to compile: lv2-dev lv2-c++-tools libfftw3-dev
 

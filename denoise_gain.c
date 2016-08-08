@@ -21,6 +21,76 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <math.h>
 #include "estimate_noise_spectrum.c"
 
+void compute_bark_z(float* bark_z,int fft_size_2, int srate) {
+  int k ;
+  float freq;
+  /* compute the bark z value for this frequency bin */
+  for(k = 1 ; k <= fft_size_2 ; k++) {
+    freq = (float)srate / 2.f /(float)(fft_size_2)*(float)k ;
+    bark_z[k] = 7.f*log(freq/650.f + sqrt(1.f + (freq/650.f)*(freq/650.f))) ;
+  }
+}
+
+void compute_johnston_gain(float* bark_z,float** jg_upper,float** jg_lower,int fft_size_2, float tonality_factor) {
+  int k ;
+  float bark_diff,johnston,johnston_masked,gain;
+
+  for (k = 1; k <= fft_size_2 ; ++k) {
+    int j;
+
+    for(j = k-1 ; j > 0 ; j--) {
+      bark_diff = bark_z[k] - bark_z[j];
+
+      johnston = 15.81 + 7.5*(bark_diff+0.474) - 17.5*sqrt(1.f+(bark_diff+0.474)*(bark_diff+0.474));
+      johnston_masked = johnston - (tonality_factor*(14.5+bark_z[j])+5.5*(1.f - tonality_factor));
+      gain = pow(10.f, johnston_masked/10.f);
+
+      jg_lower[k][k-j] = gain;
+
+      if(k - j > 10) break;
+    }
+
+    for(j = k ; j <= fft_size_2 ; j++) {
+      bark_diff = bark_z[j] - bark_z[k];
+
+      johnston = 15.81 + 7.5*(bark_diff+0.474) - 17.5*sqrt(1.f+(bark_diff+0.474)*(bark_diff+0.474));
+      johnston_masked = johnston - (tonality_factor*(14.5+bark_z[j])+5.5*(1.f - tonality_factor));
+      gain = pow(10.f, johnston_masked/10.f);
+
+      jg_upper[k][j-k] = gain;
+
+      if(j - k > 10) break;
+
+    }
+  }
+}
+
+void compute_masked(float* p2, float* noise_spectrum,float** jg_upper,float** jg_lower, float* masked, int fft_size_2) {
+  int j,k;
+  double gain;
+
+  for (k = 1; k <= fft_size_2 ; k++) {
+    masked[k] = 0.f;
+
+    for(j = k-1 ; j > 0 ; j--) {
+      gain = jg_lower[k][k-j];
+      if(k - j > 10) break;
+
+      masked[k] += MAX((p2[j]-noise_spectrum[j]),0.f)*gain;
+    }
+
+    for(j = k ; j <= fft_size_2 ; j++) {
+      gain = jg_upper[k][j-k];
+
+      if(gain < 1.e-2) break;
+      if(j - k > 10) break;
+
+      masked[k] += MAX((p2[j]-noise_spectrum[j]),0.f)*gain;
+    }
+  }
+
+}
+
 static float gain_weiner(float Yk2, float Dk2) {
   float gain;
   float Xk2 = Yk2 - Dk2;
@@ -63,9 +133,16 @@ void denoise_gain(int denoise_method,
                   float* gain_prev,
                   float* noise_spectrum,
                   float alpha_set,
-                  int* prev_frame) {
+                  int* prev_frame,
+                  float* masked,
+                  float** jg_upper,
+                  float** jg_lower) {
   int k;
   float gain, Fk, Rpost, Rprio, alpha;
+
+  if (denoise_method == 4) {
+    compute_masked(p2,noise_spectrum,jg_upper,jg_lower,masked,fft_size_2);
+  }
 
   //Computing gain for selected algorithm
   for (k = 0; k <= fft_size_2 ; k++) {
@@ -117,8 +194,38 @@ void denoise_gain(int denoise_method,
           gain_prev[k] = gain;
           *(prev_frame) = 1;
           break;
+        case 4:
+          // CMSR (modified using masking thresholds as noise suppression rule)
+          Rpost = MAX(p2[k]/noise_spectrum[k]-1.f, 0.f);
+
+          if (Rpost > 0.f) {
+            alpha = alpha_set; //EM like when Posteriori estimation is null
+          } else {
+            alpha = 0.f; //Wiener like punctual supression when Posteriori estimation is not null
+          }
+
+          alpha = alpha_set;
+
+          if(*(prev_frame) == 1) {
+            Rprio = (1.f-alpha)*Rpost + alpha*gain_prev[k]*gain_prev[k]*(p2_prev[k]/noise_spectrum[k]);
+          }else{
+            Rprio = Rpost;
+          }
+
+          if(p2[k] > masked[k]) {
+            gain = MAX(masked[k]/p2[k], Rprio/(Rprio+1.f)); //Rprio/(Rprio+1.0)
+          } else {
+            gain = 1.f; //Is signal worth of keeping
+          }
+
+          p2_prev[k] = p2[k];
+          gain_prev[k] = gain;
+          *(prev_frame) = 1;
+          break;
       }
 
+      //Apply over sustraction - This is intended to be used with powerspectrum
+      //sustraction but it works with Wiener and EM or CMSR too
       //To avoid excesive distortion limit gain to be applied
       Fk = over_reduc*(1.f-gain);
 
@@ -126,7 +233,7 @@ void denoise_gain(int denoise_method,
       if(Fk > 1.f) Fk = 1.f;
 
       Gk[k] =  1.f - Fk;
-      Gk_prev[k] = Gk[k];
+      //Gk_prev[k] = Gk[k];
 
     } else {
       //Otherwise we keep everything as is
