@@ -187,7 +187,7 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->noise_print_min = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->noise_print_max = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->noise_spectrum = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
-	nrepel->residual_spectrum = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
+	nrepel->residual_spectrum = (float*)calloc((nrepel->fft_size),sizeof(float));
 
 	nrepel->Gk = (float*)malloc((nrepel->fft_size_2+1)*sizeof(float));
 	nrepel->Gk_prev = (float*)malloc((nrepel->fft_size_2+1)*sizeof(float));
@@ -297,7 +297,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 		memset(nrepel->noise_print_min, nrepel->max_float, (nrepel->fft_size_2+1)*sizeof(float));
 		memset(nrepel->noise_print_max, 0, (nrepel->fft_size_2+1)*sizeof(float));
 		memset(nrepel->noise_spectrum, 0, (nrepel->fft_size_2+1)*sizeof(float));
-		memset(nrepel->residual_spectrum, 0, (nrepel->fft_size_2+1)*sizeof(float));
+		memset(nrepel->residual_spectrum, 0, (nrepel->fft_size)*sizeof(float));
 		memset(nrepel->Gk, 1, (nrepel->fft_size_2+1)*sizeof(float));
 		memset(nrepel->Gk_prev, 1, (nrepel->fft_size_2+1)*sizeof(float));
 		memset(nrepel->gain_prev, 1, (nrepel->fft_size_2+1)*sizeof(float));
@@ -440,7 +440,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
  						 nrepel->output_fft_buffer[k] += nrepel->residual_spectrum[k]*(1.f/from_dB(*(nrepel->amount_reduc)));
  						 if(k < nrepel->fft_size_2)
  						 	nrepel->output_fft_buffer[nrepel->fft_size-k] *= nrepel->Gk[k];
- 						 	nrepel->output_fft_buffer[nrepel->fft_size-k] += nrepel->residual_spectrum[k]*(1.f/from_dB(*(nrepel->amount_reduc)));//
+ 						 	nrepel->output_fft_buffer[nrepel->fft_size-k] += nrepel->residual_spectrum[k]*(1.f/from_dB(*(nrepel->amount_reduc)));
  					 }
 					} else {
 					 //Output noise only
@@ -473,6 +473,8 @@ run(LV2_Handle instance, uint32_t n_samples) {
 					//Residual signal
 					for (k = 0; k <= nrepel->fft_size_2; k++) {
 					 nrepel->residual_spectrum[k] = nrepel->output_fft_buffer[k] - (nrepel->output_fft_buffer[k] * nrepel->Gk[k]);
+					 if(k < nrepel->fft_size_2)
+					 	nrepel->residual_spectrum[nrepel->fft_size-k] = nrepel->output_fft_buffer[nrepel->fft_size-k] - (nrepel->output_fft_buffer[nrepel->fft_size-k] * nrepel->Gk[k]);
 					}
 
 					//Residue Whitening and tappering
@@ -492,7 +494,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 						 nrepel->output_fft_buffer[k] += nrepel->residual_spectrum[k]*(1.f/from_dB(*(nrepel->amount_reduc)));
 						 if(k < nrepel->fft_size_2)
 						 	nrepel->output_fft_buffer[nrepel->fft_size-k] *= nrepel->Gk[k];
-						 	nrepel->output_fft_buffer[nrepel->fft_size-k] += nrepel->residual_spectrum[k]*(1.f/from_dB(*(nrepel->amount_reduc)));
+						 	nrepel->output_fft_buffer[nrepel->fft_size-k] += nrepel->residual_spectrum[nrepel->fft_size-k]*(1.f/from_dB(*(nrepel->amount_reduc)));
 					 }
 					} else {
 					 //Output noise only
