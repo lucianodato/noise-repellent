@@ -456,7 +456,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 				case OFF_STATE:
 					//Estimate the definitive spectum
 					estimate_noise_thresholds(nrepel->fft_size_2,
-																	 *(nrepel->noise_stat_choise), 
+																	 *(nrepel->noise_stat_choise),
 			                             nrepel->noise_thresholds,
 																	 nrepel->noise_print_max,
 			      											 nrepel->noise_print_g_mean,
@@ -476,6 +476,10 @@ run(LV2_Handle instance, uint32_t n_samples) {
 											 //nrepel->masked,
 											 //nrepel->jg_upper,
 											 //nrepel->jg_lower);
+
+					//Smooth gains
+					float freq_bin = Freq2Index(1000.f,nrepel->samp_rate,nrepel->fft_size_2);
+					spectral_smoothing(nrepel->Gk,10,nrepel->fft_size_2,freq_bin);
 
 					//APPLY REDUCTION
 
