@@ -23,10 +23,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define ADAPTIVE 2
 
 //For louizou algorithm
-#define N_SMOOTH 0.7 //Smoothing over the power spectrum [1 - previous / 0 - actual]
+#define N_SMOOTH 0.9 //Smoothing over the power spectrum [1 - previous / 0 - actual]
 #define BETA 2.8 //Adaption time of the local minimun [inf - slower / 0 - faster]
 #define GAMMA 0.998 //Smoothing factor over local minimun [1 - previous / 0 - actual]
-#define ALPHA_P 0.2 //smoothing constant over speech presence [1 - previous / 0 - actual]
+#define ALPHA_P 0.9 //smoothing constant over speech presence [1 - previous / 0 - actual]
 #define ALPHA_D 0.85 //time–frequency dependent smoothing [0-1] [1 - previous / 0 - actual]
 
 static float max_spectral_value(float* noise_print, int N){
@@ -96,71 +96,20 @@ static void estimate_noise_loizou(float thresh,
   }
 }
 
-//Manual Capture
-void estimate_noise_spectrum_manual(float* p2,
-                             int fft_size_2,
-                             float* noise_spectrum,
-                             float* noise_print_min,
-      											 float* noise_print_max,
-                             int noise_stat_choise,
-                             float wa,
-                             float* whitening_spectrum){
-  int k;
-  float overall_max, max_value;
-
-  //get min max of the power spectrum
-  for(k = 0 ; k <= fft_size_2 ; k++) {
-    noise_print_min[k] = MIN(noise_print_min[k], p2[k]);
-    noise_print_max[k] = MAX(noise_print_max[k], p2[k]);
-  }
-
-  //NOISE SPECTUM COMSTRUCTIOM BASED ON STATISTIC SELECTED
-  for(k = 0 ; k <= fft_size_2 ; k++) {
-    switch(noise_stat_choise){
-      case 0:
-      noise_spectrum[k] = noise_print_max[k]; // max spectrum
-      break;
-      case 1:
-      noise_spectrum[k] = noise_print_min[k] + 0.5*(noise_print_max[k] - noise_print_min[k]); // geometric mean spectrum
-      break;
-    }
-  }
-
-  //Find max value of all noise vectors
-  overall_max = max_spectral_value(noise_print_max,fft_size_2);
-  max_value = max_spectral_value(noise_spectrum,fft_size_2);
-
-  //Normalize noise spectrum (to get the same level while changing statistic)
-  for(k = 0 ; k <= fft_size_2 ; k++) {
-    noise_spectrum[k] /= max_value;
-    //Rescale it based on overall max_value
-    noise_spectrum[k] *= overall_max;
-  }
-
-  //Residue Whitening precalculations
-  float tmp_min = min_spectral_value(noise_spectrum,fft_size_2);
-  float tmp_max = max_spectral_value(noise_spectrum,fft_size_2);
-  for (k = 0; k <= fft_size_2; k++) {
-    whitening_spectrum[k] = powf((noise_spectrum[k]/(tmp_max-tmp_min)),wa);
-  }
-}
-
 //Adaptive noise estimation
-void estimate_noise_spectrum_adaptive(float* p2,
-                                      int fft_size_2,
-                                      float* noise_spectrum,
-                                      float thresh,
-                                      float* prev_noise,
-                                      float* s_pow_spec,
-                                      float* prev_s_pow_spec,
-                                      float* p_min,
-                                      float* prev_p_min,
-                                      float* speech_p_p,
-                                      float* prev_speech_p_p,
-                                      float wa,
-                                      float* whitening_spectrum){
+void auto_capture_noise(float* p2,
+                        int fft_size_2,
+                        float* noise_spectrum,
+                        float thresh,
+                        float* prev_noise,
+                        float* s_pow_spec,
+                        float* prev_s_pow_spec,
+                        float* p_min,
+                        float* prev_p_min,
+                        float* speech_p_p,
+                        float* prev_speech_p_p){
   int k;
-
+  
   estimate_noise_loizou(thresh,
                         fft_size_2,
                         p2,
@@ -180,6 +129,46 @@ void estimate_noise_spectrum_adaptive(float* p2,
     prev_p_min[k] = p_min[k];
     prev_speech_p_p[k] = speech_p_p[k];
   }
+}
+
+void get_noise_statistics(float* p2,
+                         int fft_size_2,
+                         float* noise_print_min,
+  											 float* noise_print_max,
+                         float* noise_print_g_mean,
+                         float* noise_print_mean,
+                         int* n_window_count) {
+  //Get noise time statistics
+  for(k = 0 ; k <= fft_size_2 ; k++) {
+    noise_print_min[k] = MIN(noise_print_min[k], p2[k]);
+    noise_print_max[k] = MAX(noise_print_max[k], p2[k]);
+    noise_print_mean[k] += p2[k];
+  }
+
+  //Increase window count
+  *(n_window_count) += 1;
+
+  //Finish mean calculations
+  for(k = 0 ; k <= fft_size_2 ; k++) {
+    noise_print_mean[k] /= *(n_window_count);
+    noise_print_g_mean[k] = noise_print_min[k] + 0.5*(noise_print_max[k] - noise_print_min[k])
+  }
+}
+
+//Manual Capture
+void estimate_noise_spectrum(int fft_size_2,
+                             float* noise_spectrum,
+                             float* noise_print_min,
+      											 float* noise_print_max,
+      											 float* noise_print_g_mean,
+      											 float* noise_print_mean,
+                             float wa,
+                             float* whitening_spectrum){
+  int k;
+
+  //NOISE THRESHOLDS SPECTUM COMSTRUCTIOM BASED ON STATISTIC SELECTED
+
+  //Do some more stuff to decide what is the threshold of each band
 
   //Residue Whitening precalculations
   float tmp_min = min_spectral_value(noise_spectrum,fft_size_2);

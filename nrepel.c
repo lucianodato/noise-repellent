@@ -134,15 +134,15 @@ typedef struct {
 	float* speech_p_p;
 	float* prev_speech_p_p;
 
-	float sum_log_p;
-	float sum_p;
-	float kinv;
-	float SFM;
-	float tonality_factor;
-	float* masked;
-	float** jg_upper;
-	float** jg_lower;
-	float* bark_z;
+	// float sum_log_p;
+	// float sum_p;
+	// float kinv;
+	// float SFM;
+	// float tonality_factor;
+	// float* masked;
+	// float** jg_upper;
+	// float** jg_lower;
+	// float* bark_z;
 
 } Nrepel;
 
@@ -168,7 +168,6 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->hop = nrepel->fft_size/nrepel->overlap_factor;
 	nrepel->input_latency = nrepel->fft_size - nrepel->hop;
 	nrepel->read_ptr = nrepel->input_latency; //the initial position because we are that many samples ahead
-	nrepel->kinv	= 1.f/(float)nrepel->fft_size_2;
 
 	nrepel->in_fifo = (float*)calloc(nrepel->fft_size,sizeof(float));
 	nrepel->out_fifo = (float*)calloc(nrepel->fft_size,sizeof(float));
@@ -186,6 +185,8 @@ instantiate(const LV2_Descriptor*     descriptor,
 
 	nrepel->noise_print_min = (float*)malloc((nrepel->fft_size_2+1)*sizeof(float));
 	nrepel->noise_print_max = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
+	nrepel->noise_print_mean = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
+	nrepel->noise_print_g_mean = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->noise_spectrum = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->residual_spectrum = (float*)calloc((nrepel->fft_size),sizeof(float));
 
@@ -203,15 +204,18 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->speech_p_p = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->prev_speech_p_p = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 
-	nrepel->masked = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
-	nrepel->jg_upper = (float**)malloc(sizeof(float)*(nrepel->fft_size));
-	nrepel->jg_lower = (float**)malloc(sizeof(float)*(nrepel->fft_size));
-	nrepel->bark_z = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
-
-	for(int k = 0; k < nrepel->fft_size; k++){
-		nrepel->jg_upper[k] = (float*)calloc(11,sizeof(float));
-		nrepel->jg_lower[k] = (float*)calloc(11,sizeof(float));
-	}
+	// //MASKING THRESHOLDS (this should be precomputed and in a file to be more efficient)
+	// nrepel->masked = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
+	// nrepel->jg_upper = (float**)malloc(sizeof(float)*(nrepel->fft_size));
+	// nrepel->jg_lower = (float**)malloc(sizeof(float)*(nrepel->fft_size));
+	// nrepel->bark_z = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
+	//
+	// for(int k = 0; k < nrepel->fft_size; k++){
+	// 	nrepel->jg_upper[k] = (float*)calloc(11,sizeof(float));
+	// 	nrepel->jg_lower[k] = (float*)calloc(11,sizeof(float));
+	// }
+	// nrepel->kinv	= 1.f/(float)nrepel->fft_size_2;
+	// compute_bark_z(nrepel->bark_z,nrepel->fft_size_2,nrepel->samp_rate);
 
 	//Here we initialize arrays with intended default values
 	memset(nrepel->noise_print_min, nrepel->max_float, (nrepel->fft_size_2+1)*sizeof(float));
@@ -221,9 +225,6 @@ instantiate(const LV2_Descriptor*     descriptor,
 
 	fft_window(nrepel->window,nrepel->fft_size,nrepel->window_type); //STFT window
 	tappering_filter_calc(nrepel->tappering_filter,(nrepel->fft_size_2+1),WA); //Tappering window
-
-	//MASKING THRESHOLDS (this should be precomputed and in a file to be more efficient)
-	compute_bark_z(nrepel->bark_z,nrepel->fft_size_2,nrepel->samp_rate);
 
 	return (LV2_Handle)nrepel;
 }
@@ -293,9 +294,11 @@ run(LV2_Handle instance, uint32_t n_samples) {
 	*(nrepel->report_latency) = (float) nrepel->input_latency;
 
 	//Reset reset button state
-	if (*(nrepel->reset_print) == 1.f && *(nrepel->capt_state) != ADAPTIVE_CAPTURE_STATE) {
+	if (*(nrepel->reset_print) == 1.f) {
 		memset(nrepel->noise_print_min, nrepel->max_float, (nrepel->fft_size_2+1)*sizeof(float));
 		memset(nrepel->noise_print_max, 0, (nrepel->fft_size_2+1)*sizeof(float));
+		memset(nrepel->noise_print_mean, 0, (nrepel->fft_size_2+1)*sizeof(float));
+		memset(nrepel->noise_print_g_mean, 0, (nrepel->fft_size_2+1)*sizeof(float));
 		memset(nrepel->noise_spectrum, 0, (nrepel->fft_size_2+1)*sizeof(float));
 		memset(nrepel->residual_spectrum, 0, (nrepel->fft_size)*sizeof(float));
 		memset(nrepel->Gk, 1, (nrepel->fft_size_2+1)*sizeof(float));
@@ -349,19 +352,19 @@ run(LV2_Handle instance, uint32_t n_samples) {
 				nrepel->fft_p2[k] = sanitize_denormal(nrepel->p2);
 				//nrepel->fft_magnitude[k] = sanitize_denormal(nrepel->mag);
 
-				//FOR MASKING THRESHOLDS
-				if (*(nrepel->denoise_method) == 4.f) {
-					nrepel->sum_log_p += log10f(nrepel->fft_p2[k]);
-			    nrepel->sum_p += nrepel->fft_p2[k];
-				}
+				// //FOR MASKING THRESHOLDS
+				// if (*(nrepel->denoise_method) == 4.f) {
+				// 	nrepel->sum_log_p += log10f(nrepel->fft_p2[k]);
+			  //   nrepel->sum_p += nrepel->fft_p2[k];
+				// }
 			}
 
-			//FOR MASKING THRESHOLDS
-			if (*(nrepel->denoise_method) == 4.f) {
-				nrepel->SFM = 10.f*( nrepel->kinv*nrepel->sum_log_p - log10f(nrepel->sum_p*nrepel->kinv));
-				nrepel->tonality_factor = MIN(nrepel->SFM/-60.f, 1.f);
-				compute_johnston_gain(nrepel->bark_z,nrepel->jg_upper,nrepel->jg_lower,nrepel->fft_size_2,nrepel->tonality_factor);
-			}
+			// //FOR MASKING THRESHOLDS
+			// if (*(nrepel->denoise_method) == 4.f) {
+			// 	nrepel->SFM = 10.f*( nrepel->kinv*nrepel->sum_log_p - log10f(nrepel->sum_p*nrepel->kinv));
+			// 	nrepel->tonality_factor = MIN(nrepel->SFM/-60.f, 1.f);
+			// 	compute_johnston_gain(nrepel->bark_z,nrepel->jg_upper,nrepel->jg_lower,nrepel->fft_size_2,nrepel->tonality_factor);
+			// }
 
 			//More info could be useful like onsets for example to modify the amount of reduction
 
@@ -370,14 +373,12 @@ run(LV2_Handle instance, uint32_t n_samples) {
 			switch ((int) *(nrepel->capt_state) ) {
 				case MANUAL_CAPTURE_ON_STATE:
 					//If selected estimate noise spectrum based on selected portion of signal
-					estimate_noise_spectrum_manual(nrepel->fft_p2,
+					get_noise_statistics(nrepel->fft_p2,
 																	nrepel->fft_size_2,
-																	nrepel->noise_spectrum,
 																	nrepel->noise_print_min,
-					 											  nrepel->noise_print_max,
-																	*(nrepel->noise_stat_choise),
-																	nrepel->wa,
-		                              nrepel->whitening_spectrum);
+																	nrepel->noise_print_max,
+																	nrepel->noise_print_g_mean,
+					 											  nrepel->noise_print_mean);
 					break;
 				case ADAPTIVE_CAPTURE_STATE:
 					//if slected auto estimate noise spectrum and apply denoising
@@ -394,6 +395,11 @@ run(LV2_Handle instance, uint32_t n_samples) {
 																					 nrepel->prev_speech_p_p,
 																					 nrepel->wa,
 																					 nrepel->whitening_spectrum);
+
+					//Get statistics from the autolearned noise
+					get_noise_statistics();
+					//Estimate the definitive spectum
+					estimate_noise_spectrum();
 					//Compute denoising gain based on previously computed spectrum
 					denoise_gain(*(nrepel->denoise_method),
 											 *(nrepel->over_reduc),
@@ -405,10 +411,10 @@ run(LV2_Handle instance, uint32_t n_samples) {
 											 nrepel->gain_prev,
 											 nrepel->noise_spectrum,
 											 nrepel->alpha,
-											 &nrepel->prev_frame,
-										 	 nrepel->masked,
-											 nrepel->jg_upper,
-		                   nrepel->jg_lower);
+											 &nrepel->prev_frame);
+										 	 //nrepel->masked,
+											 //nrepel->jg_upper,
+		                   //nrepel->jg_lower);
 
 					 //APPLY REDUCTION
 
@@ -452,6 +458,8 @@ run(LV2_Handle instance, uint32_t n_samples) {
  					}
 					break;
 				case OFF_STATE:
+					//Estimate the definitive spectum
+					estimate_noise_spectrum();
 					//Compute denoising gain based on previously computed spectrum (manual or automatic)
 					denoise_gain(*(nrepel->denoise_method),
 											 *(nrepel->over_reduc),
@@ -463,10 +471,10 @@ run(LV2_Handle instance, uint32_t n_samples) {
 											 nrepel->gain_prev,
 											 nrepel->noise_spectrum,
 											 nrepel->alpha,
-											 &nrepel->prev_frame,
-											 nrepel->masked,
-											 nrepel->jg_upper,
-											 nrepel->jg_lower);
+											 &nrepel->prev_frame);
+											 //nrepel->masked,
+											 //nrepel->jg_upper,
+											 //nrepel->jg_lower);
 
 					//APPLY REDUCTION
 
