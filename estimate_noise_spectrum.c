@@ -23,11 +23,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define ADAPTIVE 2
 
 //For louizou algorithm
-#define N_SMOOTH 0.1 //Smoothing over the power spectrum [1 - previous / 0 - actual]
-#define BETA 0.8 //Adaption time of the local minimun [inf - slower / 0 - faster]
+#define N_SMOOTH 0.7 //Smoothing over the power spectrum [1 - previous / 0 - actual]
+#define BETA 2.8 //Adaption time of the local minimun [inf - slower / 0 - faster]
 #define GAMMA 0.998 //Smoothing factor over local minimun [1 - previous / 0 - actual]
-#define ALPHA_P 0.3 //smoothing constant over speech presence [1 - previous / 0 - actual]
-#define ALPHA_D 0.95 //time–frequency dependent smoothing [0-1] [1 - previous / 0 - actual]
+#define ALPHA_P 0.2 //smoothing constant over speech presence [1 - previous / 0 - actual]
+#define ALPHA_D 0.85 //time–frequency dependent smoothing [0-1] [1 - previous / 0 - actual]
 
 static float max_spectral_value(float* noise_print, int N){
   int k;
@@ -80,7 +80,9 @@ static void estimate_noise_loizou(float thresh,
 
     //4- Compute the indicator function I for speech present/absent detection
     if(ratio_ns > thresh) { //thresh could be freq dependant
-      speech_p_d[k] = 1.f;
+      speech_p_d[k] = 1.f; //present
+    } else {
+      speech_p_d[k] = 0.f; //absent
     }
 
     //5- Calculate speech presence probability using first-order recursion

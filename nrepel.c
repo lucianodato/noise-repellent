@@ -293,7 +293,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 	*(nrepel->report_latency) = (float) nrepel->input_latency;
 
 	//Reset reset button state
-	if (*(nrepel->reset_print) == 1.f) {
+	if (*(nrepel->reset_print) == 1.f && *(nrepel->capt_state) != ADAPTIVE_CAPTURE_STATE) {
 		memset(nrepel->noise_print_min, nrepel->max_float, (nrepel->fft_size_2+1)*sizeof(float));
 		memset(nrepel->noise_print_max, 0, (nrepel->fft_size_2+1)*sizeof(float));
 		memset(nrepel->noise_spectrum, 0, (nrepel->fft_size_2+1)*sizeof(float));
@@ -301,13 +301,6 @@ run(LV2_Handle instance, uint32_t n_samples) {
 		memset(nrepel->Gk, 1, (nrepel->fft_size_2+1)*sizeof(float));
 		memset(nrepel->Gk_prev, 1, (nrepel->fft_size_2+1)*sizeof(float));
 		memset(nrepel->gain_prev, 1, (nrepel->fft_size_2+1)*sizeof(float));
-		memset(nrepel->prev_noise, 0, (nrepel->fft_size_2+1)*sizeof(float));
-		memset(nrepel->s_pow_spec, 0, (nrepel->fft_size_2+1)*sizeof(float));
-		memset(nrepel->prev_s_pow_spec, 0, (nrepel->fft_size_2+1)*sizeof(float));
-		memset(nrepel->p_min, 0, (nrepel->fft_size_2+1)*sizeof(float));
-		memset(nrepel->prev_p_min, 0, (nrepel->fft_size_2+1)*sizeof(float));
-		memset(nrepel->speech_p_p, 0, (nrepel->fft_size_2+1)*sizeof(float));
-		memset(nrepel->prev_speech_p_p, 0, (nrepel->fft_size_2+1)*sizeof(float));
 		nrepel->prev_frame = 0;
 	}
 
@@ -338,6 +331,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 
 			//Get the positive spectrum and compute the power spectrum or magnitude
 			for (k = 0; k <= nrepel->fft_size_2; k++){
+				//Signal energy is divided in the positive and negative sides of the spectrum
 				nrepel->real_p = nrepel->output_fft_buffer[k];
 				nrepel->real_n = nrepel->output_fft_buffer[nrepel->fft_size-k];
 
@@ -390,7 +384,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 					estimate_noise_spectrum_adaptive(nrepel->fft_p2,
 																					 nrepel->fft_size_2,
 																					 nrepel->noise_spectrum,
-																					 from_dB(*(nrepel->noise_thresh)),
+																					 *(nrepel->noise_thresh),//from_dB(*(nrepel->noise_thresh)),
 																					 nrepel->prev_noise,
 																					 nrepel->s_pow_spec,
 																					 nrepel->prev_s_pow_spec,
