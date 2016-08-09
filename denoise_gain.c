@@ -62,7 +62,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 //   }
 // }
 //
-// void compute_masked(float* p2, float* noise_spectrum,float** jg_upper,float** jg_lower, float* masked, int fft_size_2) {
+// void compute_masked(float* p2, float* noise_thresholds,float** jg_upper,float** jg_lower, float* masked, int fft_size_2) {
 //   int j,k;
 //   float gain_m;
 //
@@ -73,7 +73,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 //       gain_m = jg_lower[k][k-j];
 //       if(k - j > 10) break;
 //
-//       masked[k] += MAX((p2[j]-noise_spectrum[j]),0.f)*gain_m;
+//       masked[k] += MAX((p2[j]-noise_thresholds[j]),0.f)*gain_m;
 //     }
 //
 //     for(j = k ; j <= fft_size_2 ; j++) {
@@ -82,7 +82,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 //       if(gain_m < 1.e-2) break;
 //       if(j - k > 10) break;
 //
-//       masked[k] += MAX((p2[j]-noise_spectrum[j]),0.f)*gain_m;
+//       masked[k] += MAX((p2[j]-noise_thresholds[j]),0.f)*gain_m;
 //     }
 //   }
 // }
@@ -127,30 +127,30 @@ void denoise_gain(float denoise_method,
                   float* Gk,
                   float* Gk_prev,
                   float* gain_prev,
-                  float* noise_spectrum,
+                  float* noise_thresholds,
                   float alpha_set,
                   int* prev_frame) {
                   //float* masked,
                   //float** jg_upper,
                   //float** jg_lower) {
   int k;
-  float gain, Fk, Rpost, Rprio, alpha;
+  float gain = 0.f, Fk, Rpost, Rprio, alpha;
 
   // //MASKING THRESHOLDS
   // if (denoise_method == 4.f) {
-  //   compute_masked(p2,noise_spectrum,jg_upper,jg_lower,masked,fft_size_2);
+  //   compute_masked(p2,noise_thresholds,jg_upper,jg_lower,masked,fft_size_2);
   // }
 
   //Computing gain for selected algorithm
   for (k = 0; k <= fft_size_2 ; k++) {
-    if (noise_spectrum[k] > FLT_MIN){
+    if (noise_thresholds[k] > FLT_MIN){
       //We can compute gain if print was previously captured
       switch ((int)denoise_method) {// supression rule
         case 0: // Wiener Filter
-          gain = gain_weiner(p2[k], noise_spectrum[k]) ;
+          gain = gain_weiner(p2[k], noise_thresholds[k]) ;
           break;
         case 1: // Power Subtraction
-          gain = gain_power_subtraction(p2[k], noise_spectrum[k]) ;
+          gain = gain_power_subtraction(p2[k], noise_thresholds[k]) ;
           //Apply over sustraction
           Fk = over_reduc*(1.f-gain);
 
@@ -162,10 +162,10 @@ void denoise_gain(float denoise_method,
           break;
         case 2:
           // Ephraim-Mallat
-          Rpost = MAX(p2[k]/noise_spectrum[k]-1.f, 0.f);
+          Rpost = MAX(p2[k]/noise_thresholds[k]-1.f, 0.f);
 
           if(*(prev_frame) == 1) {
-            Rprio = (1.f-alpha_set)*Rpost + alpha_set*gain_prev[k]*gain_prev[k]*(p2_prev[k]/noise_spectrum[k]);
+            Rprio = (1.f-alpha_set)*Rpost + alpha_set*gain_prev[k]*gain_prev[k]*(p2_prev[k]/noise_thresholds[k]);
           }else{
             Rprio = Rpost;
           }
@@ -178,7 +178,7 @@ void denoise_gain(float denoise_method,
           break;
         case 3:
           // CMSR (modified EM)
-          Rpost = MAX(p2[k]/noise_spectrum[k]-1.f, 0.f);
+          Rpost = MAX(p2[k]/noise_thresholds[k]-1.f, 0.f);
 
           if (Rpost > 0.f) {
             alpha = alpha_set; //EM like when Posteriori estimation is null
@@ -187,7 +187,7 @@ void denoise_gain(float denoise_method,
           }
 
           if(*(prev_frame) == 1) {
-            Rprio = (1.f-alpha)*Rpost + alpha*gain_prev[k]*gain_prev[k]*(p2_prev[k]/noise_spectrum[k]);
+            Rprio = (1.f-alpha)*Rpost + alpha*gain_prev[k]*gain_prev[k]*(p2_prev[k]/noise_thresholds[k]);
           }else{
             Rprio = Rpost;
           }
