@@ -168,7 +168,7 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->hop = nrepel->fft_size/nrepel->overlap_factor;
 	nrepel->input_latency = nrepel->fft_size - nrepel->hop;
 	nrepel->read_ptr = nrepel->input_latency; //the initial position because we are that many samples ahead
-	nrepel->kinv	= 1.f/float(nrepel->fft_size_2);
+	nrepel->kinv	= 1.f/(float)nrepel->fft_size_2;
 
 	nrepel->in_fifo = (float*)calloc(nrepel->fft_size,sizeof(float));
 	nrepel->out_fifo = (float*)calloc(nrepel->fft_size,sizeof(float));
@@ -184,7 +184,7 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->fft_p2 = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->fft_p2_prev = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 
-	nrepel->noise_print_min = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
+	nrepel->noise_print_min = (float*)malloc((nrepel->fft_size_2+1)*sizeof(float));
 	nrepel->noise_print_max = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->noise_spectrum = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->residual_spectrum = (float*)calloc((nrepel->fft_size),sizeof(float));
@@ -204,8 +204,8 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->prev_speech_p_p = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 
 	nrepel->masked = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
-	nrepel->jg_upper = (float**)malloc(sizeof(float)*(nrepel->fft_size_2+1));
-	nrepel->jg_lower = (float**)malloc(sizeof(float)*(nrepel->fft_size_2+1));
+	nrepel->jg_upper = (float**)malloc(sizeof(float)*(nrepel->fft_size));
+	nrepel->jg_lower = (float**)malloc(sizeof(float)*(nrepel->fft_size));
 	nrepel->bark_z = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 
 	for(int k = 0; k < nrepel->fft_size; k++){
@@ -373,7 +373,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 
 			//------------Processing---------------
 
-			switch (int(*(nrepel->capt_state))) {
+			switch ((int) *(nrepel->capt_state) ) {
 				case MANUAL_CAPTURE_ON_STATE:
 					//If selected estimate noise spectrum based on selected portion of signal
 					estimate_noise_spectrum_manual(nrepel->fft_p2,
@@ -418,38 +418,44 @@ run(LV2_Handle instance, uint32_t n_samples) {
 
 					 //APPLY REDUCTION
 
-					//Residual signal
-					for (k = 0; k <= nrepel->fft_size_2; k++) {
-					 nrepel->residual_spectrum[k] = nrepel->output_fft_buffer[k] - (nrepel->output_fft_buffer[k] * nrepel->Gk[k]);
-					}
+ 					//Residual signal
+ 					for (k = 0; k <= nrepel->fft_size_2; k++) {
+ 					 nrepel->residual_spectrum[k] = nrepel->output_fft_buffer[k] - (nrepel->output_fft_buffer[k] * nrepel->Gk[k]);
+ 					 if(k < nrepel->fft_size_2)
+ 					 	nrepel->residual_spectrum[nrepel->fft_size-k] = nrepel->output_fft_buffer[nrepel->fft_size-k] - (nrepel->output_fft_buffer[nrepel->fft_size-k] * nrepel->Gk[k]);
+ 					}
 
-					//Residue Whitening and tappering
-					if(*(nrepel->residue_whitening) == 1.f) {
-						for (k = 0; k <= nrepel->fft_size_2; k++) {
-							if(nrepel->residual_spectrum[k] > FLT_MIN) {
-								nrepel->residual_spectrum[k] /= nrepel->whitening_spectrum[k];
-								nrepel->residual_spectrum[k] *= nrepel->tappering_filter[k];//Half hann window tappering in favor of high frequencies
-							}
-						}
-					}
+ 					//Residue Whitening and tappering
+ 					if(*(nrepel->residue_whitening) == 1.f) {
+ 						for (k = 0; k <= nrepel->fft_size_2; k++) {
+ 							if(nrepel->residual_spectrum[k] > FLT_MIN) {
+ 								nrepel->residual_spectrum[k] /= nrepel->whitening_spectrum[k];
+ 								nrepel->residual_spectrum[k] *= nrepel->tappering_filter[k];//Half hann window tappering in favor of high frequencies
+ 								if(k < nrepel->fft_size_2) {
+ 									nrepel->residual_spectrum[nrepel->fft_size-k] /= nrepel->whitening_spectrum[k];
+ 									nrepel->residual_spectrum[nrepel->fft_size-k] *= nrepel->tappering_filter[k];//Half hann window tappering in favor of high frequencies
+ 								}
+ 							}
+ 						}
+ 					}
 
-					if (*(nrepel->noise_listen) == 0.f){
-						//Apply the computed gain to the signal and Mix residual and processed based on reduction slider
+ 					if (*(nrepel->noise_listen) == 0.f){
+ 					 //Apply the computed gain to the signal and Mix residual and processed
  					 for (k = 0; k <= nrepel->fft_size_2; k++) {
  						 nrepel->output_fft_buffer[k] *= nrepel->Gk[k];
  						 nrepel->output_fft_buffer[k] += nrepel->residual_spectrum[k]*(1.f/from_dB(*(nrepel->amount_reduc)));
  						 if(k < nrepel->fft_size_2)
  						 	nrepel->output_fft_buffer[nrepel->fft_size-k] *= nrepel->Gk[k];
- 						 	nrepel->output_fft_buffer[nrepel->fft_size-k] += nrepel->residual_spectrum[k]*(1.f/from_dB(*(nrepel->amount_reduc)));
+ 						 	nrepel->output_fft_buffer[nrepel->fft_size-k] += nrepel->residual_spectrum[nrepel->fft_size-k]*(1.f/from_dB(*(nrepel->amount_reduc)));
  					 }
-					} else {
-					 //Output noise only
-					 for (k = 0; k <= nrepel->fft_size_2; k++) {
-						 nrepel->output_fft_buffer[k] = nrepel->residual_spectrum[k];
-						 if(k < nrepel->fft_size_2)
-						 	nrepel->output_fft_buffer[nrepel->fft_size-k] = nrepel->residual_spectrum[k];
-					 }
-					}
+ 					} else {
+ 					 //Output noise only
+ 					 for (k = 0; k <= nrepel->fft_size_2; k++) {
+ 						 nrepel->output_fft_buffer[k] = nrepel->residual_spectrum[k];
+ 						 if(k < nrepel->fft_size_2)
+ 							 nrepel->output_fft_buffer[nrepel->fft_size-k] = nrepel->residual_spectrum[k];
+ 					 }
+ 					}
 					break;
 				case OFF_STATE:
 					//Compute denoising gain based on previously computed spectrum (manual or automatic)
@@ -483,6 +489,10 @@ run(LV2_Handle instance, uint32_t n_samples) {
 							if(nrepel->residual_spectrum[k] > FLT_MIN) {
 								nrepel->residual_spectrum[k] /= nrepel->whitening_spectrum[k];
 								nrepel->residual_spectrum[k] *= nrepel->tappering_filter[k];//Half hann window tappering in favor of high frequencies
+								if(k < nrepel->fft_size_2) {
+									nrepel->residual_spectrum[nrepel->fft_size-k] /= nrepel->whitening_spectrum[k];
+									nrepel->residual_spectrum[nrepel->fft_size-k] *= nrepel->tappering_filter[k];//Half hann window tappering in favor of high frequencies
+								}
 							}
 						}
 					}

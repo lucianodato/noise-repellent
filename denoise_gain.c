@@ -22,7 +22,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include "estimate_noise_spectrum.c"
 
 void compute_bark_z(float* bark_z,int fft_size_2, int srate) {
-  int k ;
+  int k;
   float freq;
   /* compute the bark z value for this frequency bin */
   for(k = 1 ; k <= fft_size_2 ; k++) {
@@ -32,12 +32,10 @@ void compute_bark_z(float* bark_z,int fft_size_2, int srate) {
 }
 
 void compute_johnston_gain(float* bark_z,float** jg_upper,float** jg_lower,int fft_size_2, float tonality_factor) {
-  int k ;
+  int k,j;
   float bark_diff,johnston,johnston_masked,gain_j;
 
   for (k = 1; k <= fft_size_2 ; ++k) {
-    int j;
-
     for(j = k-1 ; j > 0 ; j--) {
       bark_diff = bark_z[k] - bark_z[j];
 
@@ -49,7 +47,6 @@ void compute_johnston_gain(float* bark_z,float** jg_upper,float** jg_lower,int f
 
       if(k - j > 10) break;
     }
-
     for(j = k ; j <= fft_size_2 ; j++) {
       bark_diff = bark_z[j] - bark_z[k];
 
@@ -60,14 +57,13 @@ void compute_johnston_gain(float* bark_z,float** jg_upper,float** jg_lower,int f
       jg_upper[k][j-k] = gain_j;
 
       if(j - k > 10) break;
-
     }
   }
 }
 
 void compute_masked(float* p2, float* noise_spectrum,float** jg_upper,float** jg_lower, float* masked, int fft_size_2) {
   int j,k;
-  double gain_m;
+  float gain_m;
 
   for (k = 1; k <= fft_size_2 ; k++) {
     masked[k] = 0.f;
@@ -88,7 +84,6 @@ void compute_masked(float* p2, float* noise_spectrum,float** jg_upper,float** jg
       masked[k] += MAX((p2[j]-noise_spectrum[j]),0.f)*gain_m;
     }
   }
-
 }
 
 static float gain_weiner(float Yk2, float Dk2) {
@@ -155,7 +150,7 @@ void denoise_gain(float denoise_method,
 
     if (noise_spectrum[k] > FLT_MIN){
       //We can compute gain if print was previously captured
-      switch (int(denoise_method)) {// supression rule
+      switch ((int)denoise_method) {// supression rule
         case 0: // Wiener Filter
           gain = gain_weiner(p2[k], noise_spectrum[k]) ;
           break;
@@ -167,7 +162,7 @@ void denoise_gain(float denoise_method,
           Rpost = MAX(p2[k]/noise_spectrum[k]-1.f, 0.f);
 
           if(*(prev_frame) == 1) {
-            Rprio = (1.f-alpha_set)*Rpost + alpha_set*gain_prev[k]*gain_prev[k]*p2_prev[k]/noise_spectrum[k];
+            Rprio = (1.f-alpha_set)*Rpost + alpha_set*gain_prev[k]*gain_prev[k]*(p2_prev[k]/noise_spectrum[k]);
           }else{
             Rprio = Rpost;
           }
@@ -189,7 +184,7 @@ void denoise_gain(float denoise_method,
           }
 
           if(*(prev_frame) == 1) {
-            Rprio = (1.f-alpha)*Rpost + alpha*gain_prev[k]*gain_prev[k]*p2_prev[k]/noise_spectrum[k];
+            Rprio = (1.f-alpha)*Rpost + alpha*gain_prev[k]*gain_prev[k]*(p2_prev[k]/noise_spectrum[k]);
           }else{
             Rprio = Rpost;
           }
@@ -211,7 +206,7 @@ void denoise_gain(float denoise_method,
           }
 
           if(*(prev_frame) == 1) {
-            Rprio = (1.f-alpha)*Rpost + alpha*gain_prev[k]*gain_prev[k]*p2_prev[k]/noise_spectrum[k];
+            Rprio = (1.f-alpha)*Rpost + alpha*gain_prev[k]*gain_prev[k]*(p2_prev[k]/noise_spectrum[k]);
           }else{
             Rprio = Rpost;
           }
