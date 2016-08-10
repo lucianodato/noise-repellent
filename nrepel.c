@@ -459,72 +459,70 @@ run(LV2_Handle instance, uint32_t n_samples) {
 				// 	 }
 				// 	 break;
 				case OFF_STATE:
-					//Estimate the definitive spectum
-					estimate_noise_thresholds(nrepel->fft_size_2,
-																	 *(nrepel->noise_stat_choise),
-			                             nrepel->noise_thresholds,
-																	 nrepel->noise_print_max,
-			      											 nrepel->noise_print_g_mean,
-			      											 nrepel->noise_print_mean);
+				//Estimate the definitive spectum
+				estimate_noise_thresholds(nrepel->fft_size_2,
+																 *(nrepel->noise_stat_choise),
+		                             nrepel->noise_thresholds,
+																 nrepel->noise_print_max,
+		      											 nrepel->noise_print_g_mean,
+		      											 nrepel->noise_print_mean);
 
-				  //Smooth noise spectrum
-					float freq_bin = Freq2Index(1000.f,nrepel->samp_rate,nrepel->fft_size_2);
-					spectral_smoothing_boxcar(nrepel->Gk,int(*(nrepel->smoothing)),nrepel->fft_size_2,freq_bin);
+				spectral_smoothing_boxcar(nrepel->noise_thresholds,*(nrepel->smoothing),nrepel->fft_size_2,true);
 
+			  //Compute denoising gain based on previously computed spectrum (manual or automatic)
+				denoise_gain(*(nrepel->denoise_method),
+										 //*(nrepel->over_reduc),
+										 nrepel->fft_p2,
+										 nrepel->fft_p2_prev,
+										 nrepel->fft_size_2,
+										 nrepel->Gk,
+										 nrepel->Gk_prev,
+										 nrepel->gain_prev,
+										 nrepel->noise_thresholds,
+										 nrepel->alpha,
+										 &nrepel->prev_frame);
+										 //nrepel->masked,
+										 //nrepel->jg_upper,
+										 //nrepel->jg_lower);
 
-					//Compute denoising gain based on previously computed spectrum (manual or automatic)
-					denoise_gain(*(nrepel->denoise_method),
-											 //*(nrepel->over_reduc),
-											 nrepel->fft_p2,
-											 nrepel->fft_p2_prev,
-											 nrepel->fft_size_2,
-											 nrepel->Gk,
-											 nrepel->Gk_prev,
-											 nrepel->gain_prev,
-											 nrepel->noise_thresholds,
-											 nrepel->alpha,
-											 &nrepel->prev_frame);
-											 //nrepel->masked,
-											 //nrepel->jg_upper,
-											 //nrepel->jg_lower);
+				//APPLY REDUCTION
 
-					//APPLY REDUCTION
+				//Residual signal
+				for (k = 0; k <= nrepel->fft_size_2; k++) {
+				 nrepel->residual_spectrum[k] = nrepel->output_fft_buffer[k] - (nrepel->output_fft_buffer[k] * nrepel->Gk[k]);
+				 if(k < nrepel->fft_size_2)
+				 	nrepel->residual_spectrum[nrepel->fft_size-k] = nrepel->output_fft_buffer[nrepel->fft_size-k] - (nrepel->output_fft_buffer[nrepel->fft_size-k] * nrepel->Gk[k]);
+				}
 
-					//Residual signal
-					for (k = 0; k <= nrepel->fft_size_2; k++) {
-					 nrepel->residual_spectrum[k] = nrepel->output_fft_buffer[k] - (nrepel->output_fft_buffer[k] * nrepel->Gk[k]);
+				//Residue Whitening and tappering
+				if(*(nrepel->residue_whitening) == 1.f) {
+					whitening_of_spectrum(nrepel->residual_spectrum,nrepel->wa,nrepel->fft_size_2);
+					apply_tappering_filter(nrepel->residual_spectrum,nrepel->tappering_filter,nrepel->fft_size_2);
+				}
+
+				if (*(nrepel->noise_listen) == 0.f){
+				 //Apply the computed gain to the signal and Mix residual and processed
+				 for (k = 0; k <= nrepel->fft_size_2; k++) {
+					 nrepel->output_fft_buffer[k] *= nrepel->Gk[k];
 					 if(k < nrepel->fft_size_2)
-					 	nrepel->residual_spectrum[nrepel->fft_size-k] = nrepel->output_fft_buffer[nrepel->fft_size-k] - (nrepel->output_fft_buffer[nrepel->fft_size-k] * nrepel->Gk[k]);
-					}
+					 	nrepel->output_fft_buffer[nrepel->fft_size-k] *= nrepel->Gk[k];
+				 }
 
-					//Residue Whitening and tappering
-					if(*(nrepel->residue_whitening) == 1.f) {
-						whitening_of_spectrum(nrepel->residual_spectrum,nrepel->wa,nrepel->fft_size_2);
-						apply_tappering_filter(nrepel->residual_spectrum,nrepel->tappering_filter,nrepel->fft_size_2);
-					}
+				 for (k = 0; k <= nrepel->fft_size_2; k++) {
+					 nrepel->output_fft_buffer[k] += nrepel->residual_spectrum[k]*(1.f/from_dB(*(nrepel->amount_reduc)));
+					 if(k < nrepel->fft_size_2)
+					 	nrepel->output_fft_buffer[nrepel->fft_size-k] += nrepel->residual_spectrum[nrepel->fft_size-k]*(1.f/from_dB(*(nrepel->amount_reduc)));
+				 }
+				} else {
+				 //Output noise only
+				 for (k = 0; k <= nrepel->fft_size_2; k++) {
+					 nrepel->output_fft_buffer[k] = nrepel->residual_spectrum[k];
+					 if(k < nrepel->fft_size_2)
+						 nrepel->output_fft_buffer[nrepel->fft_size-k] = nrepel->residual_spectrum[k];
+				 }
+				}
 
-					if (*(nrepel->noise_listen) == 0.f){
-					 //Apply the computed gain to the signal and Mix residual and processed
-					 for (k = 0; k <= nrepel->fft_size_2; k++) {
-						 nrepel->output_fft_buffer[k] *= nrepel->Gk[k];
-						 if(k < nrepel->fft_size_2)
-						 	nrepel->output_fft_buffer[nrepel->fft_size-k] *= nrepel->Gk[k];
-					 }
-
-					 for (k = 0; k <= nrepel->fft_size_2; k++) {
-						 nrepel->output_fft_buffer[k] += nrepel->residual_spectrum[k]*(1.f/from_dB(*(nrepel->amount_reduc)));
-						 if(k < nrepel->fft_size_2)
-						 	nrepel->output_fft_buffer[nrepel->fft_size-k] += nrepel->residual_spectrum[nrepel->fft_size-k]*(1.f/from_dB(*(nrepel->amount_reduc)));
-					 }
-					} else {
-					 //Output noise only
-					 for (k = 0; k <= nrepel->fft_size_2; k++) {
-						 nrepel->output_fft_buffer[k] = nrepel->residual_spectrum[k];
-						 if(k < nrepel->fft_size_2)
-							 nrepel->output_fft_buffer[nrepel->fft_size-k] = nrepel->residual_spectrum[k];
-					 }
-					}
-					break;
+				break;
 			}
 
 			//------------FFT Synthesis-------------

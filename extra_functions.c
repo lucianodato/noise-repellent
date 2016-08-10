@@ -192,9 +192,9 @@ void whitening_of_spectrum(float* spectrum,float wa,int N){
     if(spectrum[k] > FLT_MIN){ //Protects against division by 0
       whitened_spectrum[k] = powf((spectrum[k]/(tmp_max-tmp_min)),wa);
       spectrum[k] /= whitened_spectrum[k];
-      if(k < N){
-        spectrum[N-k] /= whitened_spectrum[k];
-      }
+    //   if(k < N){
+    //     spectrum[N-k] /= whitened_spectrum[k];
+    //   }
     }
   }
 }
@@ -203,43 +203,45 @@ void apply_tappering_filter(float* spectrum,float* filter,int N) {
   for (int k = 0; k <= N; k++) {
     if(spectrum[k] > FLT_MIN) {
       spectrum[k] *= filter[k];//Half hann window tappering in favor of high frequencies
-      if(k < N) {
-        spectrum[N-k] *= filter[k];//Half hann window tappering in favor of high frequencies
-      }
+      // if(k < N) {
+      //   spectrum[N-k] *= filter[k];//Half hann window tappering in favor of high frequencies
+      // }
     }
   }
 }
 
 //Spectral smoothing with rectangular boxcar or unweighted sliding-average smooth
 // This is form Audacity code (HALF SPECTRUM VERSION)
-void spectral_smoothing_boxcar(float* spectrum, int kernel_width,int N, int middle_bin){
+void spectral_smoothing_boxcar(float* spectrum, int kernel_width,int N, bool normalized){
   int k;
   float smoothing_tmp[N+1];
-  float log_spectrum[N+1];
+  float t_spectrum[N+1];
 
   //Initialize smothingbins_tmp
-  for (k = 0; k <= N; ++k) {
-    //log_spectrum[k] = logf(spectrum[k]);
-    log_spectrum[k] = (spectrum[k]);
+  for (k = 0; k <= N; k++) {
+    if (normalized){
+      t_spectrum[k] = logf(spectrum[k]);
+    }else{
+      t_spectrum[k] = spectrum[k];
+    }
+    //Initialize temporal spectrum
     smoothing_tmp[k] = 0.f;
   }
 
-  //do not smooth up to the middle bin not even DC
-  for (k = 0; k < middle_bin; ++k) {
-    smoothing_tmp[k] = log_spectrum[k];
-  }
-
-  for (k = middle_bin; k < N; ++k) {
-    const int j0 = MAX(middle_bin, k - kernel_width);
+  for (k = 0; k < N; k++) {
+    const int j0 = MAX(0, k - kernel_width);
     const int j1 = MIN(N, k + kernel_width);
     for(int l = j0; l <= j1; ++l) {
-       smoothing_tmp[k] += log_spectrum[l];
+      smoothing_tmp[k] += t_spectrum[l];
     }
     smoothing_tmp[k] /= (j1 - j0 + 1);
   }
 
-  for (k = 0; k <= N; ++k){
-      //spectrum[k] = expf(smoothing_tmp[k]);
-      spectrum[k] = (smoothing_tmp[k]);
+  for (k = 0; k <= N; k++){
+    if (normalized){
+      spectrum[k] = expf(smoothing_tmp[k]);
+    }else{
+      spectrum[k] = smoothing_tmp[k];
+    }
   }
 }
