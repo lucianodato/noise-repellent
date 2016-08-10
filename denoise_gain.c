@@ -120,7 +120,7 @@ static float gain_em(float Rprio, float Rpost) {
 }
 
 void denoise_gain(float denoise_method,
-                  float over_reduc,
+                  //float over_reduc,
                   float* p2,
                   float* p2_prev,
                   int fft_size_2,
@@ -134,7 +134,7 @@ void denoise_gain(float denoise_method,
                   //float** jg_upper,
                   //float** jg_lower) {
   int k;
-  float gain = 0.f, Fk, Rpost, Rprio, alpha;
+  float gain = 0.f, Rpost, Rprio, alpha; //Fk,
 
   // //MASKING THRESHOLDS
   // if (denoise_method == 4.f) {
@@ -152,13 +152,13 @@ void denoise_gain(float denoise_method,
         case 1: // Power Subtraction
           gain = gain_power_subtraction(p2[k], noise_thresholds[k]) ;
           //Apply over sustraction
-          Fk = over_reduc*(1.f-gain);
-
-          //Limit gain to be applied
-          if(Fk < 0.f) Fk = 0.f;
-          if(Fk > 1.f) Fk = 1.f;
-
-          gain =  1.f - Fk;
+          // Fk = over_reduc*(1.f-gain);
+          //
+          // //Limit gain to be applied
+          // if(Fk < 0.f) Fk = 0.f;
+          // if(Fk > 1.f) Fk = 1.f;
+          //
+          // gain =  1.f - Fk;
           break;
         case 2:
           // Ephraim-Mallat

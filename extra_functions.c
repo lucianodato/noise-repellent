@@ -63,6 +63,63 @@ inline float to_dB(float g) {
   return (20.f*log10f(g));
 }
 
+inline float mean(int m, float* a) {
+    int sum=0, i;
+    for(i=0; i<m; i++)
+        sum+=a[i];
+    return((float)sum/m);
+}
+
+inline float median(int n, float* x) {
+    float temp;
+    int i, j;
+    // the following two loops sort the array x in ascending order
+    for(i=0; i<n-1; i++) {
+        for(j=i+1; j<n; j++) {
+            if(x[j] < x[i]) {
+                // swap elements
+                temp = x[i];
+                x[i] = x[j];
+                x[j] = temp;
+            }
+        }
+    }
+
+    if(n%2==0) {
+        // if there is an even number of elements, return mean of the two elements in the middle
+        return((x[n/2] + x[n/2 - 1]) / 2.f);
+    } else {
+        // else return the element in the middle
+        return x[n/2];
+    }
+}
+
+inline float moda(int n, float* x) {
+  float temp[n];
+  int i,j,pos_max;
+  float max;
+
+  for(i = 0;i<n; i++) {
+      temp[i]=0.f;
+  }
+
+  for(i=0; i<n; i++) {
+      for(j=i; j<n; j++) {
+          if(x[j] == x[i]) temp[i]++;
+      }
+  }
+
+  max=temp[0];
+  pos_max = 0;
+  for(i=0; i<n; i++) {
+      if(temp[i] > max) {
+          pos_max = i;
+          max=temp[i];
+      }
+  }
+  return x[pos_max];
+}
+
 inline float blackman(int k, int N) {
   float p = ((float)(k))/((float)(N-1));
   return 0.42-0.5*cosf(2.f*M_PI*p) + 0.08*cosf(4.f*M_PI*p);
@@ -153,15 +210,17 @@ void apply_tappering_filter(float* spectrum,float* filter,int N) {
   }
 }
 
-// //Spectral smoothing (Based on Audacity code)
-void spectral_smoothing(float* spectrum, int smoothing_bins,int N, int middle_bin){
+//Spectral smoothing with rectangular boxcar or unweighted sliding-average smooth
+// This is form Audacity code (HALF SPECTRUM VERSION)
+void spectral_smoothing_boxcar(float* spectrum, int kernel_width,int N, int middle_bin){
   int k;
   float smoothing_tmp[N+1];
   float log_spectrum[N+1];
 
   //Initialize smothingbins_tmp
   for (k = 0; k <= N; ++k) {
-    log_spectrum[k] = logf(spectrum[k]);
+    //log_spectrum[k] = logf(spectrum[k]);
+    log_spectrum[k] = (spectrum[k]);
     smoothing_tmp[k] = 0.f;
   }
 
@@ -171,15 +230,16 @@ void spectral_smoothing(float* spectrum, int smoothing_bins,int N, int middle_bi
   }
 
   for (k = middle_bin; k < N; ++k) {
-    const int j0 = MAX(middle_bin, k - smoothing_bins);
-    const int j1 = MIN(N, k + smoothing_bins);
+    const int j0 = MAX(middle_bin, k - kernel_width);
+    const int j1 = MIN(N, k + kernel_width);
     for(int l = j0; l <= j1; ++l) {
        smoothing_tmp[k] += log_spectrum[l];
     }
-    log_spectrum[k] /= (j1 - j0 + 1);
+    smoothing_tmp[k] /= (j1 - j0 + 1);
   }
 
   for (k = 0; k <= N; ++k){
-      spectrum[k] = expf(smoothing_tmp[k]);
+      //spectrum[k] = expf(smoothing_tmp[k]);
+      spectrum[k] = (smoothing_tmp[k]);
   }
 }

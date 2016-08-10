@@ -56,7 +56,8 @@ typedef enum {
 	NREPEL_STATISTIC = 1,
 	NREPEL_METHOD = 2,
 	NREPEL_AMOUNT = 3,
-	NREPEL_OVERRED = 4,
+	//NREPEL_OVERRED = 4,
+	NREPEL_SMOOTHING = 4,
 	NREPEL_LATENCY = 5,
 	NREPEL_WHITENING = 6,
 	NREPEL_RESET = 7,
@@ -73,7 +74,7 @@ typedef struct {
 	//Parameters for the algorithm (user input)
 	float* capt_state; // Capture Noise state (Manual-Off-Auto)
 	float* amount_reduc; // Amount of noise to reduce in dB
-	float* over_reduc; // Amount of noise to reduce in dB
+	//float* over_reduc; // Amount of noise to reduce in dB
 	float* report_latency; // Latency necessary
 	float* reset_print; // Latency necessary
 	float* noise_listen; //For noise only listening
@@ -81,6 +82,7 @@ typedef struct {
 	float* denoise_method; //Choise of denoise method
 	float* residue_whitening; //Whitening of the residual spectrum
 	float* noise_thresh; //detection threshold for louizou estimation
+	float* smoothing; // Amount of noise to reduce in dB
 
 	//Parameters for the STFT
 	int fft_size; //FFTW input size
@@ -259,8 +261,11 @@ connect_port(LV2_Handle instance,
 		case NREPEL_AMOUNT:
 		nrepel->amount_reduc = (float*)data;
 		break;
-		case NREPEL_OVERRED:
-		nrepel->over_reduc = (float*)data;
+		// case NREPEL_OVERRED:
+		// nrepel->over_reduc = (float*)data;
+		// break;
+		case NREPEL_SMOOTHING:
+		nrepel->smoothing = (float*)data;
 		break;
 		case NREPEL_LATENCY:
 		nrepel->report_latency = (float*)data;
@@ -461,9 +466,15 @@ run(LV2_Handle instance, uint32_t n_samples) {
 																	 nrepel->noise_print_max,
 			      											 nrepel->noise_print_g_mean,
 			      											 nrepel->noise_print_mean);
+
+				  //Smooth noise spectrum
+					float freq_bin = Freq2Index(1000.f,nrepel->samp_rate,nrepel->fft_size_2);
+					spectral_smoothing_boxcar(nrepel->Gk,int(*(nrepel->smoothing)),nrepel->fft_size_2,freq_bin);
+
+
 					//Compute denoising gain based on previously computed spectrum (manual or automatic)
 					denoise_gain(*(nrepel->denoise_method),
-											 *(nrepel->over_reduc),
+											 //*(nrepel->over_reduc),
 											 nrepel->fft_p2,
 											 nrepel->fft_p2_prev,
 											 nrepel->fft_size_2,
@@ -476,10 +487,6 @@ run(LV2_Handle instance, uint32_t n_samples) {
 											 //nrepel->masked,
 											 //nrepel->jg_upper,
 											 //nrepel->jg_lower);
-
-					//Smooth gains
-					float freq_bin = Freq2Index(1000.f,nrepel->samp_rate,nrepel->fft_size_2);
-					spectral_smoothing(nrepel->Gk,10,nrepel->fft_size_2,freq_bin);
 
 					//APPLY REDUCTION
 
@@ -500,9 +507,13 @@ run(LV2_Handle instance, uint32_t n_samples) {
 					 //Apply the computed gain to the signal and Mix residual and processed
 					 for (k = 0; k <= nrepel->fft_size_2; k++) {
 						 nrepel->output_fft_buffer[k] *= nrepel->Gk[k];
-						 nrepel->output_fft_buffer[k] += nrepel->residual_spectrum[k]*(1.f/from_dB(*(nrepel->amount_reduc)));
 						 if(k < nrepel->fft_size_2)
 						 	nrepel->output_fft_buffer[nrepel->fft_size-k] *= nrepel->Gk[k];
+					 }
+
+					 for (k = 0; k <= nrepel->fft_size_2; k++) {
+						 nrepel->output_fft_buffer[k] += nrepel->residual_spectrum[k]*(1.f/from_dB(*(nrepel->amount_reduc)));
+						 if(k < nrepel->fft_size_2)
 						 	nrepel->output_fft_buffer[nrepel->fft_size-k] += nrepel->residual_spectrum[nrepel->fft_size-k]*(1.f/from_dB(*(nrepel->amount_reduc)));
 					 }
 					} else {
