@@ -54,5 +54,34 @@ void denoise_gain(float over_reduc,
       Gk[k] = 1.f;
     }
   } //for
+}
 
+void post_filter (float omega,float* p2, float* Gk, float SNR_thresh, int fft_size_2) {
+  float SNR_estim, num = 0.f, den = 0.f, N;
+  float post_filter[fft_size_2+1];
+  int k;
+
+  //Estimate Post-Filter
+  for (k = 0; k <= fft_size_2 ; k++) {
+    num += powf(Gk[k]*p2[k],2);
+    den += powf(p2[k],2);
+  }
+
+  SNR_estim = num/den;
+
+  if (SNR_estim >= SNR_thresh){
+    N = 1.f;
+  }else{
+    N = 2.f*(1.f-(SNR_estim/SNR_thresh)*omega) + 1.f;
+  }
+
+  for (k = 0; k <= fft_size_2 ; k++) {
+    if(k<N){
+      post_filter[k] = 1.f/N;
+    }else{
+      post_filter[k] = 0.f;
+    }
+    //Apply Post-Filter
+    Gk[k] *= post_filter[k];
+  }
 }

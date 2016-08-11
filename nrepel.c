@@ -42,6 +42,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 //Whitening strenght
 #define WA 0.05 //For spectral whitening strenght 0-1
+#define OMEGA 0.02 //For post filter
 
 ///---------------------------------------------------------------------
 
@@ -54,12 +55,13 @@ typedef enum {
 	NREPEL_AMOUNT = 2,
 	NREPEL_OVERRED = 3,
 	NREPEL_SMOOTHING = 4,
-	NREPEL_LATENCY = 5,
-	NREPEL_WHITENING = 6,
-	NREPEL_RESET = 7,
-	NREPEL_NOISE_LISTEN = 8,
-	NREPEL_INPUT = 9,
-	NREPEL_OUTPUT = 10,
+	NREPEL_POSTFILTER = 5,
+	NREPEL_LATENCY = 6,
+	NREPEL_WHITENING = 7,
+	NREPEL_RESET = 8,
+	NREPEL_NOISE_LISTEN = 9,
+	NREPEL_INPUT = 10,
+	NREPEL_OUTPUT = 11,
 } PortIndex;
 
 typedef struct {
@@ -78,6 +80,7 @@ typedef struct {
 	float* residue_whitening; //Whitening of the residual spectrum
 	//float* noise_thresh; //detection threshold for louizou estimation
 	float* smoothing; // Amount of noise to reduce in dB
+	float* SNR_thresh;
 
 	//Parameters for the STFT
 	int fft_size; //FFTW input size
@@ -116,6 +119,7 @@ typedef struct {
 	float* noise_thresholds;
 	float* residual_spectrum;
 	float wa;
+	float omega;
 	float* tappering_filter;
 	float* whitening_spectrum;
 
@@ -163,6 +167,7 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->max_float = FLT_MAX;
 	nrepel->wa = WA;
 	nrepel->n_window_count = 0;
+	nrepel->omega = OMEGA;
 
 	nrepel->fft_size_2 = nrepel->fft_size/2;
 	nrepel->hop = nrepel->fft_size/nrepel->overlap_factor;
@@ -251,6 +256,9 @@ connect_port(LV2_Handle instance,
 		break;
 		case NREPEL_SMOOTHING:
 		nrepel->smoothing = (float*)data;
+		break;
+		case NREPEL_POSTFILTER:
+		nrepel->SNR_thresh = (float*)data;
 		break;
 		case NREPEL_LATENCY:
 		nrepel->report_latency = (float*)data;
@@ -383,6 +391,9 @@ run(LV2_Handle instance, uint32_t n_samples) {
 										 nrepel->Gk,
 										 nrepel->noise_thresholds);
 
+				//Apply post filter to gain coeff
+				//post_filter(nrepel->omega,nrepel->fft_p2, nrepel->Gk, *(nrepel->SNR_thresh), nrepel->fft_size_2);
+
 				//APPLY REDUCTION
 
 				//Residual signal
@@ -392,10 +403,15 @@ run(LV2_Handle instance, uint32_t n_samples) {
 				 	nrepel->residual_spectrum[nrepel->fft_size-k] = nrepel->output_fft_buffer[nrepel->fft_size-k] - (nrepel->output_fft_buffer[nrepel->fft_size-k] * nrepel->Gk[k]);
 				}
 
+				//The amount of reduction
+				float reduction_coeff = 1.f/from_dB(*(nrepel->amount_reduc));
+				//Make WA dependant on the amount of reduction
+				//nrepel->wa = WA * (1.f/reduction_coeff);
+
 				//Residue Whitening and tappering
 				if(*(nrepel->residue_whitening) == 1.f) {
 					whitening_of_spectrum(nrepel->residual_spectrum,nrepel->wa,nrepel->fft_size_2);
-					apply_tappering_filter(nrepel->residual_spectrum,nrepel->tappering_filter,nrepel->fft_size_2);
+					//apply_tappering_filter(nrepel->residual_spectrum,nrepel->tappering_filter,nrepel->fft_size_2);
 				}
 
 				//Listen to cleaned signal or to noise only
@@ -408,9 +424,9 @@ run(LV2_Handle instance, uint32_t n_samples) {
 				 }
 				 //Mix residual and processed (Parametric way ot reducing noise)
 				 for (k = 0; k <= nrepel->fft_size_2; k++) {
-					 nrepel->output_fft_buffer[k] += nrepel->residual_spectrum[k]*(1.f/from_dB(*(nrepel->amount_reduc)));
+					 nrepel->output_fft_buffer[k] += nrepel->residual_spectrum[k]*reduction_coeff;
 					 if(k < nrepel->fft_size_2)
-					 	nrepel->output_fft_buffer[nrepel->fft_size-k] += nrepel->residual_spectrum[nrepel->fft_size-k]*(1.f/from_dB(*(nrepel->amount_reduc)));
+					 	nrepel->output_fft_buffer[nrepel->fft_size-k] += nrepel->residual_spectrum[nrepel->fft_size-k]*reduction_coeff;
 				 }
 				} else {
 				 //Output noise only

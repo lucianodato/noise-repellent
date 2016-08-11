@@ -158,7 +158,7 @@ void fft_window(float* window, int N, int window_type) {
   }
 }
 
-static float max_spectral_value(float* noise_print, int N){
+inline float max_spectral_value(float* noise_print, int N){
   int k;
   float max = 0.f;
   for(k = 0; k <= N; k++){
@@ -167,7 +167,7 @@ static float max_spectral_value(float* noise_print, int N){
   return max;
 }
 
-static float min_spectral_value(float* noise_print, int N){
+inline float min_spectral_value(float* noise_print, int N){
   int k;
   float min = FLT_MAX;
   for(k = 0; k <= N; k++){
@@ -177,10 +177,10 @@ static float min_spectral_value(float* noise_print, int N){
 }
 
 //unnormalized Hann windows for whitening tappering
-void tappering_filter_calc(float* filter, int N,float WA) {
+void tappering_filter_calc(float* filter, int N,float wa) {
   int k;
   for (k = 0; k < N; k++){
-    filter[k] = powf(hanning(k, N),WA);//Half hann window tappering in favor of high frequencies
+    filter[k] = powf(hanning(k, N),wa);//Half hann window tappering in favor of high frequencies
   }
 }
 
