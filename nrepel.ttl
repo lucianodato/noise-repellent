@@ -64,7 +64,7 @@
     lv2:name "Noise Statistic Option";
     lv2:minimum 0;
     lv2:maximum 2;
-    lv2:default 0;
+    lv2:default 1;
     lv2:portProperty lv2:enumeration, lv2:integer;
     lv2:scalePoint [
     	rdfs:label "Max";
@@ -80,29 +80,6 @@
     a lv2:ControlPort,
       lv2:InputPort;
     lv2:index 2;
-    lv2:symbol "denoisemethod";
-    lv2:name "Denoise algorithm";
-    lv2:minimum 0;
-    lv2:maximum 3;
-    lv2:default 3;
-    lv2:portProperty lv2:enumeration, lv2:integer;
-    lv2:scalePoint [
-    	rdfs:label "Wiener";
-		  rdf:value 0
-		] , [
-		  rdfs:label "Power Subtraction";
-		  rdf:value 1
-		] , [
-		  rdfs:label "Ephraim-Mallat";
-		  rdf:value 2
-		] , [
-		  rdfs:label "CMSR";
-		  rdf:value 3
-		]
-  ], [
-    a lv2:ControlPort,
-      lv2:InputPort;
-    lv2:index 3;
     lv2:symbol "amountreduc";
     lv2:name "Reduction";
     lv2:portProperty pprops:hasStrictBounds;
@@ -113,13 +90,23 @@
   ], [
     a lv2:ControlPort,
       lv2:InputPort;
-    lv2:index 4;
+    lv2:index 3;
     lv2:symbol "gain_smoothing";
     lv2:name "Smoothing";
     lv2:portProperty pprops:hasStrictBounds, lv2:integer;
-    lv2:minimum 0;
+    lv2:minimum 1;
     lv2:maximum 24;
-    lv2:default 0;
+    lv2:default 8;
+  ], [
+    a lv2:ControlPort,
+      lv2:InputPort;
+    lv2:index 4;
+    lv2:symbol "over_reduc";
+    lv2:name "Reduce Musical Noise";
+    lv2:portProperty pprops:hasStrictBounds;
+    lv2:minimum 1.0;
+    lv2:maximum 5.0;
+    lv2:default 2.0;
   ], [
     a lv2:OutputPort,
       lv2:ControlPort;
