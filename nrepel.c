@@ -42,7 +42,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 //Whitening strenght
 #define WA 0.05 //For spectral whitening strenght 0-1
-#define OMEGA 0.02 //For post filter
+#define OMEGA 10 //For post filter
 
 ///---------------------------------------------------------------------
 
@@ -392,7 +392,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 										 nrepel->noise_thresholds);
 
 				//Apply post filter to gain coeff
-				//post_filter(nrepel->omega,nrepel->output_fft_buffer, nrepel->Gk, *(nrepel->SNR_thresh), nrepel->fft_size_2);
+				post_filter(nrepel->omega,nrepel->output_fft_buffer, nrepel->Gk, *(nrepel->SNR_thresh), nrepel->fft_size_2);
 
 				//APPLY REDUCTION
 
