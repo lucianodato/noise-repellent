@@ -392,7 +392,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 										 nrepel->noise_thresholds);
 
 				//Apply post filter to gain coeff
-				//post_filter(nrepel->omega,nrepel->fft_p2, nrepel->Gk, *(nrepel->SNR_thresh), nrepel->fft_size_2);
+				//post_filter(nrepel->omega,nrepel->output_fft_buffer, nrepel->Gk, *(nrepel->SNR_thresh), nrepel->fft_size_2);
 
 				//APPLY REDUCTION
 
@@ -403,15 +403,10 @@ run(LV2_Handle instance, uint32_t n_samples) {
 				 	nrepel->residual_spectrum[nrepel->fft_size-k] = nrepel->output_fft_buffer[nrepel->fft_size-k] - (nrepel->output_fft_buffer[nrepel->fft_size-k] * nrepel->Gk[k]);
 				}
 
-				//The amount of reduction
-				float reduction_coeff = 1.f/from_dB(*(nrepel->amount_reduc));
-				//Make WA dependant on the amount of reduction
-				//nrepel->wa = WA * (1.f/reduction_coeff);
-
 				//Residue Whitening and tappering
 				if(*(nrepel->residue_whitening) == 1.f) {
 					whitening_of_spectrum(nrepel->residual_spectrum,nrepel->wa,nrepel->fft_size_2);
-					//apply_tappering_filter(nrepel->residual_spectrum,nrepel->tappering_filter,nrepel->fft_size_2);
+					apply_tappering_filter(nrepel->residual_spectrum,nrepel->tappering_filter,nrepel->fft_size_2);
 				}
 
 				//Listen to cleaned signal or to noise only
@@ -422,6 +417,8 @@ run(LV2_Handle instance, uint32_t n_samples) {
 					 if(k < nrepel->fft_size_2)
 					 	nrepel->output_fft_buffer[nrepel->fft_size-k] *= nrepel->Gk[k];
 				 }
+				 //The amount of reduction
+ 				float reduction_coeff = 1.f/from_dB(*(nrepel->amount_reduc));
 				 //Mix residual and processed (Parametric way ot reducing noise)
 				 for (k = 0; k <= nrepel->fft_size_2; k++) {
 					 nrepel->output_fft_buffer[k] += nrepel->residual_spectrum[k]*reduction_coeff;
