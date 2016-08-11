@@ -11,7 +11,6 @@ It's a work in progress so don't expect it to be like the best comercial options
 
 To use it you first have to select a section of noise in your track and play it looped
 with the capture noise option ON. Once it's captured turn it off and play your track
-while adjusting the reduction slider. If you hear tinkerbells make shure to play with the Over-sustraction slider
-to further reduce them. Do not go overboard with it because it can distort your audio.
+while adjusting the reduction slider. If you hear tinkerbells make shure to play with the Reduce musical noise slider
+and with smoothing to further reduce them. Use as less as posible with both to keep the inportant bits from the original signal.
 Noise Whitening will recover some of the high frequency loss by filtering the residual noise.
-The rest of parameters are pretty safe with defaults.
