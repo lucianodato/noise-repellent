@@ -42,7 +42,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 //Whitening strenght
 #define WA 0.05 //For spectral whitening strenght 0-1
-#define OMEGA 10 //For post filter
+#define PF_SCALE_FACTOR 10 //For post filter
 
 ///---------------------------------------------------------------------
 
@@ -119,7 +119,7 @@ typedef struct {
 	float* noise_thresholds;
 	float* residual_spectrum;
 	float wa;
-	float omega;
+	float pf_scale_factor;
 	float* tappering_filter;
 	float* whitening_spectrum;
 
@@ -167,7 +167,7 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->max_float = FLT_MAX;
 	nrepel->wa = WA;
 	nrepel->n_window_count = 0;
-	nrepel->omega = OMEGA;
+	nrepel->pf_scale_factor = PF_SCALE_FACTOR;
 
 	nrepel->fft_size_2 = nrepel->fft_size/2;
 	nrepel->hop = nrepel->fft_size/nrepel->overlap_factor;
@@ -392,7 +392,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 										 nrepel->noise_thresholds);
 
 				//Apply post filter to gain coeff
-				post_filter(nrepel->omega,nrepel->output_fft_buffer, nrepel->Gk, *(nrepel->SNR_thresh), nrepel->fft_size_2);
+				post_filter(nrepel->pf_scale_factor,nrepel->fft_p2, nrepel->Gk, from_dB(*(nrepel->SNR_thresh)), nrepel->fft_size_2);
 
 				//APPLY REDUCTION
 

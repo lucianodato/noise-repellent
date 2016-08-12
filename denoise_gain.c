@@ -21,19 +21,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <math.h>
 #include "estimate_noise_spectrum.c"
 
-void post_filter (float omega,float* p2, float* Gk, float SNR_thresh, int fft_size_2) {
-  float SNR_estim, num = 0.f, den = 0.f, N;
-  float post_filter[fft_size_2+1];
+void post_filter (float scale_factor,float* p2, float* Gk, float SNR_thresh, int fft_size_2) {
+  float SNR_estim, num = 0.f, den = 0.f, N, post_filter;
   int k;
 
   //Estimate Post-Filter
   for (k = 0; k <= fft_size_2 ; k++) {
-    num += powf(Gk[k]*p2[k],2);
-    den += powf(p2[k],2);
-    if (k<fft_size_2){
-      num += powf(Gk[k]*p2[fft_size_2-k],2);
-      den += powf(p2[fft_size_2-k],2);
-    }
+    num += powf(fabs(Gk[k]*p2[k]),2);
+    den += powf(fabs(p2[k]),2);
   }
 
   SNR_estim = num/(den+FLT_MIN);
@@ -41,17 +36,17 @@ void post_filter (float omega,float* p2, float* Gk, float SNR_thresh, int fft_si
   if (SNR_estim >= SNR_thresh){
     N = 1.f;
   }else{
-    N = 2.f*(1.f+(nearbyintf(SNR_estim/SNR_thresh)*omega)) + 1.f;
+    N = 2.f*(1.f+(roundf(SNR_estim/SNR_thresh)*scale_factor)) + 1.f;
   }
 
   for (k = 0; k <= fft_size_2 ; k++) {
     if(k<N){
-      post_filter[k] = 1.f/N;
+      post_filter = 1.f/N;
     }else{
-      post_filter[k] = 0.f;
+      post_filter = 0.f;
     }
     //Apply Post-Filter
-    Gk[k] *= post_filter[k];
+    Gk[k] = fabs(Gk[k]*post_filter);
   }
 }
 
