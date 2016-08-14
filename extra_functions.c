@@ -217,6 +217,8 @@ void spectral_smoothing_boxcar(float* spectrum, int kernel_width,int N){
   float smoothing_tmp[N+1];
   float t_spectrum[N+1];
 
+  if (kernel_width == 0) return;
+
   //Initialize smothingbins_tmp
   for (k = 0; k <= N; ++k) {
     t_spectrum[k] = spectrum[k];
