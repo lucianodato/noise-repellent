@@ -45,7 +45,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define PF_SCALE_FACTOR 3 //For post filter
 #define ALPHA 0.98 //For EM denoising
 #define PS_BUFF_SIZE 5 //Power Spectrum buffer
-#define INTERP_FACTOR 0.6
+#define INTERP_FACTOR 0.6 //Time smoothing of gains [0-1]
+#define AVG_W 0.5 //For exponential average computing of noise frames [0-1] Closer to 0 prioritize previous
 
 ///---------------------------------------------------------------------
 
@@ -98,7 +99,7 @@ typedef struct {
 	int overlap_factor; //oversampling factor for overlap calculations
 	int hop; // Hop size for the STFT
 	float* window; // Window values
-	float n_window_count; //Count windows for mean computing
+	float avg_w; //Count windows for mean computing
 
 	//Temporary buffers for processing and outputting
 	int input_latency;
@@ -125,7 +126,7 @@ typedef struct {
 	float* noise_print_min; // The min noise spectrum computed by the captured signal
 	float* noise_print_max; // The max noise spectrum computed by the captured signal
 	float* noise_print_g_mean; // The geometric mean noise spectrum computed by the captured signal
-	float* noise_print_mean; // The mean noise spectrum computed by the captured signal
+	float* noise_print_e_average; // The mean noise spectrum computed by the captured signal
 	float* noise_thresholds;
 	float* residual_spectrum;
 	float wa;
@@ -169,7 +170,7 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->pf_scale_factor = PF_SCALE_FACTOR;
 	nrepel->alpha_set = ALPHA;
 	nrepel->prev_frame = 0;
-	nrepel->n_window_count = 0.f;
+	nrepel->avg_w = AVG_W;
 
 
 	nrepel->fft_size_2 = nrepel->fft_size/2;
@@ -198,7 +199,7 @@ instantiate(const LV2_Descriptor*     descriptor,
 
 	nrepel->noise_print_min = (float*)malloc((nrepel->fft_size_2+1)*sizeof(float));
 	nrepel->noise_print_max = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
-	nrepel->noise_print_mean = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
+	nrepel->noise_print_e_average = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->noise_print_g_mean = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->noise_thresholds = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->residual_spectrum = (float*)calloc((nrepel->fft_size),sizeof(float));
@@ -309,13 +310,12 @@ run(LV2_Handle instance, uint32_t n_samples) {
 	if (*(nrepel->reset_print) == 1.f) {
 		memset(nrepel->noise_print_min, nrepel->max_float, (nrepel->fft_size_2+1)*sizeof(float));
 		memset(nrepel->noise_print_max, 0, (nrepel->fft_size_2+1)*sizeof(float));
-		memset(nrepel->noise_print_mean, 0, (nrepel->fft_size_2+1)*sizeof(float));
+		memset(nrepel->noise_print_e_average, 0, (nrepel->fft_size_2+1)*sizeof(float));
 		memset(nrepel->noise_print_g_mean, 0, (nrepel->fft_size_2+1)*sizeof(float));
 		memset(nrepel->noise_thresholds, 0, (nrepel->fft_size_2+1)*sizeof(float));
 		//memset(nrepel->a_noise_spectrum, 0, (nrepel->fft_size_2+1)*sizeof(float));
 		memset(nrepel->residual_spectrum, 0, (nrepel->fft_size)*sizeof(float));
 		memset(nrepel->Gk, 1, (nrepel->fft_size_2+1)*sizeof(float));
-		nrepel->n_window_count = 0.f;
 	}
 
 	//main loop for processing
@@ -376,8 +376,8 @@ run(LV2_Handle instance, uint32_t n_samples) {
 														nrepel->noise_print_min,
 														nrepel->noise_print_max,
 														nrepel->noise_print_g_mean,
-		 											  nrepel->noise_print_mean,
-														&nrepel->n_window_count); //Use fixed value here
+		 											  nrepel->noise_print_e_average,
+														nrepel->avg_w); //Use fixed value here
 				break;
 				case OFF_STATE:
 
@@ -387,14 +387,15 @@ run(LV2_Handle instance, uint32_t n_samples) {
 		                             nrepel->noise_thresholds,
 																 nrepel->noise_print_max,
 		      											 nrepel->noise_print_g_mean,
-		      											 nrepel->noise_print_mean);
+		      											 nrepel->noise_print_e_average);
 
 				//DENOISE PRE PROCESSING
 
 				//Smooth Noise Thresholds
-				spectral_smoothing_boxcar(nrepel->noise_thresholds,*(nrepel->n_smoothing),nrepel->fft_size_2);
+				float co_freq_bin = Freq2Index(1000,nrepel->samp_rate,nrepel->fft_size_2);
+				spectral_smoothing_boxcar_2b(nrepel->noise_thresholds,2,*(nrepel->n_smoothing),nrepel->fft_size_2,co_freq_bin);
 
-				if(*(nrepel->ps_buff_size) > 3){
+				if(*(nrepel->ps_buff_size) > 2){
 					//Keep a certain buffer to have memory of previous values
 					//Spectral buffer for power spectrum
 					//Copy previous spectrums
@@ -421,8 +422,8 @@ run(LV2_Handle instance, uint32_t n_samples) {
 
 				}
 
-				float co_freq_bin = Freq2Index(1000,nrepel->samp_rate,nrepel->fft_size_2);
-				spectral_smoothing_boxcar_2b(nrepel->fft_p2,*(nrepel->s_smoothing),nrepel->fft_size_2,co_freq_bin);
+				//spectral_smoothing_boxcar(nrepel->fft_p2,*(nrepel->s_smoothing),nrepel->fft_size_2);
+				spectral_smoothing_boxcar_2b(nrepel->fft_p2,0,*(nrepel->s_smoothing),nrepel->fft_size_2,co_freq_bin);
 
 			  //Compute denoising gain based on previously computed spectrum (manual or automatic)
 				switch((int) *(nrepel->denoise_method)){
@@ -472,6 +473,9 @@ run(LV2_Handle instance, uint32_t n_samples) {
 
 				//Apply post filter to gain coeff
 				//post_filter(nrepel->pf_scale_factor,nrepel->fft_p2, nrepel->Gk, *(nrepel->SNR_thresh), nrepel->fft_size_2);
+
+				//Apply fine smoothing over gains (This should be more like Savintsky-Golay)
+				spectral_smoothing_boxcar_2b(nrepel->Gk,0,*(nrepel->s_smoothing),nrepel->fft_size_2,co_freq_bin);
 
 				//Smooth between previous gain to avoid transient and onset distortions
 				float interp = INTERP_FACTOR;

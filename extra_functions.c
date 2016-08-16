@@ -240,12 +240,12 @@ void spectral_smoothing_boxcar(float* spectrum, int kernel_width,int N){
 }
 //Spectral smoothing with rectangular boxcar or unweighted sliding-average smooth
 //Savintsky-Golay would be a much better option here
-void spectral_smoothing_boxcar_2b(float* spectrum, int kernel_width,int N,float freq){
+void spectral_smoothing_boxcar_2b(float* spectrum, int kernel_width1, int kernel_width2,int N,float freq){
   int k;
   float smoothing_tmp[N+1];
   float t_spectrum[N+1];
 
-  if (kernel_width == 0) return;
+  if (kernel_width1 == 0 && kernel_width2 == 0) return;
 
   //Initialize smothingbins_tmp
   for (k = 0; k <= N; ++k) {
@@ -253,13 +253,18 @@ void spectral_smoothing_boxcar_2b(float* spectrum, int kernel_width,int N,float 
     smoothing_tmp[k] = 0.f;//Initialize temporal spectrum
   }
 
-  for (k = 0; k < freq; ++k) {
-    smoothing_tmp[k] = spectrum[k];
+  for (k = 0; k <= freq; ++k) {
+    const int j0 = MAX(0, k - kernel_width1);
+    const int j1 = MIN(freq, k + kernel_width1);
+    for(int l = j0; l <= j1; ++l) {
+      smoothing_tmp[k] += t_spectrum[l];
+    }
+    smoothing_tmp[k] /= (j1 - j0 + 1);
   }
 
   for (k = freq; k <= N; ++k) {
-    const int j0 = MAX(freq, k - kernel_width);
-    const int j1 = MIN(N, k + kernel_width);
+    const int j0 = MAX(freq, k - kernel_width2);
+    const int j1 = MIN(N, k + kernel_width2);
     for(int l = j0; l <= j1; ++l) {
       smoothing_tmp[k] += t_spectrum[l];
     }

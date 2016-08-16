@@ -73,7 +73,7 @@
 		  rdfs:label "Geometric Mean";
 		  rdf:value 1
 		] , [
-		  rdfs:label "Mean";
+		  rdfs:label "Average";
 		  rdf:value 2
 		]
   ], [
@@ -93,7 +93,7 @@
 		  rdfs:label "Spectral Subtraction";
 		  rdf:value 1
 		] , [
-		  rdfs:label "Ephraim-Mallat";
+		  rdfs:label "Ephraim-Malah";
 		  rdf:value 2
 		] , [
 		  rdfs:label "CMSR";
@@ -115,7 +115,7 @@
       lv2:InputPort;
     lv2:index 4;
     lv2:symbol "n_smoothing";
-    lv2:name "Noise Smoothing";
+    lv2:name "SNR Thresholds Smoothing";
     lv2:portProperty pprops:hasStrictBounds, lv2:integer;
     lv2:minimum 0;
     lv2:maximum 36;
@@ -125,10 +125,10 @@
       lv2:InputPort;
     lv2:index 5;
     lv2:symbol "s_smoothing";
-    lv2:name "Spectum Smoothing";
+    lv2:name "Spectral Smoothing";
     lv2:portProperty pprops:hasStrictBounds, lv2:integer;
     lv2:minimum 0;
-    lv2:maximum 8;
+    lv2:maximum 36;
     lv2:default 0;
   ], [
     a lv2:ControlPort,
