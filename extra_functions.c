@@ -21,7 +21,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <math.h>
 #include <float.h>
 
-
 //Window types
 #define HANNING_WINDOW 0
 #define HAMMING_WINDOW 1
@@ -210,9 +209,12 @@ void apply_tappering_filter(float* spectrum,float* filter,int N) {
   }
 }
 
+
+//---------------------SMOOTHERS--------------------------
+
+
 //Spectral smoothing with rectangular boxcar or unweighted sliding-average smooth
-//Savintsky-Golay would be a much better option here
-void spectral_smoothing_boxcar(float* spectrum, int kernel_width,int N){
+void spectral_smoothing_MA(float* spectrum, int kernel_width,int N){
   int k;
   float smoothing_tmp[N+1];
   float t_spectrum[N+1];
@@ -238,14 +240,13 @@ void spectral_smoothing_boxcar(float* spectrum, int kernel_width,int N){
     spectrum[k] = smoothing_tmp[k];
   }
 }
-//Spectral smoothing with rectangular boxcar or unweighted sliding-average smooth
-//Savintsky-Golay would be a much better option here
-void spectral_smoothing_boxcar_2b(float* spectrum, int kernel_width1, int kernel_width2,int N,float freq){
+//Spectral smoothing with median filter
+void spectral_smoothing_MM(float* spectrum, int kernel_width, int N){
   int k;
   float smoothing_tmp[N+1];
   float t_spectrum[N+1];
 
-  if (kernel_width1 == 0 && kernel_width2 == 0) return;
+  if (kernel_width == 0) return;
 
   //Initialize smothingbins_tmp
   for (k = 0; k <= N; ++k) {
@@ -253,22 +254,123 @@ void spectral_smoothing_boxcar_2b(float* spectrum, int kernel_width1, int kernel
     smoothing_tmp[k] = 0.f;//Initialize temporal spectrum
   }
 
-  for (k = 0; k <= freq; ++k) {
-    const int j0 = MAX(0, k - kernel_width1);
-    const int j1 = MIN(freq, k + kernel_width1);
+  for (k = 0; k <= N; ++k) {
+    const int j0 = MAX(0, k - kernel_width);
+    const int j1 = MIN(N, k + kernel_width);
+    float aux[j1-j0+1];
     for(int l = j0; l <= j1; ++l) {
-      smoothing_tmp[k] += t_spectrum[l];
+      aux[l] = t_spectrum[l];
     }
-    smoothing_tmp[k] /= (j1 - j0 + 1);
+    smoothing_tmp[k] = median(j1-j0+1,aux);
   }
 
-  for (k = freq; k <= N; ++k) {
-    const int j0 = MAX(freq, k - kernel_width2);
-    const int j1 = MIN(N, k + kernel_width2);
+  for (k = 0; k <= N; ++k){
+    spectrum[k] = smoothing_tmp[k];
+  }
+}
+
+
+void spectral_smoothing_MAH(float* spectrum, int kernel_width,int N){
+  int k;
+  float smoothing_tmp[N+1];
+  float t_spectrum[N+1];
+  float window[kernel_width*2 +1];
+  fft_window(window,kernel_width*2+1,0);//Hann window
+
+  if (kernel_width == 0) return;
+
+  //Initialize smothingbins_tmp
+  for (k = 0; k <= N; ++k) {
+    t_spectrum[k] = spectrum[k];
+    smoothing_tmp[k] = 0.f;//Initialize temporal spectrum
+  }
+
+  for (k = 0; k <= N; ++k) {
+    const int j0 = MAX(0, k - kernel_width);
+    const int j1 = MIN(N, k + kernel_width);
     for(int l = j0; l <= j1; ++l) {
-      smoothing_tmp[k] += t_spectrum[l];
+      smoothing_tmp[k] += window[l]*t_spectrum[l];
     }
-    smoothing_tmp[k] /= (j1 - j0 + 1);
+  }
+
+  for (k = 0; k <= N; ++k){
+    spectrum[k] = smoothing_tmp[k];
+  }
+}
+
+//This is from wikipedia ;)
+float savgol_quad_5[5] = {-0.085714,0.342857,0.485714,0.342857,-0.085714};
+float savgol_quad_7[7] = {-0.095238,0.142857,0.285714,0.333333,0.285714,0.142857,-0.095238};
+float savgol_quad_9[9] = {-0.090909,0.060606,0.168831,0.233766,0.255411,0.233766,0.168831,0.060606,-0.090909};
+
+//With quadratic coefficients
+void spectral_smoothing_SG_cuad(float* spectrum, int kernel_width,int N){
+  int k;
+  float smoothing_tmp[N+1];
+  float t_spectrum[N+1];
+
+  if (kernel_width < 2 || kernel_width > 4) return;
+
+  //Initialize smothingbins_tmp
+  for (k = 0; k <= N; ++k) {
+    t_spectrum[k] = spectrum[k];
+    smoothing_tmp[k] = 0.f;//Initialize temporal spectrum
+  }
+
+  for (k = 0; k <= N; ++k) {
+    const int j0 = MAX(0, k - kernel_width);
+    const int j1 = MIN(N, k + kernel_width);
+    for(int l = j0; l <= j1; ++l) {
+      switch(kernel_width){
+        case 2:
+          smoothing_tmp[k] += savgol_quad_5[l]*t_spectrum[l];
+          break;
+        case 3:
+          smoothing_tmp[k] += savgol_quad_7[l]*t_spectrum[l];
+          break;
+        case 4:
+          smoothing_tmp[k] += savgol_quad_9[l]*t_spectrum[l];
+          break;
+      }
+    }
+  }
+
+  for (k = 0; k <= N; ++k){
+    spectrum[k] = smoothing_tmp[k];
+  }
+}
+
+//This is from wikipedia ;)
+float savgol_quart_7[7] = {0.021645,-0.129870,0.324675,0.567100,0.324675,-0.129870,0.021645};
+float savgol_quart_9[9] = {0.034965,-0.128205,0.069930,0.314685,0.417249,0.314685,0.069930,-0.128205,0.034965};
+
+//With quadric coefficients
+void spectral_smoothing_SG_cuart(float* spectrum, int kernel_width,int N){
+  int k;
+  float smoothing_tmp[N+1];
+  float t_spectrum[N+1];
+
+  if (kernel_width < 3 || kernel_width > 4) return;
+
+  //Initialize smothingbins_tmp
+  for (k = 0; k <= N; ++k) {
+    t_spectrum[k] = spectrum[k];
+    smoothing_tmp[k] = 0.f;//Initialize temporal spectrum
+  }
+
+  for (k = 0; k <= N; ++k) {
+    const int j0 = MAX(0, k - kernel_width);
+    const int j1 = MIN(N, k + kernel_width);
+    for(int l = j0; l <= j1; ++l) {
+      switch(kernel_width){
+        case 3:
+          smoothing_tmp[k] += savgol_quart_7[l]*t_spectrum[l];
+          break;
+        case 4:
+          smoothing_tmp[k] += savgol_quart_9[l]*t_spectrum[l];
+          break;
+      }
+    }
   }
 
   for (k = 0; k <= N; ++k){

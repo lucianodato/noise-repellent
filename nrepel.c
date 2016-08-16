@@ -392,38 +392,38 @@ run(LV2_Handle instance, uint32_t n_samples) {
 				//DENOISE PRE PROCESSING
 
 				//Smooth Noise Thresholds
-				float co_freq_bin = Freq2Index(1000,nrepel->samp_rate,nrepel->fft_size_2);
-				spectral_smoothing_boxcar_2b(nrepel->noise_thresholds,2,*(nrepel->n_smoothing),nrepel->fft_size_2,co_freq_bin);
+				//spectral_smoothing_MM(nrepel->noise_thresholds,*(nrepel->n_smoothing),nrepel->fft_size_2);
+				//spectral_smoothing_MA(nrepel->noise_thresholds,*(nrepel->s_smoothing),nrepel->fft_size_2);
 
-				if(*(nrepel->ps_buff_size) > 2){
-					//Keep a certain buffer to have memory of previous values
-					//Spectral buffer for power spectrum
-					//Copy previous spectrums
-					for (k = 0; k <= nrepel->fft_size_2; k++) {
-						//PUSH back all values stored
-						for (j = PS_BUFF_SIZE-1; j > 0; j-- ){
-							nrepel->fft_ps_buffer[k][j] = nrepel->fft_ps_buffer[k][j-1];
-						}
-					}
-					//Copy new values
-					for (k = 0; k <= nrepel->fft_size_2; k++) {
-						nrepel->fft_ps_buffer[k][0] = nrepel->fft_p2[k];
-					}
+				// if(*(nrepel->ps_buff_size) > 2){
+				// 	//Keep a certain buffer to have memory of previous values
+				// 	//Spectral buffer for power spectrum
+				// 	//Copy previous spectrums
+				// 	for (k = 0; k <= nrepel->fft_size_2; k++) {
+				// 		//PUSH back all values stored
+				// 		for (j = PS_BUFF_SIZE-1; j > 0; j-- ){
+				// 			nrepel->fft_ps_buffer[k][j] = nrepel->fft_ps_buffer[k][j-1];
+				// 		}
+				// 	}
+				// 	//Copy new values
+				// 	for (k = 0; k <= nrepel->fft_size_2; k++) {
+				// 		nrepel->fft_ps_buffer[k][0] = nrepel->fft_p2[k];
+				// 	}
+				//
+				// 	//Compute median between previous spectrums to avoid more musical noise
+				// 	int size_of_buffer = *(nrepel->ps_buff_size);
+				// 	for (k = 0; k <= nrepel->fft_size_2; k++) {
+				// 		float tmp[size_of_buffer];
+				// 		for (j = 0; j < size_of_buffer; j++) {
+				// 			tmp[j] = nrepel->fft_ps_buffer[k][j];
+				// 		}
+				// 		nrepel->fft_p2[k] = median(size_of_buffer,tmp);
+				// 	}
+				//
+				// }
 
-					//Compute median between previous spectrums to avoid more musical noise
-					int size_of_buffer = *(nrepel->ps_buff_size);
-					for (k = 0; k <= nrepel->fft_size_2; k++) {
-						float tmp[size_of_buffer];
-						for (j = 0; j < size_of_buffer; j++) {
-							tmp[j] = nrepel->fft_ps_buffer[k][j];
-						}
-						nrepel->fft_p2[k] = median(size_of_buffer,tmp);
-					}
-
-				}
-
-				//spectral_smoothing_boxcar(nrepel->fft_p2,*(nrepel->s_smoothing),nrepel->fft_size_2);
-				spectral_smoothing_boxcar_2b(nrepel->fft_p2,0,*(nrepel->s_smoothing),nrepel->fft_size_2,co_freq_bin);
+				//Smooth spectrum previous to gain calculation
+				//spectral_smoothing_MA(nrepel->fft_p2,*(nrepel->s_smoothing),nrepel->fft_size_2);
 
 			  //Compute denoising gain based on previously computed spectrum (manual or automatic)
 				switch((int) *(nrepel->denoise_method)){
@@ -474,8 +474,9 @@ run(LV2_Handle instance, uint32_t n_samples) {
 				//Apply post filter to gain coeff
 				//post_filter(nrepel->pf_scale_factor,nrepel->fft_p2, nrepel->Gk, *(nrepel->SNR_thresh), nrepel->fft_size_2);
 
-				//Apply fine smoothing over gains (This should be more like Savintsky-Golay)
-				spectral_smoothing_boxcar_2b(nrepel->Gk,0,*(nrepel->s_smoothing),nrepel->fft_size_2,co_freq_bin);
+				//Apply fine smoothing over gains
+				//Reroughinh technique could be applied too
+
 
 				//Smooth between previous gain to avoid transient and onset distortions
 				float interp = INTERP_FACTOR;
