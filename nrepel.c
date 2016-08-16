@@ -37,7 +37,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 //STFT default values
 #define DEFAULT_FFT_SIZE 2048 //max should be 8192 otherwise is too expensive
-#define DEFAULT_WINDOW_TYPE 2 //0 Hann 1 Hamming 2 Blackman
+#define DEFAULT_WINDOW_TYPE 0 //0 Hann 1 Hamming 2 Blackman
 #define DEFAULT_OVERLAP_FACTOR 4 //2 is 50% and 4 is 75% overlap
 
 //Whitening strenght
@@ -370,6 +370,8 @@ run(LV2_Handle instance, uint32_t n_samples) {
 			//------------Processing---------------
 			switch ((int) *(nrepel->capt_state) ) {
 				case MANUAL_CAPTURE_ON_STATE:
+				spectral_smoothing_SG_quart(nrepel->fft_p2,4,nrepel->fft_size_2);
+
 				//If selected estimate noise spectrum based on selected portion of signal
 				get_noise_statistics(nrepel->fft_p2,
 														nrepel->fft_size_2,
@@ -479,22 +481,22 @@ run(LV2_Handle instance, uint32_t n_samples) {
 
 				//Apply fine smoothing over gains
 				//Reroughing technique could be applied too
-				float aux1[nrepel->fft_size_2+1],aux2[nrepel->fft_size_2+1];
-				for (k = 0; k <= nrepel->fft_size_2; k++) {
-					aux1[k] = nrepel->Gk[k];
-				}
-
-				spectral_smoothing_SG_cuad(aux1,*(nrepel->n_smoothing),nrepel->fft_size_2);
-
-				for (k = 0; k <= nrepel->fft_size_2; k++) {
-					aux2[k] = nrepel->Gk[k] - aux1[k];
-				}
-
-				spectral_smoothing_MA(aux2,*(nrepel->s_smoothing),nrepel->fft_size_2);
-
-				for (k = 0; k <= nrepel->fft_size_2; k++) {
-					nrepel->Gk[k] = aux1[k] + aux2[k];
-				}
+				// float aux1[nrepel->fft_size_2+1],aux2[nrepel->fft_size_2+1];
+				// for (k = 0; k <= nrepel->fft_size_2; k++) {
+				// 	aux1[k] = nrepel->Gk[k];
+				// }
+				//
+				// spectral_smoothing_SG_quart(aux1,*(nrepel->n_smoothing),nrepel->fft_size_2);
+				//
+				// for (k = 0; k <= nrepel->fft_size_2; k++) {
+				// 	aux2[k] = nrepel->Gk[k] - aux1[k];
+				// }
+				//
+				// spectral_smoothing_MA(aux2,*(nrepel->s_smoothing),nrepel->fft_size_2);
+				//
+				// for (k = 0; k <= nrepel->fft_size_2; k++) {
+				// 	nrepel->Gk[k] = aux1[k] + aux2[k];
+				// }
 
 
 				//Smooth between previous gain to avoid transient and onset distortions
@@ -571,6 +573,8 @@ run(LV2_Handle instance, uint32_t n_samples) {
 			for(k = 0; k < nrepel->fft_size; k++){
 				nrepel->input_fft_buffer[k] = nrepel->input_fft_buffer[k]/nrepel->fft_size;
 			}
+
+			
 
 			//Accumulate (Overlapadd)
 			for(k = 0; k < nrepel->fft_size; k++){

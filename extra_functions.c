@@ -307,7 +307,7 @@ float savgol_quad_23[23] = {-0.052174,-0.026087,-0.002484,0.018634,0.037267,0.05
 float savgol_quad_25[25] = {-0.048889,-0.026667,-0.006377,0.011981,0.028406,0.042899,0.055459,0.066280,0.074783,0.081546,0.086377,0.089275,0.090242,0.089275,0.086377,0.081546,0.074783,0.066280,0.055459,0.042899,0.028406,0.011981,-0.006377,-0.026667,-0.048889};
 
 //With quadratic coefficients
-void spectral_smoothing_SG_cuad(float* spectrum, int kernel_width,int N){
+void spectral_smoothing_SG_quad(float* spectrum, int kernel_width,int N){
   int k;
   float* smoothing_tmp = (float*)calloc(N+1,sizeof(float));
   float* extended = (float*)calloc(N+2*kernel_width+1,sizeof(float));
@@ -373,7 +373,7 @@ float savgol_quart_7[7] = {0.021645,-0.129870,0.324675,0.567100,0.324675,-0.1298
 float savgol_quart_9[9] = {0.034965,-0.128205,0.069930,0.314685,0.417249,0.314685,0.069930,-0.128205,0.034965};
 
 //With quadric coefficients
-void spectral_smoothing_SG_cuart(float* spectrum, int kernel_width,int N){
+void spectral_smoothing_SG_quart(float* spectrum, int kernel_width,int N){
   int k;
   float* smoothing_tmp = (float*)calloc(N+1,sizeof(float));
   float* extended = (float*)calloc(N+2*kernel_width+1,sizeof(float));
