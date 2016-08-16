@@ -118,15 +118,21 @@ void get_noise_statistics(float* p2,
                          float* noise_print_min,
   											 float* noise_print_max,
                          float* noise_print_g_mean,
-                         float* noise_print_e_average,
-                         float avg_w) {
+                         float* noise_print_average,
+                         float* n_window_count) {
   int k;
+
+  *(n_window_count) += 1.f;
 
   //Get noise time statistics
   for(k = 0 ; k <= fft_size_2 ; k++) {
     noise_print_min[k] = MIN(noise_print_min[k], p2[k]);
     noise_print_max[k] = MAX(noise_print_max[k], p2[k]);
-    noise_print_e_average[k] = (1.f-avg_w)*noise_print_e_average[k] + avg_w*p2[k];
+    if(*(n_window_count) == 1){
+      noise_print_average[k] = p2[k];
+    } else {
+      noise_print_average[k] += ((p2[k] - noise_print_average[k])/ *(n_window_count));
+    }
   }
 
   //Finish geometric mean calculations
@@ -141,7 +147,7 @@ void estimate_noise_thresholds(int fft_size_2,
                              float* noise_thresholds,
                              float* noise_print_max,
       											 float* noise_print_g_mean,
-                             float* noise_print_e_average){
+                             float* noise_print_average){
   int k;
   //NOISE THRESHOLDS SPECTUM COMSTRUCTIOM BASED ON STATISTIC SELECTED
 
@@ -159,7 +165,7 @@ void estimate_noise_thresholds(int fft_size_2,
       noise_thresholds[k] = noise_print_g_mean[k];
       break;
       case 2:
-      noise_thresholds[k] = noise_print_e_average[k];
+      noise_thresholds[k] = noise_print_average[k];
       break;
     }
   }

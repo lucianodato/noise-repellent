@@ -244,22 +244,16 @@ void spectral_smoothing_MA(float* spectrum, int kernel_width,int N){
 void spectral_smoothing_MM(float* spectrum, int kernel_width, int N){
   int k;
   float smoothing_tmp[N+1];
-  float t_spectrum[N+1];
 
   if (kernel_width == 0) return;
-
-  //Initialize smothingbins_tmp
-  for (k = 0; k <= N; ++k) {
-    t_spectrum[k] = spectrum[k];
-    smoothing_tmp[k] = 0.f;//Initialize temporal spectrum
-  }
 
   for (k = 0; k <= N; ++k) {
     const int j0 = MAX(0, k - kernel_width);
     const int j1 = MIN(N, k + kernel_width);
+
     float aux[j1-j0+1];
     for(int l = j0; l <= j1; ++l) {
-      aux[l] = t_spectrum[l];
+      aux[l] = spectrum[l];
     }
     smoothing_tmp[k] = median(j1-j0+1,aux);
   }
@@ -272,30 +266,31 @@ void spectral_smoothing_MM(float* spectrum, int kernel_width, int N){
 
 void spectral_smoothing_MAH(float* spectrum, int kernel_width,int N){
   int k;
-  float smoothing_tmp[N+1];
-  float t_spectrum[N+1];
+  float* smoothing_tmp = (float*)calloc(N+1,sizeof(float));
+  float* extended = (float*)calloc(N+2*kernel_width+1,sizeof(float));
   float window[kernel_width*2 +1];
   fft_window(window,kernel_width*2+1,0);//Hann window
 
   if (kernel_width == 0) return;
 
+  //Copy data over the extended array to contemplate edge cases
   //Initialize smothingbins_tmp
   for (k = 0; k <= N; ++k) {
-    t_spectrum[k] = spectrum[k];
-    smoothing_tmp[k] = 0.f;//Initialize temporal spectrum
+    extended[k+kernel_width] = spectrum[k];
   }
 
   for (k = 0; k <= N; ++k) {
-    const int j0 = MAX(0, k - kernel_width);
-    const int j1 = MIN(N, k + kernel_width);
-    for(int l = j0; l <= j1; ++l) {
-      smoothing_tmp[k] += window[l]*t_spectrum[l];
+    for(int l = 0; l <= kernel_width*2; ++l) {
+      smoothing_tmp[k] += window[l]*extended[k+l];
     }
   }
 
   for (k = 0; k <= N; ++k){
     spectrum[k] = smoothing_tmp[k];
   }
+
+  delete(smoothing_tmp);
+  delete(extended);
 }
 
 //This is from wikipedia ;)
@@ -306,30 +301,28 @@ float savgol_quad_9[9] = {-0.090909,0.060606,0.168831,0.233766,0.255411,0.233766
 //With quadratic coefficients
 void spectral_smoothing_SG_cuad(float* spectrum, int kernel_width,int N){
   int k;
-  float smoothing_tmp[N+1];
-  float t_spectrum[N+1];
+  float* smoothing_tmp = (float*)calloc(N+1,sizeof(float));
+  float* extended = (float*)calloc(N+2*kernel_width+1,sizeof(float));
 
   if (kernel_width < 2 || kernel_width > 4) return;
 
+  //Copy data over the extended array to contemplate edge cases
   //Initialize smothingbins_tmp
   for (k = 0; k <= N; ++k) {
-    t_spectrum[k] = spectrum[k];
-    smoothing_tmp[k] = 0.f;//Initialize temporal spectrum
+    extended[k+kernel_width] = spectrum[k];
   }
 
   for (k = 0; k <= N; ++k) {
-    const int j0 = MAX(0, k - kernel_width);
-    const int j1 = MIN(N, k + kernel_width);
-    for(int l = j0; l <= j1; ++l) {
+    for(int l = 0; l <= kernel_width*2; ++l) {
       switch(kernel_width){
         case 2:
-          smoothing_tmp[k] += savgol_quad_5[l]*t_spectrum[l];
+          smoothing_tmp[k] += savgol_quad_5[l]*extended[l+k];
           break;
         case 3:
-          smoothing_tmp[k] += savgol_quad_7[l]*t_spectrum[l];
+          smoothing_tmp[k] += savgol_quad_7[l]*extended[l+k];
           break;
         case 4:
-          smoothing_tmp[k] += savgol_quad_9[l]*t_spectrum[l];
+          smoothing_tmp[k] += savgol_quad_9[l]*extended[l+k];
           break;
       }
     }
@@ -338,6 +331,9 @@ void spectral_smoothing_SG_cuad(float* spectrum, int kernel_width,int N){
   for (k = 0; k <= N; ++k){
     spectrum[k] = smoothing_tmp[k];
   }
+
+  delete(smoothing_tmp);
+  delete(extended);
 }
 
 //This is from wikipedia ;)
@@ -347,27 +343,24 @@ float savgol_quart_9[9] = {0.034965,-0.128205,0.069930,0.314685,0.417249,0.31468
 //With quadric coefficients
 void spectral_smoothing_SG_cuart(float* spectrum, int kernel_width,int N){
   int k;
-  float smoothing_tmp[N+1];
-  float t_spectrum[N+1];
+  float* smoothing_tmp = (float*)calloc(N+1,sizeof(float));
+  float* extended = (float*)calloc(N+2*kernel_width+1,sizeof(float));
 
   if (kernel_width < 3 || kernel_width > 4) return;
 
   //Initialize smothingbins_tmp
   for (k = 0; k <= N; ++k) {
-    t_spectrum[k] = spectrum[k];
-    smoothing_tmp[k] = 0.f;//Initialize temporal spectrum
+    extended[k+kernel_width] = spectrum[k];
   }
 
   for (k = 0; k <= N; ++k) {
-    const int j0 = MAX(0, k - kernel_width);
-    const int j1 = MIN(N, k + kernel_width);
-    for(int l = j0; l <= j1; ++l) {
+    for(int l = 0; l <= kernel_width*2; ++l) {
       switch(kernel_width){
         case 3:
-          smoothing_tmp[k] += savgol_quart_7[l]*t_spectrum[l];
+          smoothing_tmp[k] += savgol_quart_7[l]*extended[l+k];
           break;
         case 4:
-          smoothing_tmp[k] += savgol_quart_9[l]*t_spectrum[l];
+          smoothing_tmp[k] += savgol_quart_9[l]*extended[l+k];
           break;
       }
     }
@@ -376,4 +369,7 @@ void spectral_smoothing_SG_cuart(float* spectrum, int kernel_width,int N){
   for (k = 0; k <= N; ++k){
     spectrum[k] = smoothing_tmp[k];
   }
+
+  delete(smoothing_tmp);
+  delete(extended);
 }
