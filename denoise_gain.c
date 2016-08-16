@@ -103,76 +103,71 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 // }
 
 void denoise_gain_ps(float over_reduc,
-                  float* p2,
-                  int fft_size_2,
-                  float* Gk,
-                  float* noise_thresholds) {
+                      int fft_size_2,
+                      float* p2,
+                      float* noise_thresholds,
+                      float* Gk,
+                      float* Gk_prev) {
   int k;
   float gain, Fk;
 
   for (k = 0; k <= fft_size_2 ; k++) {
     if (noise_thresholds[k] > FLT_MIN){
-      // Power Subtraction
-      if(p2[k] > FLT_MIN)
-        gain = MAX(p2[k]-noise_thresholds[k], 0.f)/p2[k];
-      else
+      if(p2[k] > FLT_MIN){
+        gain = MAX(p2[k]-noise_thresholds[k], 0.0) / p2[k];
+      } else {
         gain = 0.f;
+      }
+      //Use oversustraction
+      Fk = over_reduc*(1.0-gain) ;
 
-      //Apply over sustraction
-      Fk = over_reduc*(1.f-gain);
+      if(Fk < 0.0) Fk = 0.0 ;
+      if(Fk > 1.0) Fk = 1.0 ;
 
-      //Limit gain to be applied
-      if(Fk < 0.f) Fk = 0.f;
-      if(Fk > 1.f) Fk = 1.f;
-
-      gain =  1.f - Fk;
-
-      //Assing gain to gain spectrum
-      Gk[k] =  gain;
+      Gk_prev[k] = Gk[k];
+      Gk[k] =  1.0 - Fk ;
 
     } else {
       //Otherwise we keep everything as is
+      Gk_prev[k] = Gk[k];
       Gk[k] = 1.f;
     }
   } //for
 }
 void denoise_gain_w(float over_reduc,
-                  float* p2,
-                  int fft_size_2,
-                  float* Gk,
-                  float* noise_thresholds) {
+                      int fft_size_2,
+                      float* p2,
+                      float* noise_thresholds,
+                      float* Gk,
+                      float* Gk_prev) {
   int k;
   float gain, Fk;
 
   for (k = 0; k <= fft_size_2 ; k++) {
     if (noise_thresholds[k] > FLT_MIN){
-      //wiener estimation
-      float rest = p2[k] - noise_thresholds[k];
-
-      if(p2[k] > noise_thresholds[k])
-        gain = (p2[k]) / (rest+noise_thresholds[k]);
-      else
+      float aux = (p2[k] - noise_thresholds[k]);
+      if(p2[k] > noise_thresholds[k]){
+        gain = aux/(aux+noise_thresholds[k]);
+      } else {
         gain = 0.f;
+      }
+      //Use oversustraction
+      Fk = over_reduc*(1.0-gain) ;
 
-      //Apply over sustraction
-      Fk = over_reduc*(1.f-gain);
+      if(Fk < 0.0) Fk = 0.0 ;
+      if(Fk > 1.0) Fk = 1.0 ;
 
-      //Limit gain to be applied
-      if(Fk < 0.f) Fk = 0.f;
-      if(Fk > 1.f) Fk = 1.f;
-
-      gain =  1.f - Fk;
-
-      //Assing gain to gain spectrum
-      Gk[k] =  gain;
-
+      Gk_prev[k] = Gk[k];
+      Gk[k] =  1.0 - Fk ;
     } else {
       //Otherwise we keep everything as is
+      Gk_prev[k] = Gk[k];
       Gk[k] = 1.f;
     }
   } //for
 }
-void denoise_gain_em(float over_reduc,
+
+void denoise_gain_mmse(int option,
                         float alpha_set,
                         int* prev_frame,
                         float* p2,
@@ -180,70 +175,24 @@ void denoise_gain_em(float over_reduc,
                         float* gain_prev,
                         int fft_size_2,
                         float* Gk,
+                        float* Gk_prev,
                         float* noise_thresholds) {
     int k;
-    float gain, Fk, Rpost, Rprio;
+    float gain, Rpost, Rprio, alpha;
 
     for (k = 0; k <= fft_size_2 ; k++) {
       if (noise_thresholds[k] > FLT_MIN){
         // EM using Wolfe and Godsill optimization
         Rpost = MAX(p2[k]/noise_thresholds[k]-1.f, 0.f);
 
-        if(*(prev_frame) == 1) {
-          Rprio = (1.f-alpha_set)*Rpost + alpha_set*gain_prev[k]*gain_prev[k]*(p2_prev[k]/noise_thresholds[k]);
-        }else{
-          Rprio = Rpost;
-        }
-
-        //Ephraim-Malah noise suppression, from Godsill and Wolfe 2001 paper (cheaper)
-        float r = MAX(Rprio/(1.f+Rprio),FLT_MIN);
-        float V = (Rprio/(1.f+Rprio))*(Rpost+1.f);
-        gain = sqrtf( r * (1.f+V)/(Rpost+1.f) );
-
-        p2_prev[k] = p2[k];
-        gain_prev[k] = gain;
-        *(prev_frame) = 1;
-
-        //Apply over sustraction
-        Fk = over_reduc*(1.f-gain);
-
-        //Limit gain to be applied
-        if(Fk < 0.f) Fk = 0.f;
-        if(Fk > 1.f) Fk = 1.f;
-
-        gain =  1.f - Fk;
-
-        //Assing gain to gain spectrum
-        Gk[k] =  gain;
-
-      } else {
-        //Otherwise we keep everything as is
-        Gk[k] = 1.f;
-      }
-    } //for
-  }
-void denoise_gain_cmsr(float over_reduc,
-                        float alpha_set,
-                        int* prev_frame,
-                        float* p2,
-                        float* p2_prev,
-                        float* gain_prev,
-                        int fft_size_2,
-                        float* Gk,
-                        float* noise_thresholds) {
-    int k;
-    float gain, Fk, Rpost, Rprio, alpha;
-
-    for (k = 0; k <= fft_size_2 ; k++) {
-      if (noise_thresholds[k] > FLT_MIN){
-
-        // CMSR (modified EM)
-        Rpost = MAX(p2[k]/noise_thresholds[k]-1.f, 0.f);
-
-        if (Rpost > 0.f) {
-          alpha = alpha_set; //EM like when Posteriori estimation is null
+        if(option == 0){ //Ephraim-Malah
+            alpha = alpha_set;
         } else {
-          alpha = 0.f; //Wiener like punctual supression when Posteriori estimation is not null
+          if (Rpost > 0.f) { // CMSR
+            alpha = alpha_set; //EM like when Posteriori estimation is null
+          } else {
+            alpha = 0.f; //Wiener like punctual supression when Posteriori estimation is not null
+          }
         }
 
         if(*(prev_frame) == 1) {
@@ -261,21 +210,43 @@ void denoise_gain_cmsr(float over_reduc,
         gain_prev[k] = gain;
         *(prev_frame) = 1;
 
-        //Apply over sustraction
-        Fk = over_reduc*(1.f-gain);
-
-        //Limit gain to be applied
-        if(Fk < 0.f) Fk = 0.f;
-        if(Fk > 1.f) Fk = 1.f;
-
-        gain =  1.f - Fk;
-
-        //Assing gain to gain spectrum
+        Gk_prev[k] = Gk[k];
         Gk[k] =  gain;
 
       } else {
         //Otherwise we keep everything as is
+        Gk_prev[k] = Gk[k];
         Gk[k] = 1.f;
       }
     } //for
   }
+
+  // void denoise_gain_gss(float alpha,
+  //                       float beta,
+  //                       float gamma1,
+  //                       float gamma2,
+  //                       int fft_size_2,
+  //                       float* p2,
+  //                       float* noise_thresholds,
+  //                       float* Gk) {
+  //   int k;
+  //   float gain, SNRp;
+  //   float comp = powf((alpha+beta),2.f);
+  //
+  //   for (k = 0; k <= fft_size_2 ; k++) {
+  //     if (noise_thresholds[k] > FLT_MIN){
+  //       SNRp = p2[k]/noise_thresholds[k];
+  //       if(SNRp > comp){
+  //         gain = powf( (1.f - (alpha / powf(SNRp, (gamma1/2.f) ) ) ) , (gamma2/2.f));
+  //       } else {
+  //         gain = powf( (beta / powf(SNRp, (gamma1/2.f) ) ) , (gamma2/2.f));
+  //       }
+  //
+  //       Gk[k] = gain;
+  //
+  //     } else {
+  //       //Otherwise we keep everything as is
+  //       Gk[k] = 1.f;
+  //     }
+  //   } //for
+  // }
