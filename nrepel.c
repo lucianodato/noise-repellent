@@ -312,6 +312,12 @@ run(LV2_Handle instance, uint32_t n_samples) {
 
 		memset(nrepel->a_noise_spectrum, 0, (nrepel->fft_size_2+1)*sizeof(float));
 		memset(nrepel->prev_a_noise, 0, (nrepel->fft_size_2+1)*sizeof(float));
+		memset(nrepel->s_pow_spec, 0, (nrepel->fft_size_2+1)*sizeof(float));
+		memset(nrepel->prev_s_pow_spec, 0, (nrepel->fft_size_2+1)*sizeof(float));
+		memset(nrepel->p_min, 0, (nrepel->fft_size_2+1)*sizeof(float));
+		memset(nrepel->prev_p_min, 0, (nrepel->fft_size_2+1)*sizeof(float));
+		memset(nrepel->speech_p_p, 0, (nrepel->fft_size_2+1)*sizeof(float));
+		memset(nrepel->prev_speech_p_p, 0, (nrepel->fft_size_2+1)*sizeof(float));
 	}
 
 	//main loop for processing
