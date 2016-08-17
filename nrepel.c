@@ -474,12 +474,23 @@ run(LV2_Handle instance, uint32_t n_samples) {
 				if (*(nrepel->noise_listen) == 0.f){
 					//Apply the computed gain to the signal only if under threshold
 					for (k = 0; k <= nrepel->fft_size_2; k++) {
-						if (nrepel->fft_magnitude[k] <= threshold_fft){
-							nrepel->output_fft_buffer[k] = (1.f - *(nrepel->gate_time_smoothing))*(nrepel->output_fft_buffer[k]* nrepel->Gk[k]) + (*(nrepel->gate_time_smoothing) * nrepel->prev_output_fft_buffer[k]) ;
+						nrepel->output_fft_buffer[k] *= nrepel->Gk[k];//nrepel->output_fft_buffer[k] = (1.f - *(nrepel->gate_time_smoothing))*(nrepel->output_fft_buffer[k]* nrepel->Gk[k]) + (*(nrepel->gate_time_smoothing) * nrepel->prev_output_fft_buffer[k]) ;
+						if(k < nrepel->fft_size_2)
+						nrepel->output_fft_buffer[nrepel->fft_size-k] *= nrepel->Gk[k];
+					}
+
+					for (k = 0; k <= nrepel->fft_size_2; k++) {
+						if (nrepel->fft_magnitude[k] >= threshold_fft){
+							nrepel->output_fft_buffer[k] = (1.f - *(nrepel->gate_time_smoothing))*(nrepel->output_fft_buffer[k]) + (*(nrepel->gate_time_smoothing) * nrepel->prev_output_fft_buffer[k]) ;
 							if(k < nrepel->fft_size_2)
-							nrepel->output_fft_buffer[nrepel->fft_size-k] *= nrepel->Gk[k];
+							nrepel->output_fft_buffer[nrepel->fft_size-k] = (1.f - *(nrepel->gate_time_smoothing))*(nrepel->output_fft_buffer[nrepel->fft_size-k]) + (*(nrepel->gate_time_smoothing) * nrepel->prev_output_fft_buffer[nrepel->fft_size-k]) ;
+						}else{
+							nrepel->output_fft_buffer[k] = (*(nrepel->gate_time_smoothing) * nrepel->prev_output_fft_buffer[k]) ;
+							nrepel->output_fft_buffer[nrepel->fft_size-k] = (*(nrepel->gate_time_smoothing) * nrepel->prev_output_fft_buffer[nrepel->fft_size-k]) ;
 						}
 					}
+
+
 					//The amount of reduction
 					float reduction_coeff = 1.f/from_dB(*(nrepel->amount_reduc));
 					//Mix residual and processed (Parametric way ot reducing noise)
