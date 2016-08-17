@@ -35,7 +35,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define MANUAL_CAPTURE_ON_STATE 1
 #define AUTO_LEARN_CAPTURE_STATE_LISTEN 2
 
-//STFT default values
+//STFT default values (This are standart values)
 #define DEFAULT_FFT_SIZE 2048 //max should be 8192 otherwise is too expensive
 #define DEFAULT_WINDOW_TYPE 0 //0 Hann 1 Hamming 2 Blackman
 #define DEFAULT_OVERLAP_FACTOR 4 //2 is 50% and 4 is 75% overlap
@@ -111,6 +111,8 @@ typedef struct {
 	float* input_fft_buffer;
 	float* output_fft_buffer;
 	float* prev_output_fft_buffer;
+	float* denoised_fft_buffer;
+	float* combined_fft_buffer;
 	fftwf_plan forward;
 	fftwf_plan backward;
 
@@ -181,6 +183,8 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->window = (float*)calloc(nrepel->fft_size,sizeof(float));
 	nrepel->input_fft_buffer = (float*)calloc(nrepel->fft_size,sizeof(float));
 	nrepel->output_fft_buffer = (float*)calloc(nrepel->fft_size,sizeof(float));
+	nrepel->denoised_fft_buffer = (float*)calloc(nrepel->fft_size,sizeof(float));
+	nrepel->combined_fft_buffer = (float*)calloc(nrepel->fft_size,sizeof(float));
 	nrepel->prev_output_fft_buffer = (float*)calloc(nrepel->fft_size,sizeof(float));
 	nrepel->forward = fftwf_plan_r2r_1d(nrepel->fft_size, nrepel->input_fft_buffer, nrepel->output_fft_buffer, FFTW_R2HC, FFTW_ESTIMATE);
 	nrepel->backward = fftwf_plan_r2r_1d(nrepel->fft_size, nrepel->output_fft_buffer, nrepel->input_fft_buffer, FFTW_HC2R, FFTW_ESTIMATE);
@@ -215,6 +219,7 @@ instantiate(const LV2_Descriptor*     descriptor,
 	memset(nrepel->noise_print_min, nrepel->max_float, (nrepel->fft_size_2+1)*sizeof(float));
 	memset(nrepel->Gk, 1, (nrepel->fft_size_2+1)*sizeof(float));
 	memset(nrepel->Gk_prev, 1, (nrepel->fft_size_2+1)*sizeof(float));
+	memset(nrepel->gain_prev, 1, (nrepel->fft_size_2+1)*sizeof(float));
 
 	fft_window(nrepel->window,nrepel->fft_size,nrepel->window_type); //STFT window
 	tappering_filter_calc(nrepel->tappering_filter,(nrepel->fft_size_2+1),WA); //Tappering window
@@ -312,7 +317,10 @@ run(LV2_Handle instance, uint32_t n_samples) {
 		//memset(nrepel->a_noise_spectrum, 0, (nrepel->fft_size_2+1)*sizeof(float));
 		memset(nrepel->residual_spectrum, 0, (nrepel->fft_size)*sizeof(float));
 		memset(nrepel->Gk, 1, (nrepel->fft_size_2+1)*sizeof(float));
+		memset(nrepel->Gk_prev, 1, (nrepel->fft_size_2+1)*sizeof(float));
+		memset(nrepel->gain_prev, 1, (nrepel->fft_size_2+1)*sizeof(float));
 		nrepel->n_window_count = 0.f;
+		nrepel->prev_frame = 0;
 	}
 
 	//main loop for processing
@@ -380,7 +388,6 @@ run(LV2_Handle instance, uint32_t n_samples) {
 														&nrepel->n_window_count); //Use fixed value here
 				break;
 				case OFF_STATE:
-
 				//Estimate the definitive spectum
 				estimate_noise_thresholds(nrepel->fft_size_2,
 																 *(nrepel->noise_stat_choise),
@@ -449,16 +456,30 @@ run(LV2_Handle instance, uint32_t n_samples) {
 
 				//Time Smoothing between previous gain to avoid transient and onset distortions
 				for (k = 0; k <= nrepel->fft_size_2; k++) {
-					nrepel->Gk[k] = (1.f - *(nrepel->time_smoothing))*nrepel->Gk[k] + *(nrepel->time_smoothing) *nrepel->Gk_prev[k];
+					nrepel->Gk[k] = *(nrepel->time_smoothing) * nrepel->Gk[k] + (1.f - *(nrepel->time_smoothing))*nrepel->Gk_prev[k];
 				}
 
 				//APPLY REDUCTION
 
+				//Threshold value
+				float threshold_fft = from_dB(*(nrepel->threshold));
+				//The amount of reduction
+				float reduction_coeff = 1.f/from_dB(*(nrepel->amount_reduc));
+
+				//Apply the computed gain to the signal only if under threshold
+				for (k = 0; k <= nrepel->fft_size_2; k++) {
+					if (nrepel->fft_p2[k] <= threshold_fft){ //Apply processing only to magnitude bins that are under threshold
+						nrepel->denoised_fft_buffer[k] = nrepel->output_fft_buffer[k]* nrepel->Gk[k];
+						if(k < nrepel->fft_size_2)
+							nrepel->denoised_fft_buffer[nrepel->fft_size-k] = nrepel->output_fft_buffer[nrepel->fft_size-k]* nrepel->Gk[k];
+					}
+				}
+
 				//Residual signal
 				for (k = 0; k <= nrepel->fft_size_2; k++) {
-				 nrepel->residual_spectrum[k] = nrepel->output_fft_buffer[k] - (nrepel->output_fft_buffer[k] * nrepel->Gk[k]);
+				 nrepel->residual_spectrum[k] = nrepel->output_fft_buffer[k] - nrepel->denoised_fft_buffer[k];
 				 if(k < nrepel->fft_size_2)
-				 	nrepel->residual_spectrum[nrepel->fft_size-k] = nrepel->output_fft_buffer[nrepel->fft_size-k] - (nrepel->output_fft_buffer[nrepel->fft_size-k] * nrepel->Gk[k]);
+					nrepel->residual_spectrum[nrepel->fft_size-k] = nrepel->output_fft_buffer[nrepel->fft_size-k] - nrepel->denoised_fft_buffer[nrepel->fft_size-k];
 				}
 
 				//Residue Whitening and tappering
@@ -467,37 +488,20 @@ run(LV2_Handle instance, uint32_t n_samples) {
 					apply_tappering_filter(nrepel->residual_spectrum,nrepel->tappering_filter,nrepel->fft_size_2);
 				}
 
-				//Threshold value
-				float threshold_fft = from_dB(*(nrepel->threshold));
-
 				//Listen to cleaned signal or to noise only
 				if (*(nrepel->noise_listen) == 0.f){
-					//Apply the computed gain to the signal only if under threshold
+					//Mix residual and processed (Parametric way of reducing noise)
 					for (k = 0; k <= nrepel->fft_size_2; k++) {
-						nrepel->output_fft_buffer[k] *= nrepel->Gk[k];//nrepel->output_fft_buffer[k] = (1.f - *(nrepel->gate_time_smoothing))*(nrepel->output_fft_buffer[k]* nrepel->Gk[k]) + (*(nrepel->gate_time_smoothing) * nrepel->prev_output_fft_buffer[k]) ;
+						nrepel->combined_fft_buffer[k] = nrepel->denoised_fft_buffer[k] + nrepel->residual_spectrum[k]*reduction_coeff;
 						if(k < nrepel->fft_size_2)
-						nrepel->output_fft_buffer[nrepel->fft_size-k] *= nrepel->Gk[k];
+						nrepel->combined_fft_buffer[nrepel->fft_size-k] = nrepel->denoised_fft_buffer[nrepel->fft_size-k] + nrepel->residual_spectrum[nrepel->fft_size-k]*reduction_coeff;
 					}
 
+					//time smooth result spectrum
 					for (k = 0; k <= nrepel->fft_size_2; k++) {
-						if (nrepel->fft_magnitude[k] >= threshold_fft){
-							nrepel->output_fft_buffer[k] = (1.f - *(nrepel->gate_time_smoothing))*(nrepel->output_fft_buffer[k]) + (*(nrepel->gate_time_smoothing) * nrepel->prev_output_fft_buffer[k]) ;
-							if(k < nrepel->fft_size_2)
-							nrepel->output_fft_buffer[nrepel->fft_size-k] = (1.f - *(nrepel->gate_time_smoothing))*(nrepel->output_fft_buffer[nrepel->fft_size-k]) + (*(nrepel->gate_time_smoothing) * nrepel->prev_output_fft_buffer[nrepel->fft_size-k]) ;
-						}else{
-							nrepel->output_fft_buffer[k] = (*(nrepel->gate_time_smoothing) * nrepel->prev_output_fft_buffer[k]) ;
-							nrepel->output_fft_buffer[nrepel->fft_size-k] = (*(nrepel->gate_time_smoothing) * nrepel->prev_output_fft_buffer[nrepel->fft_size-k]) ;
-						}
-					}
-
-
-					//The amount of reduction
-					float reduction_coeff = 1.f/from_dB(*(nrepel->amount_reduc));
-					//Mix residual and processed (Parametric way ot reducing noise)
-					for (k = 0; k <= nrepel->fft_size_2; k++) {
-						nrepel->output_fft_buffer[k] += nrepel->residual_spectrum[k]*reduction_coeff;
+						nrepel->output_fft_buffer[k] = *(nrepel->gate_time_smoothing) * nrepel->combined_fft_buffer[k] + (1.f - *(nrepel->gate_time_smoothing)) * nrepel->prev_output_fft_buffer[k];
 						if(k < nrepel->fft_size_2)
-						nrepel->output_fft_buffer[nrepel->fft_size-k] += nrepel->residual_spectrum[nrepel->fft_size-k]*reduction_coeff;
+						nrepel->output_fft_buffer[nrepel->fft_size-k] = *(nrepel->gate_time_smoothing) * nrepel->combined_fft_buffer[nrepel->fft_size-k] + (1.f - *(nrepel->gate_time_smoothing)) * nrepel->prev_output_fft_buffer[nrepel->fft_size-k];
 					}
 				} else {
 					//Output noise only
@@ -525,6 +529,13 @@ run(LV2_Handle instance, uint32_t n_samples) {
 				// 										 nrepel->wa,
 				// 										 nrepel->whitening_spectrum);
 				//
+				// get_noise_statistics(nrepel->a_noise_spectrum,
+				// 										nrepel->fft_size_2,
+				// 										nrepel->noise_print_min,
+				// 										nrepel->noise_print_max,
+				// 										nrepel->noise_print_g_mean,
+				// 										nrepel->noise_print_average,
+				// 										&nrepel->n_window_count); //Use fixed value here
 			}
 
 			//------------FFT Synthesis-------------

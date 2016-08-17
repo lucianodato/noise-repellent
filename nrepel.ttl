@@ -84,7 +84,7 @@
     lv2:name "Denoise algorithm";
     lv2:minimum 0;
     lv2:maximum 3;
-    lv2:default 1;
+    lv2:default 3;
     lv2:portProperty lv2:enumeration, lv2:integer;
     lv2:scalePoint [
     	rdfs:label "Wiener Sustraction";
@@ -119,7 +119,7 @@
       lv2:portProperty pprops:hasStrictBounds;
       lv2:minimum 0.0;
       lv2:maximum 1.0;
-      lv2:default 0.0;
+      lv2:default 1.0;
   ], [
     a lv2:ControlPort,
       lv2:InputPort;
@@ -140,7 +140,7 @@
     lv2:portProperty pprops:hasStrictBounds, lv2:integer;
     lv2:minimum 0;
     lv2:maximum 12;
-    lv2:default 2;
+    lv2:default 0;
   ], [
     a lv2:ControlPort,
       lv2:InputPort;
@@ -148,9 +148,9 @@
     lv2:symbol "time_smoothing";
     lv2:name "Time Smoothing";
     lv2:portProperty pprops:hasStrictBounds;
-    lv2:minimum 0;
-    lv2:maximum 1;
-    lv2:default 0;
+    lv2:minimum 0.0;
+    lv2:maximum 1.0;
+    lv2:default 1.0;
   ], [
     a lv2:ControlPort,
       lv2:InputPort;
