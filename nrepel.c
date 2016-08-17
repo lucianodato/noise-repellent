@@ -556,7 +556,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 
 			//Accumulate (Overlapadd)
 			for(k = 0; k < nrepel->fft_size; k++){
-				nrepel->output_accum[k] += nrepel->input_fft_buffer[k]*nrepel->hop;
+				nrepel->output_accum[k] += nrepel->window[k]*nrepel->input_fft_buffer[k]*nrepel->hop*nrepel->hop;
 			}
 
 			//Output samples up to the hop size
