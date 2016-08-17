@@ -157,6 +157,17 @@ void fft_window(float* window, int N, int window_type) {
   }
 }
 
+inline bool is_empty(float* noise_print, int N){
+  int k;
+  float sum = 0.f;
+  for(k = 0;k <= N; k++){
+    sum += noise_print[k];
+  }
+  if(sum > 0){
+    return true;
+  }
+  return false;
+}
 inline float max_spectral_value(float* noise_print, int N){
   int k;
   float max = 0.f;

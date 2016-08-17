@@ -54,18 +54,17 @@ typedef enum {
 	NREPEL_N_THRESH = 1,
 	NREPEL_STATISTIC = 2,
 	NREPEL_DENOISE_METHOD = 3,
-	NREPEL_THRESH = 4,
-	NREPEL_GATE_SMOOTHING = 5,
-	NREPEL_AMOUNT = 6,
-	NREPEL_FREQ_SMOOTHING = 7,
-	NREPEL_TIME_SMOOTHING = 8,
-	NREPEL_OVERRED = 9,
-	NREPEL_LATENCY = 10,
-	NREPEL_WHITENING = 11,
-	NREPEL_RESET = 12,
-	NREPEL_NOISE_LISTEN = 13,
-	NREPEL_INPUT = 14,
-	NREPEL_OUTPUT = 15,
+	NREPEL_TIME_CONSTANT = 4,
+	NREPEL_AMOUNT = 5,
+	NREPEL_FREQ_SMOOTHING = 6,
+	NREPEL_TIME_SMOOTHING = 7,
+	NREPEL_OVERRED = 8,
+	NREPEL_LATENCY = 9,
+	NREPEL_WHITENING = 10,
+	NREPEL_RESET = 11,
+	NREPEL_NOISE_LISTEN = 12,
+	NREPEL_INPUT = 13,
+	NREPEL_OUTPUT = 14,
 } PortIndex;
 
 typedef struct {
@@ -83,11 +82,10 @@ typedef struct {
 	float* noise_stat_choise; //Choise of statistic to use for noise spectrum
 	float* residue_whitening; //Whitening of the residual spectrum
 	float* noise_thresh; //detection threshold for louizou estimation
-	float* threshold; //Threshold for applying gains
 	float* denoise_method; //Choise of denoise method
-	float* time_smoothing; //Interpolation Factor for time smoothing of gains
+	float* g_time_smoothing; //Interpolation Factor for time smoothing of gains
 	float* g_smoothing; // frequency smoothing
-	float* gate_time_smoothing;
+	float* s_time_smoothing;
 
 
 	//Parameters for the STFT
@@ -109,7 +107,6 @@ typedef struct {
 	//FFTW related variables
 	float* input_fft_buffer;
 	float* output_fft_buffer;
-	float* prev_output_fft_buffer;
 	float* denoised_fft_buffer;
 	float* combined_fft_buffer;
 	fftwf_plan forward;
@@ -184,7 +181,6 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->output_fft_buffer = (float*)calloc(nrepel->fft_size,sizeof(float));
 	nrepel->denoised_fft_buffer = (float*)calloc(nrepel->fft_size,sizeof(float));
 	nrepel->combined_fft_buffer = (float*)calloc(nrepel->fft_size,sizeof(float));
-	nrepel->prev_output_fft_buffer = (float*)calloc(nrepel->fft_size,sizeof(float));
 	nrepel->forward = fftwf_plan_r2r_1d(nrepel->fft_size, nrepel->input_fft_buffer, nrepel->output_fft_buffer, FFTW_R2HC, FFTW_ESTIMATE);
 	nrepel->backward = fftwf_plan_r2r_1d(nrepel->fft_size, nrepel->output_fft_buffer, nrepel->input_fft_buffer, FFTW_HC2R, FFTW_ESTIMATE);
 
@@ -253,17 +249,14 @@ connect_port(LV2_Handle instance,
 		case NREPEL_OVERRED:
 		nrepel->over_reduc = (float*)data;
 		break;
-		case NREPEL_THRESH:
-		nrepel->threshold = (float*)data;
-		break;
-		case NREPEL_GATE_SMOOTHING:
-		nrepel->gate_time_smoothing = (float*)data;
+		case NREPEL_TIME_CONSTANT:
+		nrepel->s_time_smoothing = (float*)data;
 		break;
 		case NREPEL_FREQ_SMOOTHING:
 		nrepel->g_smoothing = (float*)data;
 		break;
 		case NREPEL_TIME_SMOOTHING:
-		nrepel->time_smoothing = (float*)data;
+		nrepel->g_time_smoothing = (float*)data;
 		break;
 		case NREPEL_LATENCY:
 		nrepel->report_latency = (float*)data;
@@ -338,12 +331,10 @@ run(LV2_Handle instance, uint32_t n_samples) {
 			//Apply windowing (Could be any window type)
 			for (k = 0; k < nrepel->fft_size; k++){
 				nrepel->input_fft_buffer[k] = nrepel->in_fifo[k] * nrepel->window[k];
-
-				//Store previous output buffer
-				nrepel->prev_output_fft_buffer[k] = nrepel->output_fft_buffer[k];
 			}
 
 			//----------FFT Analysis------------
+
 			//Do transform
 			fftwf_execute(nrepel->forward);
 
@@ -374,6 +365,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 			//More info could be useful like onsets for example to modify the amount of reduction
 
 			//------------Processing---------------
+
 			switch ((int) *(nrepel->capt_state) ) {
 				case MANUAL_CAPTURE:
 					{
@@ -425,9 +417,16 @@ run(LV2_Handle instance, uint32_t n_samples) {
 
 						//DENOISE PRE PROCESSING
 
-						//Smooth SNR thresholds
-						spectral_smoothing_MA(nrepel->noise_thresholds,2,nrepel->fft_size_2);
+						//SMOOTH between current and past p2 spectrum
+						for (k = 0; k <= nrepel->fft_size_2; k++) {
+							nrepel->fft_p2[k] = *(nrepel->s_time_smoothing) * nrepel->fft_p2[k] + (1.f - *(nrepel->s_time_smoothing))*nrepel->fft_p2_prev[k];
+						}
 
+						//Smooth SNR thresholds spectrum
+						//spectral_smoothing_MA(nrepel->noise_thresholds,2,nrepel->fft_size_2);
+
+						//Spectral Smoothing of bins
+						//spectral_smoothing_MA(nrepel->fft_p2,2,nrepel->fft_size_2);
 
 					  //Compute denoising gain based on previously computed spectrum (manual or automatic)
 						switch((int) *(nrepel->denoise_method)){
@@ -449,7 +448,8 @@ run(LV2_Handle instance, uint32_t n_samples) {
 
 							break;
 							case 2:
-							denoise_gain_mmse(0,
+							denoise_gain_mmse(*(nrepel->over_reduc),
+															0,
 															nrepel->alpha_set,
 															&nrepel->prev_frame,
 															nrepel->fft_p2,
@@ -461,7 +461,8 @@ run(LV2_Handle instance, uint32_t n_samples) {
 															nrepel->noise_thresholds);
 							break;
 							case 3:
-							denoise_gain_mmse(1,
+							denoise_gain_mmse(*(nrepel->over_reduc),
+																1,
 																nrepel->alpha_set,
 																&nrepel->prev_frame,
 																nrepel->fft_p2,
@@ -482,23 +483,19 @@ run(LV2_Handle instance, uint32_t n_samples) {
 
 						//Time Smoothing between previous gain to avoid transient and onset distortions
 						for (k = 0; k <= nrepel->fft_size_2; k++) {
-							nrepel->Gk[k] = *(nrepel->time_smoothing) * nrepel->Gk[k] + (1.f - *(nrepel->time_smoothing))*nrepel->Gk_prev[k];
+							nrepel->Gk[k] = *(nrepel->g_time_smoothing) * nrepel->Gk[k] + (1.f - *(nrepel->g_time_smoothing))*nrepel->Gk_prev[k];
 						}
 
 						//APPLY REDUCTION
 
-						//Threshold value
-						float threshold_fft = from_dB(*(nrepel->threshold));
 						//The amount of reduction
 						float reduction_coeff = 1.f/from_dB(*(nrepel->amount_reduc));
 
-						//Apply the computed gain to the signal only if under threshold
+						//Apply the computed gain to the signal
 						for (k = 0; k <= nrepel->fft_size_2; k++) {
-							if (nrepel->fft_p2[k] <= threshold_fft){ //Apply processing only to magnitude bins that are under threshold
-								nrepel->denoised_fft_buffer[k] = nrepel->output_fft_buffer[k]* nrepel->Gk[k];
-								if(k < nrepel->fft_size_2)
-									nrepel->denoised_fft_buffer[nrepel->fft_size-k] = nrepel->output_fft_buffer[nrepel->fft_size-k]* nrepel->Gk[k];
-							}
+							nrepel->denoised_fft_buffer[k] = nrepel->output_fft_buffer[k]* nrepel->Gk[k];
+							if(k < nrepel->fft_size_2)
+								nrepel->denoised_fft_buffer[nrepel->fft_size-k] = nrepel->output_fft_buffer[nrepel->fft_size-k]* nrepel->Gk[k];
 						}
 
 						//Residual signal
@@ -523,11 +520,11 @@ run(LV2_Handle instance, uint32_t n_samples) {
 								nrepel->combined_fft_buffer[nrepel->fft_size-k] = nrepel->denoised_fft_buffer[nrepel->fft_size-k] + nrepel->residual_spectrum[nrepel->fft_size-k]*reduction_coeff;
 							}
 
-							//time smooth result spectrum
+							//only reduce noise if the signal in each band is under the threshold and then time smooth result spectrum
 							for (k = 0; k <= nrepel->fft_size_2; k++) {
-								nrepel->output_fft_buffer[k] = *(nrepel->gate_time_smoothing) * nrepel->combined_fft_buffer[k] + (1.f - *(nrepel->gate_time_smoothing)) * nrepel->prev_output_fft_buffer[k];
-								if(k < nrepel->fft_size_2)
-								nrepel->output_fft_buffer[nrepel->fft_size-k] = *(nrepel->gate_time_smoothing) * nrepel->combined_fft_buffer[nrepel->fft_size-k] + (1.f - *(nrepel->gate_time_smoothing)) * nrepel->prev_output_fft_buffer[nrepel->fft_size-k];
+									nrepel->output_fft_buffer[k] = nrepel->combined_fft_buffer[k];
+									if(k < nrepel->fft_size_2)
+									nrepel->output_fft_buffer[nrepel->fft_size-k] = nrepel->combined_fft_buffer[nrepel->fft_size-k];
 							}
 						} else {
 							//Output noise only

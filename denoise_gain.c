@@ -86,7 +86,8 @@ void denoise_gain_w(float over_reduc,
   } //for
 }
 
-void denoise_gain_mmse(int option,
+void denoise_gain_mmse(float over_reduc,
+                        int option,
                         float alpha_set,
                         int* prev_frame,
                         float* p2,
@@ -97,7 +98,7 @@ void denoise_gain_mmse(int option,
                         float* Gk_prev,
                         float* noise_thresholds) {
     int k;
-    float gain, Rpost, Rprio, alpha;
+    float gain, Fk, Rpost, Rprio, alpha;
 
     for (k = 0; k <= fft_size_2 ; k++) {
       if (noise_thresholds[k] > FLT_MIN){
@@ -124,6 +125,14 @@ void denoise_gain_mmse(int option,
         float r = MAX(Rprio/(1.f+Rprio),FLT_MIN);
         float V = (Rprio/(1.f+Rprio))*(Rpost+1.f);
         gain = sqrtf( r * (1.f+V)/(Rpost+1.f) );
+
+        //Use oversustraction
+        Fk = over_reduc*(1.0-gain) ;
+
+        if(Fk < 0.0) Fk = 0.0 ;
+        if(Fk > 1.0) Fk = 1.0 ;
+
+        gain =  1.0 - Fk ;
 
         p2_prev[k] = p2[k];
         gain_prev[k] = gain;
