@@ -42,10 +42,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 //Whitening strenght
 #define WA 0.05 //For spectral whitening strenght 0-1
-#define PF_SCALE_FACTOR 3 //For post filter
 #define ALPHA 0.98 //For EM denoising
-#define PS_BUFF_SIZE 5 //Power Spectrum buffer
-#define INTERP_FACTOR 0.6 //Time smoothing of gains [0-1]
+
 
 ///---------------------------------------------------------------------
 
@@ -56,18 +54,19 @@ typedef enum {
 	// NREPEL_N_THRESH = 1,
 	NREPEL_STATISTIC = 1,
 	NREPEL_DENOISE_METHOD = 2,
-	NREPEL_AMOUNT = 3,
-	NREPEL_N_SMOOTHING = 4,
-	NREPEL_S_SMOOTHING = 5,
-	NREPEL_PS_BUFF_SIZE = 6,
-	NREPEL_OVERRED = 7,
+	NREPEL_THRESH = 3,
+	NREPEL_GATE_SMOOTHING = 4,
+	NREPEL_AMOUNT = 5,
+	NREPEL_FREQ_SMOOTHING = 6,
+	NREPEL_TIME_SMOOTHING = 7,
+	NREPEL_OVERRED = 8,
 	//NREPEL_POSTFILTER = 6,
-	NREPEL_LATENCY = 8,
-	NREPEL_WHITENING = 9,
-	NREPEL_RESET = 10,
-	NREPEL_NOISE_LISTEN = 11,
-	NREPEL_INPUT = 12,
-	NREPEL_OUTPUT = 13,
+	NREPEL_LATENCY = 9,
+	NREPEL_WHITENING = 10,
+	NREPEL_RESET = 11,
+	NREPEL_NOISE_LISTEN = 12,
+	NREPEL_INPUT = 13,
+	NREPEL_OUTPUT = 14,
 } PortIndex;
 
 typedef struct {
@@ -85,11 +84,12 @@ typedef struct {
 	float* noise_stat_choise; //Choise of statistic to use for noise spectrum
 	float* residue_whitening; //Whitening of the residual spectrum
 	//float* noise_thresh; //detection threshold for louizou estimation
-	float* n_smoothing; // Amount of noise to reduce in dB
-	float* s_smoothing; // Amount of noise to reduce in dB
-	float* SNR_thresh; //Threshold for post filter computing
+	float* threshold; //Threshold for applying gains
 	float* denoise_method; //Choise of denoise method
-	float* ps_buff_size; //Size of the power spectrum buffer This is user input
+	float* time_smoothing; //Interpolation Factor for time smoothing of gains
+	float* g_smoothing; // frequency smoothing
+	float* gate_time_smoothing;
+
 
 	//Parameters for the STFT
 	int fft_size; //FFTW input size
@@ -110,6 +110,7 @@ typedef struct {
 	//FFTW related variables
 	float* input_fft_buffer;
 	float* output_fft_buffer;
+	float* prev_output_fft_buffer;
 	fftwf_plan forward;
 	fftwf_plan backward;
 
@@ -117,8 +118,6 @@ typedef struct {
 	float* fft_magnitude;//magnitude
 	float* fft_p2;//power
 	float* fft_p2_prev;//power previous frame
-
-	float** fft_ps_buffer;
 
 	//Store variables
 	float max_float;
@@ -129,7 +128,6 @@ typedef struct {
 	float* noise_thresholds;
 	float* residual_spectrum;
 	float wa;
-	float pf_scale_factor;
 	float* tappering_filter;
 	float* whitening_spectrum;
 
@@ -166,7 +164,6 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->overlap_factor = DEFAULT_OVERLAP_FACTOR;
 	nrepel->max_float = FLT_MAX;
 	nrepel->wa = WA;
-	nrepel->pf_scale_factor = PF_SCALE_FACTOR;
 	nrepel->alpha_set = ALPHA;
 	nrepel->prev_frame = 0;
 	nrepel->n_window_count = 0.f;
@@ -184,17 +181,13 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->window = (float*)calloc(nrepel->fft_size,sizeof(float));
 	nrepel->input_fft_buffer = (float*)calloc(nrepel->fft_size,sizeof(float));
 	nrepel->output_fft_buffer = (float*)calloc(nrepel->fft_size,sizeof(float));
+	nrepel->prev_output_fft_buffer = (float*)calloc(nrepel->fft_size,sizeof(float));
 	nrepel->forward = fftwf_plan_r2r_1d(nrepel->fft_size, nrepel->input_fft_buffer, nrepel->output_fft_buffer, FFTW_R2HC, FFTW_ESTIMATE);
 	nrepel->backward = fftwf_plan_r2r_1d(nrepel->fft_size, nrepel->output_fft_buffer, nrepel->input_fft_buffer, FFTW_HC2R, FFTW_ESTIMATE);
 
-	//nrepel->fft_magnitude = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
+	nrepel->fft_magnitude = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->fft_p2 = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->fft_p2_prev = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
-
-	nrepel->fft_ps_buffer = (float**)malloc((nrepel->fft_size_2+1)*sizeof(float*));
-	for(int k = 0; k <= nrepel->fft_size_2; k++){
-		nrepel->fft_ps_buffer[k] = (float*)calloc(PS_BUFF_SIZE,sizeof(float));
-	}
 
 	nrepel->noise_print_min = (float*)malloc((nrepel->fft_size_2+1)*sizeof(float));
 	nrepel->noise_print_max = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
@@ -256,14 +249,17 @@ connect_port(LV2_Handle instance,
 		case NREPEL_OVERRED:
 		nrepel->over_reduc = (float*)data;
 		break;
-		case NREPEL_N_SMOOTHING:
-		nrepel->n_smoothing = (float*)data;
+		case NREPEL_THRESH:
+		nrepel->threshold = (float*)data;
 		break;
-		case NREPEL_S_SMOOTHING:
-		nrepel->s_smoothing = (float*)data;
+		case NREPEL_GATE_SMOOTHING:
+		nrepel->gate_time_smoothing = (float*)data;
 		break;
-		case NREPEL_PS_BUFF_SIZE:
-		nrepel->ps_buff_size = (float*)data;
+		case NREPEL_FREQ_SMOOTHING:
+		nrepel->g_smoothing = (float*)data;
+		break;
+		case NREPEL_TIME_SMOOTHING:
+		nrepel->time_smoothing = (float*)data;
 		break;
 		// case NREPEL_POSTFILTER:
 		// nrepel->SNR_thresh = (float*)data;
@@ -299,11 +295,12 @@ run(LV2_Handle instance, uint32_t n_samples) {
 	Nrepel* nrepel = (Nrepel*)instance;
 
 	//handy variables
-	int k,j;
+	int k;
 	unsigned int pos;
 
 	//Inform latency at run call
 	*(nrepel->report_latency) = (float) nrepel->input_latency;
+
 
 	//Reset reset button state
 	if (*(nrepel->reset_print) == 1.f) {
@@ -335,6 +332,9 @@ run(LV2_Handle instance, uint32_t n_samples) {
 			//Apply windowing (Could be any window type)
 			for (k = 0; k < nrepel->fft_size; k++){
 				nrepel->input_fft_buffer[k] = nrepel->in_fifo[k] * nrepel->window[k];
+
+				//Store previous output buffer
+				nrepel->prev_output_fft_buffer[k] = nrepel->output_fft_buffer[k];
 			}
 
 			//----------FFT Analysis------------
@@ -352,16 +352,16 @@ run(LV2_Handle instance, uint32_t n_samples) {
 				//Get mag and/or power
 				if(k < nrepel->fft_size){
 					nrepel->p2 = nrepel->real_p*nrepel->real_p + nrepel->real_n*nrepel->real_n;
-					//nrepel->mag = sqrtf(nrepel->p2);
+					nrepel->mag = sqrtf(nrepel->p2);
 				} else {
 					//Nyquist
 					nrepel->p2 = nrepel->real_p*nrepel->real_p;
-					//nrepel->mag = nrepel->real_p;
+					nrepel->mag = nrepel->real_p;
 				}
 
 				//Store values in magnitude and power arrays
 				nrepel->fft_p2[k] = sanitize_denormal(nrepel->p2);
-				//nrepel->fft_magnitude[k] = sanitize_denormal(nrepel->mag);
+				nrepel->fft_magnitude[k] = sanitize_denormal(nrepel->mag);
 
 			}
 
@@ -370,8 +370,6 @@ run(LV2_Handle instance, uint32_t n_samples) {
 			//------------Processing---------------
 			switch ((int) *(nrepel->capt_state) ) {
 				case MANUAL_CAPTURE_ON_STATE:
-				spectral_smoothing_SG_quart(nrepel->fft_p2,4,nrepel->fft_size_2);
-
 				//If selected estimate noise spectrum based on selected portion of signal
 				get_noise_statistics(nrepel->fft_p2,
 														nrepel->fft_size_2,
@@ -393,41 +391,8 @@ run(LV2_Handle instance, uint32_t n_samples) {
 
 				//DENOISE PRE PROCESSING
 
-				//Smooth Noise Thresholds
-				//spectral_smoothing_MM(nrepel->noise_thresholds,*(nrepel->n_smoothing),nrepel->fft_size_2);
-				//spectral_smoothing_SG_cuad(nrepel->noise_thresholds,*(nrepel->n_smoothing),nrepel->fft_size_2);
-
-
-				if(*(nrepel->ps_buff_size) > 2){
-					//Keep a certain buffer to have memory of previous values
-					//Spectral buffer for power spectrum
-					//Copy previous spectrums
-					for (k = 0; k <= nrepel->fft_size_2; k++) {
-						//PUSH back all values stored
-						for (j = PS_BUFF_SIZE-1; j > 0; j-- ){
-							nrepel->fft_ps_buffer[k][j] = nrepel->fft_ps_buffer[k][j-1];
-						}
-					}
-					//Copy new values
-					for (k = 0; k <= nrepel->fft_size_2; k++) {
-						nrepel->fft_ps_buffer[k][0] = nrepel->fft_p2[k];
-					}
-
-					//Compute median between previous spectrums to avoid more musical noise
-					int size_of_buffer = *(nrepel->ps_buff_size);
-					for (k = 0; k <= nrepel->fft_size_2; k++) {
-						float tmp[size_of_buffer];
-						for (j = 0; j < size_of_buffer; j++) {
-							tmp[j] = nrepel->fft_ps_buffer[k][j];
-						}
-						nrepel->fft_p2[k] = median(size_of_buffer,tmp);
-					}
-
-				}
-
-				//Smooth spectrum previous to gain calculation
-				//spectral_smoothing_MA(nrepel->fft_p2,*(nrepel->s_smoothing),nrepel->fft_size_2);
-				//spectral_smoothing_SG_cuad(nrepel->fft_p2,*(nrepel->s_smoothing),nrepel->fft_size_2);
+				//Smooth SNR thresholds
+				spectral_smoothing_MA(nrepel->noise_thresholds,2,nrepel->fft_size_2);
 
 
 			  //Compute denoising gain based on previously computed spectrum (manual or automatic)
@@ -476,33 +441,15 @@ run(LV2_Handle instance, uint32_t n_samples) {
 
 				}
 
-				//Apply post filter to gain coeff
-				//post_filter(nrepel->pf_scale_factor,nrepel->fft_p2, nrepel->Gk, *(nrepel->SNR_thresh), nrepel->fft_size_2);
-
 				//Apply fine smoothing over gains
 				//Reroughing technique could be applied too
-				// float aux1[nrepel->fft_size_2+1],aux2[nrepel->fft_size_2+1];
-				// for (k = 0; k <= nrepel->fft_size_2; k++) {
-				// 	aux1[k] = nrepel->Gk[k];
-				// }
-				//
-				// spectral_smoothing_SG_quart(aux1,*(nrepel->n_smoothing),nrepel->fft_size_2);
-				//
-				// for (k = 0; k <= nrepel->fft_size_2; k++) {
-				// 	aux2[k] = nrepel->Gk[k] - aux1[k];
-				// }
-				//
-				// spectral_smoothing_MA(aux2,*(nrepel->s_smoothing),nrepel->fft_size_2);
-				//
-				// for (k = 0; k <= nrepel->fft_size_2; k++) {
-				// 	nrepel->Gk[k] = aux1[k] + aux2[k];
-				// }
 
+				//Frequency smoothing of gains
+				spectral_smoothing_SG_quad(nrepel->Gk,*(nrepel->g_smoothing),nrepel->fft_size_2);
 
-				//Smooth between previous gain to avoid transient and onset distortions
-				float interp = INTERP_FACTOR;
+				//Time Smoothing between previous gain to avoid transient and onset distortions
 				for (k = 0; k <= nrepel->fft_size_2; k++) {
-					nrepel->Gk[k] = interp*nrepel->Gk[k] + (1.f-interp)*nrepel->Gk_prev[k];
+					nrepel->Gk[k] = (1.f - *(nrepel->time_smoothing))*nrepel->Gk[k] + *(nrepel->time_smoothing) *nrepel->Gk_prev[k];
 				}
 
 				//APPLY REDUCTION
@@ -520,13 +467,18 @@ run(LV2_Handle instance, uint32_t n_samples) {
 					apply_tappering_filter(nrepel->residual_spectrum,nrepel->tappering_filter,nrepel->fft_size_2);
 				}
 
+				//Threshold value
+				float threshold_fft = from_dB(*(nrepel->threshold));
+
 				//Listen to cleaned signal or to noise only
 				if (*(nrepel->noise_listen) == 0.f){
-					//Apply the computed gain to the signal
+					//Apply the computed gain to the signal only if under threshold
 					for (k = 0; k <= nrepel->fft_size_2; k++) {
-						nrepel->output_fft_buffer[k] *= nrepel->Gk[k];
-						if(k < nrepel->fft_size_2)
-						nrepel->output_fft_buffer[nrepel->fft_size-k] *= nrepel->Gk[k];
+						if (nrepel->fft_magnitude[k] <= threshold_fft){
+							nrepel->output_fft_buffer[k] = (1.f - *(nrepel->gate_time_smoothing))*(nrepel->output_fft_buffer[k]* nrepel->Gk[k]) + (*(nrepel->gate_time_smoothing) * nrepel->prev_output_fft_buffer[k]) ;
+							if(k < nrepel->fft_size_2)
+							nrepel->output_fft_buffer[nrepel->fft_size-k] *= nrepel->Gk[k];
+						}
 					}
 					//The amount of reduction
 					float reduction_coeff = 1.f/from_dB(*(nrepel->amount_reduc));
@@ -573,8 +525,6 @@ run(LV2_Handle instance, uint32_t n_samples) {
 			for(k = 0; k < nrepel->fft_size; k++){
 				nrepel->input_fft_buffer[k] = nrepel->input_fft_buffer[k]/nrepel->fft_size;
 			}
-
-			
 
 			//Accumulate (Overlapadd)
 			for(k = 0; k < nrepel->fft_size; k++){
