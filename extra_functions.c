@@ -22,7 +22,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <float.h>
 
 //Window types
-#define HANNING_WINDOW 0
+#define HANN_WINDOW 0
 #define HAMMING_WINDOW 1
 #define BLACKMAN_WINDOW 2
 
@@ -120,40 +120,34 @@ inline float moda(int n, float* x) {
 }
 
 inline float blackman(int k, int N) {
-  float p = ((float)(k))/((float)(N-1));
+  float p = ((float)(k))/((float)(N));
   return 0.42-0.5*cosf(2.f*M_PI*p) + 0.08*cosf(4.f*M_PI*p);
 }
 
 inline float hanning(int k, int N) {
-  float p = ((float)(k))/((float)(N-1));
+  float p = ((float)(k))/((float)(N));
   return 0.5 - 0.5 * cosf(2.f*M_PI*p);
 }
 
 inline float hamming(int k, int N) {
-  float p = ((float)(k))/((float)(N-1));
+  float p = ((float)(k))/((float)(N));
   return 0.54 - 0.46 * cosf(2.f*M_PI*p);
 }
 
 void fft_window(float* window, int N, int window_type) {
-  float sum_values = 0.f;
   int k;
   for (k = 0; k < N; k++){
     switch (window_type){
       case BLACKMAN_WINDOW:
       window[k] = blackman(k, N);
       break;
-      case HANNING_WINDOW:
+      case HANN_WINDOW:
       window[k] = hanning(k, N);
       break;
       case HAMMING_WINDOW:
       window[k] = hamming(k, N);
       break;
     }
-    sum_values += window[k];
-  }
-
-  for (k = 0; k < N; k++){
-    window[k] /= sum_values; //Normalized Window
   }
 }
 

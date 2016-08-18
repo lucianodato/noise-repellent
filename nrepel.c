@@ -36,9 +36,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define AUTO_LEARN_CAPTURE 2
 
 //STFT default values (This are standart values)
-#define DEFAULT_FFT_SIZE 2048 //max should be 8192 otherwise is too expensive
-#define DEFAULT_WINDOW_TYPE 0 //0 Hann 1 Hamming 2 Blackman
-#define DEFAULT_OVERLAP_FACTOR 4 //2 is 50% and 4 is 75% overlap
+#define FFT_SIZE 2048 //max should be 8192 otherwise is too expensive
+#define WINDOW_COMBINATION 0 //0 HANN-HANN 1 HAMMING-HANN 2 BLACKMAN-HANN
+#define OVERLAP_FACTOR 4 //4 is 75% overlap
+#define HANN_HANN_SCALING 0.375
+#define HAMMING_HANN_SCALING 0.385
+#define BLACKMAN_HANN_SCALING 0.335
 
 //Whitening strenght
 #define WA 0.05 //For spectral whitening strenght 0-1
@@ -91,10 +94,12 @@ typedef struct {
 	//Parameters for the STFT
 	int fft_size; //FFTW input size
 	int fft_size_2; //FFTW half input size
-	int window_type; // Window type for the STFT
-	int overlap_factor; //oversampling factor for overlap calculations
+	int window_combination; // Window combination for the STFT
+	float overlap_factor; //oversampling factor for overlap calculations
+	float overlap_scale_factor; //Scaling factor for conserving the final amplitude
 	int hop; // Hop size for the STFT
-	float* window; // Window values
+	float* window_input; // Input Window values
+	float* window_output; // Input Window values
 	float n_window_count; //Count windows for mean computing
 
 	//Temporary buffers for processing and outputting
@@ -157,15 +162,14 @@ instantiate(const LV2_Descriptor*     descriptor,
 
 	//Initialize variables
 	nrepel->samp_rate = rate;
-	nrepel->fft_size = DEFAULT_FFT_SIZE;
-	nrepel->window_type = DEFAULT_WINDOW_TYPE;
-	nrepel->overlap_factor = DEFAULT_OVERLAP_FACTOR;
+	nrepel->fft_size = FFT_SIZE;
+	nrepel->window_combination = WINDOW_COMBINATION;
+	nrepel->overlap_factor = OVERLAP_FACTOR;
 	nrepel->max_float = FLT_MAX;
 	nrepel->wa = WA;
 	nrepel->alpha_set = ALPHA;
 	nrepel->prev_frame = 0;
 	nrepel->n_window_count = 0.f;
-
 
 	nrepel->fft_size_2 = nrepel->fft_size/2;
 	nrepel->hop = nrepel->fft_size/nrepel->overlap_factor;
@@ -176,7 +180,8 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->out_fifo = (float*)calloc(nrepel->fft_size,sizeof(float));
 	nrepel->output_accum = (float*)calloc(nrepel->fft_size,sizeof(float));
 
-	nrepel->window = (float*)calloc(nrepel->fft_size,sizeof(float));
+	nrepel->window_input = (float*)calloc(nrepel->fft_size,sizeof(float));
+	nrepel->window_output = (float*)calloc(nrepel->fft_size,sizeof(float));
 	nrepel->input_fft_buffer = (float*)calloc(nrepel->fft_size,sizeof(float));
 	nrepel->output_fft_buffer = (float*)calloc(nrepel->fft_size,sizeof(float));
 	nrepel->denoised_fft_buffer = (float*)calloc(nrepel->fft_size,sizeof(float));
@@ -216,7 +221,26 @@ instantiate(const LV2_Descriptor*     descriptor,
 	memset(nrepel->Gk_prev, 1, (nrepel->fft_size_2+1)*sizeof(float));
 	memset(nrepel->gain_prev, 1, (nrepel->fft_size_2+1)*sizeof(float));
 
-	fft_window(nrepel->window,nrepel->fft_size,nrepel->window_type); //STFT window
+	//Window combination computing
+	switch(nrepel->window_combination){
+		case 0: // HANN-HANN
+			fft_window(nrepel->window_input,nrepel->fft_size,0); //STFT input window
+			fft_window(nrepel->window_output,nrepel->fft_size,0); //STFT output window
+			nrepel->overlap_scale_factor = HANN_HANN_SCALING;
+			break;
+		case 1: //HAMMING-HANN
+			fft_window(nrepel->window_input,nrepel->fft_size,1); //STFT input window
+			fft_window(nrepel->window_output,nrepel->fft_size,0); //STFT output window
+			nrepel->overlap_scale_factor = HAMMING_HANN_SCALING;
+			break;
+		case 2: //BLACKMAN-HANN
+			fft_window(nrepel->window_input,nrepel->fft_size,2); //STFT input window
+			fft_window(nrepel->window_output,nrepel->fft_size,0); //STFT output window
+			nrepel->overlap_scale_factor = BLACKMAN_HANN_SCALING;
+			break;
+
+	}
+
 	tappering_filter_calc(nrepel->tappering_filter,(nrepel->fft_size_2+1),WA); //Tappering window
 
 	return (LV2_Handle)nrepel;
@@ -336,7 +360,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 
 			//Apply windowing (Could be any window type)
 			for (k = 0; k < nrepel->fft_size; k++){
-				nrepel->input_fft_buffer[k] = nrepel->in_fifo[k] * nrepel->window[k];
+				nrepel->input_fft_buffer[k] = nrepel->in_fifo[k] * nrepel->window_input[k];
 			}
 
 			//----------FFT Analysis------------
@@ -556,7 +580,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 
 			//Accumulate (Overlapadd)
 			for(k = 0; k < nrepel->fft_size; k++){
-				nrepel->output_accum[k] += nrepel->window[k]*nrepel->input_fft_buffer[k]*nrepel->hop*nrepel->hop;
+				nrepel->output_accum[k] += nrepel->window_output[k]*nrepel->input_fft_buffer[k]/(nrepel->overlap_scale_factor*nrepel->overlap_factor);
 			}
 
 			//Output samples up to the hop size
