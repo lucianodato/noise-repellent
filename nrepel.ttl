@@ -1,7 +1,7 @@
 @prefix lv2:  <http://lv2plug.in/ns/lv2core#>.
 @prefix foaf: <http://xmlns.com/foaf/0.1/>.
 @prefix doap: <http://usefulinc.com/ns/doap#>.
-@prefix pprops: <http://lv2plug.in/ns/ext/port-props#> .
+@prefix pprop: <http://lv2plug.in/ns/ext/port-props#> .
 @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>.
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#>.
 @prefix param: <http://lv2plug.in/ns/ext/parameters#>.
@@ -41,25 +41,25 @@
 		  rdfs:label "ON";
 		  rdf:value 1
 		]
-    , [
-		 rdfs:label "AUTO";
-		 rdf:value 2
-		]
+    # , [
+		#  rdfs:label "AUTO";
+		#  rdf:value 2
+		# ]
+  # ], [
+  #   a lv2:ControlPort,
+  #     lv2:InputPort;
+  #   lv2:index 1;
+  #   lv2:symbol "noise_thresh";
+  #   lv2:name "Noise Threshold for adaptive estimation";
+  #   lv2:portProperty pprops:hasStrictBounds;
+  #   lv2:minimum -120.0;
+  #   lv2:maximum 0.0;
+  #   lv2:default -12.0;
+  #   units:unit units:db;
   ], [
     a lv2:ControlPort,
       lv2:InputPort;
     lv2:index 1;
-    lv2:symbol "noise_thresh";
-    lv2:name "Noise Threshold for adaptive estimation";
-    lv2:portProperty pprops:hasStrictBounds;
-    lv2:minimum -120.0;
-    lv2:maximum 0.0;
-    lv2:default -12.0;
-    units:unit units:db;
-  ], [
-    a lv2:ControlPort,
-      lv2:InputPort;
-    lv2:index 2;
     lv2:symbol "noise_statistic";
     lv2:name "Noise Statistic Option";
     lv2:minimum 0;
@@ -70,7 +70,7 @@
     	rdfs:label "Max";
 		  rdf:value 0
 		] , [
-		  rdfs:label "Geometric Mean";
+		  rdfs:label "Geometric Average";
 		  rdf:value 1
 		] , [
 		  rdfs:label "Average";
@@ -79,7 +79,7 @@
   ], [
     a lv2:ControlPort,
       lv2:InputPort;
-    lv2:index 3;
+    lv2:index 2;
     lv2:symbol "denoisemethod";
     lv2:name "Denoise algorithm";
     lv2:minimum 0;
@@ -102,19 +102,19 @@
   ], [
       a lv2:ControlPort,
         lv2:InputPort;
-      lv2:index 4;
+      lv2:index 3;
       lv2:symbol "att_rel";
-      lv2:name "Pre Time Smoothing";
+      lv2:name "Detection Smoothing";
       lv2:portProperty pprops:hasStrictBounds;
       lv2:minimum 0.0;
       lv2:maximum 1.0;
-      lv2:default 1.0;
+      lv2:default 0.0;
   ], [
     a lv2:ControlPort,
       lv2:InputPort;
-    lv2:index 5;
+    lv2:index 4;
     lv2:symbol "amountreduc";
-    lv2:name "Reduction";
+    lv2:name "Reduction Amount";
     lv2:portProperty pprops:hasStrictBounds;
     lv2:minimum 0.0;
     lv2:maximum 48.0;
@@ -123,29 +123,29 @@
   ], [
     a lv2:ControlPort,
       lv2:InputPort;
-    lv2:index 6;
+    lv2:index 5;
     lv2:symbol "smoothing";
-    lv2:name "Spectral Smoothing";
+    lv2:name "Reduction Spectral Smoothing";
     lv2:portProperty pprops:hasStrictBounds, lv2:integer;
-    lv2:minimum 0;
+    lv2:minimum 1;
     lv2:maximum 12;
-    lv2:default 0;
+    lv2:default 1;
+  ], [
+    a lv2:ControlPort,
+      lv2:InputPort;
+    lv2:index 6;
+    lv2:symbol "time_smoothing";
+    lv2:name "Reduction Smoothing";
+    lv2:portProperty pprops:hasStrictBounds;
+    lv2:minimum 0.0;
+    lv2:maximum 1.0;
+    lv2:default 0.0;
   ], [
     a lv2:ControlPort,
       lv2:InputPort;
     lv2:index 7;
-    lv2:symbol "time_smoothing";
-    lv2:name "Post Time Smoothing";
-    lv2:portProperty pprops:hasStrictBounds;
-    lv2:minimum 0.0;
-    lv2:maximum 1.0;
-    lv2:default 1.0;
-  ], [
-    a lv2:ControlPort,
-      lv2:InputPort;
-    lv2:index 8;
     lv2:symbol "over_reduc";
-    lv2:name "Reduce More";
+    lv2:name "Reduction Strenght";
     lv2:portProperty pprops:hasStrictBounds;
     lv2:minimum 1.0;
     lv2:maximum 12.0;
@@ -154,7 +154,7 @@
     a lv2:OutputPort,
       lv2:ControlPort;
     lv2:name "latency";
-    lv2:index 9;
+    lv2:index 8;
     lv2:symbol "latency";
     lv2:minimum 0;
 		lv2:maximum 8196;
@@ -163,7 +163,7 @@
   ], [
 		a lv2:InputPort,
 			lv2:ControlPort;
-		lv2:index 10;
+		lv2:index 9;
 		lv2:symbol "whitening";
 		lv2:name "Noise Whitening";
 		lv2:default 0;
@@ -173,17 +173,17 @@
 	], [
 		a lv2:InputPort,
 			lv2:ControlPort;
-		lv2:index 11;
+		lv2:index 10;
 		lv2:symbol "reset_noise_print";
-		lv2:name "Reset noise print";
+		lv2:name "Reset Noise Print";
 		lv2:default 0;
 		lv2:minimum 0;
 		lv2:maximum 1;
-		lv2:portProperty lv2:toggled, lv2:integer;
+		lv2:portProperty lv2:integer, lv2:toggled, pprop:trigger;
 	], [
 		a lv2:InputPort,
 			lv2:ControlPort;
-		lv2:index 12;
+		lv2:index 11;
 		lv2:symbol "noise_listen";
 		lv2:name "Noise Listen";
 		lv2:default 0;
@@ -193,13 +193,15 @@
 	], [
     a lv2:AudioPort,
       lv2:InputPort;
-    lv2:index 13;
+    lv2:index 12;
     lv2:symbol "input";
     lv2:name "Input";
   ], [
     a lv2:AudioPort,
       lv2:OutputPort;
-    lv2:index 14;
+    lv2:index 13;
     lv2:symbol "output";
     lv2:name "Output";
   ];
+  rdfs:comment "Instructions: Select a section of noise only in your track and loop it. Turn on noise capture for one second or two to learn the noise profile and then turn it off. You can now adjust the reduction. For Hum noise use Max with CMSR. For White noise use Spectral Subtraction with Average and smoothing as you like and much higher reduction strenght" ;
+.
