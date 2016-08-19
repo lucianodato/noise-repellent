@@ -2,7 +2,7 @@
 
 An lv2 spectral noise reduction plugin.
 
-For Debian based systems you will need this packages to compile: lv2-dev lv2-c++-tools libfftw3-dev
+For Debian based systems you will need this packages to compile: lv2-dev libfftw3-dev
 
 Compiling instructions: make and make install
 
@@ -21,7 +21,7 @@ Spectral Subtraction: It's the classic power Subtraction supression rule.
 
 Both Wiener and Ephraim-Malah algorithms are for testing purposes.
 
-CMSR is supposed to introduce less musical noise, but it will blur your transients a bit (much less than the Ephraim-Malah supression).
+CMSR is supposed to introduce less musical noise, but it will blur your transients a bit (much less than the Ephraim-Malah supression tough).
 
 Spectral Substraction will keep transients "safe" but it will introduce musical noise. You coud get somewhat the same results as CMSR by using more detection smoothing.
 
