@@ -125,7 +125,7 @@
       lv2:InputPort;
     lv2:index 5;
     lv2:symbol "smoothing";
-    lv2:name "Reduction Spectral Smoothing";
+    lv2:name "Reduction Frequency Smoothing";
     lv2:portProperty pprops:hasStrictBounds, lv2:integer;
     lv2:minimum 1;
     lv2:maximum 12;
