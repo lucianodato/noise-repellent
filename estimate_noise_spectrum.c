@@ -23,11 +23,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define ADAPTIVE 2
 
 //For louizou algorithm
-#define N_SMOOTH 0.9 //Smoothing over the power spectrum [1 - previous / 0 - actual]
-#define BETA 2.8 //Adaption time of the local minimun [inf - slower / 0 - faster]
+#define N_SMOOTH 0.7 //Smoothing over the power spectrum [1 - previous / 0 - actual]
+#define BETA 0.8 //Adaption time of the local minimun [1 - slower / 0 - faster]
 #define GAMMA 0.998 //Smoothing factor over local minimun [1 - previous / 0 - actual]
-#define ALPHA_P 0.9 //smoothing constant over speech presence [1 - previous / 0 - actual]
+#define ALPHA_P 0.2 //smoothing constant over speech presence [1 - previous / 0 - actual]
 #define ALPHA_D 0.85 //time–frequency dependent smoothing [0-1] [1 - previous / 0 - actual]
+
+//For exponential smoothing of the time smooth noise print
+#define TVEL 0.1
 
 static void estimate_noise_loizou(float thresh,
                       int fft_size_2,
@@ -92,6 +95,8 @@ void auto_capture_noise(float* p2,
                         float* prev_speech_p_p){
   int k;
 
+
+  //Loizou noise-estimation algorithm for highly non-stationary environments
   estimate_noise_loizou(thresh,
                         fft_size_2,
                         p2,
@@ -149,7 +154,7 @@ void estimate_noise_thresholds(int fft_size_2,
       											 float* noise_print_g_mean,
                              float* noise_print_average){
   int k;
-  //NOISE THRESHOLDS SPECTUM COMSTRUCTIOM BASED ON STATISTIC SELECTED
+  //NOISE THRESHOLDS SPECTUM CONSTRUCTIOM BASED ON STATISTIC SELECTED
 
   //Do some more stuff to decide what is the threshold of each band
   //Like amplifying the definitive spectrum to catch more noise_spectrum

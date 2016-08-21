@@ -7,18 +7,19 @@ LV2DIR ?= $(PREFIX)/$(LIBDIR)/lv2
 #Basic Flags
 OPTIMIZATIONS ?= -msse -msse2 -mfpmath=sse -ffast-math -fomit-frame-pointer -O3 -fno-finite-math-only
 
-LDFLAGS ?= -Wl,--as-needed -shared -Wl,-Bstatic -Wl,-Bdynamic `pkg-config lv2core lv2-plugin fftw3f --libs`
-CFLAGS ?= $(OPTIMIZATIONS) -Wall -fPIC -DPIC -lm `pkg-config lv2core lv2-plugin fftw3f --cflags --libs`
+LDFLAGS ?= -Wl,--as-needed -shared -Wl,-Bstatic -Wl,-Bdynamic `pkg-config fftw3f --libs`
+CFLAGS ?= $(OPTIMIZATIONS) -Wall -fPIC -DPIC -lm `pkg-config fftw3f --cflags --libs`
 
 BUNDLE = nrepel.lv2
 LIB_EXT=.so
 ###############################################################################
 
 #library detection
-ifeq ($(shell pkg-config --exists lv2 lv2core lv2-plugin || echo no), no)
+ifeq ($(shell pkg-config --exists lv2 || echo no), no)
   $(error "LV2 SDK was not found")
-else
-  LV2FLAGS=`pkg-config --cflags --libs lv2 lv2core lv2-plugin`
+endif
+ifeq ($(shell pkg-config --exists fftw3 || echo no), no)
+  $(error "FFTW was not found")
 endif
 
 #directory creation
@@ -35,11 +36,12 @@ nrepel$(LIB_EXT): nrepel.c
 		nrepel.c \
 		$(LV2FLAGS) $(LDFLAGS)
 
-#ttl files control
-nrepel.peg: nrepel.ttl
-	lv2peg nrepel.ttl nrepel.peg
 
-#make recipes
+#targets
+test: #ttl files control
+	#sord_validate $(find $(PREFIX)/$(LIBDIR)/lv2/schemas.lv2/ -name '*.ttl') $(find $(BUNDLE) -name '*.ttl')
+	sord_validate_lv2 $(BUNDLE)
+
 install: $(BUNDLE)
 	install -d $(DESTDIR)$(LV2DIR)/$(BUNDLE)
 	install -t $(DESTDIR)$(LV2DIR)/$(BUNDLE) $(BUNDLE)/*
@@ -48,6 +50,6 @@ uninstall:
 	rm -rf $(DESTDIR)$(LV2DIR)/$(BUNDLE)
 
 clean:
-	rm -rf $(BUNDLE) nrepel$(LIB_EXT) nrepel.peg
+	rm -rf $(BUNDLE)
 
-.PHONY: clean install uninstall
+.PHONY: test clean install uninstall
