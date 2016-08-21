@@ -39,7 +39,6 @@ nrepel$(LIB_EXT): nrepel.c
 
 #targets
 test: #ttl files control
-	#sord_validate $(find $(PREFIX)/$(LIBDIR)/lv2/schemas.lv2/ -name '*.ttl') $(find $(BUNDLE) -name '*.ttl')
 	sord_validate_lv2 $(BUNDLE)
 
 install: $(BUNDLE)
