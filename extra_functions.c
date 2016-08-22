@@ -274,6 +274,7 @@ void spectral_smoothing_MAH(float* spectrum, int kernel_width,int N){
   float* smoothing_tmp = (float*)calloc(N+1,sizeof(float));
   float* extended = (float*)calloc(N+2*kernel_width+1,sizeof(float));
   float window[kernel_width*2 +1];
+  float win_sum = 0.f;
   fft_window(window,kernel_width*2+1,0);//Hann window
 
   if (kernel_width == 0) return;
@@ -284,9 +285,13 @@ void spectral_smoothing_MAH(float* spectrum, int kernel_width,int N){
     extended[k+kernel_width] = spectrum[k];
   }
 
+  for (k = 0; k <= kernel_width*2; ++k) {
+    win_sum += window[k];
+  }
+
   for (k = 0; k <= N; ++k) {
-    for(int l = 0; l < kernel_width*2; ++l) {
-      smoothing_tmp[k] += window[l]*extended[k+l];
+    for(int l = 0; l <= kernel_width*2; ++l) {
+      smoothing_tmp[k] += window[l]*extended[k+l]/win_sum;
     }
   }
 
@@ -315,14 +320,13 @@ float savgol_quad_25[25] = {-0.048889,-0.026667,-0.006377,0.011981,0.028406,0.04
 void spectral_smoothing_SG_quad(float* spectrum, int kernel_width,int N){
   int k;
   float* smoothing_tmp = (float*)calloc(N+1,sizeof(float));
-  float* extended = (float*)calloc(N+2*kernel_width+1,sizeof(float));
+  float* extended = (float*)calloc(N+1+2*kernel_width,sizeof(float));
 
   if (kernel_width < 2 || kernel_width > 12) return;
 
   //Copy data over the extended array to contemplate edge cases
-  //Initialize smothingbins_tmp
   for (k = 0; k <= N; ++k) {
-    extended[k+kernel_width+1] = spectrum[k];
+    extended[k+kernel_width] = spectrum[k];
   }
 
   for (k = 0; k <= N; ++k) {

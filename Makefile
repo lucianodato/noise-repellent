@@ -18,7 +18,7 @@ LIB_EXT=.so
 ifeq ($(shell pkg-config --exists lv2 || echo no), no)
   $(error "LV2 SDK was not found")
 endif
-ifeq ($(shell pkg-config --exists fftw3 || echo no), no)
+ifeq ($(shell pkg-config --exists fftw3f || echo no), no)
   $(error "FFTW was not found")
 endif
 
