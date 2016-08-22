@@ -6,8 +6,9 @@ For Debian based systems you will need this packages to compile: lv2-dev libfftw
 
 Compiling instructions: make and sudo make install
 
+Warning!!!
 This plugin is intended to be used with Ardour. It will introduce latency so it only can be used on tracks in Ardour and not in busses.
-It's a work in progress so don't expect it to be like the best comercial options.
+It's a work in progress so don't expect it to be like the best comercial options. Moreover I wouldn't rely on it for serious work just yet.
 
 Instructions: Select a section of noise only in your track and loop it. Turn on noise capture for one second or two to learn the noise profile and then turn it off. You can now adjust the reduction. For Hum noise use Max with CMSR. For White noise use Spectral Subtraction with Average and smoothing as you like. Much higher reduction strenght will do the job with the remaining musical noise..
 
