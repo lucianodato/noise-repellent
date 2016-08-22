@@ -430,76 +430,6 @@ run(LV2_Handle instance, uint32_t n_samples) {
 				// 											 nrepel->speech_p_p,
 				// 											 nrepel->prev_speech_p_p);
 				//
-				// 	  //DENOISE PRE PROCESSING
-				//
-				// 		//SMOOTH between current and past p2 spectrum
-				// 		for (k = 0; k <= nrepel->fft_size_2; k++) {
-				// 			nrepel->fft_p2[k] = (1.f - *(nrepel->s_time_smoothing)) * nrepel->fft_p2[k] + *(nrepel->s_time_smoothing) * nrepel->fft_p2_prev[k];
-				// 		}
-				//
-				// 		//Smooth SNR thresholds spectrum
-				// 		//spectral_smoothing_MA(nrepel->a_noise_spectrum,2,nrepel->fft_size_2);
-				//
-				// 		//Spectral Smoothing of bins
-				// 		//spectral_smoothing_MA(nrepel->fft_p2,2,nrepel->fft_size_2);
-				//
-				// 	  //Compute denoising gain based on previously computed spectrum (manual or automatic)
-				// 		switch((int) *(nrepel->denoise_method)){
-				// 			case WIENER: //Wiener Sustraction
-				// 			denoise_gain_w(*(nrepel->over_reduc),
-			  //                     nrepel->fft_size_2,
-			  //                     nrepel->fft_p2,
-			  //                     nrepel->a_noise_spectrum,
-			  //                     nrepel->Gk,
-				// 										nrepel->Gk_prev);
-				// 			break;
-				// 			case SPECTRAL_SUSTRACTION: //Spectral Sustraction (Power Sustraction)
-				// 			denoise_gain_ps(*(nrepel->over_reduc),
-				// 										nrepel->fft_size_2,
-				// 										nrepel->fft_p2,
-				// 										nrepel->a_noise_spectrum,
-				// 										nrepel->Gk,
-				// 										nrepel->Gk_prev);
-				//
-				// 			break;
-				// 			case EPHRAIM_MALAH:
-				// 			denoise_gain_mmse(*(nrepel->over_reduc),
-				// 											0,
-				// 											nrepel->alpha_set,
-				// 											&nrepel->prev_frame,
-				// 											nrepel->fft_p2,
-				// 											nrepel->fft_p2_prev,
-				// 											nrepel->gain_prev,
-				// 											nrepel->fft_size_2,
-				// 											nrepel->Gk,
-				// 											nrepel->Gk_prev,
-				// 											nrepel->a_noise_spectrum);
-				// 			break;
-				// 			case CMSR:
-				// 			denoise_gain_mmse(*(nrepel->over_reduc),
-				// 												1,
-				// 												nrepel->alpha_set,
-				// 												&nrepel->prev_frame,
-				// 												nrepel->fft_p2,
-				// 												nrepel->fft_p2_prev,
-				// 												nrepel->gain_prev,
-				// 												nrepel->fft_size_2,
-				// 												nrepel->Gk,
-				// 												nrepel->Gk_prev,
-				// 												nrepel->a_noise_spectrum);
-				// 			break;
-				// 		}
-				//
-				// 		//Apply fine smoothing over gains
-				// 		//Reroughing technique could be applied here too
-				//
-				// 		//Frequency smoothing of gains
-				// 		spectral_smoothing_SG_quad(nrepel->Gk,*(nrepel->g_smoothing),nrepel->fft_size_2);
-				//
-				// 		//Time Smoothing between previous gain to avoid transient and onset distortions
-				// 		for (k = 0; k <= nrepel->fft_size_2; k++) {
-				// 			nrepel->Gk[k] = (1.f - *(nrepel->g_time_smoothing)) * nrepel->Gk[k] + *(nrepel->g_time_smoothing) * nrepel->Gk_prev[k];
-				// 		}
 				//
 				// 	}
 				// break;
@@ -576,14 +506,13 @@ run(LV2_Handle instance, uint32_t n_samples) {
 						//Apply fine smoothing over gains
 						//Reroughing technique could be applied here too
 
-						//Frequency smoothing of gains
-						spectral_smoothing_SG_quad(nrepel->Gk,*(nrepel->g_smoothing),nrepel->fft_size_2);
-
 						//Time Smoothing between previous gain to avoid transient and onset distortions
 						for (k = 0; k <= nrepel->fft_size_2; k++) {
 							nrepel->Gk[k] = (1.f - *(nrepel->g_time_smoothing)) * nrepel->Gk[k] + *(nrepel->g_time_smoothing) * nrepel->Gk_prev[k];
 						}
 
+						//Frequency smoothing of gains
+						spectral_smoothing_SG_quad(nrepel->Gk,*(nrepel->g_smoothing),nrepel->fft_size_2);
 					}
 					break;
 			}

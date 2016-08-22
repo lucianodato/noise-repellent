@@ -189,7 +189,7 @@ void tappering_filter_calc(float* filter, int N,float wa) {
 }
 
 void whitening_of_spectrum(float* spectrum,float wa,int N){
-  float whitened_spectrum[N];
+  float whitened_spectrum[N+1];
   float tmp_min = min_spectral_value(spectrum,N);
   float tmp_max = max_spectral_value(spectrum,N);
   for (int k = 0; k <= N; k++) {
@@ -285,7 +285,7 @@ void spectral_smoothing_MAH(float* spectrum, int kernel_width,int N){
   }
 
   for (k = 0; k <= N; ++k) {
-    for(int l = 0; l <= kernel_width*2; ++l) {
+    for(int l = 0; l < kernel_width*2; ++l) {
       smoothing_tmp[k] += window[l]*extended[k+l];
     }
   }
@@ -322,7 +322,7 @@ void spectral_smoothing_SG_quad(float* spectrum, int kernel_width,int N){
   //Copy data over the extended array to contemplate edge cases
   //Initialize smothingbins_tmp
   for (k = 0; k <= N; ++k) {
-    extended[k+kernel_width] = spectrum[k];
+    extended[k+kernel_width+1] = spectrum[k];
   }
 
   for (k = 0; k <= N; ++k) {
@@ -391,7 +391,7 @@ void spectral_smoothing_SG_quart(float* spectrum, int kernel_width,int N){
   }
 
   for (k = 0; k <= N; ++k) {
-    for(int l = 0; l <= kernel_width*2; ++l) {
+    for(int l = 0; l < kernel_width*2; ++l) {
       switch(kernel_width){
         case 3:
           smoothing_tmp[k] += savgol_quart_7[l]*extended[l+k];
