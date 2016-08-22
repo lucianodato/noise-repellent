@@ -29,16 +29,16 @@
     lv2:symbol "capture" ;
     lv2:name "Capture noise print" ;
     lv2:minimum 0 ;
-    lv2:maximum 2 ;
+    lv2:maximum 1 ;
     lv2:default 0 ;
-    lv2:portProperty lv2:enumeration, lv2:integer ;
-    lv2:scalePoint [
-    	rdfs:label "OFF" ;
-		  rdf:value 0
-		] , [
-		  rdfs:label "ON" ;
-		  rdf:value 1
-		]
+    lv2:portProperty lv2:toggled, lv2:integer ;
+    # lv2:scalePoint [
+    # 	rdfs:label "OFF" ;
+		#   rdf:value 0
+		# ] , [
+		#   rdfs:label "ON" ;
+		#   rdf:value 1
+		# ]
     # , [
 		#  rdfs:label "AUTO" ;
 		#  rdf:value 2
