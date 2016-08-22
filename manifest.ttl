@@ -3,4 +3,5 @@
 
 <https://github.com/lucianodato/noise-repellent>
   a lv2:Plugin;
-  rdfs:seeAlso <nrepel.ttl>.
+  lv2:binary <nrepel.so> ;
+  rdfs:seeAlso <nrepel.ttl> .

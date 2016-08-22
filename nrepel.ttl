@@ -15,7 +15,7 @@
   foaf:mbox <mailto:lucianodato@gmail.com> .
 
 
-<http://github.com/lucianodato/noise-repellent>
+<https://github.com/lucianodato/noise-repellent>
   a lv2:Plugin, lv2:SpectralPlugin, lv2:UtilityPlugin, doap:Project ;
   doap:maintainer <http://example.com/lucianodato#me> ;
   doap:license <https://opensource.org/licenses/LGPL-3.0> ;
