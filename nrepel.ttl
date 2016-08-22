@@ -11,7 +11,7 @@
 <http://example.com/lucianodato#me>
   a foaf:Person ;
   foaf:name "Luciano Dato" ;
-  foaf:homepage <https://github.com/lucianodato/noise-repellent> ;
+  foaf:homepage <https://github.com/lucianodato> ;
   foaf:mbox <mailto:lucianodato@gmail.com> .
 
 

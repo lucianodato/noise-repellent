@@ -19,7 +19,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 
 #include <stdlib.h>
-#include <stdio.h>
+//#include <stdio.h>
 #include <string.h>
 #include <fftw3.h>
 
@@ -45,7 +45,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define FFT_SIZE 2048 //max should be 8192 otherwise is too expensive
 #define WINDOW_COMBINATION 0 //0 HANN-HANN 1 HAMMING-HANN 2 BLACKMAN-HANN
 #define OVERLAP_FACTOR 4 //4 is 75% overlap
-#define HANN_HANN_SCALING 0.375
+#define HANN_HANN_SCALING 0.375 //This is for overlapadd scaling
 #define HAMMING_HANN_SCALING 0.385
 #define BLACKMAN_HANN_SCALING 0.335
 
@@ -126,6 +126,7 @@ typedef struct {
 	float* fft_magnitude;//magnitude
 	float* fft_p2;//power
 	float* fft_p2_prev;//power previous frame
+	float* fft_p2_prev2;//power previous frame for pre smoothing
 
 	//Store variables
 	float max_float;
@@ -196,6 +197,7 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->fft_magnitude = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->fft_p2 = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->fft_p2_prev = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
+	nrepel->fft_p2_prev2 = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 
 	nrepel->noise_print_min = (float*)malloc((nrepel->fft_size_2+1)*sizeof(float));
 	nrepel->noise_print_max = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
@@ -391,6 +393,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 				}
 
 				//Store values in magnitude and power arrays
+				nrepel->fft_p2_prev2[k] = nrepel->fft_p2[k]; //store previous value for pre smoothing
 				nrepel->fft_p2[k] = sanitize_denormal(nrepel->p2);
 				nrepel->fft_magnitude[k] = sanitize_denormal(nrepel->mag);
 
@@ -447,7 +450,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 
 						//SMOOTH between current and past p2 spectrum
 						for (k = 0; k <= nrepel->fft_size_2; k++) {
-							nrepel->fft_p2[k] = (1.f - *(nrepel->s_time_smoothing)) * nrepel->fft_p2[k] + *(nrepel->s_time_smoothing) * nrepel->fft_p2_prev[k];
+							nrepel->fft_p2[k] = (1.f - *(nrepel->s_time_smoothing)) * nrepel->fft_p2[k] + *(nrepel->s_time_smoothing) * nrepel->fft_p2_prev2[k];
 						}
 
 						//Smooth SNR thresholds spectrum
@@ -512,7 +515,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 						}
 
 						//Frequency smoothing of gains
-						spectral_smoothing_MA(nrepel->Gk,*(nrepel->g_smoothing),nrepel->fft_size_2);
+						spectral_smoothing_SG_quad(nrepel->Gk,*(nrepel->g_smoothing),nrepel->fft_size_2);
 
 
 					}
