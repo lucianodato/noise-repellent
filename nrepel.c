@@ -512,7 +512,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 						}
 
 						//Frequency smoothing of gains
-						spectral_smoothing_MAH(nrepel->Gk,*(nrepel->g_smoothing),nrepel->fft_size_2);
+						spectral_smoothing_MA(nrepel->Gk,*(nrepel->g_smoothing),nrepel->fft_size_2);
 
 
 					}
