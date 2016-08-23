@@ -289,6 +289,7 @@ void spectral_smoothing_MAH(float* spectrum, int kernel_width,int N){
     win_sum += window[k];
   }
 
+
   for (k = 0; k <= N; ++k) {
     for(int l = 0; l <= kernel_width*2; ++l) {
       smoothing_tmp[k] += window[l]*extended[k+l]/win_sum;

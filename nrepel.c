@@ -454,10 +454,10 @@ run(LV2_Handle instance, uint32_t n_samples) {
 						}
 
 						//Smooth SNR thresholds spectrum
-						//spectral_smoothing_MA(nrepel->noise_thresholds,2,nrepel->fft_size_2);
+						//spectral_smoothing_MAH(nrepel->noise_thresholds,1,nrepel->fft_size_2);
 
-						//Spectral Smoothing of bins
-						//spectral_smoothing_MA(nrepel->fft_p2,2,nrepel->fft_size_2);
+						//Spectral Smoothing of Power spectrum
+						//spectral_smoothing_MAH(nrepel->fft_p2,1,nrepel->fft_size_2);
 
 					  //Compute denoising gain based on previously computed spectrum (manual or automatic)
 						switch((int) *(nrepel->denoise_method)){
@@ -516,8 +516,6 @@ run(LV2_Handle instance, uint32_t n_samples) {
 
 						//Frequency smoothing of gains
 						spectral_smoothing_SG_quad(nrepel->Gk,*(nrepel->g_smoothing),nrepel->fft_size_2);
-
-
 					}
 					break;
 			}
