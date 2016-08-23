@@ -49,7 +49,7 @@ static void estimate_noise_loizou(float thresh,
   float freq_s[fft_size_2+1];
   float speech_p_d[fft_size_2+1];
 
-  for(k = 0 ; k <= fft_size_2 ; k++) {
+  for(k = 1 ; k <= fft_size_2 ; k++) {
     //1- Compute the noisy speech power spectrum
     s_pow_spec[k] = N_SMOOTH * prev_s_pow_spec[k] + (1.f-N_SMOOTH) * p2[k]; //interpolation between
 
@@ -110,7 +110,7 @@ void auto_capture_noise(float* p2,
                         prev_speech_p_p);
 
   //Update previous variables
-  for(k = 0 ; k <= fft_size_2 ; k++) {
+  for(k = 1 ; k <= fft_size_2 ; k++) {
     prev_a_noise[k] = a_noise_spectrum[k];
     prev_s_pow_spec[k] = s_pow_spec[k];
     prev_p_min[k] = p_min[k];
@@ -130,7 +130,7 @@ void get_noise_statistics(float* p2,
   *(n_window_count) += 1.f;
 
   //Get noise time statistics
-  for(k = 0 ; k <= fft_size_2 ; k++) {
+  for(k = 1 ; k <= fft_size_2 ; k++) {
     noise_print_min[k] = MIN(noise_print_min[k], p2[k]);
     noise_print_max[k] = MAX(noise_print_max[k], p2[k]);
     if(*(n_window_count) == 1){
@@ -161,7 +161,7 @@ void estimate_noise_thresholds(int fft_size_2,
   //sensitivity control etc
 
   //Temporary
-  for(k = 0 ; k <= fft_size_2 ; k++) {
+  for(k = 1 ; k <= fft_size_2 ; k++) {
     switch (stat_choise) {
       case 0:
       noise_thresholds[k] = noise_print_max[k];

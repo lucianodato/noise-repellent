@@ -46,7 +46,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define WINDOW_COMBINATION 0 //0 HANN-HANN 1 HAMMING-HANN 2 BLACKMAN-HANN
 #define OVERLAP_FACTOR 4 //4 is 75% overlap
 #define HANN_HANN_SCALING 0.375 //This is for overlapadd scaling
-#define HAMMING_HANN_SCALING 0.385
+#define HAMMING_HANN_SCALING 0.385 // 1/average(window[i]^2)
 #define BLACKMAN_HANN_SCALING 0.335
 
 //Whitening strenght
@@ -122,7 +122,7 @@ typedef struct {
 	fftwf_plan forward;
 	fftwf_plan backward;
 
-	float real_p,real_n,mag,p2;
+	float real_p,imag_n,mag,p2;
 	float* fft_magnitude;//magnitude
 	float* fft_p2;//power
 	float* fft_p2_prev;//power previous frame
@@ -376,18 +376,18 @@ run(LV2_Handle instance, uint32_t n_samples) {
 
 			//-----------GET INFO FROM BINS--------------
 
-			//Get the positive spectrum and compute the power spectrum or magnitude
-			for (k = 0; k <= nrepel->fft_size_2; k++){
-				//Signal energy is divided in the positive and negative sides of the spectrum
+			//Get the positive spectrum and compute the magnitude
+			for (k = 1; k <= nrepel->fft_size_2; k++){
+				//Get the half complex spectrum reals and complex
 				nrepel->real_p = nrepel->output_fft_buffer[k];
-				nrepel->real_n = nrepel->output_fft_buffer[nrepel->fft_size-k];
+				nrepel->imag_n = nrepel->output_fft_buffer[nrepel->fft_size-k];
 
-				//Get mag and/or power
+				//Get the magnitude and power spectrum or psd (This is not normalized)
 				if(k < nrepel->fft_size){
-					nrepel->p2 = nrepel->real_p*nrepel->real_p + nrepel->real_n*nrepel->real_n;
-					nrepel->mag = sqrtf(nrepel->p2);
+					nrepel->p2 = (nrepel->real_p*nrepel->real_p + nrepel->imag_n*nrepel->imag_n);
+					nrepel->mag = sqrtf(nrepel->p2);//sqrt(real^2+imag^2)
 				} else {
-					//Nyquist
+					//Nyquist - this is due to half complex transform look at http://www.fftw.org/doc/The-Halfcomplex_002dformat-DFT.html
 					nrepel->p2 = nrepel->real_p*nrepel->real_p;
 					nrepel->mag = nrepel->real_p;
 				}
@@ -449,7 +449,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 						//DENOISE PRE PROCESSING
 
 						//SMOOTH between current and past p2 spectrum
-						for (k = 0; k <= nrepel->fft_size_2; k++) {
+						for (k = 1; k <= nrepel->fft_size_2; k++) {
 							nrepel->fft_p2[k] = (1.f - *(nrepel->s_time_smoothing)) * nrepel->fft_p2[k] + *(nrepel->s_time_smoothing) * nrepel->fft_p2_prev2[k];
 						}
 
@@ -510,7 +510,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 						//Reroughing technique could be applied here too
 
 						//Time Smoothing between previous gain to avoid transient and onset distortions
-						for (k = 0; k <= nrepel->fft_size_2; k++) {
+						for (k = 1; k <= nrepel->fft_size_2; k++) {
 							nrepel->Gk[k] = (1.f - *(nrepel->g_time_smoothing)) * nrepel->Gk[k] + *(nrepel->g_time_smoothing) * nrepel->Gk_prev[k];
 						}
 
@@ -570,7 +570,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 			//Do inverse transform
 			fftwf_execute(nrepel->backward);
 
-			//Scaling FFT (because is not scaled down when backward plan is executed)
+			//FFT Normalizing (Intead of normalizing post Analysis, normalize post synthesis)
 			for(k = 0; k < nrepel->fft_size; k++){
 				nrepel->input_fft_buffer[k] = nrepel->input_fft_buffer[k]/(float)nrepel->fft_size;
 			}

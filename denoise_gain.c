@@ -30,7 +30,7 @@ void denoise_gain_ps(float over_reduc,
   int k;
   float gain, Fk;
 
-  for (k = 0; k <= fft_size_2 ; k++) {
+  for (k = 1; k <= fft_size_2 ; k++) {
     if (noise_thresholds[k] > FLT_MIN){
       if(p2[k] > FLT_MIN){
         gain = MAX(p2[k]-noise_thresholds[k], 0.f) / p2[k];
@@ -62,7 +62,7 @@ void denoise_gain_w(float over_reduc,
   int k;
   float gain, Fk;
 
-  for (k = 0; k <= fft_size_2 ; k++) {
+  for (k = 1; k <= fft_size_2 ; k++) {
     if (noise_thresholds[k] > FLT_MIN){
       float aux = (p2[k] - noise_thresholds[k]);
       if(p2[k] > noise_thresholds[k]){
@@ -100,7 +100,7 @@ void denoise_gain_mmse(float over_reduc,
     int k;
     float gain, Fk, Rpost, Rprio, alpha;
 
-    for (k = 0; k <= fft_size_2 ; k++) {
+    for (k = 1; k <= fft_size_2 ; k++) {
       if (noise_thresholds[k] > FLT_MIN){
         // EM using Wolfe and Godsill optimization
         Rpost = MAX(p2[k]/noise_thresholds[k]-1.f, 0.f);
@@ -161,7 +161,7 @@ void denoise_gain_mmse(float over_reduc,
   //   float gain, SNRp;
   //   float comp = powf((alpha+beta),2.f);
   //
-  //   for (k = 0; k <= fft_size_2 ; k++) {
+  //   for (k = 1; k <= fft_size_2 ; k++) {
   //     if (noise_thresholds[k] > FLT_MIN){
   //       SNRp = p2[k]/noise_thresholds[k];
   //       if(SNRp > comp){
