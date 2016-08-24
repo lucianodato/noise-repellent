@@ -20,18 +20,18 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include "extra_functions.c"
 
 //For louizou algorithm
-#define N_SMOOTH 0.7 //Smoothing over the power spectrum [1 - previous / 0 - actual]
-#define BETA 0.8 //Adaption time of the local minimun [1 - slower / 0 - faster]
-#define GAMMA 0.998 //Smoothing factor over local minimun [1 - previous / 0 - actual]
+#define N_SMOOTH 0.3 //Smoothing over the power spectrum [1 - previous / 0 - actual]
+#define BETA 0.4 //Adaption time of the local minimun [1 - slower / 0 - faster]
+#define GAMMA 0.4 //Smoothing factor over local minimun [1 - previous / 0 - actual]
 #define ALPHA_P 0.2 //smoothing constant over speech presence [1 - previous / 0 - actual]
-#define ALPHA_D 0.85 //time–frequency dependent smoothing [0-1] [1 - previous / 0 - actual]
+#define ALPHA_D 0.4 //time–frequency dependent smoothing [0-1] [1 - previous / 0 - actual]
 
 static void estimate_noise_loizou(float thresh,
                       int fft_size_2,
                       float* p2,
                       float* s_pow_spec,
                       float* prev_s_pow_spec,
-                      float* a_noise_spectrum,
+                      float* noise_thresholds,
                       float* prev_noise,
                       float* p_min,
                       float* prev_p_min,
@@ -44,7 +44,7 @@ static void estimate_noise_loizou(float thresh,
   float speech_p_d[fft_size_2+1];
 
   for(k = 0 ; k <= fft_size_2 ; k++) {
-    //1- Compute the noisy speech power spectrum
+    //1- Smooth between current and past noisy speech power spectrum
     s_pow_spec[k] = N_SMOOTH * prev_s_pow_spec[k] + (1.f-N_SMOOTH) * p2[k]; //interpolation between
 
     //2- Compute the local minimum of noisy speech
@@ -58,7 +58,7 @@ static void estimate_noise_loizou(float thresh,
     ratio_ns = s_pow_spec[k]/p_min[k];
 
     //4- Compute the indicator function I for speech present/absent detection
-    if(ratio_ns > thresh) { //thresh could be freq dependant
+    if(ratio_ns > thresh) { //thresh could be freq dependant (it is not a neasure related to dB)
       speech_p_d[k] = 1.f; //present
     } else {
       speech_p_d[k] = 0.f; //absent
@@ -71,16 +71,17 @@ static void estimate_noise_loizou(float thresh,
     freq_s[k] = ALPHA_D + (1.f-ALPHA_D) * speech_p_p[k];
 
     //7- Update noise estimate D using time-frequency dependent smoothing factor α s (λ,k).
-    a_noise_spectrum[k] = freq_s[k] * prev_noise[k] + (1.f-freq_s[k]) * p2[k];
+    noise_thresholds[k] = freq_s[k] * prev_noise[k] + (1.f-freq_s[k]) * p2[k];
   }
 }
+
 
 //Automatic noise threshold estimation
 void auto_capture_noise(float* p2,
                         int fft_size_2,
-                        float* a_noise_spectrum,
+                        float* noise_thresholds,
                         float thresh,
-                        float* prev_a_noise,
+                        float* prev_noise_thresholds,
                         float* s_pow_spec,
                         float* prev_s_pow_spec,
                         float* p_min,
@@ -96,8 +97,8 @@ void auto_capture_noise(float* p2,
                         p2,
                         s_pow_spec,
                         prev_s_pow_spec,
-                        a_noise_spectrum,
-                        prev_a_noise,
+                        noise_thresholds,
+                        prev_noise_thresholds,
                         p_min,
                         prev_p_min,
                         speech_p_p,
@@ -105,7 +106,7 @@ void auto_capture_noise(float* p2,
 
   //Update previous variables
   for(k = 0 ; k <= fft_size_2 ; k++) {
-    prev_a_noise[k] = a_noise_spectrum[k];
+    prev_noise_thresholds[k] = noise_thresholds[k];
     prev_s_pow_spec[k] = s_pow_spec[k];
     prev_p_min[k] = p_min[k];
     prev_speech_p_p[k] = speech_p_p[k];

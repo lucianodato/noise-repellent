@@ -47,16 +47,17 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 typedef enum {
 	NREPEL_CAPTURE = 0,
-	//NREPEL_N_THRESH = 1,
-	NREPEL_AMOUNT = 1,
-	NREPEL_STRENGHT = 2,
-	NREPEL_SMOOTHING = 3,
-	NREPEL_LATENCY = 4,
-	NREPEL_WHITENING = 5,
-	NREPEL_RESET = 6,
-	NREPEL_NOISE_LISTEN = 7,
-	NREPEL_INPUT = 8,
-	NREPEL_OUTPUT = 9,
+	NREPEL_N_AUTO = 1,
+	NREPEL_AMOUNT = 2,
+	NREPEL_STRENGHT = 3,
+	NREPEL_SMOOTHING = 4,
+	NREPEL_N_THRESH = 5,
+	NREPEL_LATENCY = 6,
+	NREPEL_WHITENING = 7,
+	NREPEL_RESET = 8,
+	NREPEL_NOISE_LISTEN = 9,
+	NREPEL_INPUT = 10,
+	NREPEL_OUTPUT = 11,
 } PortIndex;
 
 typedef struct {
@@ -72,7 +73,9 @@ typedef struct {
 	float* reset_print; // Latency necessary
 	float* noise_listen; //For noise only listening
 	float* residual_whitening; //Whitening of the residual spectrum
-	float* time_smoothing;
+	float* time_smoothing; //constant that set the time smoothing coefficient
+	float* auto_state; //autocapture switch
+	float* auto_thresh; //Reference threshold for louizou algorithm
 
 	//Parameters values and arrays for the STFT
 	int fft_size; //FFTW input size
@@ -116,15 +119,13 @@ typedef struct {
 	float* whitening_spectrum;
 
 
-	// float* noise_thresh; //detection threshold for louizou estimation
-	// float* a_noise_spectrum;
-	// float* prev_a_noise;
-	// float* s_pow_spec;
-	// float* prev_s_pow_spec;
-	// float* p_min;
-	// float* prev_p_min;
-	// float* speech_p_p;
-	// float* prev_speech_p_p;
+	float* prev_noise_thresholds;
+	float* s_pow_spec;
+	float* prev_s_pow_spec;
+	float* p_min;
+	float* prev_p_min;
+	float* speech_p_p;
+	float* prev_speech_p_p;
 
 } Nrepel;
 
@@ -196,14 +197,13 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->tappering_filter = (float*)calloc(nrepel->fft_size_2+1,sizeof(float));
 	tappering_filter_calc(nrepel->tappering_filter,(nrepel->fft_size_2+1),WA); //Tappering window
 
-	// nrepel->a_noise_spectrum = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
-	// nrepel->prev_a_noise = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
-	// nrepel->s_pow_spec = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
-	// nrepel->prev_s_pow_spec = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
-	// nrepel->p_min = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
-	// nrepel->prev_p_min = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
-	// nrepel->speech_p_p = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
-	// nrepel->prev_speech_p_p = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
+  nrepel->prev_noise_thresholds = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
+	nrepel->s_pow_spec = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
+	nrepel->prev_s_pow_spec = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
+	nrepel->p_min = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
+	nrepel->prev_p_min = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
+	nrepel->speech_p_p = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
+	nrepel->prev_speech_p_p = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 
 	return (LV2_Handle)nrepel;
 }
@@ -220,9 +220,9 @@ connect_port(LV2_Handle instance,
 		case NREPEL_CAPTURE:
 		nrepel->capture_state = (float*)data;
 		break;
-		// case NREPEL_N_THRESH:
-		// nrepel->noise_thresh = (float*)data;
-		// break;
+		case NREPEL_N_AUTO:
+		nrepel->auto_state = (float*)data;
+		break;
 		case NREPEL_AMOUNT:
 		nrepel->amount_of_reduction = (float*)data;
 		break;
@@ -231,6 +231,9 @@ connect_port(LV2_Handle instance,
 		break;
 		case NREPEL_SMOOTHING:
 		nrepel->time_smoothing = (float*)data;
+		break;
+		case NREPEL_N_THRESH:
+		nrepel->auto_thresh = (float*)data;
 		break;
 		case NREPEL_LATENCY:
 		nrepel->report_latency = (float*)data;
@@ -277,14 +280,13 @@ run(LV2_Handle instance, uint32_t n_samples) {
 		memset(nrepel->Gk, 1, (nrepel->fft_size_2+1)*sizeof(float));
 		nrepel->window_count = 0.f;
 
-		// memset(nrepel->a_noise_spectrum, 0, (nrepel->fft_size_2+1)*sizeof(float));
-		// memset(nrepel->prev_a_noise, 0, (nrepel->fft_size_2+1)*sizeof(float));
-		// memset(nrepel->s_pow_spec, 0, (nrepel->fft_size_2+1)*sizeof(float));
-		// memset(nrepel->prev_s_pow_spec, 0, (nrepel->fft_size_2+1)*sizeof(float));
-		// memset(nrepel->p_min, 0, (nrepel->fft_size_2+1)*sizeof(float));
-		// memset(nrepel->prev_p_min, 0, (nrepel->fft_size_2+1)*sizeof(float));
-		// memset(nrepel->speech_p_p, 0, (nrepel->fft_size_2+1)*sizeof(float));
-		// memset(nrepel->prev_speech_p_p, 0, (nrepel->fft_size_2+1)*sizeof(float));
+		memset(nrepel->prev_noise_thresholds, 0, (nrepel->fft_size_2+1)*sizeof(float));
+		memset(nrepel->s_pow_spec, 0, (nrepel->fft_size_2+1)*sizeof(float));
+		memset(nrepel->prev_s_pow_spec, 0, (nrepel->fft_size_2+1)*sizeof(float));
+		memset(nrepel->p_min, 0, (nrepel->fft_size_2+1)*sizeof(float));
+		memset(nrepel->prev_p_min, 0, (nrepel->fft_size_2+1)*sizeof(float));
+		memset(nrepel->speech_p_p, 0, (nrepel->fft_size_2+1)*sizeof(float));
+		memset(nrepel->prev_speech_p_p, 0, (nrepel->fft_size_2+1)*sizeof(float));
 	}
 
 	//main loop for processing
@@ -343,7 +345,24 @@ run(LV2_Handle instance, uint32_t n_samples) {
 
 			//------------Processing---------------
 
-			if (*(nrepel->capture_state) == 1.f){
+			if(*(nrepel->auto_state) == 1.f) {
+				float noise_reference_threshold = *(nrepel->auto_thresh);
+
+				//if slected auto estimate noise spectrum
+				auto_capture_noise(nrepel->fft_p2,
+													 nrepel->fft_size_2,
+													 nrepel->noise_thresholds,
+													 noise_reference_threshold,
+													 nrepel->prev_noise_thresholds,
+													 nrepel->s_pow_spec,
+													 nrepel->prev_s_pow_spec,
+													 nrepel->p_min,
+													 nrepel->prev_p_min,
+													 nrepel->speech_p_p,
+													 nrepel->prev_speech_p_p);
+			}
+
+			if(*(nrepel->capture_state) == 1.f) { //MANUAL
 				//If selected estimate noise spectrum based on selected portion of signal
 				get_noise_statistics(nrepel->fft_p2,
 														nrepel->fft_size_2,
@@ -353,13 +372,12 @@ run(LV2_Handle instance, uint32_t n_samples) {
 				//DENOISE PRE PROCESSING
 
 				//SMOOTHING
-
 				//Time smoothing between current and past power spectrum
 				for (k = 0; k <= nrepel->fft_size_2; k++) {
 					nrepel->fft_p2[k] = (1.f - *(nrepel->time_smoothing)) * nrepel->fft_p2[k] + *(nrepel->time_smoothing) * nrepel->fft_p2_prev[k];
 				}
 
-				//Here we could smooth the frequency bins to further avoid musical noise (not a good choise though)
+				//Here we could smooth the frequency bins to further avoid musical noise (not a good choise for hum type od noise though)
 
 				//Spectral Sustraction (Power Sustraction)
 				denoise_gain_ss(*(nrepel->over_reduc),
@@ -368,29 +386,8 @@ run(LV2_Handle instance, uint32_t n_samples) {
 											nrepel->noise_thresholds,
 											nrepel->Gk);
 
-				//Frequency smoothing of gains could be done here, but it proves to be a bad choise overall
+				//Frequency smoothing of gains could be done here, but it proved to be a bad choise overall
 			}
-
-			// AUTO_LEARN_CAPTURE:
-			// 	{
-			// 		float noise_reference_threshold = from_dB(*(nrepel->noise_thresh));
-			//
-			// 		//if slected auto estimate noise spectrum and apply denoising
-			// 		auto_capture_noise(nrepel->fft_p2,
-			// 											 nrepel->fft_size_2,
-			// 											 nrepel->a_noise_spectrum,
-			// 											 noise_reference_threshold,
-			// 											 nrepel->prev_a_noise,
-			// 											 nrepel->s_pow_spec,
-			// 											 nrepel->prev_s_pow_spec,
-			// 											 nrepel->p_min,
-			// 											 nrepel->prev_p_min,
-			// 											 nrepel->speech_p_p,
-			// 											 nrepel->prev_speech_p_p);
-			//
-			//
-			// 	}
-
 			//APPLY REDUCTION
 
 			//The amount of reduction
@@ -432,8 +429,6 @@ run(LV2_Handle instance, uint32_t n_samples) {
 						nrepel->output_fft_buffer[nrepel->fft_size-k] = nrepel->residual_spectrum[nrepel->fft_size-k];
 				}
 			}
-
-
 
 			//------------FFT Synthesis-------------
 
