@@ -7,8 +7,8 @@ LV2DIR ?= $(PREFIX)/$(LIBDIR)/lv2
 #Basic Flags
 OPTIMIZATIONS ?= -msse -msse2 -mfpmath=sse -ffast-math -fomit-frame-pointer -O3 -fno-finite-math-only
 
-LDFLAGS ?= -Wl,--as-needed -shared -Wl,-Bstatic -Wl,-Bdynamic `pkg-config fftw3f --libs`
-CFLAGS ?= $(OPTIMIZATIONS) -Wall -fPIC -DPIC -lm `pkg-config fftw3f --cflags --libs`
+LDFLAGS ?= -Wl,--as-needed -shared -Wl,-Bstatic -Wl,-Bdynamic `pkg-config fftw3 --libs`
+CFLAGS ?= $(OPTIMIZATIONS) -Wall -fPIC -DPIC -lm `pkg-config fftw3 --cflags --libs`
 
 BUNDLE = nrepel.lv2
 LIB_EXT=.so
@@ -18,7 +18,7 @@ LIB_EXT=.so
 ifeq ($(shell pkg-config --exists lv2 || echo no), no)
   $(error "LV2 SDK was not found")
 endif
-ifeq ($(shell pkg-config --exists fftw3f || echo no), no)
+ifeq ($(shell pkg-config --exists fftw3 || echo no), no)
   $(error "FFTW was not found")
 endif
 
