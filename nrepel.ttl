@@ -37,7 +37,7 @@
       lv2:InputPort ;
     lv2:index 1 ;
     lv2:symbol "noise_auto_capture" ;
-    lv2:name "Auto Noise Capture" ;
+    lv2:name "Auto Learn Noise" ;
     lv2:minimum 0 ;
     lv2:maximum 1 ;
     lv2:default 0 ;
@@ -58,9 +58,10 @@
     lv2:index 3 ;
     lv2:symbol "strenght" ;
     lv2:name "Reduction Strenght" ;
-    lv2:minimum 1.0 ;
+    lv2:minimum -4.0 ;
     lv2:maximum 24.0 ;
-    lv2:default 1.0 ;
+    lv2:default 0.0 ;
+    units:unit units:db ;
   ], [
     a lv2:ControlPort,
       lv2:InputPort ;

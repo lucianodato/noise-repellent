@@ -187,6 +187,7 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->noise_thresholds = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->auto_thresh = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 
+	//This is experimentally obteined
 	int LF = Freq2Index(1000.f,nrepel->samp_rate,nrepel->fft_size);//1kHz
 	int MF = Freq2Index(3000.f,nrepel->samp_rate,nrepel->fft_size);//3kHz
 	for (int k = 0;k <= nrepel->fft_size_2; k++){
@@ -391,7 +392,9 @@ run(LV2_Handle instance, uint32_t n_samples) {
 				//Here we could smooth the frequency bins to further avoid musical noise (not a good choise for hum type od noise though)
 
 				//Spectral Sustraction (Power Sustraction)
-				denoise_gain_ss(*(nrepel->over_reduc),
+				float strenght = from_dB(*(nrepel->over_reduc));
+
+				denoise_gain_ss(strenght,
 											nrepel->fft_size_2,
 											nrepel->fft_p2,
 											nrepel->noise_thresholds,
