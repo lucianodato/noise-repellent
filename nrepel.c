@@ -392,9 +392,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 				//Here we could smooth the frequency bins to further avoid musical noise (not a good choise for hum type od noise though)
 
 				//Spectral Sustraction (Power Sustraction)
-				float strenght = from_dB(*(nrepel->over_reduc));
-
-				denoise_gain_ss(strenght,
+				denoise_gain_ss(*(nrepel->over_reduc),
 											nrepel->fft_size_2,
 											nrepel->fft_p2,
 											nrepel->noise_thresholds,
