@@ -51,12 +51,13 @@ typedef enum {
 	NREPEL_AMOUNT = 2,
 	NREPEL_STRENGHT = 3,
 	NREPEL_SMOOTHING = 4,
-	NREPEL_LATENCY = 5,
-	NREPEL_WHITENING = 6,
-	NREPEL_RESET = 7,
-	NREPEL_NOISE_LISTEN = 8,
-	NREPEL_INPUT = 9,
-	NREPEL_OUTPUT = 10,
+	NREPEL_FREQUENCY_SMOOTHING = 5,
+	NREPEL_LATENCY = 6,
+	NREPEL_WHITENING = 7,
+	NREPEL_RESET = 8,
+	NREPEL_NOISE_LISTEN = 9,
+	NREPEL_INPUT = 10,
+	NREPEL_OUTPUT = 11,
 } PortIndex;
 
 typedef struct {
@@ -74,7 +75,8 @@ typedef struct {
 	float* residual_whitening; //Whitening of the residual spectrum
 	float* time_smoothing; //constant that set the time smoothing coefficient
 	float* auto_state; //autocapture switch
-	float* auto_thresh; //Reference threshold for louizou algorithm
+	float* frequency_smoothing; //Smoothing over frequency
+
 
 	//Parameters values and arrays for the STFT
 	int fft_size; //FFTW input size
@@ -117,7 +119,7 @@ typedef struct {
 	float* tappering_filter;
 	float* whitening_spectrum;
 
-
+	float* auto_thresh; //Reference threshold for louizou algorithm
 	float* prev_noise_thresholds;
 	float* s_pow_spec;
 	float* prev_s_pow_spec;
@@ -246,6 +248,9 @@ connect_port(LV2_Handle instance,
 		break;
 		case NREPEL_SMOOTHING:
 		nrepel->time_smoothing = (float*)data;
+		break;
+		case NREPEL_FREQUENCY_SMOOTHING:
+		nrepel->frequency_smoothing = (float*)data;
 		break;
 		case NREPEL_LATENCY:
 		nrepel->report_latency = (float*)data;
@@ -399,6 +404,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 											nrepel->Gk);
 
 				//Frequency smoothing of gains could be done here, but it proved to be a bad choise overall
+				spectral_smoothing_SG_quad(nrepel->Gk,*(nrepel->frequency_smoothing),nrepel->fft_size_2);
 			}
 			//APPLY REDUCTION
 
