@@ -51,13 +51,12 @@ typedef enum {
 	NREPEL_AMOUNT = 2,
 	NREPEL_STRENGHT = 3,
 	NREPEL_SMOOTHING = 4,
-	NREPEL_N_THRESH = 5,
-	NREPEL_LATENCY = 6,
-	NREPEL_WHITENING = 7,
-	NREPEL_RESET = 8,
-	NREPEL_NOISE_LISTEN = 9,
-	NREPEL_INPUT = 10,
-	NREPEL_OUTPUT = 11,
+	NREPEL_LATENCY = 5,
+	NREPEL_WHITENING = 6,
+	NREPEL_RESET = 7,
+	NREPEL_NOISE_LISTEN = 8,
+	NREPEL_INPUT = 9,
+	NREPEL_OUTPUT = 10,
 } PortIndex;
 
 typedef struct {
@@ -186,6 +185,21 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->fft_p2 = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->fft_p2_prev = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->noise_thresholds = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
+	nrepel->auto_thresh = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
+
+	int LF = Freq2Index(1000.f,nrepel->samp_rate,nrepel->fft_size);//1kHz
+	int MF = Freq2Index(3000.f,nrepel->samp_rate,nrepel->fft_size);//3kHz
+	for (int k = 0;k <= nrepel->fft_size_2; k++){
+		if(k < LF){
+			nrepel->auto_thresh[k] = 2.f;
+		}
+		if(k > LF && k < MF){
+			nrepel->auto_thresh[k] = 2.f;
+		}
+		if(k > MF){
+			nrepel->auto_thresh[k] = 5.f;
+		}
+	}
 
 	nrepel->Gk = (float*)malloc((nrepel->fft_size_2+1)*sizeof(float));
 	memset(nrepel->Gk, 1, (nrepel->fft_size_2+1)*sizeof(float));
@@ -231,9 +245,6 @@ connect_port(LV2_Handle instance,
 		break;
 		case NREPEL_SMOOTHING:
 		nrepel->time_smoothing = (float*)data;
-		break;
-		case NREPEL_N_THRESH:
-		nrepel->auto_thresh = (float*)data;
 		break;
 		case NREPEL_LATENCY:
 		nrepel->report_latency = (float*)data;

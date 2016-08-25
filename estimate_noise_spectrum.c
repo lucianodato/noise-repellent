@@ -20,11 +20,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include "extra_functions.c"
 
 //For louizou algorithm
-#define N_SMOOTH 0.3 //Smoothing over the power spectrum [1 - previous / 0 - actual]
-#define BETA 0.4 //Adaption time of the local minimun [1 - slower / 0 - faster]
-#define GAMMA 0.4 //Smoothing factor over local minimun [1 - previous / 0 - actual]
+#define N_SMOOTH 0.7 //Smoothing over the power spectrum [0.9 - previous / 0.7 - actual]
+#define BETA 0.8 //Adaption time of the local minimun [1 - slower / 0 - faster]
+#define GAMMA 0.998 //Smoothing factor over local minimun [1 - previous / 0 - actual]
 #define ALPHA_P 0.2 //smoothing constant over speech presence [1 - previous / 0 - actual]
-#define ALPHA_D 0.4 //time–frequency dependent smoothing [0-1] [1 - previous / 0 - actual]
+#define ALPHA_D 0.85 //time–frequency dependent smoothing [0-1] [1 - previous / 0 - actual]
 
 static void estimate_noise_loizou(float thresh,
                       int fft_size_2,
