@@ -92,7 +92,8 @@ typedef struct {
 	float window_count; //Count windows for mean computing
 	float max_float; //Auxiliary variable to store FLT_MAX and avoid warning
 	float tau; //time constant for soft bypass
-	float reduction_coeff_target; //reduction target for softbypass
+	float wet_dry_target; //softbypass target for softbypass
+	float wet_dry; //softbypass
 	float reduction_coeff; //Gain to apply to the residual noise
 
 	//Buffers for processing and outputting
@@ -151,8 +152,7 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->max_float = FLT_MAX;
 	nrepel->wa = WA;
 	nrepel->window_count = 0.f;
-	nrepel->tau = 1.0 - expf (-2.f * M_PI * 64.f * 25.f / nrepel->samp_rate); // 25Hz time constant @ 64fpp;
-	nrepel->reduction_coeff_target = 1.f;
+	nrepel->tau = (1.f - exp (-2.f * M_PI * 25.f * 64.f  / nrepel->samp_rate));
 
 	nrepel->fft_size_2 = nrepel->fft_size/2;
 	nrepel->hop = nrepel->fft_size/nrepel->overlap_factor;
@@ -300,14 +300,14 @@ run(LV2_Handle instance, uint32_t n_samples) {
 	*(nrepel->report_latency) = (float) nrepel->input_latency;
 
 	//Softbypass targets in case of disabled or enabled
-	if(*(nrepel->enable) == 0.f){
-		nrepel->reduction_coeff_target = 1.f;
-	} else {
-		nrepel->reduction_coeff_target = (1.f/from_dB(*(nrepel->amount_of_reduction)));
+	if(*(nrepel->enable) == 0.f){ //if disabled
+		nrepel->wet_dry_target = 0.f;
+	} else { //if enabled
+		nrepel->wet_dry_target = 1.f;
 	}
 
 	//Interpolate parameters over time softly to bypass without clicks or pops
-	nrepel->reduction_coeff += nrepel->tau * (nrepel->reduction_coeff_target - nrepel->reduction_coeff);
+	nrepel->wet_dry += nrepel->tau * (nrepel->wet_dry_target - nrepel->wet_dry) + FLT_MIN;
 
 	//Reset button state (if on)
 	if (*(nrepel->reset_print) == 1.f) {
@@ -427,6 +427,8 @@ run(LV2_Handle instance, uint32_t n_samples) {
 			}
 			//APPLY REDUCTION
 
+			nrepel->reduction_coeff = (1.f/from_dB(*(nrepel->amount_of_reduction)));
+
 			//Apply the computed gain to the signal and store it in denoised array
 			for (k = 0; k <= nrepel->fft_size_2; k++) {
 				nrepel->denoised_fft_buffer[k] = nrepel->output_fft_buffer[k]* nrepel->Gk[k];
@@ -451,16 +453,16 @@ run(LV2_Handle instance, uint32_t n_samples) {
 			if (*(nrepel->noise_listen) == 0.f){
 				//Mix residual and processed (Parametric way of noise reduction)
 				for (k = 0; k <= nrepel->fft_size_2; k++) {
-					nrepel->output_fft_buffer[k] = nrepel->denoised_fft_buffer[k] + nrepel->residual_spectrum[k]*nrepel->reduction_coeff;
+					nrepel->output_fft_buffer[k] =  (1.f-nrepel->wet_dry) * nrepel->output_fft_buffer[k] + (nrepel->denoised_fft_buffer[k] + nrepel->residual_spectrum[k]*nrepel->reduction_coeff) * nrepel->wet_dry;
 					if(k < nrepel->fft_size_2)
-						nrepel->output_fft_buffer[nrepel->fft_size-k] = nrepel->denoised_fft_buffer[nrepel->fft_size-k] + nrepel->residual_spectrum[nrepel->fft_size-k]*nrepel->reduction_coeff;
+						nrepel->output_fft_buffer[nrepel->fft_size-k] = (1.f-nrepel->wet_dry) * nrepel->output_fft_buffer[nrepel->fft_size-k] + (nrepel->denoised_fft_buffer[nrepel->fft_size-k] + nrepel->residual_spectrum[nrepel->fft_size-k]*nrepel->reduction_coeff) * nrepel->wet_dry;
 				}
 			} else {
 				//Output noise only
 				for (k = 0; k <= nrepel->fft_size_2; k++) {
-					nrepel->output_fft_buffer[k] = nrepel->residual_spectrum[k];
+					nrepel->output_fft_buffer[k] = (1.f-nrepel->wet_dry) * nrepel->output_fft_buffer[k] + nrepel->residual_spectrum[k] * nrepel->wet_dry;
 					if(k < nrepel->fft_size_2)
-						nrepel->output_fft_buffer[nrepel->fft_size-k] = nrepel->residual_spectrum[nrepel->fft_size-k];
+						nrepel->output_fft_buffer[nrepel->fft_size-k] = (1.f-nrepel->wet_dry) * nrepel->output_fft_buffer[nrepel->fft_size-k] + nrepel->residual_spectrum[nrepel->fft_size-k] * nrepel->wet_dry;
 				}
 			}
 
