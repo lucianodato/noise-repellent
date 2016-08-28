@@ -56,8 +56,9 @@ typedef enum {
 	NREPEL_WHITENING = 7,
 	NREPEL_RESET = 8,
 	NREPEL_NOISE_LISTEN = 9,
-	NREPEL_INPUT = 10,
-	NREPEL_OUTPUT = 11,
+	NREPEL_ENABLE = 10,
+	NREPEL_INPUT = 11,
+	NREPEL_OUTPUT = 12,
 } PortIndex;
 
 typedef struct {
@@ -76,6 +77,7 @@ typedef struct {
 	float* time_smoothing; //constant that set the time smoothing coefficient
 	float* auto_state; //autocapture switch
 	float* frequency_smoothing; //Smoothing over frequency
+	float* enable; //For soft bypass (click free bypass)
 
 
 	//Parameters values and arrays for the STFT
@@ -89,6 +91,9 @@ typedef struct {
 	float* window_output; // Input Window values
 	float window_count; //Count windows for mean computing
 	float max_float; //Auxiliary variable to store FLT_MAX and avoid warning
+	float tau; //time constant for soft bypass
+	float reduction_coeff_target; //reduction target for softbypass
+	float reduction_coeff; //Gain to apply to the residual noise
 
 	//Buffers for processing and outputting
 	int input_latency;
@@ -146,6 +151,8 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->max_float = FLT_MAX;
 	nrepel->wa = WA;
 	nrepel->window_count = 0.f;
+	nrepel->tau = 1.0 - expf (-2.f * M_PI * 64.f * 25.f / nrepel->samp_rate); // 25Hz time constant @ 64fpp;
+	nrepel->reduction_coeff_target = 1.f;
 
 	nrepel->fft_size_2 = nrepel->fft_size/2;
 	nrepel->hop = nrepel->fft_size/nrepel->overlap_factor;
@@ -264,6 +271,9 @@ connect_port(LV2_Handle instance,
 		case NREPEL_NOISE_LISTEN:
 		nrepel->noise_listen = (float*)data;
 		break;
+		case NREPEL_ENABLE:
+		nrepel->enable = (float*)data;
+		break;
 		case NREPEL_INPUT:
 		nrepel->input = (const float*)data;
 		break;
@@ -289,6 +299,15 @@ run(LV2_Handle instance, uint32_t n_samples) {
 	//Inform latency at run call
 	*(nrepel->report_latency) = (float) nrepel->input_latency;
 
+	//Softbypass targets in case of disabled or enabled
+	if(*(nrepel->enable) == 0.f){
+		nrepel->reduction_coeff_target = 1.f;
+	} else {
+		nrepel->reduction_coeff_target = (1.f/from_dB(*(nrepel->amount_of_reduction)));
+	}
+
+	//Interpolate parameters over time softly to bypass without clicks or pops
+	nrepel->reduction_coeff += nrepel->tau * (nrepel->reduction_coeff_target - nrepel->reduction_coeff);
 
 	//Reset button state (if on)
 	if (*(nrepel->reset_print) == 1.f) {
@@ -408,9 +427,6 @@ run(LV2_Handle instance, uint32_t n_samples) {
 			}
 			//APPLY REDUCTION
 
-			//The amount of reduction
-			float reduction_coeff = 1.f/from_dB(*(nrepel->amount_of_reduction));
-
 			//Apply the computed gain to the signal and store it in denoised array
 			for (k = 0; k <= nrepel->fft_size_2; k++) {
 				nrepel->denoised_fft_buffer[k] = nrepel->output_fft_buffer[k]* nrepel->Gk[k];
@@ -435,9 +451,9 @@ run(LV2_Handle instance, uint32_t n_samples) {
 			if (*(nrepel->noise_listen) == 0.f){
 				//Mix residual and processed (Parametric way of noise reduction)
 				for (k = 0; k <= nrepel->fft_size_2; k++) {
-					nrepel->output_fft_buffer[k] = nrepel->denoised_fft_buffer[k] + nrepel->residual_spectrum[k]*reduction_coeff;
+					nrepel->output_fft_buffer[k] = nrepel->denoised_fft_buffer[k] + nrepel->residual_spectrum[k]*nrepel->reduction_coeff;
 					if(k < nrepel->fft_size_2)
-						nrepel->output_fft_buffer[nrepel->fft_size-k] = nrepel->denoised_fft_buffer[nrepel->fft_size-k] + nrepel->residual_spectrum[nrepel->fft_size-k]*reduction_coeff;
+						nrepel->output_fft_buffer[nrepel->fft_size-k] = nrepel->denoised_fft_buffer[nrepel->fft_size-k] + nrepel->residual_spectrum[nrepel->fft_size-k]*nrepel->reduction_coeff;
 				}
 			} else {
 				//Output noise only
