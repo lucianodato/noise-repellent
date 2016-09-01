@@ -23,9 +23,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 
 //Spectral Subtraction
-void denoise_gain_ss(float over_reduc,
+void denoise_gain_ss(float over_sustraction,
                       int fft_size_2,
-                      float* spec,
+                      float* spectrum,
                       float* noise_thresholds,
                       float* Gk) {
   int k;
@@ -33,13 +33,13 @@ void denoise_gain_ss(float over_reduc,
 
   for (k = 0; k <= fft_size_2 ; k++) {
     if (noise_thresholds[k] > FLT_MIN){
-      if(spec[k] > FLT_MIN){
-        gain = MAX(spec[k]-noise_thresholds[k], 0.f) / spec[k];
+      if(spectrum[k] > FLT_MIN){
+        gain = MAX(spectrum[k]-noise_thresholds[k], 0.f) / spectrum[k];
       } else {
         gain = 0.f;
       }
       //Use oversustraction
-      Fk = over_reduc*(1.0-gain) ;
+      Fk = over_sustraction*(1.0-gain) ;
 
       if(Fk < 0.0) Fk = 0.0 ;
       if(Fk > 1.0) Fk = 1.0 ;

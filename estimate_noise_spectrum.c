@@ -114,7 +114,7 @@ void auto_capture_noise(float* p2,
 }
 
 //Manual Capture threshold estimation
-void get_noise_statistics(float* spec,
+void get_noise_statistics(float* spectrum,
                          int fft_size_2,
                          float* noise_thresholds,
                          float* window_count) {
@@ -125,9 +125,9 @@ void get_noise_statistics(float* spec,
   //Get noise thresholds based on averageing the input noise signal between frames
   for(k = 0 ; k <= fft_size_2 ; k++) {
     if(*(window_count) == 1){
-      noise_thresholds[k] = spec[k];
+      noise_thresholds[k] = spectrum[k];
     } else {
-      noise_thresholds[k] += ((spec[k] - noise_thresholds[k])/ *(window_count)); //rolling mean
+      noise_thresholds[k] += ((spectrum[k] - noise_thresholds[k])/ *(window_count)); //rolling mean
     }
   }
 }

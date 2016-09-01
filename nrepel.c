@@ -69,7 +69,7 @@ typedef struct {
 	//Parameters for the algorithm (user input)
 	float* capture_state; // Capture Noise state (Manual-Off-Auto)
 	float* amount_of_reduction; // Amount of noise to reduce in dB
-	float* over_reduc; // Amount of noise to reduce in dB
+	float* over_sustraction; // Amount of noise to reduce in dB
 	float* report_latency; // Latency necessary
 	float* reset_print; // Latency necessary
 	float* noise_listen; //For noise only listening
@@ -125,7 +125,7 @@ typedef struct {
 	float* tappering_filter;
 	float* whitening_spectrum;
 
-	float* auto_thresh; //Reference threshold for louizou algorithm
+	float* auto_thresholds; //Reference threshold for louizou algorithm
 	float* prev_noise_thresholds;
 	float* s_pow_spec;
 	float* prev_s_pow_spec;
@@ -194,20 +194,20 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->fft_p2 = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->fft_p2_prev = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->noise_thresholds = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
-	nrepel->auto_thresh = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
+	nrepel->auto_thresholds = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 
 	//This is experimentally obteined
 	int LF = Freq2Index(1000.f,nrepel->samp_rate,nrepel->fft_size);//1kHz
 	int MF = Freq2Index(3000.f,nrepel->samp_rate,nrepel->fft_size);//3kHz
 	for (int k = 0;k <= nrepel->fft_size_2; k++){
 		if(k < LF){
-			nrepel->auto_thresh[k] = 2.f;
+			nrepel->auto_thresholds[k] = 2.f;
 		}
 		if(k > LF && k < MF){
-			nrepel->auto_thresh[k] = 2.f;
+			nrepel->auto_thresholds[k] = 2.f;
 		}
 		if(k > MF){
-			nrepel->auto_thresh[k] = 5.f;
+			nrepel->auto_thresholds[k] = 5.f;
 		}
 	}
 
@@ -251,7 +251,7 @@ connect_port(LV2_Handle instance,
 		nrepel->amount_of_reduction = (float*)data;
 		break;
 		case NREPEL_STRENGHT:
-		nrepel->over_reduc = (float*)data;
+		nrepel->over_sustraction = (float*)data;
 		break;
 		case NREPEL_SMOOTHING:
 		nrepel->time_smoothing = (float*)data;
@@ -382,7 +382,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 			//------------Processing---------------
 
 			if(*(nrepel->auto_state) == 1.f) {
-				float noise_reference_threshold = *(nrepel->auto_thresh);
+				float noise_reference_threshold = *(nrepel->auto_thresholds);
 
 				//if slected auto estimate noise spectrum
 				auto_capture_noise(nrepel->fft_p2,
@@ -416,7 +416,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 				//Here we could smooth the frequency bins to further avoid musical noise (not a good choise for hum type od noise though)
 
 				//Spectral Sustraction (Power Sustraction)
-				denoise_gain_ss(*(nrepel->over_reduc),
+				denoise_gain_ss(*(nrepel->over_sustraction),
 											nrepel->fft_size_2,
 											nrepel->fft_p2,
 											nrepel->noise_thresholds,
