@@ -21,6 +21,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <stdlib.h>
 #include <string.h>
 #include <fftw3.h>
+#include <time.h>
+#include <stdio.h>
 
 
 #include "denoise_gain.c"
@@ -290,6 +292,13 @@ activate(LV2_Handle instance)
 
 static void
 run(LV2_Handle instance, uint32_t n_samples) {
+	//Time execution measurement
+	clock_t start, end;
+	double cpu_time_used;
+	start = clock();
+	//--------------
+
+
 	Nrepel* nrepel = (Nrepel*)instance;
 
 	//handy variables
@@ -495,6 +504,21 @@ run(LV2_Handle instance, uint32_t n_samples) {
 			for (k = 0; k < nrepel->input_latency; k++){
 				nrepel->in_fifo[k] = nrepel->in_fifo[k+nrepel->hop];
 			}
+
+			//Time measurement
+			end = clock();
+			cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
+			char buffer[50];
+			sprintf(buffer,"%lf",cpu_time_used);
+			strcat(buffer,"\n");
+
+			//Saving results to a file
+			FILE *fp;
+
+		  fp = fopen("resuts.txt", "a");
+		  fputs(buffer, fp);
+		  fclose(fp);
+			//-------------------------------
 		}//if
 	}//main loop
 }
