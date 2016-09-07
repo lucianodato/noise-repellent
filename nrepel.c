@@ -136,8 +136,8 @@ typedef struct {
 	float* speech_p_p;
 	float* prev_speech_p_p;
 
-	clock_t start, end, b_start, b_end;
-	double cpu_time_used, block_time;
+	clock_t start, end;
+	double cpu_time_used;
 
 } Nrepel;
 
@@ -298,21 +298,6 @@ run(LV2_Handle instance, uint32_t n_samples) {
 	Nrepel* nrepel = (Nrepel*)instance;
 
 	//Time execution measurement
-	nrepel->b_end = clock();
-	nrepel->block_time = ((double) (nrepel->b_end - nrepel->b_start)) / CLOCKS_PER_SEC;
-
-	//To string
-	char b_buffer[50];
-	sprintf(b_buffer,"%lf",nrepel->block_time);
-	strcat(b_buffer,"\n");
-
-	//Saving results to a file
-	FILE *fp2;
-
-	fp2 = fopen("b_resuts.txt", "a");
-	fputs(b_buffer, fp2);
-	fclose(fp2);
-
 	nrepel->start = clock();
 	//--------------
 
@@ -538,8 +523,6 @@ run(LV2_Handle instance, uint32_t n_samples) {
 	fp = fopen("resuts.txt", "a");
 	fputs(buffer, fp);
 	fclose(fp);
-
-	nrepel->b_start = clock();
 }
 
 static void
