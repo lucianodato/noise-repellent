@@ -27,9 +27,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define HAMMING_WINDOW 1
 #define BLACKMAN_WINDOW 2
 
-#ifndef M_PI
-    #define M_PI 3.14159265358979323846
-#endif
+#define M_PI 3.14159265358979323846
 
 //AUXILIARY Functions
 
@@ -276,8 +274,8 @@ void spectral_smoothing_MM(float* spectrum, int kernel_width, int N){
 
 void spectral_smoothing_MAH(float* spectrum, int kernel_width,int N){
   int k;
-  float* smoothing_tmp = (float*)calloc(N+1,sizeof(float));
-  float* extended = (float*)calloc(N+2*kernel_width+1,sizeof(float));
+  float smoothing_tmp[N+1];
+  float extended[N+2*kernel_width+1];
   float window[kernel_width*2 +1];
   float win_sum = 0.f;
   fft_window(window,kernel_width*2+1,0);//Hann window
@@ -303,10 +301,8 @@ void spectral_smoothing_MAH(float* spectrum, int kernel_width,int N){
 
   for (k = 0; k <= N; ++k){
     spectrum[k] = smoothing_tmp[k];
+    smoothing_tmp[k] = 0.f;
   }
-
-  //delete(smoothing_tmp);
-  //delete(extended);
 }
 
 //This is from wikipedia ;)
@@ -325,8 +321,8 @@ float savgol_quad_25[25] = {-0.048889,-0.026667,-0.006377,0.011981,0.028406,0.04
 //With quadratic coefficients
 void spectral_smoothing_SG_quad(float* spectrum, int kernel_width,int N){
   int k;
-  float* smoothing_tmp = (float*)calloc(N+1,sizeof(float));
-  float* extended = (float*)calloc(N+1+2*kernel_width,sizeof(float));
+  float smoothing_tmp[N+1];
+  float extended[N+1+2*kernel_width];
 
   if (kernel_width < 2 || kernel_width > 12) return;
 
@@ -377,10 +373,8 @@ void spectral_smoothing_SG_quad(float* spectrum, int kernel_width,int N){
 
   for (k = 0; k <= N; ++k){
     spectrum[k] = smoothing_tmp[k];
+    smoothing_tmp[k] = 0.f;
   }
-
-  //delete(smoothing_tmp);
-  //delete(extended);
 }
 
 //This is from wikipedia ;)
@@ -390,8 +384,8 @@ float savgol_quart_9[9] = {0.034965,-0.128205,0.069930,0.314685,0.417249,0.31468
 //With quadric coefficients
 void spectral_smoothing_SG_quart(float* spectrum, int kernel_width,int N){
   int k;
-  float* smoothing_tmp = (float*)calloc(N+1,sizeof(float));
-  float* extended = (float*)calloc(N+2*kernel_width+1,sizeof(float));
+  float smoothing_tmp[N+1];
+  float extended[N+2*kernel_width+1];
 
   if (kernel_width < 3 || kernel_width > 4) return;
 
@@ -415,8 +409,6 @@ void spectral_smoothing_SG_quart(float* spectrum, int kernel_width,int N){
 
   for (k = 0; k <= N; ++k){
     spectrum[k] = smoothing_tmp[k];
+    smoothing_tmp[k] = 0.f;
   }
-
-  //delete(smoothing_tmp);
-  //delete(extended);
 }
