@@ -30,6 +30,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include "lv2/lv2plug.in/ns/lv2core/lv2.h"
 
 #define NREPEL_URI "https://github.com/lucianodato/noise-repellent"
+#define NS_MY "http://example.org/myplugin/schema#"
 
 //STFT default values (This are standart values)
 #define FFT_SIZE 2048 //max should be 8192 otherwise is too expensive
@@ -136,8 +137,11 @@ typedef struct {
 	float* speech_p_p;
 	float* prev_speech_p_p;
 
-	clock_t start, end;
-	double cpu_time_used;
+	// clock_t start, end;
+	// double cpu_time_used;
+
+	//States
+
 
 } Nrepel;
 
@@ -148,6 +152,8 @@ instantiate(const LV2_Descriptor*     descriptor,
 						const LV2_Feature* const* features) {
 	//Actual struct declaration
 	Nrepel* nrepel = (Nrepel*)malloc(sizeof(Nrepel));
+
+	//States
 
 	//Initialize variables
 	nrepel->samp_rate = rate;
@@ -297,9 +303,9 @@ static void
 run(LV2_Handle instance, uint32_t n_samples) {
 	Nrepel* nrepel = (Nrepel*)instance;
 
-	//Time execution measurement
-	nrepel->start = clock();
-	//--------------
+	// //Time execution measurement
+	// nrepel->start = clock();
+	// //--------------
 
 	//handy variables
 	int k;
@@ -508,21 +514,21 @@ run(LV2_Handle instance, uint32_t n_samples) {
 		}//if
 	}//main loop
 
-	//Time measurement
-	nrepel->end = clock();
-	nrepel->cpu_time_used = ((double) (nrepel->end - nrepel->start)) / CLOCKS_PER_SEC;
-
-	//To string
-	char buffer[50];
-	sprintf(buffer,"%lf",nrepel->cpu_time_used);
-	strcat(buffer,"\n");
-
-	//Saving results to a file
-	FILE *fp;
-
-	fp = fopen("resuts.txt", "a");
-	fputs(buffer, fp);
-	fclose(fp);
+	// //Time measurement
+	// nrepel->end = clock();
+	// nrepel->cpu_time_used = ((double) (nrepel->end - nrepel->start)) / CLOCKS_PER_SEC;
+	//
+	// //To string
+	// char buffer[50];
+	// sprintf(buffer,"%lf",nrepel->cpu_time_used);
+	// strcat(buffer,"\n");
+	//
+	// //Saving results to a file
+	// FILE *fp;
+	//
+	// fp = fopen("resuts.txt", "a");
+	// fputs(buffer, fp);
+	// fclose(fp);
 }
 
 static void

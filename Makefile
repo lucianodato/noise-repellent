@@ -1,20 +1,51 @@
 #!/usr/bin/make -f
-
-PREFIX ?= /usr
-LIBDIR ?= lib
-LV2DIR ?= $(PREFIX)/$(LIBDIR)/lv2
-
-#Basic Flags
 OPTIMIZATIONS ?= -msse -msse2 -mfpmath=sse -ffast-math -fomit-frame-pointer -O3 -fno-finite-math-only
+PREFIX ?= /usr/local
+CFLAGS ?= $(OPTIMIZATIONS) -Wall
 
-LDFLAGS ?= -Wl,--as-needed -shared -Wl,-Bstatic -Wl,-Bdynamic `pkg-config fftw3f --libs`
-CFLAGS ?= $(OPTIMIZATIONS) -Wall -fPIC -DPIC -lm `pkg-config fftw3f --cflags --libs`
+STRIP?=strip
+STRIPFLAGS?=-s
 
-BUNDLE = nrepel.lv2
-LIB_EXT=.so
+nrepel_VERSION?=$(shell git describe --tags HEAD 2>/dev/null | sed 's/-g.*$$//;s/^v//' || echo "LV2")
 ###############################################################################
+LIB_EXT=.so
 
-#library detection
+LV2DIR ?= $(PREFIX)/lib/lv2
+LOADLIBES=-lm
+LV2NAME=nrepel
+BUNDLE=nrepel.lv2
+BUILDDIR=nrepel/
+targets=
+
+UNAME=$(shell uname)
+ifeq ($(UNAME),Darwin)
+  LV2LDFLAGS=-dynamiclib
+  LIB_EXT=.dylib
+  EXTENDED_RE=-E
+  STRIPFLAGS=-u -r -arch all -s lv2syms
+  targets+=lv2syms
+else
+  LV2LDFLAGS=-Wl,-Bstatic -Wl,-Bdynamic
+  LIB_EXT=.so
+  EXTENDED_RE=-r
+endif
+
+ifneq ($(XWIN),)
+  CC=$(XWIN)-gcc
+  STRIP=$(XWIN)-strip
+  LV2LDFLAGS=-Wl,-Bstatic -Wl,-Bdynamic -Wl,--as-needed
+  LIB_EXT=.dll
+  override LDFLAGS += -static-libgcc -static-libstdc++
+endif
+
+targets+=$(BUILDDIR)$(LV2NAME)$(LIB_EXT)
+
+###############################################################################
+# extract versions
+LV2VERSION=$(nrepel_VERSION)
+include git2lv2.mk
+
+# check for build-dependencies
 ifeq ($(shell pkg-config --exists lv2 || echo no), no)
   $(error "LV2 SDK was not found")
 endif
@@ -22,33 +53,105 @@ ifeq ($(shell pkg-config --exists fftw3f || echo no), no)
   $(error "FFTW was not found")
 endif
 
-#directory creation
-$(BUNDLE): manifest.ttl nrepel.ttl nrepel$(LIB_EXT)
-	rm -rf $(BUNDLE)
-	mkdir $(BUNDLE)
-	cp manifest.ttl nrepel.ttl $(BUNDLE)
-	mv nrepel$(LIB_EXT) $(BUNDLE)
+override CFLAGS += -fPIC -std=c99
+override CFLAGS += `pkg-config --cflags lv2`
+override CFLAGS += `pkg-config fftw3f --cflags --libs`
 
-#file compiling
-nrepel$(LIB_EXT): nrepel.c
-	$(CXX) -o nrepel$(LIB_EXT) \
-		$(CFLAGS) \
-		nrepel.c \
-		$(LV2FLAGS) $(LDFLAGS)
+# build target definitions
+default: all
 
+all: $(BUILDDIR)manifest.ttl $(BUILDDIR)$(LV2NAME).ttl $(targets)
 
-#targets
-test: #ttl files control
-	sord_validate_lv2 $(BUNDLE)
+lv2syms:
+	echo "_lv2_descriptor" > lv2syms
 
-install: $(BUNDLE)
+$(BUILDDIR)manifest.ttl: manifest.ttl.in
+	@mkdir -p $(BUILDDIR)
+	sed "s/@LV2NAME@/$(LV2NAME)/;s/@LIB_EXT@/$(LIB_EXT)/" \
+	  manifest.ttl.in > $(BUILDDIR)manifest.ttl
+
+$(BUILDDIR)$(LV2NAME).ttl: $(LV2NAME).ttl.in
+	@mkdir -p $(BUILDDIR)
+	sed "s/@VERSION@/lv2:microVersion $(LV2MIC) ;lv2:minorVersion $(LV2MIN) ;/g" \
+		$(LV2NAME).ttl.in > $(BUILDDIR)$(LV2NAME).ttl
+
+$(BUILDDIR)$(LV2NAME)$(LIB_EXT): $(LV2NAME).c
+	@mkdir -p $(BUILDDIR)
+	$(CC) $(CPPFLAGS) $(CFLAGS) \
+	  -o $(BUILDDIR)$(LV2NAME)$(LIB_EXT) $(LV2NAME).c \
+	  -shared $(LV2LDFLAGS) $(LDFLAGS) $(LOADLIBES)
+	$(STRIP) $(STRIPFLAGS) $(BUILDDIR)$(LV2NAME)$(LIB_EXT)
+
+# install/uninstall/clean target definitions
+
+install: all
 	install -d $(DESTDIR)$(LV2DIR)/$(BUNDLE)
-	install -t $(DESTDIR)$(LV2DIR)/$(BUNDLE) $(BUNDLE)/*
+	install -m755 $(BUILDDIR)$(LV2NAME)$(LIB_EXT) $(DESTDIR)$(LV2DIR)/$(BUNDLE)
+	install -m644 $(BUILDDIR)manifest.ttl $(BUILDDIR)$(LV2NAME).ttl $(DESTDIR)$(LV2DIR)/$(BUNDLE)
 
 uninstall:
-	rm -rf $(DESTDIR)$(LV2DIR)/$(BUNDLE)
+	rm -f $(DESTDIR)$(LV2DIR)/$(BUNDLE)/manifest.ttl
+	rm -f $(DESTDIR)$(LV2DIR)/$(BUNDLE)/$(LV2NAME).ttl
+	rm -f $(DESTDIR)$(LV2DIR)/$(BUNDLE)/$(LV2NAME)$(LIB_EXT)
+	-rmdir $(DESTDIR)$(LV2DIR)/$(BUNDLE)
 
 clean:
-	rm -rf $(BUNDLE)
+	rm -f $(BUILDDIR)manifest.ttl $(BUILDDIR)$(LV2NAME).ttl $(BUILDDIR)$(LV2NAME)$(LIB_EXT) lv2syms
+	-test -d $(BUILDDIR) && rmdir $(BUILDDIR) || true
 
-.PHONY: test clean install uninstall
+.PHONY: clean all install uninstall
+
+# #!/usr/bin/make -f
+#
+# PREFIX ?= /usr
+# LIBDIR ?= lib
+# LV2DIR ?= $(PREFIX)/$(LIBDIR)/lv2
+#
+# #Basic Flags
+# OPTIMIZATIONS ?= -msse -msse2 -mfpmath=sse -ffast-math -fomit-frame-pointer -O3 -fno-finite-math-only
+#
+# LDFLAGS ?= -Wl,--as-needed -shared -Wl,-Bstatic -Wl,-Bdynamic `pkg-config fftw3f --libs`
+# CFLAGS ?= $(OPTIMIZATIONS) -Wall -fPIC -DPIC -lm `pkg-config fftw3f --cflags --libs`
+#
+# BUNDLE = nrepel.lv2
+# LIB_EXT=.so
+# ###############################################################################
+#
+# #library detection
+# ifeq ($(shell pkg-config --exists lv2 || echo no), no)
+#   $(error "LV2 SDK was not found")
+# endif
+# ifeq ($(shell pkg-config --exists fftw3f || echo no), no)
+#   $(error "FFTW was not found")
+# endif
+#
+# #directory creation
+# $(BUNDLE): manifest.ttl nrepel.ttl nrepel$(LIB_EXT)
+# 	rm -rf $(BUNDLE)
+# 	mkdir $(BUNDLE)
+# 	cp manifest.ttl nrepel.ttl $(BUNDLE)
+# 	mv nrepel$(LIB_EXT) $(BUNDLE)
+#
+# #file compiling
+# nrepel$(LIB_EXT): nrepel.c
+# 	$(CXX) -o nrepel$(LIB_EXT) \
+# 		$(CFLAGS) \
+# 		nrepel.c \
+# 		$(LV2FLAGS) $(LDFLAGS)
+#
+#
+# #targets
+# test: #ttl files control
+# 	sord_validate_lv2 $(BUNDLE)
+#
+# install: $(BUNDLE)
+# 	install -d $(DESTDIR)$(LV2DIR)/$(BUNDLE)
+# 	install -t $(DESTDIR)$(LV2DIR)/$(BUNDLE) $(BUNDLE)/*
+#
+# uninstall:
+# 	rm -rf $(DESTDIR)$(LV2DIR)/$(BUNDLE)
+#
+# clean:
+# 	rm -rf $(BUNDLE)
+#
+# .PHONY: test clean install uninstall

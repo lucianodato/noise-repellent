@@ -20,11 +20,16 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 #include <math.h>
 #include <float.h>
+#include <stdbool.h>
 
 //Window types
 #define HANN_WINDOW 0
 #define HAMMING_WINDOW 1
 #define BLACKMAN_WINDOW 2
+
+#ifndef M_PI
+    #define M_PI 3.14159265358979323846
+#endif
 
 //AUXILIARY Functions
 
@@ -300,8 +305,8 @@ void spectral_smoothing_MAH(float* spectrum, int kernel_width,int N){
     spectrum[k] = smoothing_tmp[k];
   }
 
-  delete(smoothing_tmp);
-  delete(extended);
+  //delete(smoothing_tmp);
+  //delete(extended);
 }
 
 //This is from wikipedia ;)
@@ -374,8 +379,8 @@ void spectral_smoothing_SG_quad(float* spectrum, int kernel_width,int N){
     spectrum[k] = smoothing_tmp[k];
   }
 
-  delete(smoothing_tmp);
-  delete(extended);
+  //delete(smoothing_tmp);
+  //delete(extended);
 }
 
 //This is from wikipedia ;)
@@ -412,6 +417,6 @@ void spectral_smoothing_SG_quart(float* spectrum, int kernel_width,int N){
     spectrum[k] = smoothing_tmp[k];
   }
 
-  delete(smoothing_tmp);
-  delete(extended);
+  //delete(smoothing_tmp);
+  //delete(extended);
 }
