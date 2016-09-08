@@ -4,7 +4,7 @@ An lv2 spectral noise reduction plugin.
 
 Dependencies: Install your distribution packages similar to pkg-config lv2-dev and libfftw3-dev in Debian based systems.
 
-Compiling instructions: make and sudo make install
+Installing instructions: make and sudo make install
 
 Warning!!! This plugin ment to be used with Ardour. It will introduce latency. Don't expect it to be like commercial options, although it will do the job in most cases if configured well enough.
 
