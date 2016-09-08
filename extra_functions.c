@@ -286,6 +286,7 @@ void spectral_smoothing_MAH(float* spectrum, int kernel_width,int N){
   //Initialize smothingbins_tmp
   for (k = 0; k <= N; ++k) {
     extended[k+kernel_width] = spectrum[k];
+    smoothing_tmp[k] = 0.f; //Initialize with zeros
   }
 
   for (k = 0; k <= kernel_width*2; ++k) {
@@ -301,7 +302,6 @@ void spectral_smoothing_MAH(float* spectrum, int kernel_width,int N){
 
   for (k = 0; k <= N; ++k){
     spectrum[k] = smoothing_tmp[k];
-    smoothing_tmp[k] = 0.f;
   }
 }
 
@@ -329,6 +329,7 @@ void spectral_smoothing_SG_quad(float* spectrum, int kernel_width,int N){
   //Copy data over the extended array to contemplate edge cases
   for (k = 0; k <= N; ++k) {
     extended[k+kernel_width] = spectrum[k];
+    smoothing_tmp[k] = 0.f; //Initialize with zeros
   }
 
   for (k = 0; k <= N; ++k) {
@@ -373,7 +374,6 @@ void spectral_smoothing_SG_quad(float* spectrum, int kernel_width,int N){
 
   for (k = 0; k <= N; ++k){
     spectrum[k] = smoothing_tmp[k];
-    smoothing_tmp[k] = 0.f;
   }
 }
 
@@ -392,6 +392,7 @@ void spectral_smoothing_SG_quart(float* spectrum, int kernel_width,int N){
   //Initialize smothingbins_tmp
   for (k = 0; k <= N; ++k) {
     extended[k+kernel_width] = spectrum[k];
+    smoothing_tmp[k] = 0.f; //Initialize with zeros
   }
 
   for (k = 0; k <= N; ++k) {
@@ -409,6 +410,5 @@ void spectral_smoothing_SG_quart(float* spectrum, int kernel_width,int N){
 
   for (k = 0; k <= N; ++k){
     spectrum[k] = smoothing_tmp[k];
-    smoothing_tmp[k] = 0.f;
   }
 }
