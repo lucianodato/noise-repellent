@@ -20,6 +20,7 @@
   doap:maintainer <http://example.com/lucianodato#me> ;
   doap:license <https://opensource.org/licenses/LGPL-3.0> ;
   doap:name "Noise Repellent" ;
+  @VERSION@
   lv2:optionalFeature lv2:hardRTCapable ;
 
   lv2:port [
