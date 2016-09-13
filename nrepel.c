@@ -139,10 +139,6 @@ typedef struct {
 
 	// clock_t start, end;
 	// double cpu_time_used;
-
-	//States
-
-
 } Nrepel;
 
 static LV2_Handle
@@ -152,8 +148,6 @@ instantiate(const LV2_Descriptor*     descriptor,
 						const LV2_Feature* const* features) {
 	//Actual struct declaration
 	Nrepel* nrepel = (Nrepel*)malloc(sizeof(Nrepel));
-
-	//States
 
 	//Initialize variables
 	nrepel->samp_rate = rate;
