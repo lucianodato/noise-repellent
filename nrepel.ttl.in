@@ -19,7 +19,8 @@
   a lv2:Plugin, lv2:SpectralPlugin, lv2:UtilityPlugin, doap:Project ;
   doap:maintainer <http://example.com/lucianodato#me> ;
   doap:license <https://opensource.org/licenses/LGPL-3.0> ;
-  doap:name "Noise Repellent" ;
+  doap:name "Noise Repellent",
+    "Repelente de Ruido"@es ;
   @VERSION@
   lv2:optionalFeature lv2:hardRTCapable ;
 
@@ -28,7 +29,8 @@
       lv2:InputPort ;
     lv2:index 0 ;
     lv2:symbol "noise_capture" ;
-    lv2:name "Capture Noise Print" ;
+    lv2:name "Capture Noise Print",
+      "Capturar Perfil de Ruido"@es ;
     lv2:minimum 0 ;
     lv2:maximum 1 ;
     lv2:default 0 ;
@@ -38,7 +40,8 @@
       lv2:InputPort ;
     lv2:index 1 ;
     lv2:symbol "noise_auto_capture" ;
-    lv2:name "Auto Learn Noise" ;
+    lv2:name "Auto Learn Noise",
+    "Auto Aprender Ruido"@es ;
     lv2:minimum 0 ;
     lv2:maximum 1 ;
     lv2:default 0 ;
@@ -48,7 +51,8 @@
       lv2:InputPort ;
     lv2:index 2 ;
     lv2:symbol "reduction" ;
-    lv2:name "Reduction Amount" ;
+    lv2:name "Reduction Amount",
+      "Cantidad de Reduccion"@es ;
     lv2:minimum 0.0 ;
     lv2:maximum 48.0 ;
     lv2:default 0.0 ;
@@ -58,7 +62,8 @@
       lv2:InputPort ;
     lv2:index 3 ;
     lv2:symbol "strenght" ;
-    lv2:name "Reduction Strenght" ;
+    lv2:name "Reduction Strenght",
+      "Fuerza de Reduccion"@es ;
     lv2:portProperty pprop:logarithmic ;
     lv2:minimum 0.5 ;
     lv2:maximum 24.0 ;
@@ -68,7 +73,8 @@
       lv2:InputPort ;
     lv2:index 4 ;
     lv2:symbol "smoothing" ;
-    lv2:name "Smoothing" ;
+    lv2:name "Smoothing",
+      "Suavizado"@es ;
     lv2:portProperty pprop:logarithmic;
     lv2:minimum 0.01 ;
     lv2:maximum 0.5 ;
@@ -78,7 +84,8 @@
       lv2:InputPort ;
     lv2:index 5 ;
     lv2:symbol "frequency_smoothing" ;
-    lv2:name "Frequency Smoothing" ;
+    lv2:name "Frequency Smoothing",
+      "Suavizado de Frecuencia"@es ;
     lv2:minimum 1 ;
     lv2:maximum 12 ;
     lv2:default 0 ;
@@ -97,8 +104,9 @@
 		a lv2:InputPort,
 			lv2:ControlPort ;
 		lv2:index 7 ;
-		lv2:symbol "whitening" ;
-		lv2:name "Noise Whitening" ;
+		lv2:symbol "whitening";
+		lv2:name "Noise Whitening",
+      "Blanqueo del Ruido"@es ;
 		lv2:default 0 ;
 		lv2:minimum 0 ;
 		lv2:maximum 1 ;
@@ -108,7 +116,8 @@
 			lv2:ControlPort ;
 		lv2:index 8 ;
 		lv2:symbol "reset_noise_print" ;
-		lv2:name "Reset Noise Print" ;
+		lv2:name "Reset Noise Print",
+      "Reiniciar Perfil de Ruido"@es ;
 		lv2:default 0 ;
 		lv2:minimum 0 ;
 		lv2:maximum 1 ;
@@ -118,7 +127,8 @@
 			lv2:ControlPort ;
 		lv2:index 9 ;
 		lv2:symbol "noise_listen" ;
-		lv2:name "Noise Listen" ;
+		lv2:name "Noise Listen",
+      "Escuchar solo Ruido"@es ;
 		lv2:default 0 ;
 		lv2:minimum 0 ;
 		lv2:maximum 1 ;
@@ -146,5 +156,6 @@
     lv2:symbol "output" ;
     lv2:name "Output" ;
   ];
-  rdfs:comment "Instructions: Select a section of noise only in your track and loop it. Turn on noise capture for one second or two to learn the noise profile and then turn it off. Then you can now adjust the reduction." ;
+  rdfs:comment "Instructions: Select a section of noise only in your track and loop it. Turn on noise capture for one second or two to learn the noise profile and then turn it off. Then you can now adjust the reduction.",
+   "Instrucciones: Seleccionar una seccion de la pista que solo contenga ruido y reproducirla ciclicamente. Encender la captura del perfil de ruido por unos segundos para capturar el perfil de ruido y luego apagarlo. Luego se puede ajustar la reduccion."@es ;
 .
