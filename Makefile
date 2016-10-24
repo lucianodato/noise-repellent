@@ -55,7 +55,7 @@ endif
 
 override CFLAGS += -fPIC -std=c99
 override CFLAGS += `pkg-config --cflags lv2`
-override CFLAGS += `pkg-config fftw3f --cflags --libs`
+override LOADLIBES += `pkg-config --cflags --libs fftw3f`
 
 # build target definitions
 default: all
