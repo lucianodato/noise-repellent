@@ -86,7 +86,7 @@ $(BUILDDIR)$(LV2NAME)$(LIB_EXT): $(LV2NAME).c
 
 install: all
 	install -d $(DESTDIR)$(LV2DIR)/$(BUNDLE)
-	install -m755 $(BUILDDIR)$(LV2NAME)$(LIB_EXT) $(DESTDIR)$(LV2DIR)/$(BUNDLE)
+	install -m644 $(BUILDDIR)$(LV2NAME)$(LIB_EXT) $(DESTDIR)$(LV2DIR)/$(BUNDLE)
 	install -m644 $(BUILDDIR)manifest.ttl $(BUILDDIR)$(LV2NAME).ttl $(DESTDIR)$(LV2DIR)/$(BUNDLE)
 
 uninstall:
