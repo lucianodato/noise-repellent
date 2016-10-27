@@ -40,8 +40,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define HAMMING_HANN_SCALING 0.385 // 1/average(window[i]^2)
 #define BLACKMAN_HANN_SCALING 0.335
 
-//Whitening strenght
-#define WA 0.05 //For spectral whitening strenght 0-0.1
+//Whitening strength
+#define WA 0.05 //For spectral whitening strength 0-0.1
 
 
 ///---------------------------------------------------------------------
@@ -52,7 +52,7 @@ typedef enum {
 	NREPEL_CAPTURE = 0,
 	NREPEL_N_AUTO = 1,
 	NREPEL_AMOUNT = 2,
-	NREPEL_STRENGHT = 3,
+	NREPEL_STRENGTH = 3,
 	NREPEL_SMOOTHING = 4,
 	NREPEL_FREQUENCY_SMOOTHING = 5,
 	NREPEL_LATENCY = 6,
@@ -255,7 +255,7 @@ connect_port(LV2_Handle instance,
 		case NREPEL_AMOUNT:
 		nrepel->amount_of_reduction = (float*)data;
 		break;
-		case NREPEL_STRENGHT:
+		case NREPEL_STRENGTH:
 		nrepel->over_sustraction = (float*)data;
 		break;
 		case NREPEL_SMOOTHING:

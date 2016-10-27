@@ -61,8 +61,8 @@
     a lv2:ControlPort,
       lv2:InputPort ;
     lv2:index 3 ;
-    lv2:symbol "strenght" ;
-    lv2:name "Reduction Strenght",
+    lv2:symbol "strength" ;
+    lv2:name "Reduction Strength",
       "Fuerza de Reduccion"@es ;
     lv2:portProperty pprop:logarithmic ;
     lv2:minimum 0.5 ;
