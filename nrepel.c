@@ -72,7 +72,7 @@ typedef struct {
 	//Parameters for the algorithm (user input)
 	float* capture_state; // Capture Noise state (Manual-Off-Auto)
 	float* amount_of_reduction; // Amount of noise to reduce in dB
-	float* over_sustraction; // Amount of noise to reduce in dB
+	float* reduction_strenght; // Amount of noise to reduce in dB
 	float* report_latency; // Latency necessary
 	float* reset_print; // Latency necessary
 	float* noise_listen; //For noise only listening
@@ -115,6 +115,7 @@ typedef struct {
 	//Arrays and variables for getting bins info
 	float real_p,imag_n,mag,p2;
 	float* fft_magnitude;//magnitude
+	float* fft_magnitude_prev;//magnitude spectrum of the previous frame
 	float* fft_p2;//power spectrum
 	float* fft_p2_prev;//power spectum of previous frame
 	float* noise_thresholds;
@@ -196,12 +197,13 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->backward = fftwf_plan_r2r_1d(nrepel->fft_size, nrepel->output_fft_buffer, nrepel->input_fft_buffer, FFTW_HC2R, FFTW_ESTIMATE);
 
 	nrepel->fft_magnitude = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
+	nrepel->fft_magnitude_prev = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->fft_p2 = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->fft_p2_prev = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->noise_thresholds = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->auto_thresholds = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 
-	//This is experimentally obteined
+	//This was experimentally obteined in louizou paper
 	int LF = Freq2Index(1000.f,nrepel->samp_rate,nrepel->fft_size);//1kHz
 	int MF = Freq2Index(3000.f,nrepel->samp_rate,nrepel->fft_size);//3kHz
 	for (int k = 0;k <= nrepel->fft_size_2; k++){
@@ -256,7 +258,7 @@ connect_port(LV2_Handle instance,
 		nrepel->amount_of_reduction = (float*)data;
 		break;
 		case NREPEL_STRENGTH:
-		nrepel->over_sustraction = (float*)data;
+		nrepel->reduction_strenght = (float*)data;
 		break;
 		case NREPEL_SMOOTHING:
 		nrepel->time_smoothing = (float*)data;
@@ -383,6 +385,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 
 				//Store values in magnitude and power arrays
 				nrepel->fft_p2_prev[k] = nrepel->fft_p2[k]; //store previous value for smoothing
+				nrepel->fft_magnitude_prev[k] = nrepel->fft_magnitude[k]; //store previous value for smoothing
 				nrepel->fft_p2[k] = sanitize_denormal(nrepel->p2);
 				nrepel->fft_magnitude[k] = sanitize_denormal(nrepel->mag);
 
@@ -394,7 +397,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 				float noise_reference_threshold = *(nrepel->auto_thresholds);
 
 				//if slected auto estimate noise spectrum
-				auto_capture_noise(nrepel->fft_p2,
+				auto_capture_noise(nrepel->fft_p2,//this is supposed to be the power spectrum in Loizou method
 													 nrepel->fft_size_2,
 													 nrepel->noise_thresholds,
 													 noise_reference_threshold,
@@ -405,11 +408,16 @@ run(LV2_Handle instance, uint32_t n_samples) {
 													 nrepel->prev_p_min,
 													 nrepel->speech_p_p,
 													 nrepel->prev_speech_p_p);
+
+				//noise_thresholds should be a magnitude spectrum
+				for (k = 0; k <= nrepel->fft_size_2; k++) {
+					nrepel->noise_thresholds[k] = sqrtf(nrepel->noise_thresholds[k]);
+				}
 			}
 
 			if(*(nrepel->capture_state) == 1.f) { //MANUAL
 				//If selected estimate noise spectrum based on selected portion of signal
-				get_noise_statistics(nrepel->fft_p2,
+				get_noise_statistics(nrepel->fft_magnitude,
 														nrepel->fft_size_2,
 														nrepel->noise_thresholds,
 														&nrepel->window_count); //Use fixed value here
@@ -420,18 +428,24 @@ run(LV2_Handle instance, uint32_t n_samples) {
 				//Time smoothing between current and past power spectrum
 				for (k = 0; k <= nrepel->fft_size_2; k++) {
 					nrepel->fft_p2[k] = (1.f - *(nrepel->time_smoothing)) * nrepel->fft_p2[k] + *(nrepel->time_smoothing) * nrepel->fft_p2_prev[k];
+					nrepel->fft_magnitude[k] = (1.f - *(nrepel->time_smoothing)) * nrepel->fft_magnitude[k] + *(nrepel->time_smoothing) * nrepel->fft_magnitude_prev[k];
 				}
 
-				//Here we could smooth the frequency bins to further avoid musical noise (not a good choise for hum type od noise though)
+				//Here we could smooth the frequency bins to further avoid musical noise (not a good choise for hum type of noise though)
 
-				//Spectral Sustraction (Power Sustraction)
-				denoise_gain_ss(*(nrepel->over_sustraction),
+				//Generalized Spectral Sustraction (Power Sustraction)
+				denoise_gain_gss(*(nrepel->reduction_strenght),
 											nrepel->fft_size_2,
-											nrepel->fft_p2,
+											2.f,//gamma1
+											0.5f,//gamma2
+											1.f,//alpha
+											0.f,//beta
+											nrepel->fft_magnitude,
 											nrepel->noise_thresholds,
 											nrepel->Gk);
 
-				//Frequency smoothing of gains could be done here, but it proved to be a bad choise overall
+				//Frequency smoothing of gains could be done here, but it proved to be a bad choise overall to be replaced in future
+				//using a perceptual approach with masking thresholds
 				spectral_smoothing_SG_quad(nrepel->Gk,*(nrepel->frequency_smoothing),nrepel->fft_size_2);
 			}
 			//APPLY REDUCTION
@@ -452,7 +466,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 				nrepel->residual_spectrum[nrepel->fft_size-k] = nrepel->output_fft_buffer[nrepel->fft_size-k] - nrepel->denoised_fft_buffer[nrepel->fft_size-k];
 			}
 
-			//Residal signal Whitening and tappering
+			//Residual signal Whitening and tappering
 			if(*(nrepel->residual_whitening) == 1.f) {
 				whitening_of_spectrum(nrepel->residual_spectrum,nrepel->wa,nrepel->fft_size_2);
 				apply_tappering_filter(nrepel->residual_spectrum,nrepel->tappering_filter,nrepel->fft_size_2);

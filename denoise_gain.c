@@ -22,8 +22,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include "estimate_noise_spectrum.c"
 
 
-//Spectral Subtraction
-void denoise_gain_ss(float over_sustraction,
+//Power Spectral Subtraction
+void denoise_gain_ss(float reduction_strenght,
                       int fft_size_2,
                       float* spectrum,
                       float* noise_thresholds,
@@ -38,13 +38,57 @@ void denoise_gain_ss(float over_sustraction,
       } else {
         gain = 0.f;
       }
-      //Use oversustraction
-      Fk = over_sustraction*(1.0-gain) ;
+      //Use reduction_strenght seted by the user
+      Fk = reduction_strenght*(1.0-gain);
 
-      if(Fk < 0.0) Fk = 0.0 ;
-      if(Fk > 1.0) Fk = 1.0 ;
+      if(Fk < 0.f) Fk = 0.f;
+      if(Fk > 1.f) Fk = 1.f;
 
-      Gk[k] =  1.0 - Fk ;
+      Gk[k] =  1.f - Fk;
+
+    } else {
+      //Otherwise we keep everything as is
+      Gk[k] = 1.f;
+    }
+  } //for
+}
+
+/*Generalized Spectral Subtraction
+gamma defines what type of spectral Subtraction is used
+  gamma1=gamma2=1 is magnitude substaction
+  gamma1=2 gamma2=0.5 is power Subtraction
+  gamma1=2 gamma2=1 is wiener filtering
+alpha is the oversustraction factor
+beta is the spectral flooring factor
+reduction_strenght is the other oversustraction designed by the user
+so there are 2 oversustraction factors
+*/
+void denoise_gain_gss(float reduction_strenght,
+                      int fft_size_2,
+                      float gamma1,
+                      float gamma2,
+                      float alpha,
+                      float beta,
+                      float* spectrum,
+                      float* noise_thresholds,
+                      float* Gk) {
+  int k;
+  float gain, Fk;
+
+  for (k = 0; k <= fft_size_2 ; k++) {
+    if (spectrum[k] > FLT_MIN && noise_thresholds[k] > FLT_MIN){
+      if(powf((noise_thresholds[k]/spectrum[k]),gamma1) < (1.f/(alpha+beta))){
+        gain = MAX(powf(1.f-alpha*powf((noise_thresholds[k]/spectrum[k]),gamma1),gamma2),0.f);
+      } else {
+        gain = MAX(powf(beta*powf((noise_thresholds[k]/spectrum[k]),gamma1),gamma2),0.f);
+      }
+      //Use reduction_strenght
+      Fk = reduction_strenght*(1.f-gain);
+
+      if(Fk < 0.f) Fk = 0.f;
+      if(Fk > 1.f) Fk = 1.f;
+
+      Gk[k] =  1.f - Fk;
 
     } else {
       //Otherwise we keep everything as is
