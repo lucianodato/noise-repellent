@@ -66,10 +66,16 @@ inline float to_dB(float g) {
 }
 
 inline float mean(int m, float* a) {
-    int sum=0, i;
-    for(i=0; i<m; i++)
+    float sum=0;
+    for(int i=0; i<m; i++)
         sum+=a[i];
     return((float)sum/m);
+}
+inline float gmean(int m, float* a) {
+    float mult=0;
+    for(int i=0; i<m; i++)
+        mult*=a[i];
+    return((float)pow(mult,1.f/m));
 }
 
 inline float median(int n, float* x) {
