@@ -46,7 +46,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 //masking thresholds
 //values recomended by virag
-#define ALPHA_MAX 6.0
+#define ALPHA_MAX 10.0
 #define ALPHA_MIN 1.0
 #define BETA_MAX 0.0002 //This was originaly 0.02
 #define BETA_MIN 0.0
@@ -518,10 +518,8 @@ run(LV2_Handle instance, uint32_t n_samples) {
 					//2- Convolution with a spreading function
 					//3- Sustraction of the offset depending of noise masking tone masking
 					//4- renormalization and comparition with the absolute threshold of hearing
-					//compute_johnston_gain(nrepel->bark_z,nrepel->jg_upper,nrepel->jg_lower,nrepel->fft_size_2,nrepel->tonality_factor);
-					//compute_masked(nrepel->fft_p2,nrepel->noise_thresholds,nrepel->jg_upper,nrepel->jg_lower,nrepel->masked,nrepel->fft_size_2);
 					compute_masking_thresholds(nrepel->bark_z,
-																			nrepel->fft_p2,
+																			nrepel->fft_magnitude,
 																			nrepel->noise_thresholds,
 																			nrepel->fft_size_2,
 																			nrepel->masked,
@@ -604,8 +602,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 												nrepel->Gk);
 				}
 
-				//Frequency smoothing of gains could be done here, but it proved to be a bad choise overall to be replaced in future
-				//using a perceptual approach with masking thresholds
+				//Frequency smoothing of gains
 				spectral_smoothing_MA(nrepel->Gk,*(nrepel->frequency_smoothing),nrepel->fft_size_2);
 			}
 			//APPLY REDUCTION
