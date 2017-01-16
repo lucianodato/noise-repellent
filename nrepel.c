@@ -519,7 +519,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 					//3- Sustraction of the offset depending of noise masking tone masking
 					//4- renormalization and comparition with the absolute threshold of hearing
 					compute_masking_thresholds(nrepel->bark_z,
-																			nrepel->fft_magnitude,
+																			nrepel->fft_p2,
 																			nrepel->noise_thresholds,
 																			nrepel->fft_size_2,
 																			nrepel->masked,
