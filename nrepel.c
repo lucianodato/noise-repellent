@@ -45,9 +45,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define WA 0.05 //For spectral whitening strength 0-0.1
 
 //masking thresholds
+//values recomended by virag
 #define ALPHA_MAX 6.0
 #define ALPHA_MIN 1.0
-#define BETA_MAX 0.02
+#define BETA_MAX 0.0002 //This was originaly 0.02
 #define BETA_MIN 0.0
 
 
@@ -88,7 +89,7 @@ typedef struct {
 	float* time_smoothing; //constant that set the time smoothing coefficient
 	float* auto_state; //autocapture switch
 	float* frequency_smoothing; //Smoothing over frequency
-	float* masking; //Smoothing over frequency
+	float* masking; //Activate masking threshold
 	float* enable; //For soft bypass (click free bypass)
 
 
@@ -153,8 +154,6 @@ typedef struct {
 	float* prev_speech_p_p;
 
 	//masking thresholds
-	float sum_log_p;
-	float sum_p;
 	float SFM;
 	float tonality_factor;
 	float* masked;
@@ -165,6 +164,10 @@ typedef struct {
 	float* bark_z;
 	float max_masked;
 	float min_masked;
+	float weight1;
+	float weight2;
+	float gmean_value;
+	float mean_value;
 
 	// clock_t start, end;
 	// double cpu_time_used;
@@ -277,6 +280,7 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->jg_lower = (float**)malloc(sizeof(float)*(nrepel->fft_size));
 	nrepel->bark_z = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 
+	memset(nrepel->alpha, 1, (nrepel->fft_size_2+1)*sizeof(float));
 	for(int k = 0; k < nrepel->fft_size; k++){
 		nrepel->jg_upper[k] = (float*)calloc(11,sizeof(float));
 		nrepel->jg_lower[k] = (float*)calloc(11,sizeof(float));
@@ -387,6 +391,17 @@ run(LV2_Handle instance, uint32_t n_samples) {
 		memset(nrepel->prev_p_min, 0, (nrepel->fft_size_2+1)*sizeof(float));
 		memset(nrepel->speech_p_p, 0, (nrepel->fft_size_2+1)*sizeof(float));
 		memset(nrepel->prev_speech_p_p, 0, (nrepel->fft_size_2+1)*sizeof(float));
+
+		memset(nrepel->masked, 0, (nrepel->fft_size_2+1)*sizeof(float));
+		memset(nrepel->alpha, 1, (nrepel->fft_size_2+1)*sizeof(float));
+		memset(nrepel->beta, 0, (nrepel->fft_size_2+1)*sizeof(float));
+
+		for(int k = 0; k < nrepel->fft_size; k++){
+			nrepel->jg_upper[k] = (float*)calloc(11,sizeof(float));
+			nrepel->jg_lower[k] = (float*)calloc(11,sizeof(float));
+		}
+		nrepel->max_masked = FLT_MIN;
+		nrepel->min_masked = FLT_MAX;
 	}
 
 	//main loop for processing
@@ -498,14 +513,14 @@ run(LV2_Handle instance, uint32_t n_samples) {
 												nrepel->Gk_pre_proc);
 
 					for (k = 0; k <= nrepel->fft_size_2; k++) {
-						nrepel->estimated_clean[k] = nrepel->Gk_pre_proc[k]*nrepel->fft_p2[k];
+						nrepel->estimated_clean[k] = MAX(nrepel->Gk_pre_proc[k]*nrepel->fft_p2[k],FLT_MIN);
 					}
 
 					//spectral flatness measure using Geometric and Arithmetic means of the spectrum cleaned previously
 					//this value is in db scale
-					float gmean_value = gmean(nrepel->fft_size_2,nrepel->estimated_clean);
-					float mean_value = mean(nrepel->fft_size_2,nrepel->estimated_clean);
-					nrepel->SFM = 10.f*log10f(gmean_value/mean_value);
+					nrepel->gmean_value = gmean(nrepel->fft_size_2,nrepel->estimated_clean);
+					nrepel->mean_value = mean(nrepel->fft_size_2,nrepel->estimated_clean);
+					nrepel->SFM = 10.f*log10f(nrepel->gmean_value/nrepel->mean_value);
 					//Tonality factor in db scale
 					nrepel->tonality_factor = MIN(nrepel->SFM/-60.f, 1.f);
 
@@ -516,7 +531,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 					//3- Sustraction of the offset depending of noise masking tone masking
 					compute_johnston_gain(nrepel->bark_z,nrepel->jg_upper,nrepel->jg_lower,nrepel->fft_size_2,nrepel->tonality_factor);
 					//4- renormalization and comparition with the absolute threshold of hearing
-					compute_masked(nrepel->estimated_clean,nrepel->noise_thresholds,nrepel->jg_upper,nrepel->jg_lower,nrepel->masked,nrepel->fft_size_2);
+					compute_masked(nrepel->fft_p2,nrepel->noise_thresholds,nrepel->jg_upper,nrepel->jg_lower,nrepel->masked,nrepel->fft_size_2);
 
 					//Get alpha and beta based on masking thresholds
 					//beta and alpha values would adapt based on masking thresholds
@@ -527,23 +542,23 @@ run(LV2_Handle instance, uint32_t n_samples) {
 					//First we need the maximun and the minimun value of the masking threshold
 					nrepel->max_masked = MAX(max_spectral_value(nrepel->masked,nrepel->fft_size_2),nrepel->max_masked);
 					nrepel->min_masked = MIN(min_spectral_value(nrepel->masked,nrepel->fft_size_2),nrepel->min_masked);
-					float weight1 = (ALPHA_MAX - ALPHA_MIN)/(nrepel->min_masked - nrepel->max_masked);
-					//float weight2 = (BETA_MAX - BETA_MIN)/(nrepel->min_masked - nrepel->max_masked);
+					nrepel->weight1 = (ALPHA_MAX - ALPHA_MIN)/(nrepel->min_masked - nrepel->max_masked);
+					nrepel->weight2 = (BETA_MAX - BETA_MIN)/(nrepel->min_masked - nrepel->max_masked);
 
 					for (k = 0; k <= nrepel->fft_size_2; k++) {
 						//alpha and beta vector
 						if(nrepel->masked[k] == nrepel->max_masked){
 								nrepel->alpha[k] = ALPHA_MIN;
-								//nrepel->beta[k] = BETA_MIN;
+								nrepel->beta[k] = BETA_MIN;
 						}
 						if(nrepel->masked[k] == nrepel->min_masked){
 								nrepel->alpha[k] = ALPHA_MAX;
-								//nrepel->beta[k] = BETA_MAX;
+								nrepel->beta[k] = BETA_MAX;
 						}
 						if(nrepel->masked[k] < nrepel->max_masked && nrepel->masked[k] > nrepel->min_masked){
 								//Linear interpolation of the value between max and min masked threshold values
-								nrepel->alpha[k] = ALPHA_MIN + weight1 * (nrepel->masked[k]- ALPHA_MIN);
-								//nrepel->beta[k] = BETA_MIN + weight2 * (nrepel->masked[k]- BETA_MIN);
+								nrepel->alpha[k] = ALPHA_MIN + nrepel->weight1 * (nrepel->masked[k]- ALPHA_MIN);
+								nrepel->beta[k] = BETA_MIN + nrepel->weight2 * (nrepel->masked[k]- BETA_MIN);
 						}
 					}
 					//then we can do the main Sustraction based on alpha and beta computed here
