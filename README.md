@@ -16,6 +16,8 @@ How to improve the reduction quality:
 
 -The smoothing control will control the amount of musical noise that is present after the reduction, if it is pushed too hard it will blur transients and sound reverberant.
 
+- NEW! Masking will use masking thresholds in order to estimate the strength and the noise floor adaptively and achieve much more noise reduction without distorting the signal too much and without introducing a lot of musical noise.
+
 -A whitening option for post processing is provided where the residual spectrum will be modified to sound more like white noise, taking into consideration that our ears do well in discriminating sounds in white noise versus colored noise. Furthermore it will recover some of the high frequency detail and hide the low frequency noise more. Whitening is dependant of the reduction. If you reduce a lot, it won't have any effect since the noise floor is too low.
 
 -A noise listen control is provided to tune what is reduced by listenig to the residual signal.
