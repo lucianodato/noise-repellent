@@ -159,8 +159,6 @@ typedef struct {
 	float* masked;
 	float* alpha;
 	float* beta;
-	float** jg_upper;
-	float** jg_lower;
 	float* bark_z;
 	float max_masked;
 	float min_masked;
@@ -276,15 +274,9 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->masked = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->alpha = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->beta = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
-	nrepel->jg_upper = (float**)malloc(sizeof(float)*(nrepel->fft_size));
-	nrepel->jg_lower = (float**)malloc(sizeof(float)*(nrepel->fft_size));
 	nrepel->bark_z = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 
 	memset(nrepel->alpha, 1, (nrepel->fft_size_2+1)*sizeof(float));
-	for(int k = 0; k < nrepel->fft_size; k++){
-		nrepel->jg_upper[k] = (float*)calloc(11,sizeof(float));
-		nrepel->jg_lower[k] = (float*)calloc(11,sizeof(float));
-	}
 	nrepel->max_masked = FLT_MIN;
 	nrepel->min_masked = FLT_MAX;
 	//(this should be precomputed and in a file to be more efficient)
@@ -396,10 +388,6 @@ run(LV2_Handle instance, uint32_t n_samples) {
 		memset(nrepel->alpha, 1, (nrepel->fft_size_2+1)*sizeof(float));
 		memset(nrepel->beta, 0, (nrepel->fft_size_2+1)*sizeof(float));
 
-		for(int k = 0; k < nrepel->fft_size; k++){
-			nrepel->jg_upper[k] = (float*)calloc(11,sizeof(float));
-			nrepel->jg_lower[k] = (float*)calloc(11,sizeof(float));
-		}
 		nrepel->max_masked = FLT_MIN;
 		nrepel->min_masked = FLT_MAX;
 	}
@@ -513,7 +501,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 												nrepel->Gk_pre_proc);
 
 					for (k = 0; k <= nrepel->fft_size_2; k++) {
-						nrepel->estimated_clean[k] = MAX(nrepel->Gk_pre_proc[k]*nrepel->fft_p2[k],FLT_MIN);
+						nrepel->estimated_clean[k] = nrepel->Gk_pre_proc[k]*nrepel->fft_p2[k];
 					}
 
 					//spectral flatness measure using Geometric and Arithmetic means of the spectrum cleaned previously
@@ -529,9 +517,17 @@ run(LV2_Handle instance, uint32_t n_samples) {
 					//1- we need to compute the energy in the bark scale
 					//2- Convolution with a spreading function
 					//3- Sustraction of the offset depending of noise masking tone masking
-					compute_johnston_gain(nrepel->bark_z,nrepel->jg_upper,nrepel->jg_lower,nrepel->fft_size_2,nrepel->tonality_factor);
 					//4- renormalization and comparition with the absolute threshold of hearing
-					compute_masked(nrepel->fft_p2,nrepel->noise_thresholds,nrepel->jg_upper,nrepel->jg_lower,nrepel->masked,nrepel->fft_size_2);
+					//compute_johnston_gain(nrepel->bark_z,nrepel->jg_upper,nrepel->jg_lower,nrepel->fft_size_2,nrepel->tonality_factor);
+					//compute_masked(nrepel->fft_p2,nrepel->noise_thresholds,nrepel->jg_upper,nrepel->jg_lower,nrepel->masked,nrepel->fft_size_2);
+					compute_masking_thresholds(nrepel->bark_z,
+																			nrepel->fft_p2,
+																			nrepel->noise_thresholds,
+																			nrepel->fft_size_2,
+																			nrepel->masked,
+																			nrepel->tonality_factor);
+
+
 
 					//Get alpha and beta based on masking thresholds
 					//beta and alpha values would adapt based on masking thresholds

@@ -45,7 +45,7 @@ void denoise_gain_gss(float reduction_strenght,
   float gain, Fk;
 
   for (k = 0; k <= fft_size_2 ; k++) {
-    if (spectrum[k] > FLT_MIN && noise_thresholds[k] > FLT_MIN){
+    if (spectrum[k] > FLT_MIN){
       if(powf((noise_thresholds[k]/spectrum[k]),gamma1) < (1.f/(alpha+beta))){
         gain = MAX(powf(1.f-alpha*powf((noise_thresholds[k]/spectrum[k]),gamma1),gamma2),0.f);
       } else {
@@ -80,7 +80,7 @@ void denoise_gain_gss_v(float reduction_strenght,
   float gain, Fk;
 
   for (k = 0; k <= fft_size_2 ; k++) {
-    if (spectrum[k] > FLT_MIN && noise_thresholds[k] > FLT_MIN){
+    if (spectrum[k] > FLT_MIN){
       if(powf((noise_thresholds[k]/spectrum[k]),gamma1) < (1.f/(alpha[k]+beta[k]))){
         gain = MAX(powf(1.f-alpha[k]*powf((noise_thresholds[k]/spectrum[k]),gamma1),gamma2),0.f);
       } else {
