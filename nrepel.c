@@ -606,7 +606,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 
 				//Frequency smoothing of gains could be done here, but it proved to be a bad choise overall to be replaced in future
 				//using a perceptual approach with masking thresholds
-				spectral_smoothing_SG_quad(nrepel->Gk,*(nrepel->frequency_smoothing),nrepel->fft_size_2);
+				spectral_smoothing_MA(nrepel->Gk,*(nrepel->frequency_smoothing),nrepel->fft_size_2);
 			}
 			//APPLY REDUCTION
 
