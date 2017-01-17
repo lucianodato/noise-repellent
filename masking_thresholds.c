@@ -51,7 +51,7 @@ void compute_masking_thresholds(float* bark_z,float* spectrum, float* noise_thre
       if(k - j > 10) break;//up to 10 bins per bark band
 
       //Relating the spread masking threshold to the critical band masking thresholds
-      masked[k] += MAX((spectrum[j]-noise_thresholds[j]),0.f)*gain_j;
+      masked[k] += spectrum[j]*gain_j;
     }
     for(j = k ; j <= fft_size_2 ; j++) {
       bark_diff = bark_z[j] - bark_z[k];
@@ -68,7 +68,7 @@ void compute_masking_thresholds(float* bark_z,float* spectrum, float* noise_thre
       if(j - k > 10) break;//up to 10 bins per bark band
 
       //Relating the spread masking threshold to the critical band masking thresholds
-      masked[k] += MAX((spectrum[j]-noise_thresholds[j]),0.f)*gain_j;
+      masked[k] += spectrum[j]*gain_j;
     }
   }
 }

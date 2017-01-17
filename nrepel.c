@@ -133,7 +133,6 @@ typedef struct {
 
 	float* Gk; //gain to be applied
 	float* Gk_prev; //past gain applied
-	float* Gk_pre_proc; //gain to be applied to compute masking thresholds
 
 	float* denoised_fft_buffer;
 	float* residual_spectrum;
@@ -158,7 +157,6 @@ typedef struct {
 	float tonality_factor;
 	float* masked;
 	float* alpha;
-	float* alpha_prev;
 	float* beta;
 	float* bark_z;
 	float max_masked;
@@ -253,8 +251,6 @@ instantiate(const LV2_Descriptor*     descriptor,
 	memset(nrepel->Gk, 1, (nrepel->fft_size_2+1)*sizeof(float));
 	nrepel->Gk_prev = (float*)malloc((nrepel->fft_size_2+1)*sizeof(float));
 	memset(nrepel->Gk_prev, 1, (nrepel->fft_size_2+1)*sizeof(float));
-	nrepel->Gk_pre_proc = (float*)malloc((nrepel->fft_size_2+1)*sizeof(float));
-	memset(nrepel->Gk_pre_proc, 1, (nrepel->fft_size_2+1)*sizeof(float));
 
 	nrepel->denoised_fft_buffer = (float*)calloc(nrepel->fft_size,sizeof(float));
 	nrepel->residual_spectrum = (float*)calloc((nrepel->fft_size),sizeof(float));
@@ -274,12 +270,10 @@ instantiate(const LV2_Descriptor*     descriptor,
 	//MASKING THRESHOLDS
 	nrepel->masked = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->alpha = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
-	nrepel->alpha_prev = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->beta = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->bark_z = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 
 	memset(nrepel->alpha, 1, (nrepel->fft_size_2+1)*sizeof(float));
-	memset(nrepel->alpha_prev, 1, (nrepel->fft_size_2+1)*sizeof(float));
 	nrepel->max_masked = FLT_MIN;
 	nrepel->min_masked = FLT_MAX;
 	compute_bark_z(nrepel->bark_z,nrepel->fft_size_2,nrepel->samp_rate);
@@ -484,30 +478,18 @@ run(LV2_Handle instance, uint32_t n_samples) {
 
 				///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-				//MASKING
+				//MASKING THRESHOLDS FROM VIRAG METHOD
 				if(*(nrepel->masking) == 1.f){
 					//reset masking threshold
 					memset(nrepel->masked, 0, (nrepel->fft_size_2+1)*sizeof(float));
-
-					//TO APPLY MASKING THRESHOLDS FROM VIRAG METHOD
 
 					//Noise masking threshold must be computed from a clean signal
 					//therefor we aproximate a clean signal using a power Sustraction over
 					//the original noisy one
 
 					//basic power Sustraction to estimate clean signal
-					denoise_gain_gss(1.f,
-												nrepel->fft_size_2,
-												2.f,//gamma1
-												0.5f,//gamma2
-												1.f,//alpha
-												0.f,//beta
-												nrepel->fft_magnitude,
-												nrepel->noise_thresholds,
-												nrepel->Gk_pre_proc);
-
 					for (k = 0; k <= nrepel->fft_size_2; k++) {
-						nrepel->estimated_clean[k] = nrepel->Gk_pre_proc[k]*nrepel->fft_p2[k];
+						nrepel->estimated_clean[k] =  MAX(nrepel->fft_p2[k]-pow(nrepel->noise_thresholds[k],2),0.f);
 					}
 
 					//spectral flatness measure using Geometric and Arithmetic means of the spectrum cleaned previously
@@ -516,7 +498,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 					nrepel->mean_value = mean(nrepel->fft_size_2,nrepel->estimated_clean);
 					nrepel->SFM = 10.f*log10f(nrepel->gmean_value/nrepel->mean_value);
 					//Tonality factor in db scale
-					nrepel->tonality_factor = MIN(nrepel->SFM/-60.f, 1.f);
+					nrepel->tonality_factor = MIN(nrepel->SFM/60.f, 1.f);
 
 					//Now we can compute noise masking threshold from this clean signal
 
@@ -525,13 +507,11 @@ run(LV2_Handle instance, uint32_t n_samples) {
 					//3- Sustraction of the offset depending of noise masking tone masking
 					//4- renormalization and comparition with the absolute threshold of hearing
 					compute_masking_thresholds(nrepel->bark_z,
-																			nrepel->fft_magnitude,
+																			nrepel->estimated_clean,
 																			nrepel->noise_thresholds,
 																			nrepel->fft_size_2,
 																			nrepel->masked,
 																			nrepel->tonality_factor);
-
-
 
 					//Get alpha and beta based on masking thresholds
 					//beta and alpha values would adapt based on masking thresholds
@@ -546,9 +526,6 @@ run(LV2_Handle instance, uint32_t n_samples) {
 					// nrepel->weight2 = (BETA_MAX - BETA_MIN)/(nrepel->min_masked - nrepel->max_masked);
 
 					for (k = 0; k <= nrepel->fft_size_2; k++) {
-						//store previous values
-						nrepel->alpha_prev[k] = nrepel->alpha[k];
-
 						//new alpha and beta vector
 						if(nrepel->masked[k] == nrepel->max_masked){
 								nrepel->alpha[k] = ALPHA_MIN;
@@ -563,9 +540,6 @@ run(LV2_Handle instance, uint32_t n_samples) {
 								nrepel->alpha[k] = ALPHA_MIN + nrepel->weight1 * (nrepel->masked[k]- ALPHA_MIN);
 								// nrepel->beta[k] = BETA_MIN + nrepel->weight2 * (nrepel->masked[k]- BETA_MIN);
 						}
-
-						//interpolate with previous values
-						nrepel->alpha[k] = 0.1f*nrepel->alpha[k] + 0.9f*nrepel->alpha_prev[k];
 					}
 					//then we can do the main Sustraction based on alpha and beta computed here
 				}
@@ -598,11 +572,11 @@ run(LV2_Handle instance, uint32_t n_samples) {
 
 					//gain should be smoothed over time to avoid discontinuities
 					for (k = 0; k <= nrepel->fft_size_2; k++) {
-						nrepel->Gk[k] = 0.5f*nrepel->Gk[k] + 0.5f*nrepel->Gk_prev[k];
+						nrepel->Gk[k] = 0.7f*nrepel->Gk[k] + 0.3f*nrepel->Gk_prev[k];
 					}
 
 				} else {
-					//Parametric Generalized Spectral Sustraction (Power Sustraction)
+					//Power Sustraction
 					denoise_gain_gss(*(nrepel->reduction_strenght),
 												nrepel->fft_size_2,
 												2.f,//gamma1
