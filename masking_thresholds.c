@@ -20,6 +20,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <float.h>
 #include <math.h>
 
+//masking thresholds
+//values recomended by virag
+#define ALPHA_MAX 10.0
+#define ALPHA_MIN 1.0
+#define BETA_MAX 0.02
+#define BETA_MIN 0.0
+
+
 void compute_bark_z(float* bark_z,int fft_size_2, int srate) {
   int k;
   float freq;
@@ -48,7 +56,7 @@ void compute_masking_thresholds(float* bark_z,float* spectrum, float* noise_thre
 
       //take into account absolute threshold of hearing
       if(gain_j < 1.e-2) break;
-      if(k - j > 10) break;//up to 10 bins per bark band
+      if(k - j > 10) break;
 
       //Relating the spread masking threshold to the critical band masking thresholds
       masked[k] += spectrum[j]*gain_j;
@@ -65,7 +73,7 @@ void compute_masking_thresholds(float* bark_z,float* spectrum, float* noise_thre
 
       //take into account absolute threshold of hearing
       if(gain_j < 1.e-2) break;
-      if(j - k > 10) break;//up to 10 bins per bark band
+      if(j - k > 10) break;
 
       //Relating the spread masking threshold to the critical band masking thresholds
       masked[k] += spectrum[j]*gain_j;

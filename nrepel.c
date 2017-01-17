@@ -41,17 +41,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define HAMMING_HANN_SCALING 0.385 // 1/average(window[i]^2)
 #define BLACKMAN_HANN_SCALING 0.335
 
-//Whitening strength
-//#define WA 0.05 //For spectral whitening strength 0-0.1
-
-//masking thresholds
-//values recomended by virag
-#define ALPHA_MAX 10.0
-#define ALPHA_MIN 1.0
-// #define BETA_MAX 0.02
-// #define BETA_MIN 0.0
-
-
 ///---------------------------------------------------------------------
 
 //LV2 CODE
@@ -63,14 +52,16 @@ typedef enum {
 	NREPEL_STRENGTH = 3,
 	NREPEL_SMOOTHING = 4,
 	NREPEL_FREQUENCY_SMOOTHING = 5,
-	NREPEL_MASKING = 6,
-	NREPEL_LATENCY = 7,
-	NREPEL_WHITENING = 8,
-	NREPEL_RESET = 9,
-	NREPEL_NOISE_LISTEN = 10,
-	NREPEL_ENABLE = 11,
-	NREPEL_INPUT = 12,
-	NREPEL_OUTPUT = 13,
+	NREPEL_ATTACK = 6,
+	NREPEL_RELEASE = 7,
+	NREPEL_MASKING = 8,
+	NREPEL_LATENCY = 9,
+	NREPEL_WHITENING = 10,
+	NREPEL_RESET = 11,
+	NREPEL_NOISE_LISTEN = 12,
+	NREPEL_ENABLE = 13,
+	NREPEL_INPUT = 14,
+	NREPEL_OUTPUT = 15,
 } PortIndex;
 
 typedef struct {
@@ -91,6 +82,8 @@ typedef struct {
 	float* frequency_smoothing; //Smoothing over frequency
 	float* masking; //Activate masking threshold
 	float* enable; //For soft bypass (click free bypass)
+	float* attack; //attack time
+	float* release; //release time
 
 
 	//Parameters values and arrays for the STFT
@@ -125,9 +118,11 @@ typedef struct {
 	//Arrays and variables for getting bins info
 	float real_p,imag_n,mag,p2;
 	float* fft_magnitude;//magnitude
+	float* fft_magnitude_smooth;//magnitude
 	float* estimated_clean;//magnitude
 	float* fft_magnitude_prev;//magnitude spectrum of the previous frame
 	float* fft_p2;//power spectrum
+	float* fft_p2_smooth;//power spectrum
 	float* fft_p2_prev;//power spectum of previous frame
 	float* noise_thresholds;
 
@@ -162,9 +157,14 @@ typedef struct {
 	float max_masked;
 	float min_masked;
 	float weight1;
-	//float weight2;
+	float weight2;
 	float gmean_value;
 	float mean_value;
+
+	//envelope Follower
+	float* envelope;
+	float attack_coeff;
+	float release_coeff;
 
 	// clock_t start, end;
 	// double cpu_time_used;
@@ -225,9 +225,11 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->backward = fftwf_plan_r2r_1d(nrepel->fft_size, nrepel->output_fft_buffer, nrepel->input_fft_buffer, FFTW_HC2R, FFTW_ESTIMATE);
 
 	nrepel->fft_magnitude = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
+	nrepel->fft_magnitude_smooth = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->estimated_clean = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->fft_magnitude_prev = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->fft_p2 = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
+	nrepel->fft_p2_smooth = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->fft_p2_prev = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->noise_thresholds = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->auto_thresholds = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
@@ -278,6 +280,8 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->min_masked = FLT_MAX;
 	compute_bark_z(nrepel->bark_z,nrepel->fft_size_2,nrepel->samp_rate);
 
+	nrepel->envelope = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
+
 	return (LV2_Handle)nrepel;
 }
 
@@ -307,6 +311,12 @@ connect_port(LV2_Handle instance,
 		break;
 		case NREPEL_FREQUENCY_SMOOTHING:
 		nrepel->frequency_smoothing = (float*)data;
+		break;
+		case NREPEL_ATTACK:
+		nrepel->attack = (float*)data;
+		break;
+		case NREPEL_RELEASE:
+		nrepel->release = (float*)data;
 		break;
 		case NREPEL_MASKING:
 		nrepel->masking = (float*)data;
@@ -388,6 +398,10 @@ run(LV2_Handle instance, uint32_t n_samples) {
 		nrepel->min_masked = FLT_MAX;
 	}
 
+	//attack and release coefficients
+	nrepel->attack_coeff = exp( -1.f / (*(nrepel->attack) * nrepel->samp_rate));
+	nrepel->release_coeff = exp( -1.f / (*(nrepel->release) * nrepel->samp_rate));
+
 	//main loop for processing
 	for (pos = 0; pos < n_samples; pos++){
 		//Store samples int the input buffer
@@ -443,7 +457,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 
 			}
 
-			//------------Processing---------------
+			//------------GAIN AND THRESHOLD CALCULATION---------------
 
 			if(*(nrepel->auto_state) == 1.f) {
 				float noise_reference_threshold = *(nrepel->auto_thresholds);
@@ -520,22 +534,22 @@ run(LV2_Handle instance, uint32_t n_samples) {
 					nrepel->max_masked = MAX(max_spectral_value(nrepel->masked,nrepel->fft_size_2),nrepel->max_masked);
 					nrepel->min_masked = MIN(min_spectral_value(nrepel->masked,nrepel->fft_size_2),nrepel->min_masked);
 					nrepel->weight1 = (ALPHA_MAX - ALPHA_MIN)/(nrepel->min_masked - nrepel->max_masked);
-					// nrepel->weight2 = (BETA_MAX - BETA_MIN)/(nrepel->min_masked - nrepel->max_masked);
+					//nrepel->weight2 = (BETA_MAX - BETA_MIN)/(nrepel->min_masked - nrepel->max_masked);
 
 					for (k = 0; k <= nrepel->fft_size_2; k++) {
 						//new alpha and beta vector
 						if(nrepel->masked[k] == nrepel->max_masked){
 								nrepel->alpha[k] = ALPHA_MIN;
-								// nrepel->beta[k] = BETA_MIN;
+								//nrepel->beta[k] = BETA_MIN;
 						}
 						if(nrepel->masked[k] == nrepel->min_masked){
 								nrepel->alpha[k] = ALPHA_MAX;
-								// nrepel->beta[k] = BETA_MAX;
+								//nrepel->beta[k] = BETA_MAX;
 						}
 						if(nrepel->masked[k] < nrepel->max_masked && nrepel->masked[k] > nrepel->min_masked){
 								//Linear interpolation of the value between max and min masked threshold values
 								nrepel->alpha[k] = ALPHA_MIN + nrepel->weight1 * (nrepel->masked[k]- ALPHA_MIN);
-								// nrepel->beta[k] = BETA_MIN + nrepel->weight2 * (nrepel->masked[k]- BETA_MIN);
+								//nrepel->beta[k] = BETA_MIN + nrepel->weight2 * (nrepel->masked[k]- BETA_MIN);
 						}
 					}
 					//then we can do the main Sustraction based on alpha and beta computed here
@@ -546,8 +560,8 @@ run(LV2_Handle instance, uint32_t n_samples) {
 				//SMOOTHING
 				//Time smoothing between current and past power spectrum and magnitude spectrum
 				for (k = 0; k <= nrepel->fft_size_2; k++) {
-					nrepel->fft_p2[k] = (1.f - *(nrepel->time_smoothing)) * nrepel->fft_p2[k] + *(nrepel->time_smoothing) * nrepel->fft_p2_prev[k];
-					nrepel->fft_magnitude[k] = (1.f - *(nrepel->time_smoothing)) * nrepel->fft_magnitude[k] + *(nrepel->time_smoothing) * nrepel->fft_magnitude_prev[k];
+					nrepel->fft_p2_smooth[k] = (1.f - *(nrepel->time_smoothing)) * nrepel->fft_p2[k] + *(nrepel->time_smoothing) * nrepel->fft_p2_prev[k];
+					nrepel->fft_magnitude_smooth[k] = (1.f - *(nrepel->time_smoothing)) * nrepel->fft_magnitude[k] + *(nrepel->time_smoothing) * nrepel->fft_magnitude_prev[k];
 				}
 
 				if(*(nrepel->masking) == 1.f){
@@ -563,7 +577,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 												0.5f,//gamma2
 												nrepel->alpha,//alpha
 												nrepel->beta,//beta
-												nrepel->fft_magnitude,
+												nrepel->fft_magnitude_smooth,
 												nrepel->noise_thresholds,
 												nrepel->Gk);
 
@@ -580,7 +594,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 												0.5f,//gamma2
 												1.f,//alpha
 												0.f,//beta
-												nrepel->fft_magnitude,
+												nrepel->fft_magnitude_smooth,
 												nrepel->noise_thresholds,
 												nrepel->Gk);
 				}
@@ -588,15 +602,30 @@ run(LV2_Handle instance, uint32_t n_samples) {
 				//Frequency smoothing of gains
 				spectral_smoothing_MA(nrepel->Gk,*(nrepel->frequency_smoothing),nrepel->fft_size_2);
 			}
+
+			//Envelope Follower
+			for (k = 0; k <= nrepel->fft_size_2; k++) {
+				if(nrepel->fft_magnitude[k] > nrepel->envelope[k]){
+					nrepel->envelope[k] = nrepel->attack_coeff*(nrepel->envelope[k]-nrepel->fft_magnitude[k]) + nrepel->fft_magnitude[k];
+				}else{
+					nrepel->envelope[k] = nrepel->release_coeff*(nrepel->envelope[k]-nrepel->fft_magnitude[k]) + nrepel->fft_magnitude[k];
+				}
+
+				if(nrepel->envelope[k] <= nrepel->noise_thresholds[k]){
+					nrepel->Gk[k] += nrepel->envelope[k];
+				}
+			}
+
+
 			//APPLY REDUCTION
 
 			nrepel->reduction_coeff = (1.f/from_dB(*(nrepel->amount_of_reduction)));
 
 			//Apply the computed gain to the signal and store it in denoised array
 			for (k = 0; k <= nrepel->fft_size_2; k++) {
-				nrepel->denoised_fft_buffer[k] = nrepel->output_fft_buffer[k]* nrepel->Gk[k];
+				nrepel->denoised_fft_buffer[k] = nrepel->output_fft_buffer[k] * nrepel->Gk[k];
 				if(k < nrepel->fft_size_2)
-					nrepel->denoised_fft_buffer[nrepel->fft_size-k] = nrepel->output_fft_buffer[nrepel->fft_size-k]* nrepel->Gk[k];
+					nrepel->denoised_fft_buffer[nrepel->fft_size-k] = nrepel->output_fft_buffer[nrepel->fft_size-k] * nrepel->Gk[k];
 			}
 
 			//Residual signal
