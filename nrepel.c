@@ -480,16 +480,13 @@ run(LV2_Handle instance, uint32_t n_samples) {
 
 				//MASKING THRESHOLDS FROM VIRAG METHOD
 				if(*(nrepel->masking) == 1.f){
-					//reset masking threshold
-					memset(nrepel->masked, 0, (nrepel->fft_size_2+1)*sizeof(float));
-
 					//Noise masking threshold must be computed from a clean signal
 					//therefor we aproximate a clean signal using a power Sustraction over
 					//the original noisy one
 
 					//basic power Sustraction to estimate clean signal
 					for (k = 0; k <= nrepel->fft_size_2; k++) {
-						nrepel->estimated_clean[k] =  MAX(nrepel->fft_p2[k]-pow(nrepel->noise_thresholds[k],2),0.f);
+						nrepel->estimated_clean[k] =  MAX(nrepel->fft_p2[k]-powf(nrepel->noise_thresholds[k],2),0.f);
 					}
 
 					//spectral flatness measure using Geometric and Arithmetic means of the spectrum cleaned previously
