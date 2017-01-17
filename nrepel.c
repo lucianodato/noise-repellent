@@ -569,7 +569,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 
 					//gain should be smoothed over time to avoid discontinuities
 					for (k = 0; k <= nrepel->fft_size_2; k++) {
-						nrepel->Gk[k] = 0.7f*nrepel->Gk[k] + 0.3f*nrepel->Gk_prev[k];
+						nrepel->Gk[k] = 0.5f*nrepel->Gk[k] + 0.5f*nrepel->Gk_prev[k];
 					}
 
 				} else {
