@@ -167,9 +167,9 @@ inline bool is_empty(float* noise_print, int N){
     sum += noise_print[k];
   }
   if(sum > 0){
-    return true;
+    return false;
   }
-  return false;
+  return true;
 }
 inline float max_spectral_value(float* noise_print, int N){
   int k;

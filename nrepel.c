@@ -42,14 +42,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define BLACKMAN_HANN_SCALING 0.335
 
 //Whitening strength
-#define WA 0.05 //For spectral whitening strength 0-0.1
+//#define WA 0.05 //For spectral whitening strength 0-0.1
 
 //masking thresholds
 //values recomended by virag
 #define ALPHA_MAX 10.0
 #define ALPHA_MIN 1.0
-#define BETA_MAX 0.0002 //This was originaly 0.02
-#define BETA_MIN 0.0
+// #define BETA_MAX 0.0002 //This was originaly 0.02
+// #define BETA_MIN 0.0
 
 
 ///---------------------------------------------------------------------
@@ -139,7 +139,7 @@ typedef struct {
 	float* residual_spectrum;
 
 	//Whitening and tappering
-	float wa;
+	//float wa;
 	float* tappering_filter;
 	float* whitening_spectrum;
 
@@ -185,7 +185,7 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->window_combination = WINDOW_COMBINATION;
 	nrepel->overlap_factor = OVERLAP_FACTOR;
 	nrepel->max_float = FLT_MAX;
-	nrepel->wa = WA;
+	//nrepel->wa = WA;
 	nrepel->window_count = 0.f;
 	nrepel->tau = (1.f - exp (-2.f * M_PI * 25.f * 64.f  / nrepel->samp_rate));
 
@@ -260,7 +260,7 @@ instantiate(const LV2_Descriptor*     descriptor,
 
 	nrepel->whitening_spectrum = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->tappering_filter = (float*)calloc(nrepel->fft_size_2+1,sizeof(float));
-	tappering_filter_calc(nrepel->tappering_filter,(nrepel->fft_size_2+1),WA); //Tappering window
+	//tappering_filter_calc(nrepel->tappering_filter,(nrepel->fft_size_2+1),WA); //Tappering window
 
   nrepel->prev_noise_thresholds = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->s_pow_spec = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
@@ -386,7 +386,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 
 		memset(nrepel->masked, 0, (nrepel->fft_size_2+1)*sizeof(float));
 		memset(nrepel->alpha, 1, (nrepel->fft_size_2+1)*sizeof(float));
-		memset(nrepel->beta, 0, (nrepel->fft_size_2+1)*sizeof(float));
+		//memset(nrepel->beta, 0, (nrepel->fft_size_2+1)*sizeof(float));
 
 		nrepel->max_masked = FLT_MIN;
 		nrepel->min_masked = FLT_MAX;
@@ -482,7 +482,12 @@ run(LV2_Handle instance, uint32_t n_samples) {
 
 				///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+				//MASKING
 				if(*(nrepel->masking) == 1.f){
+					//reset masking threshold
+					memset(nrepel->masked, 0, (nrepel->fft_size_2+1)*sizeof(float));
+					memset(nrepel->alpha, 1, (nrepel->fft_size_2+1)*sizeof(float));
+
 					//TO APPLY MASKING THRESHOLDS FROM VIRAG METHOD
 
 					//Noise masking threshold must be computed from a clean signal
@@ -537,22 +542,22 @@ run(LV2_Handle instance, uint32_t n_samples) {
 					nrepel->max_masked = MAX(max_spectral_value(nrepel->masked,nrepel->fft_size_2),nrepel->max_masked);
 					nrepel->min_masked = MIN(min_spectral_value(nrepel->masked,nrepel->fft_size_2),nrepel->min_masked);
 					nrepel->weight1 = (ALPHA_MAX - ALPHA_MIN)/(nrepel->min_masked - nrepel->max_masked);
-					nrepel->weight2 = (BETA_MAX - BETA_MIN)/(nrepel->min_masked - nrepel->max_masked);
+					// nrepel->weight2 = (BETA_MAX - BETA_MIN)/(nrepel->min_masked - nrepel->max_masked);
 
 					for (k = 0; k <= nrepel->fft_size_2; k++) {
 						//alpha and beta vector
 						if(nrepel->masked[k] == nrepel->max_masked){
 								nrepel->alpha[k] = ALPHA_MIN;
-								nrepel->beta[k] = BETA_MIN;
+								// nrepel->beta[k] = BETA_MIN;
 						}
 						if(nrepel->masked[k] == nrepel->min_masked){
 								nrepel->alpha[k] = ALPHA_MAX;
-								nrepel->beta[k] = BETA_MAX;
+								// nrepel->beta[k] = BETA_MAX;
 						}
 						if(nrepel->masked[k] < nrepel->max_masked && nrepel->masked[k] > nrepel->min_masked){
 								//Linear interpolation of the value between max and min masked threshold values
 								nrepel->alpha[k] = ALPHA_MIN + nrepel->weight1 * (nrepel->masked[k]- ALPHA_MIN);
-								nrepel->beta[k] = BETA_MIN + nrepel->weight2 * (nrepel->masked[k]- BETA_MIN);
+								// nrepel->beta[k] = BETA_MIN + nrepel->weight2 * (nrepel->masked[k]- BETA_MIN);
 						}
 					}
 					//then we can do the main Sustraction based on alpha and beta computed here
@@ -563,7 +568,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 				//SMOOTHING
 				//Time smoothing between current and past power spectrum and magnitude spectrum
 				for (k = 0; k <= nrepel->fft_size_2; k++) {
-					nrepel->fft_p2[k] = (1.f - *(nrepel->time_smoothing)) * nrepel->fft_p2[k] + *(nrepel->time_smoothing) * nrepel->fft_p2_prev[k];
+					//nrepel->fft_p2[k] = (1.f - *(nrepel->time_smoothing)) * nrepel->fft_p2[k] + *(nrepel->time_smoothing) * nrepel->fft_p2_prev[k];
 					nrepel->fft_magnitude[k] = (1.f - *(nrepel->time_smoothing)) * nrepel->fft_magnitude[k] + *(nrepel->time_smoothing) * nrepel->fft_magnitude_prev[k];
 				}
 
@@ -623,9 +628,10 @@ run(LV2_Handle instance, uint32_t n_samples) {
 				nrepel->residual_spectrum[nrepel->fft_size-k] = nrepel->output_fft_buffer[nrepel->fft_size-k] - nrepel->denoised_fft_buffer[nrepel->fft_size-k];
 			}
 
-			//Residual signal Whitening and tappering
-			if(*(nrepel->residual_whitening) == 1.f) {
-				whitening_of_spectrum(nrepel->residual_spectrum,nrepel->wa,nrepel->fft_size_2);
+			//Residual signal Whitening and tappering (only when not profiling noise)
+			if(*(nrepel->residual_whitening) != 0.f) {
+				whitening_of_spectrum(nrepel->residual_spectrum,*(nrepel->residual_whitening),nrepel->fft_size_2);
+				tappering_filter_calc(nrepel->tappering_filter,(nrepel->fft_size_2+1),*(nrepel->residual_whitening));
 				apply_tappering_filter(nrepel->residual_spectrum,nrepel->tappering_filter,nrepel->fft_size_2);
 			}
 
