@@ -48,7 +48,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 //values recomended by virag
 #define ALPHA_MAX 10.0
 #define ALPHA_MIN 1.0
-// #define BETA_MAX 0.0002 //This was originaly 0.02
+// #define BETA_MAX 0.02
 // #define BETA_MIN 0.0
 
 
@@ -158,12 +158,13 @@ typedef struct {
 	float tonality_factor;
 	float* masked;
 	float* alpha;
+	float* alpha_prev;
 	float* beta;
 	float* bark_z;
 	float max_masked;
 	float min_masked;
 	float weight1;
-	float weight2;
+	//float weight2;
 	float gmean_value;
 	float mean_value;
 
@@ -273,13 +274,14 @@ instantiate(const LV2_Descriptor*     descriptor,
 	//MASKING THRESHOLDS
 	nrepel->masked = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->alpha = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
+	nrepel->alpha_prev = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->beta = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->bark_z = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 
 	memset(nrepel->alpha, 1, (nrepel->fft_size_2+1)*sizeof(float));
+	memset(nrepel->alpha_prev, 1, (nrepel->fft_size_2+1)*sizeof(float));
 	nrepel->max_masked = FLT_MIN;
 	nrepel->min_masked = FLT_MAX;
-	//(this should be precomputed and in a file to be more efficient)
 	compute_bark_z(nrepel->bark_z,nrepel->fft_size_2,nrepel->samp_rate);
 
 	return (LV2_Handle)nrepel;
@@ -486,7 +488,6 @@ run(LV2_Handle instance, uint32_t n_samples) {
 				if(*(nrepel->masking) == 1.f){
 					//reset masking threshold
 					memset(nrepel->masked, 0, (nrepel->fft_size_2+1)*sizeof(float));
-					memset(nrepel->alpha, 1, (nrepel->fft_size_2+1)*sizeof(float));
 
 					//TO APPLY MASKING THRESHOLDS FROM VIRAG METHOD
 
@@ -524,7 +525,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 					//3- Sustraction of the offset depending of noise masking tone masking
 					//4- renormalization and comparition with the absolute threshold of hearing
 					compute_masking_thresholds(nrepel->bark_z,
-																			nrepel->fft_p2,
+																			nrepel->fft_magnitude,
 																			nrepel->noise_thresholds,
 																			nrepel->fft_size_2,
 																			nrepel->masked,
@@ -545,7 +546,10 @@ run(LV2_Handle instance, uint32_t n_samples) {
 					// nrepel->weight2 = (BETA_MAX - BETA_MIN)/(nrepel->min_masked - nrepel->max_masked);
 
 					for (k = 0; k <= nrepel->fft_size_2; k++) {
-						//alpha and beta vector
+						//store previous values
+						nrepel->alpha_prev[k] = nrepel->alpha[k];
+
+						//new alpha and beta vector
 						if(nrepel->masked[k] == nrepel->max_masked){
 								nrepel->alpha[k] = ALPHA_MIN;
 								// nrepel->beta[k] = BETA_MIN;
@@ -559,6 +563,9 @@ run(LV2_Handle instance, uint32_t n_samples) {
 								nrepel->alpha[k] = ALPHA_MIN + nrepel->weight1 * (nrepel->masked[k]- ALPHA_MIN);
 								// nrepel->beta[k] = BETA_MIN + nrepel->weight2 * (nrepel->masked[k]- BETA_MIN);
 						}
+
+						//interpolate with previous values
+						nrepel->alpha[k] = 0.1f*nrepel->alpha[k] + 0.9f*nrepel->alpha_prev[k];
 					}
 					//then we can do the main Sustraction based on alpha and beta computed here
 				}
@@ -568,7 +575,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 				//SMOOTHING
 				//Time smoothing between current and past power spectrum and magnitude spectrum
 				for (k = 0; k <= nrepel->fft_size_2; k++) {
-					//nrepel->fft_p2[k] = (1.f - *(nrepel->time_smoothing)) * nrepel->fft_p2[k] + *(nrepel->time_smoothing) * nrepel->fft_p2_prev[k];
+					nrepel->fft_p2[k] = (1.f - *(nrepel->time_smoothing)) * nrepel->fft_p2[k] + *(nrepel->time_smoothing) * nrepel->fft_p2_prev[k];
 					nrepel->fft_magnitude[k] = (1.f - *(nrepel->time_smoothing)) * nrepel->fft_magnitude[k] + *(nrepel->time_smoothing) * nrepel->fft_magnitude_prev[k];
 				}
 

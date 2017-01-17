@@ -48,7 +48,7 @@ void compute_masking_thresholds(float* bark_z,float* spectrum, float* noise_thre
 
       //take into account absolute threshold of hearing
       if(gain_j < 1.e-2) break;
-      if(k - j > 10) break;
+      if(k - j > 10) break;//up to 10 bins per bark band
 
       //Relating the spread masking threshold to the critical band masking thresholds
       masked[k] += MAX((spectrum[j]-noise_thresholds[j]),0.f)*gain_j;
@@ -65,7 +65,7 @@ void compute_masking_thresholds(float* bark_z,float* spectrum, float* noise_thre
 
       //take into account absolute threshold of hearing
       if(gain_j < 1.e-2) break;
-      if(j - k > 10) break;
+      if(j - k > 10) break;//up to 10 bins per bark band
 
       //Relating the spread masking threshold to the critical band masking thresholds
       masked[k] += MAX((spectrum[j]-noise_thresholds[j]),0.f)*gain_j;
