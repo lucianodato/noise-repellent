@@ -51,17 +51,17 @@ typedef enum {
 	NREPEL_AMOUNT = 2,
 	NREPEL_STRENGTH = 3,
 	NREPEL_SMOOTHING = 4,
+	// NREPEL_ATTACK = 5,
+	// NREPEL_RELEASE = 6,
 	NREPEL_FREQUENCY_SMOOTHING = 5,
-	NREPEL_ATTACK = 6,
-	NREPEL_RELEASE = 7,
-	NREPEL_MASKING = 8,
-	NREPEL_LATENCY = 9,
-	NREPEL_WHITENING = 10,
-	NREPEL_RESET = 11,
-	NREPEL_NOISE_LISTEN = 12,
-	NREPEL_ENABLE = 13,
-	NREPEL_INPUT = 14,
-	NREPEL_OUTPUT = 15,
+	NREPEL_MASKING = 6,
+	NREPEL_LATENCY = 7,
+	NREPEL_WHITENING = 8,
+	NREPEL_RESET = 9,
+	NREPEL_NOISE_LISTEN = 10,
+	NREPEL_ENABLE = 11,
+	NREPEL_INPUT = 12,
+	NREPEL_OUTPUT = 13,
 } PortIndex;
 
 typedef struct {
@@ -128,6 +128,7 @@ typedef struct {
 
 	float* Gk; //gain to be applied
 	float* Gk_prev; //past gain applied
+	float* Gk_env; //envelope gain applied
 
 	float* denoised_fft_buffer;
 	float* residual_spectrum;
@@ -161,10 +162,10 @@ typedef struct {
 	float gmean_value;
 	float mean_value;
 
-	//envelope Follower
-	float* envelope;
-	float attack_coeff;
-	float release_coeff;
+	// //envelope Follower
+	// float* envelope;
+	// float attack_coeff;
+	// float release_coeff;
 
 	// clock_t start, end;
 	// double cpu_time_used;
@@ -184,7 +185,6 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->window_combination = WINDOW_COMBINATION;
 	nrepel->overlap_factor = OVERLAP_FACTOR;
 	nrepel->max_float = FLT_MAX;
-	//nrepel->wa = WA;
 	nrepel->window_count = 0.f;
 	nrepel->tau = (1.f - exp (-2.f * M_PI * 25.f * 64.f  / nrepel->samp_rate));
 
@@ -280,7 +280,7 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->min_masked = FLT_MAX;
 	compute_bark_z(nrepel->bark_z,nrepel->fft_size_2,nrepel->samp_rate);
 
-	nrepel->envelope = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
+	// nrepel->envelope = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 
 	return (LV2_Handle)nrepel;
 }
@@ -312,12 +312,12 @@ connect_port(LV2_Handle instance,
 		case NREPEL_FREQUENCY_SMOOTHING:
 		nrepel->frequency_smoothing = (float*)data;
 		break;
-		case NREPEL_ATTACK:
-		nrepel->attack = (float*)data;
-		break;
-		case NREPEL_RELEASE:
-		nrepel->release = (float*)data;
-		break;
+		// case NREPEL_ATTACK:
+		// nrepel->attack = (float*)data;
+		// break;
+		// case NREPEL_RELEASE:
+		// nrepel->release = (float*)data;
+		// break;
 		case NREPEL_MASKING:
 		nrepel->masking = (float*)data;
 		break;
@@ -398,9 +398,9 @@ run(LV2_Handle instance, uint32_t n_samples) {
 		nrepel->min_masked = FLT_MAX;
 	}
 
-	//attack and release coefficients
-	nrepel->attack_coeff = exp( -1.f / (*(nrepel->attack) * nrepel->samp_rate));
-	nrepel->release_coeff = exp( -1.f / (*(nrepel->release) * nrepel->samp_rate));
+	// //attack and release coefficients
+	// nrepel->attack_coeff = powf( 0.01, 1.0 / ( *(nrepel->attack) * nrepel->samp_rate) * 0.001 );
+	// nrepel->release_coeff = powf( 0.01, 1.0 / ( *(nrepel->release) * nrepel->samp_rate) * 0.001 );
 
 	//main loop for processing
 	for (pos = 0; pos < n_samples; pos++){
@@ -603,18 +603,18 @@ run(LV2_Handle instance, uint32_t n_samples) {
 				spectral_smoothing_MA(nrepel->Gk,*(nrepel->frequency_smoothing),nrepel->fft_size_2);
 			}
 
-			//Envelope Follower
-			for (k = 0; k <= nrepel->fft_size_2; k++) {
-				if(nrepel->fft_magnitude[k] > nrepel->envelope[k]){
-					nrepel->envelope[k] = nrepel->attack_coeff*(nrepel->envelope[k]-nrepel->fft_magnitude[k]) + nrepel->fft_magnitude[k];
-				}else{
-					nrepel->envelope[k] = nrepel->release_coeff*(nrepel->envelope[k]-nrepel->fft_magnitude[k]) + nrepel->fft_magnitude[k];
-				}
-
-				if(nrepel->envelope[k] <= nrepel->noise_thresholds[k]){
-					nrepel->Gk[k] += nrepel->envelope[k];
-				}
-			}
+			// //Envelope Follower
+			// for (k = 0; k <= nrepel->fft_size_2; k++) {
+			// 	if(nrepel->fft_magnitude[k] > nrepel->envelope[k]){
+			// 		nrepel->envelope[k] =  nrepel->attack_coeff*(nrepel->envelope[k] - nrepel->fft_magnitude[k]) + nrepel->fft_magnitude[k];
+			// 	}else{
+			// 		nrepel->envelope[k] = nrepel->release_coeff*(nrepel->envelope[k] - nrepel->fft_magnitude[k]) + nrepel->fft_magnitude[k];
+			// 	}
+			// 	//Attenuate signal below the threshold following the envelope
+			// 	if(nrepel->envelope[k] <= nrepel->noise_thresholds[k]){
+			// 		nrepel->Gk[k] -= nrepel->envelope[k];
+			// 	}
+			// }
 
 
 			//APPLY REDUCTION
