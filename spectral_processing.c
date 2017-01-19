@@ -66,7 +66,7 @@ void get_noise_thresholds(int auto_state,
 
 //------------GAIN AND THRESHOLD CALCULATION---------------
 
-void spectral_pre_processing(float* bark_z,
+void spectral_gain_computing(float* bark_z,
                     float* fft_p2,
                     float* fft_p2_prev,
                     float* fft_p2_smooth,
@@ -86,7 +86,7 @@ void spectral_pre_processing(float* bark_z,
                     float masking,
                     float frequency_smoothing){
 
-  //DENOISE PRE PROCESSING
+  //PREPROCESSING
 
   //CALCULATION OF ALPHA AND BETA WITH MASKING THRESHOLDS USING VIRAG METHOD
   if(masking == 1.f){
@@ -117,7 +117,8 @@ void spectral_pre_processing(float* bark_z,
 
   //GAIN CALCULATION
   if(masking == 1.f){
-    //Parametric Generalized Spectral Sustraction (Power Sustraction)
+    //Parametric Generalized Spectral Sustraction
+    //(Power Sustraction with variable alpha)
     denoise_gain_gss_fixed_beta(reduction_strenght,
                                 fft_size_2,
                                 alpha,
@@ -154,8 +155,8 @@ void gain_application(float amount_of_reduction,
 
   int k;
   float reduction_coeff = (1.f/from_dB(amount_of_reduction));
-  float denoised_fft_buffer[fft_size_2+1];
-  float residual_spectrum[fft_size_2+1];
+  float denoised_fft_buffer[fft_size];
+  float residual_spectrum[fft_size];
   float tappering_filter[fft_size_2+1];
 
   //Apply the computed gain to the signal and store it in denoised array

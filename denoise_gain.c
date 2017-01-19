@@ -25,7 +25,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define GAMMA2 0.5
 #define BETA_GSS 0.0
 #define ALPHA_GSS 1.0
-#define GAIN_SMOOTH 0.5
+#define GAIN_SMOOTH 0.5 //for the virag method
 
 /*Generalized Spectral Subtraction
 gamma defines what type of spectral Subtraction is used

@@ -26,6 +26,33 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define ALPHA_P 0.2 //smoothing constant over speech presence [1 - previous / 0 - actual]
 #define ALPHA_D 0.99 //time–frequency dependent smoothing [0-1] [1 - previous / 0 - actual]
 
+#define CROSSOVER_POINT1 1000.0 //crossover point for loizou reference thresholds
+#define CROSSOVER_POINT2 3000.0 //crossover point for loizou reference thresholds
+#define BAND_1_GAIN 2.0 //gain for the band
+#define BAND_2_GAIN 2.0 //gain for the band
+#define BAND_3_GAIN 5.0 //gain for the band
+
+
+void compute_auto_thresholds(float* auto_thresholds,
+                             float fft_size,
+                             float fft_size_2,
+                             float samp_rate){
+  //This was experimentally obteined in louizou paper
+	int LF = Freq2Index(CROSSOVER_POINT1,samp_rate,fft_size);//1kHz
+	int MF = Freq2Index(CROSSOVER_POINT2,samp_rate,fft_size);//3kHz
+	for (int k = 0;k <= fft_size_2; k++){
+		if(k < LF){
+			auto_thresholds[k] = BAND_1_GAIN;
+		}
+		if(k > LF && k < MF){
+			auto_thresholds[k] = BAND_2_GAIN;
+		}
+		if(k > MF){
+			auto_thresholds[k] = BAND_3_GAIN;
+		}
+	}
+}
+
 static void estimate_noise_loizou(float* thresh,
                       int fft_size_2,
                       float* p2,
@@ -109,11 +136,8 @@ void auto_capture_noise(float* p2,
     prev_s_pow_spec[k] = s_pow_spec[k];
     prev_p_min[k] = p_min[k];
     prev_speech_p_p[k] = speech_p_p[k];
-  }
-
-  //noise_thresholds should be a magnitude spectrum as
-  //general spectral sustraction recieves magnitude spectrum
-  for (k = 0; k <= fft_size_2; k++) {
+    //noise_thresholds should be a magnitude spectrum as
+    //general spectral sustraction recieves magnitude spectrum
     noise_thresholds[k] = sqrtf(noise_thresholds[k]);
   }
 }

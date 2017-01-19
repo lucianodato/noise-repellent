@@ -93,7 +93,6 @@ typedef struct {
 	float* window_input; // Input Window values
 	float* window_output; // Input Window values
 	float* window_count; //Count windows for mean computing
-	float max_float; //Auxiliary variable to store FLT_MAX and avoid warning
 	float tau; //time constant for soft bypass
 	float wet_dry_target; //softbypass target for softbypass
 	float wet_dry; //softbypass
@@ -165,7 +164,6 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->fft_size = FFT_SIZE;
 	nrepel->window_combination = WINDOW_COMBINATION;
 	nrepel->overlap_factor = OVERLAP_FACTOR;
-	nrepel->max_float = FLT_MAX;
 	*(nrepel->window_count) = 0.f;
 	nrepel->tau = (1.f - exp (-2.f * M_PI * 25.f * 64.f  / nrepel->samp_rate));
 	nrepel->noise_thresholds_availables = false;
@@ -181,7 +179,7 @@ instantiate(const LV2_Descriptor*     descriptor,
 
 	nrepel->window_input = (float*)calloc(nrepel->fft_size,sizeof(float));
 	nrepel->window_output = (float*)calloc(nrepel->fft_size,sizeof(float));
-	//Window combination computing
+	//Window combination computing (pre processing window post processing window)
 	switch(nrepel->window_combination){
 		case 0: // HANN-HANN
 			fft_window(nrepel->window_input,nrepel->fft_size,0); //STFT input window
@@ -198,7 +196,6 @@ instantiate(const LV2_Descriptor*     descriptor,
 			fft_window(nrepel->window_output,nrepel->fft_size,0); //STFT output window
 			nrepel->overlap_scale_factor = BLACKMAN_HANN_SCALING;
 			break;
-
 	}
 
 	nrepel->input_fft_buffer = (float*)calloc(nrepel->fft_size,sizeof(float));
@@ -213,28 +210,14 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->fft_p2_smooth = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->fft_p2_prev = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->noise_thresholds = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
-	nrepel->auto_thresholds = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
-
-	//This was experimentally obteined in louizou paper
-	int LF = Freq2Index(1000.f,nrepel->samp_rate,nrepel->fft_size);//1kHz
-	int MF = Freq2Index(3000.f,nrepel->samp_rate,nrepel->fft_size);//3kHz
-	for (int k = 0;k <= nrepel->fft_size_2; k++){
-		if(k < LF){
-			nrepel->auto_thresholds[k] = 2.f;
-		}
-		if(k > LF && k < MF){
-			nrepel->auto_thresholds[k] = 2.f;
-		}
-		if(k > MF){
-			nrepel->auto_thresholds[k] = 5.f;
-		}
-	}
 
 	nrepel->Gk = (float*)malloc((nrepel->fft_size_2+1)*sizeof(float));
 	memset(nrepel->Gk, 1, (nrepel->fft_size_2+1)*sizeof(float));
 	nrepel->Gk_prev = (float*)malloc((nrepel->fft_size_2+1)*sizeof(float));
 	memset(nrepel->Gk_prev, 1, (nrepel->fft_size_2+1)*sizeof(float));
 
+	nrepel->auto_thresholds = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
+	compute_auto_thresholds(nrepel->auto_thresholds, nrepel->fft_size, nrepel->fft_size_2, nrepel->samp_rate);
   nrepel->prev_noise_thresholds = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->s_pow_spec = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->prev_s_pow_spec = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
@@ -247,7 +230,6 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->alpha = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->beta = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->bark_z = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
-
 	memset(nrepel->alpha, 1, (nrepel->fft_size_2+1)*sizeof(float));
 	nrepel->max_masked = FLT_MIN;
 	nrepel->min_masked = FLT_MAX;
@@ -352,6 +334,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 	if (*(nrepel->reset_print) == 1.f) {
 		memset(nrepel->noise_thresholds, 0, (nrepel->fft_size_2+1)*sizeof(float));
 		memset(nrepel->Gk, 1, (nrepel->fft_size_2+1)*sizeof(float));
+		memset(nrepel->Gk_prev, 1, (nrepel->fft_size_2+1)*sizeof(float));
 		*(nrepel->window_count) = 0.f;
 
 		memset(nrepel->prev_noise_thresholds, 0, (nrepel->fft_size_2+1)*sizeof(float));
@@ -364,7 +347,6 @@ run(LV2_Handle instance, uint32_t n_samples) {
 
 		memset(nrepel->alpha, 1, (nrepel->fft_size_2+1)*sizeof(float));
 		//memset(nrepel->beta, 0, (nrepel->fft_size_2+1)*sizeof(float));
-
 		nrepel->max_masked = FLT_MIN;
 		nrepel->min_masked = FLT_MAX;
 
@@ -426,7 +408,9 @@ run(LV2_Handle instance, uint32_t n_samples) {
 
 			}
 
-			/// ---------------PROCESSING--------------------
+			/////////////////////SPECTRAL PROCESSING//////////////////////////
+
+			//-------------------SIDECHAIN-----------------
 			//Get noise thresholds if capture is on either auto or manual
 			if (*(nrepel->auto_state) == 1.f || *(nrepel->capture_state) == 1.f){
 				get_noise_thresholds(*(nrepel->auto_state),
@@ -445,13 +429,13 @@ run(LV2_Handle instance, uint32_t n_samples) {
 				                     nrepel->prev_speech_p_p,
 				                     nrepel->window_count);
 
+			  //Activate denoise processing once the noise print is loaded
 				nrepel->noise_thresholds_availables = true;
 			}
 
-			//Gain calculations and application
+			//Gain Calculation
 			if (nrepel->noise_thresholds_availables){
-				//Spectrum preprocessing
-				spectral_pre_processing(nrepel->bark_z,
+				spectral_gain_computing(nrepel->bark_z,
 				                    		nrepel->fft_p2,
 				                    		nrepel->fft_p2_prev,
 				                    		nrepel->fft_p2_smooth,
@@ -470,8 +454,11 @@ run(LV2_Handle instance, uint32_t n_samples) {
 				                    		nrepel->Gk_prev,
 				                    		*(nrepel->masking),
 				                    		*(nrepel->frequency_smoothing));
+			}
+			//---------------------------------------------
 
-				//Gain application
+			//Gain application
+			if (nrepel->noise_thresholds_availables){
 				gain_application(*(nrepel->amount_of_reduction),
 				                 nrepel->fft_size_2,
 				                 nrepel->fft_size,
@@ -482,7 +469,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 				                 *(nrepel->noise_listen));
 
 			}
-			/// ------------------------------------------------------
+			///////////////////////////////////////////////////////////
 
 
 			//------------FFT Synthesis-------------
