@@ -21,12 +21,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 //For louizou algorithm
 #define N_SMOOTH 0.7 //Smoothing over the power spectrum [0.9 - previous / 0.7 - actual]
-#define BETA 0.8 //Adaption time of the local minimun [1 - slower / 0 - faster]
+#define BETA_AT 0.8 //Adaption time of the local minimun [1 - slower / 0 - faster]
 #define GAMMA 0.998 //Smoothing factor over local minimun [1 - previous / 0 - actual]
 #define ALPHA_P 0.2 //smoothing constant over speech presence [1 - previous / 0 - actual]
 #define ALPHA_D 0.99 //time–frequency dependent smoothing [0-1] [1 - previous / 0 - actual]
 
-static void estimate_noise_loizou(float thresh,
+static void estimate_noise_loizou(float* thresh,
                       int fft_size_2,
                       float* p2,
                       float* s_pow_spec,
@@ -49,7 +49,7 @@ static void estimate_noise_loizou(float thresh,
 
     //2- Compute the local minimum of noisy speech
     if(prev_p_min < s_pow_spec) {
-      p_min[k] = GAMMA * prev_p_min[k] + ((1.f-GAMMA)/(1.f-BETA)) * (s_pow_spec[k] - BETA * prev_s_pow_spec[k]);
+      p_min[k] = GAMMA * prev_p_min[k] + ((1.f-GAMMA)/(1.f-BETA_AT)) * (s_pow_spec[k] - BETA_AT * prev_s_pow_spec[k]);
     } else {
       p_min[k] = s_pow_spec[k];
     }
@@ -58,7 +58,7 @@ static void estimate_noise_loizou(float thresh,
     ratio_ns = s_pow_spec[k]/p_min[k];
 
     //4- Compute the indicator function I for speech present/absent detection
-    if(ratio_ns > thresh) { //thresh could be freq dependant (it is not a neasure related to dB)
+    if(ratio_ns > thresh[k]) { //thresh could be freq dependant (it is not a neasure related to dB)
       speech_p_d[k] = 1.f; //present
     } else {
       speech_p_d[k] = 0.f; //absent
@@ -80,7 +80,7 @@ static void estimate_noise_loizou(float thresh,
 void auto_capture_noise(float* p2,
                         int fft_size_2,
                         float* noise_thresholds,
-                        float thresh,
+                        float* thresh,
                         float* prev_noise_thresholds,
                         float* s_pow_spec,
                         float* prev_s_pow_spec,
@@ -89,7 +89,6 @@ void auto_capture_noise(float* p2,
                         float* speech_p_p,
                         float* prev_speech_p_p){
   int k;
-
 
   //Loizou noise-estimation algorithm for highly non-stationary environments
   estimate_noise_loizou(thresh,
@@ -110,6 +109,12 @@ void auto_capture_noise(float* p2,
     prev_s_pow_spec[k] = s_pow_spec[k];
     prev_p_min[k] = p_min[k];
     prev_speech_p_p[k] = speech_p_p[k];
+  }
+
+  //noise_thresholds should be a magnitude spectrum as
+  //general spectral sustraction recieves magnitude spectrum
+  for (k = 0; k <= fft_size_2; k++) {
+    noise_thresholds[k] = sqrtf(noise_thresholds[k]);
   }
 }
 

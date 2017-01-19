@@ -65,13 +65,13 @@ inline float to_dB(float g) {
   return (20.f*log10f(g));
 }
 
-inline float mean(int m, float* a) {
+inline float spectral_mean(int m, float* a) {
     float sum=0;
     for(int i=0; i<m; i++)
         sum+=a[i];
     return((float)sum/m);
 }
-inline float gmean(int m, float* a) {
+inline float spectral_gmean(int m, float* a) {
     float mult=0;
     for(int i=0; i<m; i++)
         mult*=a[i];
@@ -192,8 +192,8 @@ inline float min_spectral_value(float* noise_print, int N){
 //unnormalized Hann windows for whitening tappering
 void tappering_filter_calc(float* filter, int N,float wa) {
   int k;
-  for (k = 0; k < N; k++){
-    filter[k] = hanning(k, N);//Half hann window tappering in favor of high frequencies
+  for (k = 0; k <= N; k++){
+    filter[k] = hanning(k, N+1);//Half hann window tappering in favor of high frequencies
   }
 }
 
@@ -225,7 +225,6 @@ void apply_tappering_filter(float* spectrum,float* filter,int N) {
 
 
 //---------------------SMOOTHERS--------------------------
-
 
 //Spectral smoothing with rectangular boxcar or unweighted sliding-average smooth
 void spectral_smoothing_MA(float* spectrum, int kernel_width,int N){
@@ -416,5 +415,16 @@ void spectral_smoothing_SG_quart(float* spectrum, int kernel_width,int N){
 
   for (k = 0; k <= N; ++k){
     spectrum[k] = smoothing_tmp[k];
+  }
+}
+
+void spectrum_exponential_smoothing(int fft_size_2,
+                                  float* prev_spectrum,
+                                  float* spectrum,
+                                  float* smoothed_spectrum,
+                                  float coeff){
+  int k;
+  for (k = 0; k <= fft_size_2; k++) {
+    smoothed_spectrum[k] = (1.f - coeff) * spectrum[k] + coeff * prev_spectrum[k];
   }
 }

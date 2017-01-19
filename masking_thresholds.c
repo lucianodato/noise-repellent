@@ -80,3 +80,80 @@ void compute_masking_thresholds(float* bark_z,float* spectrum, float* noise_thre
     }
   }
 }
+
+void compute_alpha_and_beta(float* bark_z,
+                            float* fft_p2,
+                            float* fft_magnitude,
+                            float* noise_thresholds,
+                            int fft_size_2,
+                            float* alpha,
+                            //float* beta,
+                            float max_masked,
+                            float min_masked) {
+
+  int k;
+  float estimated_clean[fft_size_2+1];
+  float masked[fft_size_2+1];
+  float gmean_value,mean_value,SFM,tonality_factor,weight1;//,weight2
+
+  //Noise masking threshold must be computed from a clean signal
+  //therefor we aproximate a clean signal using a power Sustraction over
+  //the original noisy one
+
+  //basic power Sustraction to estimate clean signal
+  for (k = 0; k <= fft_size_2; k++) {
+    estimated_clean[k] =  MAX(fft_p2[k]-powf(noise_thresholds[k],2),0.f);
+  }
+
+  //spectral flatness measure using Geometric and Arithmetic means of the spectrum cleaned previously
+  //this value is in db scale
+  gmean_value = spectral_gmean(fft_size_2,estimated_clean);
+  mean_value = spectral_mean(fft_size_2,estimated_clean);
+  SFM = 10.f*log10f(gmean_value/mean_value);
+
+  //Tonality factor in db scale
+  tonality_factor = MIN(SFM/60.f, 1.f);
+
+  //Now we can compute noise masking threshold from this clean signal
+
+  //1- we need to compute the energy in the bark scale
+  //2- Convolution with a spreading function
+  //3- Sustraction of the offset depending of noise masking tone masking
+  //4- renormalization and comparition with the absolute threshold of hearing
+  compute_masking_thresholds(bark_z,
+                             estimated_clean,
+                             noise_thresholds,
+                             fft_size_2,
+                             masked,
+                             tonality_factor);
+
+  //Get alpha and beta based on masking thresholds
+  //beta and alpha values would adapt based on masking thresholds
+  //frame to frame for optimal oversustraction and noise floor parameter in each one
+  //noise floor would better be controled by user using the amount of reduction
+  //so beta is not modified
+
+  //First we need the maximun and the minimun value of the masking threshold
+  max_masked = MAX(max_spectral_value(masked,fft_size_2),max_masked);
+  min_masked = MIN(min_spectral_value(masked,fft_size_2),min_masked);
+  weight1 = (ALPHA_MAX - ALPHA_MIN)/(min_masked - max_masked);
+  //float weight2 = (BETA_MAX - BETA_MIN)/(min_masked - max_masked);
+
+  for (k = 0; k <= fft_size_2; k++) {
+    //new alpha and beta vector
+    if(masked[k] == max_masked){
+        alpha[k] = ALPHA_MIN;
+        //beta[k] = BETA_MIN;
+    }
+    if(masked[k] == min_masked){
+        alpha[k] = ALPHA_MAX;
+        //beta[k] = BETA_MAX;
+    }
+    if(masked[k] < max_masked && masked[k] > min_masked){
+        //Linear interpolation of the value between max and min masked threshold values
+        alpha[k] = ALPHA_MIN + weight1 * (masked[k]- ALPHA_MIN);
+        //beta[k] = BETA_MIN + weight2 * (masked[k]- BETA_MIN);
+    }
+  }
+  //then we can do the main Sustraction based on alpha and beta computed here
+}
