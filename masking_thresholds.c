@@ -20,13 +20,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <float.h>
 #include <math.h>
 
-//masking thresholds
-//values recomended by virag
+//masking thresholds values recomended by virag
 #define ALPHA_MAX 10.0
 #define ALPHA_MIN 1.0
 #define BETA_MAX 0.02
 #define BETA_MIN 0.0
-
 
 void compute_bark_z(float* bark_z,int fft_size_2, int srate) {
   int k;
@@ -81,6 +79,7 @@ void compute_masking_thresholds(float* bark_z,float* spectrum, float* noise_thre
   }
 }
 
+//alpha and beta computation to be used in general spectral Sustraction
 void compute_alpha_and_beta(float* bark_z,
                             float* fft_p2,
                             float* fft_magnitude,
@@ -106,20 +105,19 @@ void compute_alpha_and_beta(float* bark_z,
   }
 
   //spectral flatness measure using Geometric and Arithmetic means of the spectrum cleaned previously
-  //this value is in db scale
   gmean_value = spectral_gmean(fft_size_2,estimated_clean);
   mean_value = spectral_mean(fft_size_2,estimated_clean);
-  SFM = 10.f*log10f(gmean_value/mean_value);
+  SFM = 10.f*log10f(gmean_value/mean_value);//this value is in db scale
 
   //Tonality factor in db scale
   tonality_factor = MIN(SFM/60.f, 1.f);
 
-  //Now we can compute noise masking threshold from this clean signal
-
-  //1- we need to compute the energy in the bark scale
-  //2- Convolution with a spreading function
-  //3- Sustraction of the offset depending of noise masking tone masking
-  //4- renormalization and comparition with the absolute threshold of hearing
+  /*Now we can compute noise masking threshold from this clean signal
+   *1- we need to compute the energy in the bark scale
+   *2- Convolution with a spreading function
+   *3- Sustraction of the offset depending of noise masking tone masking
+   *4- renormalization and comparition with the absolute threshold of hearing
+   */
   compute_masking_thresholds(bark_z,
                              estimated_clean,
                              noise_thresholds,
@@ -127,11 +125,12 @@ void compute_alpha_and_beta(float* bark_z,
                              masked,
                              tonality_factor);
 
-  //Get alpha and beta based on masking thresholds
-  //beta and alpha values would adapt based on masking thresholds
-  //frame to frame for optimal oversustraction and noise floor parameter in each one
-  //noise floor would better be controled by user using the amount of reduction
-  //so beta is not modified
+  /*Get alpha and beta based on masking thresholds
+   *beta and alpha values would adapt based on masking thresholds
+   *frame to frame for optimal oversustraction and noise floor parameter in each one
+   *noise floor would better be controled by user using the amount of reduction
+   *so beta is not modified
+  */
 
   //First we need the maximun and the minimun value of the masking threshold
   max_masked = MAX(max_spectral_value(masked,fft_size_2),max_masked);
@@ -155,5 +154,4 @@ void compute_alpha_and_beta(float* bark_z,
         //beta[k] = BETA_MIN + weight2 * (masked[k]- BETA_MIN);
     }
   }
-  //then we can do the main Sustraction based on alpha and beta computed here
 }

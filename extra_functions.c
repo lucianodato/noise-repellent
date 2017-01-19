@@ -26,15 +26,17 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define HANN_WINDOW 0
 #define HAMMING_WINDOW 1
 #define BLACKMAN_WINDOW 2
+#define HANN_HANN_SCALING 0.375       //This is for overlapadd scaling
+#define HAMMING_HANN_SCALING 0.385    // 1/average(window[i]^2)
+#define BLACKMAN_HANN_SCALING 0.335
 
 #define M_PI 3.14159265358979323846
 
 //AUXILIARY Functions
-
 #define MAX(a,b) (((a) > (b)) ? (a) : (b))
 #define MIN(a,b) (((a) < (b)) ? (a) : (b))
 
-// Force already-denormal float value to zero
+//Force already-denormal float value to zero
 inline float sanitize_denormal(float value) {
   if (isnan(value)) {
     return FLT_MIN; //to avoid log errors
@@ -45,17 +47,11 @@ inline float sanitize_denormal(float value) {
 
 }
 
-inline float Index2Freq(int i, float samp_rate, int N) {
-  return (float) i * (samp_rate / N / 2.f);
-}
-
-inline int Freq2Index(float freq, float samp_rate, int N) {
-  return (int) (freq / (samp_rate / N / 2.f));
-}
-
 inline int sign(float x) {
   return (x >= 0.f ? 1.f : -1.f);
 }
+
+//-----------dB SCALE-----------
 
 inline float from_dB(float gdb) {
   return (expf(gdb/20.f*logf(10.f)));
@@ -65,12 +61,27 @@ inline float to_dB(float g) {
   return (20.f*log10f(g));
 }
 
+//-----------FREQ <> INDEX------------
+
+inline float Index2Freq(int i, float samp_rate, int N) {
+  return (float) i * (samp_rate / N / 2.f);
+}
+
+inline int Freq2Index(float freq, float samp_rate, int N) {
+  return (int) (freq / (samp_rate / N / 2.f));
+}
+
+//---------SPECTRAL OPERATIONS-------------
+
+//Mean value of a spetrum
 inline float spectral_mean(int m, float* a) {
     float sum=0;
     for(int i=0; i<m; i++)
         sum+=a[i];
     return((float)sum/m);
 }
+
+//Geometric Mean value of a spetrum
 inline float spectral_gmean(int m, float* a) {
     float mult=0;
     for(int i=0; i<m; i++)
@@ -78,7 +89,8 @@ inline float spectral_gmean(int m, float* a) {
     return((float)pow(mult,1.f/m));
 }
 
-inline float median(int n, float* x) {
+//Median value of a spetrum
+inline float spectral_median(int n, float* x) {
     float temp;
     int i, j;
     // the following two loops sort the array x in ascending order
@@ -102,7 +114,7 @@ inline float median(int n, float* x) {
     }
 }
 
-inline float moda(int n, float* x) {
+inline float spectral_moda(int n, float* x) {
   float temp[n];
   int i,j,pos_max;
   float max;
@@ -128,21 +140,60 @@ inline float moda(int n, float* x) {
   return x[pos_max];
 }
 
+//verifies if the spectrum is full of zeros
+inline bool is_empty(float* spectrum, int N){
+  int k;
+  float sum = 0.f;
+  for(k = 0;k <= N; k++){
+    sum += spectrum[k];
+  }
+  if(sum > 0){
+    return false;
+  }
+  return true;
+}
+
+//finds the max value of the spectrum
+inline float max_spectral_value(float* spectrum, int N){
+  int k;
+  float max = 0.f;
+  for(k = 0; k <= N; k++){
+    max = MAX(spectrum[k],max);
+  }
+  return max;
+}
+
+//finds the min value of the spectrum
+inline float min_spectral_value(float* spectrum, int N){
+  int k;
+  float min = FLT_MAX;
+  for(k = 0; k <= N; k++){
+    min = MIN(spectrum[k],min);
+  }
+  return min;
+}
+
+//-----------WINDOW---------------
+
+//blackman window values computing
 inline float blackman(int k, int N) {
   float p = ((float)(k))/((float)(N));
   return 0.42-0.5*cosf(2.f*M_PI*p) + 0.08*cosf(4.f*M_PI*p);
 }
 
+//hanning window values computing
 inline float hanning(int k, int N) {
   float p = ((float)(k))/((float)(N));
   return 0.5 - 0.5 * cosf(2.f*M_PI*p);
 }
 
+//hamming window values computing
 inline float hamming(int k, int N) {
   float p = ((float)(k))/((float)(N));
   return 0.54 - 0.46 * cosf(2.f*M_PI*p);
 }
 
+//wrapper to compute windows values
 void fft_window(float* window, int N, int window_type) {
   int k;
   for (k = 0; k < N; k++){
@@ -160,34 +211,32 @@ void fft_window(float* window, int N, int window_type) {
   }
 }
 
-inline bool is_empty(float* noise_print, int N){
-  int k;
-  float sum = 0.f;
-  for(k = 0;k <= N; k++){
-    sum += noise_print[k];
+//wrapper for pre and post processing windows
+void fft_pre_and_post_window(float* window_input,
+                             float* window_output,
+                             int fft_size,
+                             int window_combination,
+                             float* overlap_scale_factor) {
+  switch(window_combination){
+    case 0: // HANN-HANN
+      fft_window(window_input,fft_size,0); //STFT input window
+      fft_window(window_output,fft_size,0); //STFT output window
+      *(overlap_scale_factor) = HANN_HANN_SCALING;
+      break;
+    case 1: //HAMMING-HANN
+      fft_window(window_input,fft_size,1); //STFT input window
+      fft_window(window_output,fft_size,0); //STFT output window
+      *(overlap_scale_factor) = HAMMING_HANN_SCALING;
+      break;
+    case 2: //BLACKMAN-HANN
+      fft_window(window_input,fft_size,2); //STFT input window
+      fft_window(window_output,fft_size,0); //STFT output window
+      *(overlap_scale_factor) = BLACKMAN_HANN_SCALING;
+      break;
   }
-  if(sum > 0){
-    return false;
-  }
-  return true;
-}
-inline float max_spectral_value(float* noise_print, int N){
-  int k;
-  float max = 0.f;
-  for(k = 0; k <= N; k++){
-    max = MAX(noise_print[k],max);
-  }
-  return max;
 }
 
-inline float min_spectral_value(float* noise_print, int N){
-  int k;
-  float min = FLT_MAX;
-  for(k = 0; k <= N; k++){
-    min = MIN(noise_print[k],min);
-  }
-  return min;
-}
+//---------------WHITENING--------------
 
 //unnormalized Hann windows for whitening tappering
 void tappering_filter_calc(float* filter, int N,float wa) {
@@ -268,7 +317,7 @@ void spectral_smoothing_MM(float* spectrum, int kernel_width, int N){
     for(int l = j0; l <= j1; ++l) {
       aux[l] = spectrum[l];
     }
-    smoothing_tmp[k] = median(j1-j0+1,aux);
+    smoothing_tmp[k] = spectral_median(j1-j0+1,aux);
   }
 
   for (k = 0; k <= N; ++k){

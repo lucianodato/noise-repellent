@@ -137,7 +137,7 @@ void spectral_gain_computing(float* bark_z,
                      Gk);
   }
 
-  //FREQUENCY SMOOTHING OF GAIN
+  //FREQUENCY SMOOTHING OF GAINS
   spectral_smoothing_MA(Gk,
                         frequency_smoothing,
                         fft_size_2);
@@ -173,7 +173,7 @@ void gain_application(float amount_of_reduction,
     residual_spectrum[fft_size-k] = output_fft_buffer[fft_size-k] - denoised_fft_buffer[fft_size-k];
   }
 
-  //Residual signal Whitening and tappering (only when not profiling noise)
+  //Residual signal Whitening and tappering
   if(residual_whitening != 0.f) {
     whitening_of_spectrum(residual_spectrum,residual_whitening,fft_size_2);
     tappering_filter_calc(tappering_filter,fft_size_2,residual_whitening);

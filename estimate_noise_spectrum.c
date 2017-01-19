@@ -20,23 +20,26 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include "extra_functions.c"
 
 //For louizou algorithm
-#define N_SMOOTH 0.7 //Smoothing over the power spectrum [0.9 - previous / 0.7 - actual]
-#define BETA_AT 0.8 //Adaption time of the local minimun [1 - slower / 0 - faster]
-#define GAMMA 0.998 //Smoothing factor over local minimun [1 - previous / 0 - actual]
-#define ALPHA_P 0.2 //smoothing constant over speech presence [1 - previous / 0 - actual]
-#define ALPHA_D 0.99 //time–frequency dependent smoothing [0-1] [1 - previous / 0 - actual]
+#define N_SMOOTH 0.7                //Smoothing over the power spectrum [0.9 - previous / 0.7 - actual]
+#define BETA_AT 0.8                 //Adaption time of the local minimun [1 - slower / 0 - faster]
+#define GAMMA 0.998                 //Smoothing factor over local minimun [1 - previous / 0 - actual]
+#define ALPHA_P 0.2                 //smoothing constant over speech presence [1 - previous / 0 - actual]
+#define ALPHA_D 0.99                //time–frequency dependent smoothing [0-1] [1 - previous / 0 - actual]
 
-#define CROSSOVER_POINT1 1000.0 //crossover point for loizou reference thresholds
-#define CROSSOVER_POINT2 3000.0 //crossover point for loizou reference thresholds
-#define BAND_1_GAIN 2.0 //gain for the band
-#define BAND_2_GAIN 2.0 //gain for the band
-#define BAND_3_GAIN 5.0 //gain for the band
+//for auto_thresholds calculation
+#define CROSSOVER_POINT1 1000.0     //crossover point for loizou reference thresholds
+#define CROSSOVER_POINT2 3000.0     //crossover point for loizou reference thresholds
+#define BAND_1_GAIN 2.0             //gain for the band
+#define BAND_2_GAIN 2.0             //gain for the band
+#define BAND_3_GAIN 5.0             //gain for the band
 
 
+//This thresholds will dictate how louizou algorithm recognizes noise
 void compute_auto_thresholds(float* auto_thresholds,
                              float fft_size,
                              float fft_size_2,
                              float samp_rate){
+
   //This was experimentally obteined in louizou paper
 	int LF = Freq2Index(CROSSOVER_POINT1,samp_rate,fft_size);//1kHz
 	int MF = Freq2Index(CROSSOVER_POINT2,samp_rate,fft_size);//3kHz
@@ -53,6 +56,7 @@ void compute_auto_thresholds(float* auto_thresholds,
 	}
 }
 
+//Loizou noise-estimation algorithm for highly non-stationary environments
 static void estimate_noise_loizou(float* thresh,
                       int fft_size_2,
                       float* p2,
@@ -85,7 +89,7 @@ static void estimate_noise_loizou(float* thresh,
     ratio_ns = s_pow_spec[k]/p_min[k];
 
     //4- Compute the indicator function I for speech present/absent detection
-    if(ratio_ns > thresh[k]) { //thresh could be freq dependant (it is not a neasure related to dB)
+    if(ratio_ns > thresh[k]) { //thresh could be freq dependant
       speech_p_d[k] = 1.f; //present
     } else {
       speech_p_d[k] = 0.f; //absent
@@ -153,7 +157,7 @@ void get_noise_statistics(float* spectrum,
 
   //Get noise thresholds based on averageing the input noise signal between frames
   for(k = 0 ; k <= fft_size_2 ; k++) {
-    if(*(window_count) == 1){
+    if(*(window_count) == 1.f){
       noise_thresholds[k] = spectrum[k];
     } else {
       noise_thresholds[k] += ((spectrum[k] - noise_thresholds[k])/ *(window_count)); //rolling mean

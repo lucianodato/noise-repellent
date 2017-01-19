@@ -25,17 +25,17 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define GAMMA2 0.5
 #define BETA_GSS 0.0
 #define ALPHA_GSS 1.0
-#define GAIN_SMOOTH 0.5 //for the virag method
+#define GAIN_SMOOTH 0.5 //smoothing of gain proposed in virag method
 
 /*Generalized Spectral Subtraction
-gamma defines what type of spectral Subtraction is used
-  gamma1=gamma2=1 is magnitude substaction
-  gamma1=2 gamma2=0.5 is power Subtraction
-  gamma1=2 gamma2=1 is wiener filtering
-alpha is the oversustraction factor
-beta is the spectral flooring factor
-reduction_strenght is the other oversustraction designed by the user
-so there are 2 oversustraction factors
+ *gamma defines what type of spectral Subtraction is used
+ *gamma1=gamma2=1 is magnitude substaction
+ *gamma1=2 gamma2=0.5 is power Subtraction
+ *gamma1=2 gamma2=1 is wiener filtering
+ *alpha is the oversustraction factor
+ *beta is the spectral flooring factor
+ *reduction_strenght is the other oversustraction designed by the user
+ *so there are 2 oversustraction factors
 */
 
 //This version uses fixed alpha and beta
@@ -68,7 +68,7 @@ void denoise_gain_gss(float reduction_strenght,
       //Otherwise we keep everything as is
       Gk[k] = 1.f;
     }
-  } //for
+  }
 }
 
 //This version recieves a vector of alphas and betas
@@ -102,11 +102,13 @@ void denoise_gain_gss_v(float reduction_strenght,
       //Otherwise we keep everything as is
       Gk[k] = 1.f;
     }
-  } //for
+  }
 }
-//This version recieves a vector of alphas previous gains for smoothing
-//as Virag method requieres
-//gain should be smoothed over time to avoid discontinuities
+
+/*This version recieves a vector of alphas previous gains for smoothing
+ *as Virag method requieres
+ *gain should be smoothed over time to avoid discontinuities
+ */
 void denoise_gain_gss_fixed_beta(float reduction_strenght,
                       int fft_size_2,
                       float* alpha,
@@ -143,5 +145,5 @@ void denoise_gain_gss_fixed_beta(float reduction_strenght,
     //Save previous values
     Gk_prev[k] = Gk[k];
 
-  } //for
+  }
 }

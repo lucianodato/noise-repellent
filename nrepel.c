@@ -31,12 +31,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define NS_MY "http://example.org/myplugin/schema#"
 
 //STFT default values (This are standart values)
-#define FFT_SIZE 2048 //max should be 8192 otherwise is too expensive
-#define WINDOW_COMBINATION 0 //0 HANN-HANN 1 HAMMING-HANN 2 BLACKMAN-HANN
-#define OVERLAP_FACTOR 4 //4 is 75% overlap
-#define HANN_HANN_SCALING 0.375 //This is for overlapadd scaling
-#define HAMMING_HANN_SCALING 0.385 // 1/average(window[i]^2)
-#define BLACKMAN_HANN_SCALING 0.335
+#define FFT_SIZE 2048                 //max should be 8192 otherwise is too expensive
+#define WINDOW_COMBINATION 0          //0 HANN-HANN 1 HAMMING-HANN 2 BLACKMAN-HANN
+#define OVERLAP_FACTOR 4              //4 is 75% overlap
 
 ///---------------------------------------------------------------------
 
@@ -62,48 +59,48 @@ typedef enum {
 } PortIndex;
 
 typedef struct {
-	const float* input; //input of samples from host (changing size)
-	float* output; //output of samples to host (changing size)
-	float samp_rate; // Sample rate received from the host
+	const float* input;               //input of samples from host (changing size)
+	float* output;                    //output of samples to host (changing size)
+	float samp_rate;                  //Sample rate received from the host
 
 	//Parameters for the algorithm (user input)
-	float* capture_state; // Capture Noise state (Manual-Off-Auto)
-	float* amount_of_reduction; // Amount of noise to reduce in dB
-	float* reduction_strenght; // Amount of noise to reduce in dB
-	float* report_latency; // Latency necessary
-	float* reset_print; // Latency necessary
-	float* noise_listen; //For noise only listening
-	float* residual_whitening; //Whitening of the residual spectrum
-	float* time_smoothing; //constant that set the time smoothing coefficient
-	float* auto_state; //autocapture switch
-	float* frequency_smoothing; //Smoothing over frequency
-	float* masking; //Activate masking threshold
-	float* enable; //For soft bypass (click free bypass)
-	// float* attack; //attack time
-	// float* release; //release time
+	float* capture_state;             //Capture Noise state (Manual-Off-Auto)
+	float* amount_of_reduction;       //Amount of noise to reduce in dB
+	float* reduction_strenght;        //Amount of noise to reduce in dB
+	float* report_latency;            //Latency necessary
+	float* reset_print;               //Reset Noise switch
+	float* noise_listen;              //For noise only listening
+	float* residual_whitening;        //Whitening of the residual spectrum
+	float* time_smoothing;            //constant that set the time smoothing coefficient
+	float* auto_state;                //autocapture switch
+	float* frequency_smoothing;       //Smoothing over frequency
+	float* masking;                   //Activate masking threshold
+	float* enable;                    //For soft bypass (click free bypass)
+	// float* attack;                  //attack time
+	// float* release;                 //release time
 
 
 	//Parameters values and arrays for the STFT
-	int fft_size; //FFTW input size
-	int fft_size_2; //FFTW half input size
-	int window_combination; // Window combination for the STFT
-	float overlap_factor; //oversampling factor for overlap calculations
-	float overlap_scale_factor; //Scaling factor for conserving the final amplitude
-	int hop; // Hop size for the STFT
-	float* window_input; // Input Window values
-	float* window_output; // Input Window values
-	float* window_count; //Count windows for mean computing
-	float tau; //time constant for soft bypass
-	float wet_dry_target; //softbypass target for softbypass
-	float wet_dry; //softbypass
-	float reduction_coeff; //Gain to apply to the residual noise
+	int fft_size;                     //FFTW input size
+	int fft_size_2;                   //FFTW half input size
+	int window_combination;           //Window combination for the STFT
+	float overlap_factor;             //oversampling factor for overlap calculations
+	float* overlap_scale_factor;       //Scaling factor for conserving the final amplitude
+	int hop;                          //Hop size for the STFT
+	float* window_input;              //Input Window values
+	float* window_output;             //Input Window values
+	float* window_count;              //Count windows for mean computing
+	float tau;                        //time constant for soft bypass
+	float wet_dry_target;             //softbypass target for softbypass
+	float wet_dry;                    //softbypass coeff
+	float reduction_coeff;            //Gain to apply to the residual noise
 
 	//Buffers for processing and outputting
 	int input_latency;
-	float* in_fifo; //internal input buffer
-	float* out_fifo; //internal output buffer
-	float* output_accum; //FFT output accumulator
-	int read_ptr; //buffers read pointer
+	float* in_fifo;                   //internal input buffer
+	float* out_fifo;                  //internal output buffer
+	float* output_accum;              //FFT output accumulator
+	int read_ptr;                     //buffers read pointer
 
 	//FFTW related arrays
 	float* input_fft_buffer;
@@ -113,20 +110,20 @@ typedef struct {
 
 	//Arrays and variables for getting bins info
 	float real_p,imag_n,mag,p2;
-	float* fft_magnitude;//magnitude
-	float* fft_magnitude_smooth;//magnitude
-	float* fft_magnitude_prev;//magnitude spectrum of the previous frame
-	float* fft_p2;//power spectrum
-	float* fft_p2_smooth;//power spectrum
-	float* fft_p2_prev;//power spectum of previous frame
-	float* noise_thresholds;
-	bool noise_thresholds_availables;
+	float* fft_magnitude;             //magnitude spctrum
+	float* fft_magnitude_smooth;      //smoothed magnitude spectrum
+	float* fft_magnitude_prev;        //magnitude spectrum of the previous frame
+	float* fft_p2;                    //power spectrum
+	float* fft_p2_smooth;             //smoothed power spectrum
+	float* fft_p2_prev;               //power spectum of previous frame
+	float* noise_thresholds;          //captured noise print
+	bool noise_thresholds_availables; //indicate whether a noise print is available or not
 
-	float* Gk; //gain to be applied
-	float* Gk_prev; //past gain applied
+	float* Gk;                        //gain to be applied
+	float* Gk_prev;                   //past gain applied
 
 	//Loizou algorithm
-	float* auto_thresholds; //Reference threshold for louizou algorithm
+	float* auto_thresholds;           //Reference threshold for louizou algorithm
 	float* prev_noise_thresholds;
 	float* s_pow_spec;
 	float* prev_s_pow_spec;
@@ -179,24 +176,13 @@ instantiate(const LV2_Descriptor*     descriptor,
 
 	nrepel->window_input = (float*)calloc(nrepel->fft_size,sizeof(float));
 	nrepel->window_output = (float*)calloc(nrepel->fft_size,sizeof(float));
-	//Window combination computing (pre processing window post processing window)
-	switch(nrepel->window_combination){
-		case 0: // HANN-HANN
-			fft_window(nrepel->window_input,nrepel->fft_size,0); //STFT input window
-			fft_window(nrepel->window_output,nrepel->fft_size,0); //STFT output window
-			nrepel->overlap_scale_factor = HANN_HANN_SCALING;
-			break;
-		case 1: //HAMMING-HANN
-			fft_window(nrepel->window_input,nrepel->fft_size,1); //STFT input window
-			fft_window(nrepel->window_output,nrepel->fft_size,0); //STFT output window
-			nrepel->overlap_scale_factor = HAMMING_HANN_SCALING;
-			break;
-		case 2: //BLACKMAN-HANN
-			fft_window(nrepel->window_input,nrepel->fft_size,2); //STFT input window
-			fft_window(nrepel->window_output,nrepel->fft_size,0); //STFT output window
-			nrepel->overlap_scale_factor = BLACKMAN_HANN_SCALING;
-			break;
-	}
+
+	//Window combination initialization (pre processing window post processing window)
+	fft_pre_and_post_window(nrepel->window_input,
+	                        nrepel->window_output,
+	                        nrepel->fft_size,
+	                        nrepel->window_combination,
+	                        nrepel->overlap_scale_factor);
 
 	nrepel->input_fft_buffer = (float*)calloc(nrepel->fft_size,sizeof(float));
 	nrepel->output_fft_buffer = (float*)calloc(nrepel->fft_size,sizeof(float));
@@ -355,6 +341,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 
 	//main loop for processing
 	for (pos = 0; pos < n_samples; pos++){
+
 		//Store samples int the input buffer
 		nrepel->in_fifo[nrepel->read_ptr] = nrepel->input[pos];
 		//Output samples in the output buffer (even zeros introduced by latency)
@@ -481,7 +468,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 
 			//Accumulate (Overlapadd)
 			for(k = 0; k < nrepel->fft_size; k++){
-				nrepel->output_accum[k] += nrepel->window_output[k]*nrepel->input_fft_buffer[k]/(float)(nrepel->overlap_scale_factor*nrepel->overlap_factor);
+				nrepel->output_accum[k] += nrepel->window_output[k]*nrepel->input_fft_buffer[k]/(float)( *(nrepel->overlap_scale_factor) * nrepel->overlap_factor);
 			}
 
 			//Output samples up to the hop size
