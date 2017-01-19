@@ -61,7 +61,7 @@ inline float to_dB(float g) {
   return (20.f*log10f(g));
 }
 
-//-----------FREQ <> INDEX------------
+//-----------FREQ <> INDEX OR BIN------------
 
 inline float Index2Freq(int i, float samp_rate, int N) {
   return (float) i * (samp_rate / N / 2.f);
@@ -241,8 +241,8 @@ void fft_pre_and_post_window(float* window_input,
 //unnormalized Hann windows for whitening tappering
 void tappering_filter_calc(float* filter, int N,float wa) {
   int k;
-  for (k = 0; k <= N; k++){
-    filter[k] = hanning(k, N+1);//Half hann window tappering in favor of high frequencies
+  for (k = 0; k < N; k++){
+    filter[k] = hanning(k, N);//Half hann window tappering in favor of high frequencies
   }
 }
 

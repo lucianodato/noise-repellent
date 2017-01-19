@@ -30,7 +30,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define NREPEL_URI "https://github.com/lucianodato/noise-repellent"
 #define NS_MY "http://example.org/myplugin/schema#"
 
-//STFT default values (This are standart values)
+//STFT default values (These are standart values)
 #define FFT_SIZE 2048                 //max should be 8192 otherwise is too expensive
 #define WINDOW_COMBINATION 0          //0 HANN-HANN 1 HAMMING-HANN 2 BLACKMAN-HANN
 #define OVERLAP_FACTOR 4              //4 is 75% overlap
@@ -178,11 +178,7 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->window_output = (float*)calloc(nrepel->fft_size,sizeof(float));
 
 	//Window combination initialization (pre processing window post processing window)
-	fft_pre_and_post_window(nrepel->window_input,
-	                        nrepel->window_output,
-	                        nrepel->fft_size,
-	                        nrepel->window_combination,
-	                        nrepel->overlap_scale_factor);
+	fft_pre_and_post_window(nrepel->window_input, nrepel->window_output, nrepel->fft_size, nrepel->window_combination, nrepel->overlap_scale_factor);
 
 	nrepel->input_fft_buffer = (float*)calloc(nrepel->fft_size,sizeof(float));
 	nrepel->output_fft_buffer = (float*)calloc(nrepel->fft_size,sizeof(float));
