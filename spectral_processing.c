@@ -29,10 +29,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 void spectral_gain_computing(float* bark_z,
                     float* fft_p2,
                     float* fft_p2_prev,
-                    float* fft_p2_smooth,
                     float* fft_magnitude,
                     float* fft_magnitude_prev,
-                    float* fft_magnitude_smooth,
                     float time_smoothing,
                     float* noise_thresholds,
                     int fft_size_2,
@@ -68,13 +66,11 @@ void spectral_gain_computing(float* bark_z,
     spectrum_exponential_smoothing(fft_size_2,
                                    fft_p2_prev,
                                    fft_p2,
-                                   fft_p2_smooth,
                                    time_smoothing);
 
     spectrum_exponential_smoothing(fft_size_2,
                                    fft_magnitude_prev,
                                    fft_magnitude,
-                                   fft_magnitude_smooth,
                                    time_smoothing);
   }
 
@@ -85,7 +81,7 @@ void spectral_gain_computing(float* bark_z,
     denoise_gain_gss_fixed_beta(reduction_strenght,
                                 fft_size_2,
                                 alpha,
-                                fft_magnitude_smooth,
+                                fft_magnitude,
                                 noise_thresholds,
                                 Gk,
                                 Gk_prev);
@@ -95,7 +91,7 @@ void spectral_gain_computing(float* bark_z,
                      fft_size_2,
                      ALPHA_GSS,//alpha
                      BETA_GSS,//beta
-                     fft_magnitude_smooth,
+                     fft_magnitude,
                      noise_thresholds,
                      Gk);
   }

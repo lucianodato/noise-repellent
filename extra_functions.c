@@ -470,10 +470,9 @@ void spectral_smoothing_SG_quart(float* spectrum, int kernel_width,int N){
 void spectrum_exponential_smoothing(int fft_size_2,
                                   float* prev_spectrum,
                                   float* spectrum,
-                                  float* smoothed_spectrum,
                                   float coeff){
   int k;
   for (k = 0; k <= fft_size_2; k++) {
-    smoothed_spectrum[k] = (1.f - coeff) * spectrum[k] + coeff * prev_spectrum[k];
+    spectrum[k] = (1.f - coeff) * spectrum[k] + coeff * prev_spectrum[k];
   }
 }
