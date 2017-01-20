@@ -64,17 +64,19 @@ void spectral_gain_computing(float* bark_z,
 
   //SMOOTHING
   //Time smoothing between current and past power spectrum and magnitude spectrum
-  spectrum_exponential_smoothing(fft_size_2,
-                                 fft_p2_prev,
-                                 fft_p2,
-                                 fft_p2_smooth,
-                                 time_smoothing);
+  if (time_smoothing > 0.f){
+    spectrum_exponential_smoothing(fft_size_2,
+                                   fft_p2_prev,
+                                   fft_p2,
+                                   fft_p2_smooth,
+                                   time_smoothing);
 
-  spectrum_exponential_smoothing(fft_size_2,
-                                 fft_magnitude_prev,
-                                 fft_magnitude,
-                                 fft_magnitude_smooth,
-                                 time_smoothing);
+    spectrum_exponential_smoothing(fft_size_2,
+                                   fft_magnitude_prev,
+                                   fft_magnitude,
+                                   fft_magnitude_smooth,
+                                   time_smoothing);
+  }
 
   //GAIN CALCULATION
   if(masking > 0.f){
@@ -99,9 +101,11 @@ void spectral_gain_computing(float* bark_z,
   }
 
   //FREQUENCY SMOOTHING OF GAINS
-  spectral_smoothing_MA(Gk,
-                        frequency_smoothing,
-                        fft_size_2);
+  if (frequency_smoothing > 0.f){
+    spectral_smoothing_MA(Gk,
+                          frequency_smoothing,
+                          fft_size_2);
+  }
 }
 
 //GAIN APPLICATION
