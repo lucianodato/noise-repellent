@@ -22,7 +22,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 #include "estimate_noise_spectrum.c"
 #include "denoise_gain.c"
-#include "masking_thresholds.c"
+#include "masking.c"
 
 //------------GAIN AND THRESHOLD CALCULATION---------------
 
@@ -49,7 +49,7 @@ void spectral_gain_computing(float* bark_z,
   //PREPROCESSING
 
   //CALCULATION OF ALPHA AND BETA WITH MASKING THRESHOLDS USING VIRAG METHOD
-  if(masking == 1.f){
+  if(masking > 0.f){
     compute_alpha_and_beta(bark_z,
                            fft_p2,
                            fft_magnitude,
@@ -58,7 +58,8 @@ void spectral_gain_computing(float* bark_z,
                            alpha,
                            //beta,
                            max_masked,
-                           min_masked);
+                           min_masked,
+                           masking);
   }
 
   //SMOOTHING
@@ -76,7 +77,7 @@ void spectral_gain_computing(float* bark_z,
                                  time_smoothing);
 
   //GAIN CALCULATION
-  if(masking == 1.f){
+  if(masking > 0.f){
     //Parametric Generalized Spectral Sustraction
     //(Power Sustraction with variable alpha)
     denoise_gain_gss_fixed_beta(reduction_strenght,
