@@ -24,12 +24,12 @@ How to improve the reduction quality:
 
 - Other thing that is important is that you select a representative noise region to capture, since reduction is based on that. The longest the better. Make sure that is noise only too!
 
-- The last control available is frequency smoothing, it will reduce musical noise at the expense of some low frequency.
+- The last control available is frequency smoothing, it will reduce musical noise at the expense of some low frequency loss.
 
 - An auto learn noise feature is provided. It tries to track the noise spectrum automaticaly at the same time signal is processed. It will work best for gentle noise reduction of speech signals. Use this feature where noise is changing over time and rapidly. It will never sound as good as if you do good noise profiling yourself.
 
 General Rules:
 
-- With hum noise, use strength and smoothing only.
+- With hum noise, do not use frequency smoothing.
 
-- With white noise you can use frequency smoothing too. If you loose too much detail from the original signal, use whitening and not too much reduction. Multiple pass will reduce more noise in pauses and less during signal presence. If you use multiple passes, do gentle parameters each time and re learn noise every time.
+- With white noise you can use frequency smoothing. If you loose too much detail from the original signal, use whitening and not too much reduction. Multiple pass will reduce more noise in pauses and less during signal presence. If you use multiple passes, do gentle parameters each time and re learn noise every time.
