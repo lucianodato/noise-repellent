@@ -1,7 +1,7 @@
 #!/usr/bin/make -f
 OPTIMIZATIONS ?= -msse -msse2 -mfpmath=sse -ffast-math -fomit-frame-pointer -O3 -fno-finite-math-only
 PREFIX ?= /usr/local
-CFLAGS ?= $(OPTIMIZATIONS) -Wall
+CFLAGS ?= $(OPTIMIZATIONS) -Wall #-g3 -DDEBUG
 
 STRIP?=strip
 STRIPFLAGS?=-s

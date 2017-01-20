@@ -21,7 +21,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <math.h>
 
 //masking thresholds values recomended by virag
-#define ALPHA_MAX 10.0
+#define ALPHA_MAX 6.0
 #define ALPHA_MIN 1.0
 #define BETA_MAX 0.02
 #define BETA_MIN 0.0
@@ -36,7 +36,12 @@ void compute_bark_z(float* bark_z,int fft_size_2, int srate) {
   }
 }
 
-void compute_masking_thresholds(float* bark_z,float* spectrum, float* noise_thresholds,int fft_size_2,float* masked, float tonality_factor) {
+void compute_masking_thresholds(float* bark_z,
+                                float* spectrum,
+                                float* noise_thresholds,
+                                int fft_size_2,
+                                float* masked,
+                                float tonality_factor) {
   int k,j;
   float bark_diff,johnston,johnston_masked,gain_j;
 

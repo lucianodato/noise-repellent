@@ -117,7 +117,6 @@ typedef struct {
 	float* fft_p2_smooth;             //smoothed power spectrum
 	float* fft_p2_prev;               //power spectum of previous frame
 	float* noise_thresholds;          //captured noise print
-	bool noise_thresholds_availables; //indicate whether a noise print is available or not
 
 	float* Gk;                        //gain to be applied
 	float* Gk_prev;                   //past gain applied
@@ -161,9 +160,9 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->fft_size = FFT_SIZE;
 	nrepel->window_combination = WINDOW_COMBINATION;
 	nrepel->overlap_factor = OVERLAP_FACTOR;
-	*(nrepel->window_count) = 0.f;
+	nrepel->overlap_scale_factor = (float*)calloc(1,sizeof(float));
+  nrepel->window_count = (float*)calloc(1,sizeof(float));
 	nrepel->tau = (1.f - exp (-2.f * M_PI * 25.f * 64.f  / nrepel->samp_rate));
-	nrepel->noise_thresholds_availables = false;
 
 	nrepel->fft_size_2 = nrepel->fft_size/2;
 	nrepel->hop = nrepel->fft_size/nrepel->overlap_factor;
@@ -331,8 +330,6 @@ run(LV2_Handle instance, uint32_t n_samples) {
 		//memset(nrepel->beta, 0, (nrepel->fft_size_2+1)*sizeof(float));
 		nrepel->max_masked = FLT_MIN;
 		nrepel->min_masked = FLT_MAX;
-
-		nrepel->noise_thresholds_availables = false;
 	}
 
 	//main loop for processing
@@ -393,63 +390,60 @@ run(LV2_Handle instance, uint32_t n_samples) {
 
 			/////////////////////SPECTRAL PROCESSING//////////////////////////
 
-			//-------------------SIDECHAIN-----------------
-			//Get noise thresholds if capture is on either auto or manual
-			if (*(nrepel->auto_state) == 1.f || *(nrepel->capture_state) == 1.f){
-				get_noise_thresholds(*(nrepel->auto_state),
-				                     *(nrepel->capture_state),
-				                     nrepel->fft_size_2,
-				                     nrepel->fft_p2,
-				                     nrepel->fft_magnitude,
-				                     nrepel->noise_thresholds,
-				                     nrepel->auto_thresholds,
-				                     nrepel->prev_noise_thresholds,
-				                     nrepel->s_pow_spec,
-				                     nrepel->prev_s_pow_spec,
-				                     nrepel->p_min,
-				                     nrepel->prev_p_min,
-				                     nrepel->speech_p_p,
-				                     nrepel->prev_speech_p_p,
-				                     nrepel->window_count);
+			//If autolearn is selected allways estimate noise_thresholds using Loizou
+		  if(*(nrepel->auto_state) == 1.f) {
+		    auto_capture_noise(nrepel->fft_p2,//this is supposed to be the power spectrum in Loizou method
+		                       nrepel->fft_size_2,
+		                       nrepel->noise_thresholds,
+		                       nrepel->auto_thresholds,
+		                       nrepel->prev_noise_thresholds,
+		                       nrepel->s_pow_spec,
+		                       nrepel->prev_s_pow_spec,
+		                       nrepel->p_min,
+		                       nrepel->prev_p_min,
+		                       nrepel->speech_p_p,
+		                       nrepel->prev_speech_p_p);
+		  }
 
-			  //Activate denoise processing once the noise print is loaded
-				nrepel->noise_thresholds_availables = true;
-			}
+			/*If selected estimate noise spectrum based on selected portion of signal
+			 *If not process the signal
+			 */
+		  if(*(nrepel->capture_state) == 1.f) { //MANUAL
+		    get_noise_statistics(nrepel->fft_magnitude,
+		                         nrepel->fft_size_2,
+		                         nrepel->noise_thresholds,
+		                         nrepel->window_count);
+			} else {
 
 			//Gain Calculation
-			if (nrepel->noise_thresholds_availables){
-				spectral_gain_computing(nrepel->bark_z,
-				                    		nrepel->fft_p2,
-				                    		nrepel->fft_p2_prev,
-				                    		nrepel->fft_p2_smooth,
-				                    		nrepel->fft_magnitude,
-				                    		nrepel->fft_magnitude_prev,
-				                    		nrepel->fft_magnitude_smooth,
-				                    		*(nrepel->time_smoothing),
-				                    		nrepel->noise_thresholds,
-				                    		nrepel->fft_size_2,
-				                    		nrepel->alpha,
-				                    		//nrepel->beta,
-				                    		nrepel->max_masked,
-				                    		nrepel->min_masked,
-				                    		*(nrepel->reduction_strenght),
-				                    		nrepel->Gk,
-				                    		nrepel->Gk_prev,
-				                    		*(nrepel->masking),
-				                    		*(nrepel->frequency_smoothing));
-			}
-			//---------------------------------------------
+			spectral_gain_computing(nrepel->bark_z,
+			                    		nrepel->fft_p2,
+			                    		nrepel->fft_p2_prev,
+			                    		nrepel->fft_p2_smooth,
+			                    		nrepel->fft_magnitude,
+			                    		nrepel->fft_magnitude_prev,
+			                    		nrepel->fft_magnitude_smooth,
+			                    		*(nrepel->time_smoothing),
+			                    		nrepel->noise_thresholds,
+			                    		nrepel->fft_size_2,
+			                    		nrepel->alpha,
+			                    		//nrepel->beta,
+			                    		nrepel->max_masked,
+			                    		nrepel->min_masked,
+			                    		*(nrepel->reduction_strenght),
+			                    		nrepel->Gk,
+			                    		nrepel->Gk_prev,
+			                    		*(nrepel->masking),
+			                    		*(nrepel->frequency_smoothing));
 
-			//Gain application
-			if (nrepel->noise_thresholds_availables){
-				gain_application(*(nrepel->amount_of_reduction),
-				                 nrepel->fft_size_2,
-				                 nrepel->fft_size,
-				                 nrepel->output_fft_buffer,
-				                 nrepel->Gk,
-				                 nrepel->wet_dry,
-				                 *(nrepel->residual_whitening),
-				                 *(nrepel->noise_listen));
+			gain_application(*(nrepel->amount_of_reduction),
+			                 nrepel->fft_size_2,
+			                 nrepel->fft_size,
+			                 nrepel->output_fft_buffer,
+			                 nrepel->Gk,
+			                 nrepel->wet_dry,
+			                 *(nrepel->residual_whitening),
+			                 *(nrepel->noise_listen));
 
 			}
 			///////////////////////////////////////////////////////////

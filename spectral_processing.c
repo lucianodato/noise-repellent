@@ -24,46 +24,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include "denoise_gain.c"
 #include "masking_thresholds.c"
 
-void get_noise_thresholds(int auto_state,
-                          int capture_state,
-                          int fft_size_2,
-                          float* power_spectrum,
-                          float* magnitude_spectrum,
-                          float* noise_thresholds,
-                          float* auto_thresholds,
-                          float* prev_noise_thresholds,
-                          float* s_pow_spec,
-                          float* prev_s_pow_spec,
-                          float* p_min,
-                          float* prev_p_min,
-                          float* speech_p_p,
-                          float* prev_speech_p_p,
-                          float* window_count){
-
-  //if slected auto estimate noise spectrum
-  if(auto_state == 1.f) {
-    auto_capture_noise(power_spectrum,//this is supposed to be the power spectrum in Loizou method
-                       fft_size_2,
-                       noise_thresholds,
-                       auto_thresholds,
-                       prev_noise_thresholds,
-                       s_pow_spec,
-                       prev_s_pow_spec,
-                       p_min,
-                       prev_p_min,
-                       speech_p_p,
-                       prev_speech_p_p);
-  }
-
-  //If selected estimate noise spectrum based on selected portion of signal
-  if(capture_state == 1.f) { //MANUAL
-    get_noise_statistics(magnitude_spectrum,
-                         fft_size_2,
-                         noise_thresholds,
-                         window_count);
-  }
-}
-
 //------------GAIN AND THRESHOLD CALCULATION---------------
 
 void spectral_gain_computing(float* bark_z,
@@ -176,7 +136,7 @@ void gain_application(float amount_of_reduction,
   //Residual signal Whitening and tappering
   if(residual_whitening != 0.f) {
     whitening_of_spectrum(residual_spectrum,residual_whitening,fft_size_2);
-    tappering_filter_calc(tappering_filter,(fft_size_2+1),residual_whitening);
+    tappering_filter_calc(tappering_filter,(fft_size_2+1));
     apply_tappering_filter(residual_spectrum,tappering_filter,fft_size_2);
   }
 
