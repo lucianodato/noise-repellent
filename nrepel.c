@@ -117,7 +117,8 @@ typedef struct {
 	float* fft_magnitude_prev;        //magnitude spectrum of the previous frame
 	float* fft_p2;                    //power spectrum
 	float* fft_p2_prev;               //power spectum of previous frame
-	float* noise_thresholds;          //captured noise print
+	float* noise_thresholds_p2;       //captured noise print power spectrum
+	float* noise_thresholds_magnitude;//captured noise print magnitude spectrum
 
 	float* Gk;                        //gain to be applied
 	float* Gk_prev;                   //past gain applied
@@ -133,8 +134,6 @@ typedef struct {
 	float* prev_speech_p_p;
 
 	//masking
-	float* alpha;
-	//float* beta;
 	float* bark_z;
 	float max_masked;
 	float min_masked;
@@ -193,7 +192,8 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->fft_magnitude_prev = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->fft_p2 = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->fft_p2_prev = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
-	nrepel->noise_thresholds = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
+	nrepel->noise_thresholds_p2 = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
+	nrepel->noise_thresholds_magnitude = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 
 	nrepel->Gk = (float*)malloc((nrepel->fft_size_2+1)*sizeof(float));
 	memset(nrepel->Gk, 1, (nrepel->fft_size_2+1)*sizeof(float));
@@ -211,9 +211,6 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->prev_speech_p_p = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 
 	//MASKING
-	nrepel->alpha = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
-	memset(nrepel->alpha, 1, (nrepel->fft_size_2+1)*sizeof(float));
-	//nrepel->beta = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->bark_z = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->max_masked = FLT_MIN;
 	nrepel->min_masked = FLT_MAX;
@@ -316,7 +313,8 @@ run(LV2_Handle instance, uint32_t n_samples) {
 
 	//Reset button state (if on)
 	if (*(nrepel->reset_print) == 1.f) {
-		memset(nrepel->noise_thresholds, 0, (nrepel->fft_size_2+1)*sizeof(float));
+		memset(nrepel->noise_thresholds_p2, 0, (nrepel->fft_size_2+1)*sizeof(float));
+		memset(nrepel->noise_thresholds_magnitude, 0, (nrepel->fft_size_2+1)*sizeof(float));
 		memset(nrepel->Gk, 1, (nrepel->fft_size_2+1)*sizeof(float));
 		memset(nrepel->Gk_prev, 1, (nrepel->fft_size_2+1)*sizeof(float));
 		nrepel->window_count = 0.f;
@@ -329,8 +327,6 @@ run(LV2_Handle instance, uint32_t n_samples) {
 		memset(nrepel->speech_p_p, 0, (nrepel->fft_size_2+1)*sizeof(float));
 		memset(nrepel->prev_speech_p_p, 0, (nrepel->fft_size_2+1)*sizeof(float));
 
-		memset(nrepel->alpha, 1, (nrepel->fft_size_2+1)*sizeof(float));
-		//memset(nrepel->beta, 0, (nrepel->fft_size_2+1)*sizeof(float));
 		nrepel->max_masked = FLT_MIN;
 		nrepel->min_masked = FLT_MAX;
 
@@ -400,7 +396,8 @@ run(LV2_Handle instance, uint32_t n_samples) {
 				if(*(nrepel->auto_state) == 1.f) {
 					auto_capture_noise(nrepel->fft_p2,//this is supposed to be the power spectrum in Loizou method
 														 nrepel->fft_size_2,
-														 nrepel->noise_thresholds,
+														 nrepel->noise_thresholds_p2,
+														 nrepel->noise_thresholds_magnitude,
 														 nrepel->auto_thresholds,
 														 nrepel->prev_noise_thresholds,
 														 nrepel->s_pow_spec,
@@ -417,9 +414,11 @@ run(LV2_Handle instance, uint32_t n_samples) {
 				 *do not process the signal
 				 */
 				if(*(nrepel->capture_state) == 1.f) { //MANUAL
-					get_noise_statistics(nrepel->fft_magnitude,
+					get_noise_statistics(nrepel->fft_p2,
+															 nrepel->fft_magnitude,
 															 nrepel->fft_size_2,
-															 nrepel->noise_thresholds,
+															 nrepel->noise_thresholds_p2,
+															 nrepel->noise_thresholds_magnitude,
 															 &nrepel->window_count);
 
 					nrepel->noise_thresholds_availables = true;
@@ -433,16 +432,15 @@ run(LV2_Handle instance, uint32_t n_samples) {
 																		nrepel->fft_magnitude,
 																		nrepel->fft_magnitude_prev,
 																		*(nrepel->time_smoothing),
-																		nrepel->noise_thresholds,
+																		nrepel->noise_thresholds_p2,
+																		nrepel->noise_thresholds_magnitude,
 																		nrepel->fft_size_2,
-																		nrepel->alpha,
-																		//nrepel->beta,
-																		nrepel->max_masked,
-																		nrepel->min_masked,
+																		&nrepel->max_masked,
+																		&nrepel->min_masked,
 																		*(nrepel->reduction_strenght),
 																		nrepel->Gk,
 																		nrepel->Gk_prev,
-																		nrepel->masking,
+																		*(nrepel->masking),
 																		*(nrepel->frequency_smoothing));
 
 						//Gain Application

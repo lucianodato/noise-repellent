@@ -73,23 +73,67 @@ inline int Freq2Index(float freq, float samp_rate, int N) {
 
 //---------SPECTRAL OPERATIONS-------------
 
-//Mean value of a spetrum
+//verifies if the spectrum is full of zeros
+inline bool is_empty(float* spectrum, int N){
+  int k;
+  for(k = 0;k <= N; k++){
+    if(spectrum[k] > FLT_MIN){
+      return false;
+    }
+  }
+  return true;
+}
+
+//finds the max value of the spectrum
+inline float max_spectral_value(float* spectrum, int N){
+  int k;
+  float max = 0.f;
+  for(k = 0; k <= N; k++){
+    max = MAX(spectrum[k],max);
+  }
+  return max;
+}
+
+//finds the min value of the spectrum
+inline float min_spectral_value(float* spectrum, int N){
+  int k;
+  float min = FLT_MAX;
+  for(k = 0; k <= N; k++){
+    min = MIN(spectrum[k],min);
+  }
+  return min;
+}
+
+//Mean value of a spectrum
 inline float spectral_mean(int m, float* a) {
-    float sum=0;
-    for(int i=0; i<m; i++)
+    float sum=0.f;
+    for(int i=0; i<=m; i++)
         sum+=a[i];
-    return((float)sum/m);
+    return(sum/(float)(m+1));
 }
 
-//Geometric Mean value of a spetrum
+// //Geometric Mean value of a spectrum
+// inline float spectral_gmean(int m, float* a) {
+//     float mult=1.f;
+//     int cant = m+1;
+//     for(int i=0; i<=m; i++)
+//       if (a[i] > FLT_MIN) {
+//         mult*=a[i];
+//       } else {
+//         cant--;
+//       }
+//     return(powf(mult,(1.f/(float)cant)));
+// }
+
+//Geometric Mean value of a spectrum
 inline float spectral_gmean(int m, float* a) {
-    float mult=0;
-    for(int i=0; i<m; i++)
-        mult*=a[i];
-    return((float)pow(mult,1.f/m));
+    float max = max_spectral_value(a,m);
+    float min = min_spectral_value(a,m);
+
+    return((max-min)/2.f + min);
 }
 
-//Median value of a spetrum
+//Median value of a spectrum
 inline float spectral_median(int n, float* x) {
     float temp;
     int i, j;
@@ -138,37 +182,6 @@ inline float spectral_moda(int n, float* x) {
       }
   }
   return x[pos_max];
-}
-
-//verifies if the spectrum is full of zeros
-inline bool is_empty(float* spectrum, int N){
-  int k;
-  for(k = 0;k <= N; k++){
-    if(spectrum[k] > FLT_MIN){
-      return false;
-    }
-  }
-  return true;
-}
-
-//finds the max value of the spectrum
-inline float max_spectral_value(float* spectrum, int N){
-  int k;
-  float max = 0.f;
-  for(k = 0; k <= N; k++){
-    max = MAX(spectrum[k],max);
-  }
-  return max;
-}
-
-//finds the min value of the spectrum
-inline float min_spectral_value(float* spectrum, int N){
-  int k;
-  float min = FLT_MAX;
-  for(k = 0; k <= N; k++){
-    min = MIN(spectrum[k],min);
-  }
-  return min;
 }
 
 //-----------WINDOW---------------
@@ -465,7 +478,7 @@ void spectral_smoothing_SG_quart(float* spectrum, int kernel_width,int N){
   }
 }
 
-void spectrum_exponential_smoothing(int fft_size_2,
+void spectrum_time_smoothing(int fft_size_2,
                                   float* prev_spectrum,
                                   float* spectrum,
                                   float coeff){

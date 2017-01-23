@@ -32,16 +32,15 @@ void spectral_gain_computing(float* bark_z,
                     float* fft_magnitude,
                     float* fft_magnitude_prev,
                     float time_smoothing,
-                    float* noise_thresholds,
+                    float* noise_thresholds_p2,
+                    float* noise_thresholds_magnitude,
                     int fft_size_2,
-                    float* alpha,
-                    //float* beta,
-                    float max_masked,
-                    float min_masked,
+                    float* max_masked,
+                    float* min_masked,
                     float reduction_strenght,
                     float* Gk,
                     float* Gk_prev,
-                    float* masking,
+                    float masking,
                     float frequency_smoothing){
 
   //PREPROCESSING
@@ -49,23 +48,26 @@ void spectral_gain_computing(float* bark_z,
   //SMOOTHING
   //Time smoothing between current and past power spectrum and magnitude spectrum
   if (time_smoothing > 0.f){
-    spectrum_exponential_smoothing(fft_size_2,
-                                   fft_p2_prev,
-                                   fft_p2,
-                                   time_smoothing);
+    spectrum_time_smoothing(fft_size_2,
+                            fft_p2_prev,
+                            fft_p2,
+                            time_smoothing);
 
-    spectrum_exponential_smoothing(fft_size_2,
-                                   fft_magnitude_prev,
-                                   fft_magnitude,
-                                   time_smoothing);
+    spectrum_time_smoothing(fft_size_2,
+                            fft_magnitude_prev,
+                            fft_magnitude,
+                            time_smoothing);
   }
 
   //GAIN CALCULATION
-  if(*(masking) > 1.f){
+  if(masking > 1.f){
     //CALCULATION OF ALPHA AND BETA WITH MASKING THRESHOLDS USING VIRAG METHOD
+    float alpha[fft_size_2+1];
+    //float beta[fft_size_2+1];
+
     compute_alpha_and_beta(bark_z,
-                           fft_magnitude,
-                           noise_thresholds,
+                           fft_p2,
+                           noise_thresholds_p2,
                            fft_size_2,
                            alpha,
                            //beta,
@@ -79,7 +81,7 @@ void spectral_gain_computing(float* bark_z,
                                 fft_size_2,
                                 alpha,
                                 fft_magnitude,
-                                noise_thresholds,
+                                noise_thresholds_magnitude,
                                 Gk,
                                 Gk_prev);
   } else {
@@ -89,7 +91,7 @@ void spectral_gain_computing(float* bark_z,
                      ALPHA_GSS,//alpha
                      BETA_GSS,//beta
                      fft_magnitude,
-                     noise_thresholds,
+                     noise_thresholds_magnitude,
                      Gk);
   }
 

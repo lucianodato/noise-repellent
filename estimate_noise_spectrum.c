@@ -62,7 +62,7 @@ static void estimate_noise_loizou(float* thresh,
                       float* p2,
                       float* s_pow_spec,
                       float* prev_s_pow_spec,
-                      float* noise_thresholds,
+                      float* noise_thresholds_p2,
                       float* prev_noise,
                       float* p_min,
                       float* prev_p_min,
@@ -102,7 +102,7 @@ static void estimate_noise_loizou(float* thresh,
     freq_s[k] = ALPHA_D + (1.f-ALPHA_D) * speech_p_p[k];
 
     //7- Update noise estimate D using time-frequency dependent smoothing factor α s (λ,k).
-    noise_thresholds[k] = freq_s[k] * prev_noise[k] + (1.f-freq_s[k]) * p2[k];
+    noise_thresholds_p2[k] = freq_s[k] * prev_noise[k] + (1.f-freq_s[k]) * p2[k];
   }
 }
 
@@ -110,7 +110,8 @@ static void estimate_noise_loizou(float* thresh,
 //Automatic noise threshold estimation
 void auto_capture_noise(float* p2,
                         int fft_size_2,
-                        float* noise_thresholds,
+                        float* noise_thresholds_p2,
+                        float* noise_thresholds_magnitude,
                         float* thresh,
                         float* prev_noise_thresholds,
                         float* s_pow_spec,
@@ -127,7 +128,7 @@ void auto_capture_noise(float* p2,
                         p2,
                         s_pow_spec,
                         prev_s_pow_spec,
-                        noise_thresholds,
+                        noise_thresholds_p2,
                         prev_noise_thresholds,
                         p_min,
                         prev_p_min,
@@ -136,21 +137,21 @@ void auto_capture_noise(float* p2,
 
   //Update previous variables
   for(k = 0 ; k <= fft_size_2 ; k++) {
-    prev_noise_thresholds[k] = noise_thresholds[k];
+    prev_noise_thresholds[k] = noise_thresholds_p2[k];
     prev_s_pow_spec[k] = s_pow_spec[k];
     prev_p_min[k] = p_min[k];
     prev_speech_p_p[k] = speech_p_p[k];
-    //noise_thresholds should be a magnitude spectrum as
-    //general spectral sustraction recieves magnitude spectrum
-    noise_thresholds[k] = sqrtf(noise_thresholds[k]);
+    noise_thresholds_magnitude[k] = sqrtf(noise_thresholds_p2[k]);
   }
 }
 
 //Manual Capture threshold estimation
-void get_noise_statistics(float* spectrum,
-                         int fft_size_2,
-                         float* noise_thresholds,
-                         float* window_count) {
+void get_noise_statistics(float* fft_p2,
+                          float* fft_magnitude,
+                          int fft_size_2,
+                          float* noise_thresholds_p2,
+                          float* noise_thresholds_magnitude,
+                          float* window_count) {
   int k;
 
   *(window_count) += 1.f;
@@ -158,9 +159,11 @@ void get_noise_statistics(float* spectrum,
   //Get noise thresholds based on averageing the input noise signal between frames
   for(k = 0 ; k <= fft_size_2 ; k++) {
     if(*(window_count) <= 1.f){
-      noise_thresholds[k] = spectrum[k];
+      noise_thresholds_p2[k] = fft_p2[k];
+      noise_thresholds_magnitude[k] = fft_magnitude[k];
     } else {
-      noise_thresholds[k] += ((spectrum[k] - noise_thresholds[k])/ *(window_count)); //rolling mean
+      noise_thresholds_p2[k] += ((fft_p2[k] - noise_thresholds_p2[k])/ *(window_count)); //rolling mean
+      noise_thresholds_magnitude[k] += ((fft_magnitude[k] - noise_thresholds_magnitude[k])/ *(window_count)); //rolling mean
     }
   }
 }
