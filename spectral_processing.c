@@ -41,24 +41,10 @@ void spectral_gain_computing(float* bark_z,
                     float reduction_strenght,
                     float* Gk,
                     float* Gk_prev,
-                    float masking,
+                    float* masking,
                     float frequency_smoothing){
 
   //PREPROCESSING
-
-  //CALCULATION OF ALPHA AND BETA WITH MASKING THRESHOLDS USING VIRAG METHOD
-  if(masking > 0.f){
-    compute_alpha_and_beta(bark_z,
-                           fft_p2,
-                           fft_magnitude,
-                           noise_thresholds,
-                           fft_size_2,
-                           alpha,
-                           //beta,
-                           max_masked,
-                           min_masked,
-                           masking);
-  }
 
   //SMOOTHING
   //Time smoothing between current and past power spectrum and magnitude spectrum
@@ -75,7 +61,18 @@ void spectral_gain_computing(float* bark_z,
   }
 
   //GAIN CALCULATION
-  if(masking > 0.f){
+  if(*(masking) > 1.f){
+    //CALCULATION OF ALPHA AND BETA WITH MASKING THRESHOLDS USING VIRAG METHOD
+    compute_alpha_and_beta(bark_z,
+                           fft_magnitude,
+                           noise_thresholds,
+                           fft_size_2,
+                           alpha,
+                           //beta,
+                           max_masked,
+                           min_masked,
+                           masking);
+
     //Parametric Generalized Spectral Sustraction
     //(Power Sustraction with variable alpha)
     denoise_gain_gss_fixed_beta(reduction_strenght,
@@ -115,7 +112,7 @@ void gain_application(float amount_of_reduction,
                       float noise_listen){
 
   int k;
-  float reduction_coeff = (1.f/from_dB(amount_of_reduction));
+  float reduction_coeff = 1.f/from_dB(amount_of_reduction);
   float denoised_fft_buffer[fft_size];
   float residual_spectrum[fft_size];
   float tappering_filter[fft_size_2+1];
@@ -135,7 +132,7 @@ void gain_application(float amount_of_reduction,
   }
 
   //Residual signal Whitening and tappering
-  if(residual_whitening != 0.f) {
+  if(residual_whitening > 0.f) {
     whitening_of_spectrum(residual_spectrum,residual_whitening,fft_size_2);
     tappering_filter_calc(tappering_filter,(fft_size_2+1));
     apply_tappering_filter(residual_spectrum,tappering_filter,fft_size_2);

@@ -21,10 +21,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <math.h>
 
 //masking thresholds values recomended by virag
-#define ALPHA_MAX 6.0
-#define ALPHA_MIN 1.0
-#define BETA_MAX 0.02
-#define BETA_MIN 0.0
+#define ALPHA_MAX 6.f
+#define ALPHA_MIN 1.f
+#define BETA_MAX 0.02f
+#define BETA_MIN 0.0f
+#define BINS_PER_BARK_BAND_LIMIT 10
+#define NOISE_FLOOR 1.e-2f
+
 
 void compute_bark_z(float* bark_z,int fft_size_2, int srate) {
   int k;
@@ -38,16 +41,21 @@ void compute_bark_z(float* bark_z,int fft_size_2, int srate) {
 
 void compute_masking_thresholds(float* bark_z,
                                 float* spectrum,
-                                float* noise_thresholds,
                                 int fft_size_2,
-                                float* masked,
+                                float* masking_thresholds,
                                 float tonality_factor) {
   int k,j;
   float bark_diff,johnston,johnston_masked,gain_j;
 
-  //Critical band Analysis - loops take into account bark scale
+  //Critical band Analysis
   for (k = 1; k <= fft_size_2 ; ++k) {
+
+    //Lower frequencies bellow k
     for(j = k-1 ; j > 0 ; j--) {
+      //Limit number of bins to save processing
+      if(k - j > BINS_PER_BARK_BAND_LIMIT) break;
+
+      //frequency range
       bark_diff = bark_z[k] - bark_z[j];
 
       //Spreading function
@@ -58,13 +66,18 @@ void compute_masking_thresholds(float* bark_z,
       gain_j = powf(10.f, johnston_masked/10.f);
 
       //take into account absolute threshold of hearing
-      if(gain_j < 1.e-2) break;
-      if(k - j > 10) break;
+      if(gain_j < NOISE_FLOOR) break;
 
       //Relating the spread masking threshold to the critical band masking thresholds
-      masked[k] += spectrum[j]*gain_j;
+      masking_thresholds[k] += spectrum[j]*gain_j;
     }
+
+    //Upper frequencies above k
     for(j = k ; j <= fft_size_2 ; j++) {
+      //Limit number of bins to save processing
+      if(j - k > BINS_PER_BARK_BAND_LIMIT) break;
+
+      //frequency range
       bark_diff = bark_z[j] - bark_z[k];
 
       //Spreading function
@@ -75,18 +88,16 @@ void compute_masking_thresholds(float* bark_z,
       gain_j = powf(10.f, johnston_masked/10.f);
 
       //take into account absolute threshold of hearing
-      if(gain_j < 1.e-2) break;
-      if(j - k > 10) break;
+      if(gain_j < NOISE_FLOOR) break;
 
       //Relating the spread masking threshold to the critical band masking thresholds
-      masked[k] += spectrum[j]*gain_j;
+      masking_thresholds[k] += spectrum[j]*gain_j;
     }
   }
 }
 
 //alpha and beta computation to be used in general spectral Sustraction
 void compute_alpha_and_beta(float* bark_z,
-                            float* fft_p2,
                             float* fft_magnitude,
                             float* noise_thresholds,
                             int fft_size_2,
@@ -94,25 +105,27 @@ void compute_alpha_and_beta(float* bark_z,
                             //float* beta,
                             float max_masked,
                             float min_masked,
-                            float masking) {
+                            float* masking) {
 
   int k;
+  float masking_thresholds[fft_size_2+1];
   float estimated_clean[fft_size_2+1];
-  float masked[fft_size_2+1];
-  float gmean_value,mean_value,SFM,tonality_factor,weight1;//,weight2
+  float gmean_value,mean_value,SFM,tonality_factor,weight1;	//,weight2;
 
   //Noise masking threshold must be computed from a clean signal
   //therefor we aproximate a clean signal using a power Sustraction over
   //the original noisy one
 
-  //basic power Sustraction to estimate clean signal
+  //basic spectral Sustraction to estimate clean signal
   for (k = 0; k <= fft_size_2; k++) {
-    estimated_clean[k] =  MAX(fft_p2[k]-powf(noise_thresholds[k],2),0.f);
+    estimated_clean[k] =  MAX(fft_magnitude[k]-noise_thresholds[k],0.f);
   }
 
-  //spectral flatness measure using Geometric and Arithmetic means of the spectrum cleaned previously
+  //Geometric and Arithmetic mean computing
   gmean_value = spectral_gmean(fft_size_2,estimated_clean);
   mean_value = spectral_mean(fft_size_2,estimated_clean);
+
+  //spectral flatness measure using Geometric and Arithmetic means of the spectrum cleaned previously
   SFM = 10.f*log10f(gmean_value/mean_value);//this value is in db scale
 
   //Tonality factor in db scale
@@ -126,38 +139,37 @@ void compute_alpha_and_beta(float* bark_z,
    */
   compute_masking_thresholds(bark_z,
                              estimated_clean,
-                             noise_thresholds,
                              fft_size_2,
-                             masked,
+                             masking_thresholds,
                              tonality_factor);
 
   /*Get alpha and beta based on masking thresholds
-   *beta and alpha values would adapt based on masking thresholds
-   *frame to frame for optimal oversustraction and noise floor parameter in each one
-   *noise floor would better be controled by user using the amount of reduction
-   *so beta is not modified
+  *beta and alpha values would adapt based on masking thresholds
+  *frame to frame for optimal oversustraction and noise floor parameter in each one
+  *noise floor would better be controled by user using the amount of reduction
+  *so beta is not modified
   */
 
   //First we need the maximun and the minimun value of the masking threshold
-  max_masked = MAX(max_spectral_value(masked,fft_size_2),max_masked);
-  min_masked = MIN(min_spectral_value(masked,fft_size_2),min_masked);
-  weight1 = (masking - ALPHA_MIN)/(min_masked - max_masked);
+  max_masked = MAX(max_spectral_value(masking_thresholds,fft_size_2),max_masked);
+  min_masked = MIN(min_spectral_value(masking_thresholds,fft_size_2),min_masked);
+  weight1 = (*(masking) - ALPHA_MIN)/(min_masked - max_masked);
   //float weight2 = (BETA_MAX - BETA_MIN)/(min_masked - max_masked);
 
   for (k = 0; k <= fft_size_2; k++) {
     //new alpha and beta vector
-    if(masked[k] == max_masked){
-        alpha[k] = ALPHA_MIN;
-        //beta[k] = BETA_MIN;
+    if(masking_thresholds[k] == max_masked){
+       alpha[k] = ALPHA_MIN;
+       //beta[k] = BETA_MIN;
     }
-    if(masked[k] == min_masked){
-        alpha[k] = masking;
-        //beta[k] = BETA_MAX;
+    if(masking_thresholds[k] == min_masked){
+       alpha[k] = *(masking);
+       //beta[k] = BETA_MAX;
     }
-    if(masked[k] < max_masked && masked[k] > min_masked){
-        //Linear interpolation of the value between max and min masked threshold values
-        alpha[k] = ALPHA_MIN + weight1 * (masked[k]- ALPHA_MIN);
-        //beta[k] = BETA_MIN + weight2 * (masked[k]- BETA_MIN);
+    if(masking_thresholds[k] < max_masked && masking_thresholds[k] > min_masked){
+       //Linear interpolation of the value between max and min masked threshold values
+       alpha[k] = ALPHA_MIN + weight1 * (masking_thresholds[k]- ALPHA_MIN);
+       //beta[k] = BETA_MIN + weight2 * (masking_thresholds[k]- BETA_MIN);
     }
   }
 }

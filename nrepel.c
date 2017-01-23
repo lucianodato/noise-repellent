@@ -88,11 +88,11 @@ typedef struct {
 	int fft_size_2;                   //FFTW half input size
 	int window_combination;           //Window combination for the STFT
 	float overlap_factor;             //oversampling factor for overlap calculations
-	float* overlap_scale_factor;       //Scaling factor for conserving the final amplitude
+	float overlap_scale_factor;       //Scaling factor for conserving the final amplitude
 	int hop;                          //Hop size for the STFT
 	float* window_input;              //Input Window values
 	float* window_output;             //Input Window values
-	float* window_count;              //Count windows for mean computing
+	float window_count;              //Count windows for mean computing
 	float tau;                        //time constant for soft bypass
 	float wet_dry_target;             //softbypass target for softbypass
 	float wet_dry;                    //softbypass coeff
@@ -132,9 +132,9 @@ typedef struct {
 	float* speech_p_p;
 	float* prev_speech_p_p;
 
-	//masking thresholds
+	//masking
 	float* alpha;
-	float* beta;
+	//float* beta;
 	float* bark_z;
 	float max_masked;
 	float min_masked;
@@ -161,8 +161,7 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->fft_size = FFT_SIZE;
 	nrepel->window_combination = WINDOW_COMBINATION;
 	nrepel->overlap_factor = OVERLAP_FACTOR;
-	nrepel->overlap_scale_factor = (float*)calloc(1,sizeof(float));
-  nrepel->window_count = (float*)calloc(1,sizeof(float));
+  nrepel->window_count = 0;
 	nrepel->tau = (1.f - exp (-2.f * M_PI * 25.f * 64.f  / nrepel->samp_rate));
 	nrepel->noise_thresholds_availables = false;
 
@@ -179,7 +178,11 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->window_output = (float*)calloc(nrepel->fft_size,sizeof(float));
 
 	//Window combination initialization (pre processing window post processing window)
-	fft_pre_and_post_window(nrepel->window_input, nrepel->window_output, nrepel->fft_size, nrepel->window_combination, nrepel->overlap_scale_factor);
+	fft_pre_and_post_window(nrepel->window_input,
+		 											nrepel->window_output,
+													nrepel->fft_size,
+													nrepel->window_combination,
+													&nrepel->overlap_scale_factor);
 
 	nrepel->input_fft_buffer = (float*)calloc(nrepel->fft_size,sizeof(float));
 	nrepel->output_fft_buffer = (float*)calloc(nrepel->fft_size,sizeof(float));
@@ -207,11 +210,11 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->speech_p_p = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->prev_speech_p_p = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 
-	//MASKING THRESHOLDS
+	//MASKING
 	nrepel->alpha = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
-	nrepel->beta = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
-	nrepel->bark_z = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	memset(nrepel->alpha, 1, (nrepel->fft_size_2+1)*sizeof(float));
+	//nrepel->beta = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
+	nrepel->bark_z = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->max_masked = FLT_MIN;
 	nrepel->min_masked = FLT_MAX;
 	compute_bark_z(nrepel->bark_z,nrepel->fft_size_2,nrepel->samp_rate);
@@ -316,7 +319,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 		memset(nrepel->noise_thresholds, 0, (nrepel->fft_size_2+1)*sizeof(float));
 		memset(nrepel->Gk, 1, (nrepel->fft_size_2+1)*sizeof(float));
 		memset(nrepel->Gk_prev, 1, (nrepel->fft_size_2+1)*sizeof(float));
-		*(nrepel->window_count) = 0.f;
+		nrepel->window_count = 0.f;
 
 		memset(nrepel->prev_noise_thresholds, 0, (nrepel->fft_size_2+1)*sizeof(float));
 		memset(nrepel->s_pow_spec, 0, (nrepel->fft_size_2+1)*sizeof(float));
@@ -385,73 +388,76 @@ run(LV2_Handle instance, uint32_t n_samples) {
 				//Store values in magnitude and power arrays
 				nrepel->fft_p2_prev[k] = nrepel->fft_p2[k]; //store previous value for smoothing
 				nrepel->fft_magnitude_prev[k] = nrepel->fft_magnitude[k]; //store previous value for smoothing
-				nrepel->fft_p2[k] = sanitize_denormal(nrepel->p2);
-				nrepel->fft_magnitude[k] = sanitize_denormal(nrepel->mag);
-
+				nrepel->fft_p2[k] = nrepel->p2;
+				nrepel->fft_magnitude[k] = nrepel->mag;
 			}
 
 			/////////////////////SPECTRAL PROCESSING//////////////////////////
 
-			//If autolearn is selected allways estimate noise_thresholds using Loizou
-		  if(*(nrepel->auto_state) == 1.f) {
-		    auto_capture_noise(nrepel->fft_p2,//this is supposed to be the power spectrum in Loizou method
-		                       nrepel->fft_size_2,
-		                       nrepel->noise_thresholds,
-		                       nrepel->auto_thresholds,
-		                       nrepel->prev_noise_thresholds,
-		                       nrepel->s_pow_spec,
-		                       nrepel->prev_s_pow_spec,
-		                       nrepel->p_min,
-		                       nrepel->prev_p_min,
-		                       nrepel->speech_p_p,
-		                       nrepel->prev_speech_p_p);
+			//If the spectrum is not silence
+			if(!is_empty(nrepel->fft_magnitude,nrepel->fft_size_2)){
+				//If autolearn is selected allways estimate noise_thresholds using Loizou
+				if(*(nrepel->auto_state) == 1.f) {
+					auto_capture_noise(nrepel->fft_p2,//this is supposed to be the power spectrum in Loizou method
+														 nrepel->fft_size_2,
+														 nrepel->noise_thresholds,
+														 nrepel->auto_thresholds,
+														 nrepel->prev_noise_thresholds,
+														 nrepel->s_pow_spec,
+														 nrepel->prev_s_pow_spec,
+														 nrepel->p_min,
+														 nrepel->prev_p_min,
+														 nrepel->speech_p_p,
+														 nrepel->prev_speech_p_p);
 
-				nrepel->noise_thresholds_availables = true;
-		  }
+					nrepel->noise_thresholds_availables = true;
+				}
 
-			/*If selected estimate noise spectrum based on selected portion of signal
-			 *If not process the signal
-			 */
-		  if(*(nrepel->capture_state) == 1.f) { //MANUAL
-		    get_noise_statistics(nrepel->fft_magnitude,
-		                         nrepel->fft_size_2,
-		                         nrepel->noise_thresholds,
-		                         nrepel->window_count);
+				/*If selected estimate noise spectrum is based on selected portion of signal
+				 *do not process the signal
+				 */
+				if(*(nrepel->capture_state) == 1.f) { //MANUAL
+					get_noise_statistics(nrepel->fft_magnitude,
+															 nrepel->fft_size_2,
+															 nrepel->noise_thresholds,
+															 &nrepel->window_count);
 
-				nrepel->noise_thresholds_availables = true;
-			} else {
-				//If there is a noise profile reduce noise
-				if (nrepel->noise_thresholds_availables == true) {
-					//Gain Calculation
-					spectral_gain_computing(nrepel->bark_z,
-																	nrepel->fft_p2,
-																	nrepel->fft_p2_prev,
-																	nrepel->fft_magnitude,
-																	nrepel->fft_magnitude_prev,
-																	*(nrepel->time_smoothing),
-																	nrepel->noise_thresholds,
-																	nrepel->fft_size_2,
-																	nrepel->alpha,
-																	//nrepel->beta,
-																	nrepel->max_masked,
-																	nrepel->min_masked,
-																	*(nrepel->reduction_strenght),
-																	nrepel->Gk,
-																	nrepel->Gk_prev,
-																	*(nrepel->masking),
-																	*(nrepel->frequency_smoothing));
+					nrepel->noise_thresholds_availables = true;
+				} else {
+					//If there is a noise profile reduce noise
+					if (nrepel->noise_thresholds_availables == true) {
+						//Gain Calculation
+						spectral_gain_computing(nrepel->bark_z,
+																		nrepel->fft_p2,
+																		nrepel->fft_p2_prev,
+																		nrepel->fft_magnitude,
+																		nrepel->fft_magnitude_prev,
+																		*(nrepel->time_smoothing),
+																		nrepel->noise_thresholds,
+																		nrepel->fft_size_2,
+																		nrepel->alpha,
+																		//nrepel->beta,
+																		nrepel->max_masked,
+																		nrepel->min_masked,
+																		*(nrepel->reduction_strenght),
+																		nrepel->Gk,
+																		nrepel->Gk_prev,
+																		nrepel->masking,
+																		*(nrepel->frequency_smoothing));
 
-					//Gain Application
-					gain_application(*(nrepel->amount_of_reduction),
-													 nrepel->fft_size_2,
-													 nrepel->fft_size,
-													 nrepel->output_fft_buffer,
-													 nrepel->Gk,
-													 nrepel->wet_dry,
-													 *(nrepel->residual_whitening),
-													 *(nrepel->noise_listen));
+						//Gain Application
+						gain_application(*(nrepel->amount_of_reduction),
+														 nrepel->fft_size_2,
+														 nrepel->fft_size,
+														 nrepel->output_fft_buffer,
+														 nrepel->Gk,
+														 nrepel->wet_dry,
+														 *(nrepel->residual_whitening),
+														 *(nrepel->noise_listen));
+					}
 				}
 			}
+
 			///////////////////////////////////////////////////////////
 
 
@@ -464,7 +470,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 
 			//Accumulate (Overlapadd)
 			for(k = 0; k < nrepel->fft_size; k++){
-				nrepel->output_accum[k] += nrepel->window_output[k]*nrepel->input_fft_buffer[k]/(float)( *(nrepel->overlap_scale_factor) * nrepel->overlap_factor);
+				nrepel->output_accum[k] += nrepel->window_output[k]*nrepel->input_fft_buffer[k]/( nrepel->overlap_scale_factor * nrepel->overlap_factor);
 			}
 
 			//Output samples up to the hop size

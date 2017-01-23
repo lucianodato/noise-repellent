@@ -26,11 +26,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define HANN_WINDOW 0
 #define HAMMING_WINDOW 1
 #define BLACKMAN_WINDOW 2
-#define HANN_HANN_SCALING 0.375       //This is for overlapadd scaling
-#define HAMMING_HANN_SCALING 0.385    // 1/average(window[i]^2)
-#define BLACKMAN_HANN_SCALING 0.335
+#define HANN_HANN_SCALING 0.375f       //This is for overlapadd scaling
+#define HAMMING_HANN_SCALING 0.385f    // 1/average(window[i]^2)
+#define BLACKMAN_HANN_SCALING 0.335f
 
-#define M_PI 3.14159265358979323846
+#define M_PI 3.14159265358979323846f
 
 //AUXILIARY Functions
 #define MAX(a,b) (((a) > (b)) ? (a) : (b))
@@ -143,12 +143,10 @@ inline float spectral_moda(int n, float* x) {
 //verifies if the spectrum is full of zeros
 inline bool is_empty(float* spectrum, int N){
   int k;
-  float sum = 0.f;
   for(k = 0;k <= N; k++){
-    sum += spectrum[k];
-  }
-  if(sum > 0){
-    return false;
+    if(spectrum[k] > FLT_MIN){
+      return false;
+    }
   }
   return true;
 }
@@ -251,8 +249,8 @@ void whitening_of_spectrum(float* spectrum,float wa,int N){
   float tmp_min = min_spectral_value(spectrum,N);
   float tmp_max = max_spectral_value(spectrum,N);
   for (int k = 0; k <= N; k++) {
-    if(spectrum[k] > FLT_MIN){ //Protects against division by 0
-      whitened_spectrum[k] = powf((spectrum[k]/(tmp_max-tmp_min)),wa);
+    whitened_spectrum[k] = powf((spectrum[k]/(tmp_max-tmp_min)),wa);
+    if(whitened_spectrum[k] > FLT_MIN){ //Protects against division by 0
       spectrum[k] /= whitened_spectrum[k];
       if(k < N){
         spectrum[N-k] /= whitened_spectrum[k];
