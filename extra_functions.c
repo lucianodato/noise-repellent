@@ -275,9 +275,9 @@ void whitening_of_spectrum(float* spectrum,float wa,int N){
 void apply_tappering_filter(float* spectrum,float* filter,int N) {
   for (int k = 0; k <= N; k++) {
     if(spectrum[k] > FLT_MIN) {
-      spectrum[k] *= filter[k];//Half hann window tappering in favor of high frequencies
+      spectrum[k] *= filter[N-k];//Half hann window tappering in favor of high frequencies
       if(k < N) {
-        spectrum[N-k] *= filter[k];//Half hann window tappering in favor of high frequencies
+        spectrum[N-k] *= filter[N-k];//Half hann window tappering in favor of high frequencies
       }
     }
   }

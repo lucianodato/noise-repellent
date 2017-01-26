@@ -48,14 +48,14 @@ typedef enum {
 	// NREPEL_ATTACK = 5,
 	// NREPEL_RELEASE = 6,
 	NREPEL_FREQUENCY_SMOOTHING = 5,
-	NREPEL_MASKING = 6,
-	NREPEL_LATENCY = 7,
-	NREPEL_WHITENING = 8,
-	NREPEL_RESET = 9,
-	NREPEL_NOISE_LISTEN = 10,
-	NREPEL_ENABLE = 11,
-	NREPEL_INPUT = 12,
-	NREPEL_OUTPUT = 13,
+	// NREPEL_MASKING = 6,
+	NREPEL_LATENCY = 6,
+	NREPEL_WHITENING = 7,
+	NREPEL_RESET = 8,
+	NREPEL_NOISE_LISTEN = 9,
+	NREPEL_ENABLE = 10,
+	NREPEL_INPUT = 11,
+	NREPEL_OUTPUT = 12,
 } PortIndex;
 
 typedef struct {
@@ -134,9 +134,9 @@ typedef struct {
 	float* prev_speech_p_p;
 
 	//masking
-	float* bark_z;
-	float max_masked;
-	float min_masked;
+	// float* bark_z;
+	// float max_masked;
+	// float min_masked;
 
 	// //envelope Follower
 	// float* envelope;
@@ -211,10 +211,10 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->prev_speech_p_p = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 
 	//MASKING
-	nrepel->bark_z = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
-	nrepel->max_masked = FLT_MIN;
-	nrepel->min_masked = FLT_MAX;
-	compute_bark_z(nrepel->bark_z,nrepel->fft_size_2,nrepel->samp_rate);
+	// nrepel->bark_z = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
+	// nrepel->max_masked = FLT_MIN;
+	// nrepel->min_masked = FLT_MAX;
+	// compute_bark_z(nrepel->bark_z,nrepel->fft_size_2,nrepel->samp_rate);
 
 	// nrepel->envelope = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 
@@ -254,9 +254,9 @@ connect_port(LV2_Handle instance,
 		// case NREPEL_RELEASE:
 		// nrepel->release = (float*)data;
 		// break;
-		case NREPEL_MASKING:
-		nrepel->masking = (float*)data;
-		break;
+		// case NREPEL_MASKING:
+		// nrepel->masking = (float*)data;
+		// break;
 		case NREPEL_LATENCY:
 		nrepel->report_latency = (float*)data;
 		break;
@@ -327,8 +327,8 @@ run(LV2_Handle instance, uint32_t n_samples) {
 		memset(nrepel->speech_p_p, 0, (nrepel->fft_size_2+1)*sizeof(float));
 		memset(nrepel->prev_speech_p_p, 0, (nrepel->fft_size_2+1)*sizeof(float));
 
-		nrepel->max_masked = FLT_MIN;
-		nrepel->min_masked = FLT_MAX;
+		// nrepel->max_masked = FLT_MIN;
+		// nrepel->min_masked = FLT_MAX;
 
 		nrepel->noise_thresholds_availables = false;
 	}
@@ -426,7 +426,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 					//If there is a noise profile reduce noise
 					if (nrepel->noise_thresholds_availables == true) {
 						//Gain Calculation
-						spectral_gain_computing(nrepel->bark_z,
+						spectral_gain_computing(//nrepel->bark_z,
 																		nrepel->fft_p2,
 																		nrepel->fft_p2_prev,
 																		nrepel->fft_magnitude,
@@ -435,12 +435,12 @@ run(LV2_Handle instance, uint32_t n_samples) {
 																		nrepel->noise_thresholds_p2,
 																		nrepel->noise_thresholds_magnitude,
 																		nrepel->fft_size_2,
-																		&nrepel->max_masked,
-																		&nrepel->min_masked,
+																		// &nrepel->max_masked,
+																		// &nrepel->min_masked,
 																		*(nrepel->reduction_strenght),
 																		nrepel->Gk,
 																		nrepel->Gk_prev,
-																		*(nrepel->masking),
+																		// *(nrepel->masking),
 																		*(nrepel->frequency_smoothing));
 
 						//Gain Application

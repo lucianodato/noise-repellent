@@ -26,7 +26,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 //------------GAIN AND THRESHOLD CALCULATION---------------
 
-void spectral_gain_computing(float* bark_z,
+void spectral_gain_computing(//float* bark_z,
                     float* fft_p2,
                     float* fft_p2_prev,
                     float* fft_magnitude,
@@ -35,12 +35,12 @@ void spectral_gain_computing(float* bark_z,
                     float* noise_thresholds_p2,
                     float* noise_thresholds_magnitude,
                     int fft_size_2,
-                    float* max_masked,
-                    float* min_masked,
+                    // float* max_masked,
+                    // float* min_masked,
                     float reduction_strenght,
                     float* Gk,
                     float* Gk_prev,
-                    float masking,
+                    // float masking,
                     float frequency_smoothing){
 
   //PREPROCESSING
@@ -59,32 +59,32 @@ void spectral_gain_computing(float* bark_z,
                             time_smoothing);
   }
 
-  //GAIN CALCULATION
-  if(masking > 1.f){
-    //CALCULATION OF ALPHA AND BETA WITH MASKING THRESHOLDS USING VIRAG METHOD
-    float alpha[fft_size_2+1];
-    //float beta[fft_size_2+1];
-
-    compute_alpha_and_beta(bark_z,
-                           fft_p2,
-                           noise_thresholds_p2,
-                           fft_size_2,
-                           alpha,
-                           //beta,
-                           max_masked,
-                           min_masked,
-                           masking);
-
-    //Parametric Generalized Spectral Sustraction
-    //(Power Sustraction with variable alpha)
-    denoise_gain_gss_fixed_beta(reduction_strenght,
-                                fft_size_2,
-                                alpha,
-                                fft_magnitude,
-                                noise_thresholds_magnitude,
-                                Gk,
-                                Gk_prev);
-  } else {
+  // //GAIN CALCULATION
+  // if(masking > 1.f){
+  //   //CALCULATION OF ALPHA AND BETA WITH MASKING THRESHOLDS USING VIRAG METHOD
+  //   float alpha[fft_size_2+1];
+  //   //float beta[fft_size_2+1];
+  //
+  //   compute_alpha_and_beta(bark_z,
+  //                          fft_p2,
+  //                          noise_thresholds_p2,
+  //                          fft_size_2,
+  //                          alpha,
+  //                          //beta,
+  //                          max_masked,
+  //                          min_masked,
+  //                          masking);
+  //
+  //   //Parametric Generalized Spectral Sustraction
+  //   //(Power Sustraction with variable alpha)
+  //   denoise_gain_gss_fixed_beta(reduction_strenght,
+  //                               fft_size_2,
+  //                               alpha,
+  //                               fft_magnitude,
+  //                               noise_thresholds_magnitude,
+  //                               Gk,
+  //                               Gk_prev);
+  // } else {
     //Power Sustraction
     denoise_gain_gss(reduction_strenght,
                      fft_size_2,
@@ -93,7 +93,7 @@ void spectral_gain_computing(float* bark_z,
                      fft_magnitude,
                      noise_thresholds_magnitude,
                      Gk);
-  }
+  // }
 
   //FREQUENCY SMOOTHING OF GAINS
   if (frequency_smoothing > 0.f){
