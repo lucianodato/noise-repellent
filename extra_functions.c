@@ -296,7 +296,7 @@ void spectral_smoothing_MA(float* spectrum, int kernel_width,int N){
 
   //Initialize smothingbins_tmp
   for (k = 0; k <= N; ++k) {
-    t_spectrum[k] = spectrum[k];
+    t_spectrum[k] = logf(spectrum[k]);
     smoothing_tmp[k] = 0.f;//Initialize temporal spectrum
   }
 
@@ -310,7 +310,7 @@ void spectral_smoothing_MA(float* spectrum, int kernel_width,int N){
   }
 
   for (k = 0; k <= N; ++k){
-    spectrum[k] = smoothing_tmp[k];
+    spectrum[k] = expf(smoothing_tmp[k]);
   }
 }
 //Spectral smoothing with median filter
