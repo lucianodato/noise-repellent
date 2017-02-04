@@ -89,7 +89,7 @@ typedef struct {
 	int hop;                          //Hop size for the STFT
 	float* window_input;              //Input Window values
 	float* window_output;             //Input Window values
-	int window_count;              //Count windows for mean computing
+	float window_count;              //Count windows for mean computing
 	float tau;                        //time constant for soft bypass
 	float wet_dry_target;             //softbypass target for softbypass
 	float wet_dry;                    //softbypass coeff
@@ -150,7 +150,7 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->hop = nrepel->fft_size/nrepel->overlap_factor;
 	nrepel->input_latency = nrepel->fft_size - nrepel->hop;
 	nrepel->read_ptr = nrepel->input_latency; //the initial position because we are that many samples ahead
-	nrepel->window_count = 0;
+	nrepel->window_count = 0.f;
 	nrepel->noise_thresholds_availables = false;
 	nrepel->tau = (1.f - exp (-2.f * M_PI * 25.f * 64.f  / nrepel->samp_rate));
 	nrepel->wet_dry = 0.f;
@@ -290,7 +290,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 		memset(nrepel->noise_thresholds_p2, 0, (nrepel->fft_size_2+1)*sizeof(float));
 		memset(nrepel->noise_thresholds_magnitude, 0, (nrepel->fft_size_2+1)*sizeof(float));
 		memset(nrepel->Gk, 1, (nrepel->fft_size_2+1)*sizeof(float));
-		nrepel->window_count = 0;
+		nrepel->window_count = 0.f;
 
 		memset(nrepel->prev_noise_thresholds, 0, (nrepel->fft_size_2+1)*sizeof(float));
 		memset(nrepel->s_pow_spec, 0, (nrepel->fft_size_2+1)*sizeof(float));
