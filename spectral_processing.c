@@ -22,7 +22,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 #include "estimate_noise_spectrum.c"
 #include "denoise_gain.c"
-#include "masking.c"
 
 //------------GAIN AND THRESHOLD CALCULATION---------------
 
