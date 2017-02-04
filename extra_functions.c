@@ -112,27 +112,6 @@ inline float spectral_mean(int m, float* a) {
     return(sum/(float)(m+1));
 }
 
-// //Geometric Mean value of a spectrum
-// inline float spectral_gmean(int m, float* a) {
-//     float mult=1.f;
-//     int cant = m+1;
-//     for(int i=0; i<=m; i++)
-//       if (a[i] > FLT_MIN) {
-//         mult*=a[i];
-//       } else {
-//         cant--;
-//       }
-//     return(powf(mult,(1.f/(float)cant)));
-// }
-
-//Geometric Mean value of a spectrum
-inline float spectral_gmean(int m, float* a) {
-    float max = max_spectral_value(a,m);
-    float min = min_spectral_value(a,m);
-
-    return((max-min)/2.f + min);
-}
-
 //Median value of a spectrum
 inline float spectral_median(int n, float* x) {
     float temp;

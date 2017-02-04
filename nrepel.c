@@ -45,17 +45,15 @@ typedef enum {
 	NREPEL_AMOUNT = 2,
 	NREPEL_STRENGTH = 3,
 	NREPEL_SMOOTHING = 4,
-	// NREPEL_ATTACK = 5,
-	// NREPEL_RELEASE = 6,
 	NREPEL_FREQUENCY_SMOOTHING = 5,
-	// NREPEL_MASKING = 6,
 	NREPEL_LATENCY = 6,
 	NREPEL_WHITENING = 7,
-	NREPEL_RESET = 8,
-	NREPEL_NOISE_LISTEN = 9,
-	NREPEL_ENABLE = 10,
-	NREPEL_INPUT = 11,
-	NREPEL_OUTPUT = 12,
+	NREPEL_MAKEUP = 8,
+	NREPEL_RESET = 9,
+	NREPEL_NOISE_LISTEN = 10,
+	NREPEL_ENABLE = 11,
+	NREPEL_INPUT = 12,
+	NREPEL_OUTPUT = 13,
 } PortIndex;
 
 typedef struct {
@@ -76,8 +74,7 @@ typedef struct {
 	float* frequency_smoothing;       //Smoothing over frequency
 	float* masking;                   //Activate masking threshold
 	float* enable;                    //For soft bypass (click free bypass)
-	// float* attack;                  //attack time
-	// float* release;                 //release time
+	float* makeup_gain;
 
 	//Control variables
 	bool noise_thresholds_availables; //indicate whether a noise print is available or no
@@ -121,7 +118,6 @@ typedef struct {
 	float* noise_thresholds_magnitude;//captured noise print magnitude spectrum
 
 	float* Gk;                        //gain to be applied
-	float* Gk_prev;                   //past gain applied
 
 	//Loizou algorithm
 	float* auto_thresholds;           //Reference threshold for louizou algorithm
@@ -132,16 +128,6 @@ typedef struct {
 	float* prev_p_min;
 	float* speech_p_p;
 	float* prev_speech_p_p;
-
-	//masking
-	// float* bark_z;
-	// float max_masked;
-	// float min_masked;
-
-	// //envelope Follower
-	// float* envelope;
-	// float attack_coeff;
-	// float release_coeff;
 
 	// clock_t start, end;
 	// double cpu_time_used;
@@ -197,8 +183,6 @@ instantiate(const LV2_Descriptor*     descriptor,
 
 	nrepel->Gk = (float*)malloc((nrepel->fft_size_2+1)*sizeof(float));
 	memset(nrepel->Gk, 1, (nrepel->fft_size_2+1)*sizeof(float));
-	nrepel->Gk_prev = (float*)malloc((nrepel->fft_size_2+1)*sizeof(float));
-	memset(nrepel->Gk_prev, 1, (nrepel->fft_size_2+1)*sizeof(float));
 
 	nrepel->auto_thresholds = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	compute_auto_thresholds(nrepel->auto_thresholds, nrepel->fft_size, nrepel->fft_size_2, nrepel->samp_rate);
@@ -209,14 +193,6 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->prev_p_min = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->speech_p_p = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->prev_speech_p_p = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
-
-	//MASKING
-	// nrepel->bark_z = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
-	// nrepel->max_masked = FLT_MIN;
-	// nrepel->min_masked = FLT_MAX;
-	// compute_bark_z(nrepel->bark_z,nrepel->fft_size_2,nrepel->samp_rate);
-
-	// nrepel->envelope = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 
 	return (LV2_Handle)nrepel;
 }
@@ -248,20 +224,14 @@ connect_port(LV2_Handle instance,
 		case NREPEL_FREQUENCY_SMOOTHING:
 		nrepel->frequency_smoothing = (float*)data;
 		break;
-		// case NREPEL_ATTACK:
-		// nrepel->attack = (float*)data;
-		// break;
-		// case NREPEL_RELEASE:
-		// nrepel->release = (float*)data;
-		// break;
-		// case NREPEL_MASKING:
-		// nrepel->masking = (float*)data;
-		// break;
 		case NREPEL_LATENCY:
 		nrepel->report_latency = (float*)data;
 		break;
 		case NREPEL_WHITENING:
 		nrepel->residual_whitening = (float*)data;
+		break;
+		case NREPEL_MAKEUP:
+		nrepel->makeup_gain = (float*)data;
 		break;
 		case NREPEL_RESET:
 		nrepel->reset_print = (float*)data;
@@ -316,7 +286,6 @@ run(LV2_Handle instance, uint32_t n_samples) {
 		memset(nrepel->noise_thresholds_p2, 0, (nrepel->fft_size_2+1)*sizeof(float));
 		memset(nrepel->noise_thresholds_magnitude, 0, (nrepel->fft_size_2+1)*sizeof(float));
 		memset(nrepel->Gk, 1, (nrepel->fft_size_2+1)*sizeof(float));
-		memset(nrepel->Gk_prev, 1, (nrepel->fft_size_2+1)*sizeof(float));
 		nrepel->window_count = 0.f;
 
 		memset(nrepel->prev_noise_thresholds, 0, (nrepel->fft_size_2+1)*sizeof(float));
@@ -326,9 +295,6 @@ run(LV2_Handle instance, uint32_t n_samples) {
 		memset(nrepel->prev_p_min, 0, (nrepel->fft_size_2+1)*sizeof(float));
 		memset(nrepel->speech_p_p, 0, (nrepel->fft_size_2+1)*sizeof(float));
 		memset(nrepel->prev_speech_p_p, 0, (nrepel->fft_size_2+1)*sizeof(float));
-
-		// nrepel->max_masked = FLT_MIN;
-		// nrepel->min_masked = FLT_MAX;
 
 		nrepel->noise_thresholds_availables = false;
 	}
@@ -426,8 +392,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 					//If there is a noise profile reduce noise
 					if (nrepel->noise_thresholds_availables == true) {
 						//Gain Calculation
-						spectral_gain_computing(//nrepel->bark_z,
-																		nrepel->fft_p2,
+						spectral_gain_computing(nrepel->fft_p2,
 																		nrepel->fft_p2_prev,
 																		nrepel->fft_magnitude,
 																		nrepel->fft_magnitude_prev,
@@ -435,12 +400,8 @@ run(LV2_Handle instance, uint32_t n_samples) {
 																		nrepel->noise_thresholds_p2,
 																		nrepel->noise_thresholds_magnitude,
 																		nrepel->fft_size_2,
-																		// &nrepel->max_masked,
-																		// &nrepel->min_masked,
 																		*(nrepel->reduction_strenght),
 																		nrepel->Gk,
-																		nrepel->Gk_prev,
-																		// *(nrepel->masking),
 																		*(nrepel->frequency_smoothing));
 
 						//Gain Application
@@ -449,6 +410,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 														 nrepel->fft_size,
 														 nrepel->output_fft_buffer,
 														 nrepel->Gk,
+														 from_dB(*(nrepel->makeup_gain)),
 														 nrepel->wet_dry,
 														 *(nrepel->residual_whitening),
 														 *(nrepel->noise_listen));
@@ -471,7 +433,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 				nrepel->output_accum[k] += nrepel->window_output[k]*nrepel->input_fft_buffer[k]/( nrepel->overlap_scale_factor * nrepel->overlap_factor);
 			}
 
-			//Output samples up to the hop size
+			//Output samples up to the hop size (using makeup gain setted by the user)
 			for (k = 0; k < nrepel->hop; k++){
 				nrepel->out_fifo[k] = nrepel->output_accum[k];
 			}
