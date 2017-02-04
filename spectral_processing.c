@@ -81,7 +81,7 @@ void gain_application(float amount_of_reduction,
                       float noise_listen){
 
   int k;
-  float reduction_coeff = 1.f/from_dB(amount_of_reduction);
+  float reduction_coeff = from_dB(-1.f*sanitize_denormal(amount_of_reduction));
   float denoised_fft_buffer[fft_size];
   float residual_spectrum[fft_size];
   float tappering_filter[fft_size_2+1];
@@ -111,16 +111,16 @@ void gain_application(float amount_of_reduction,
   if (noise_listen == 0.f){
     //Mix residual and processed (Parametric way of noise reduction)
     for (k = 0; k <= fft_size_2; k++) {
-      output_fft_buffer[k] =  (1.f-wet_dry) * output_fft_buffer[k] + makeup_gain * (denoised_fft_buffer[k] + residual_spectrum[k]*reduction_coeff) * wet_dry;
+      output_fft_buffer[k] =  (1.f-wet_dry) * output_fft_buffer[k] + from_dB(makeup_gain) * (denoised_fft_buffer[k] + residual_spectrum[k]*reduction_coeff) * wet_dry;
       if(k < fft_size_2)
-        output_fft_buffer[fft_size-k] = (1.f-wet_dry) * output_fft_buffer[fft_size-k] + makeup_gain * (denoised_fft_buffer[fft_size-k] + residual_spectrum[fft_size-k]*reduction_coeff) * wet_dry;
+        output_fft_buffer[fft_size-k] = (1.f-wet_dry) * output_fft_buffer[fft_size-k] + from_dB(makeup_gain) * (denoised_fft_buffer[fft_size-k] + residual_spectrum[fft_size-k]*reduction_coeff) * wet_dry;
     }
   } else {
     //Output noise only
     for (k = 0; k <= fft_size_2; k++) {
-      output_fft_buffer[k] = (1.f-wet_dry) * output_fft_buffer[k] + makeup_gain * residual_spectrum[k] * wet_dry;
+      output_fft_buffer[k] = (1.f-wet_dry) * output_fft_buffer[k] + from_dB(makeup_gain) * residual_spectrum[k] * wet_dry;
       if(k < fft_size_2)
-        output_fft_buffer[fft_size-k] = (1.f-wet_dry) * output_fft_buffer[fft_size-k] + makeup_gain * residual_spectrum[fft_size-k] * wet_dry;
+        output_fft_buffer[fft_size-k] = (1.f-wet_dry) * output_fft_buffer[fft_size-k] + from_dB(makeup_gain) * residual_spectrum[fft_size-k] * wet_dry;
     }
   }
 }

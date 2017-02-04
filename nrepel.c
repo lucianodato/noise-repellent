@@ -89,7 +89,7 @@ typedef struct {
 	int hop;                          //Hop size for the STFT
 	float* window_input;              //Input Window values
 	float* window_output;             //Input Window values
-	float window_count;              //Count windows for mean computing
+	int window_count;              //Count windows for mean computing
 	float tau;                        //time constant for soft bypass
 	float wet_dry_target;             //softbypass target for softbypass
 	float wet_dry;                    //softbypass coeff
@@ -144,16 +144,16 @@ instantiate(const LV2_Descriptor*     descriptor,
 	//Initialize variables
 	nrepel->samp_rate = rate;
 	nrepel->fft_size = FFT_SIZE;
+	nrepel->fft_size_2 = nrepel->fft_size/2;
 	nrepel->window_combination = WINDOW_COMBINATION;
 	nrepel->overlap_factor = OVERLAP_FACTOR;
-  nrepel->window_count = 0;
-	nrepel->tau = (1.f - exp (-2.f * M_PI * 25.f * 64.f  / nrepel->samp_rate));
-	nrepel->noise_thresholds_availables = false;
-
-	nrepel->fft_size_2 = nrepel->fft_size/2;
 	nrepel->hop = nrepel->fft_size/nrepel->overlap_factor;
 	nrepel->input_latency = nrepel->fft_size - nrepel->hop;
 	nrepel->read_ptr = nrepel->input_latency; //the initial position because we are that many samples ahead
+	nrepel->window_count = 0;
+	nrepel->noise_thresholds_availables = false;
+	nrepel->tau = (1.f - exp (-2.f * M_PI * 25.f * 64.f  / nrepel->samp_rate));
+	nrepel->wet_dry = 0.f;
 
 	nrepel->in_fifo = (float*)calloc(nrepel->fft_size,sizeof(float));
 	nrepel->out_fifo = (float*)calloc(nrepel->fft_size,sizeof(float));
@@ -161,13 +161,6 @@ instantiate(const LV2_Descriptor*     descriptor,
 
 	nrepel->window_input = (float*)calloc(nrepel->fft_size,sizeof(float));
 	nrepel->window_output = (float*)calloc(nrepel->fft_size,sizeof(float));
-
-	//Window combination initialization (pre processing window post processing window)
-	fft_pre_and_post_window(nrepel->window_input,
-		 											nrepel->window_output,
-													nrepel->fft_size,
-													nrepel->window_combination,
-													&nrepel->overlap_scale_factor);
 
 	nrepel->input_fft_buffer = (float*)calloc(nrepel->fft_size,sizeof(float));
 	nrepel->output_fft_buffer = (float*)calloc(nrepel->fft_size,sizeof(float));
@@ -181,11 +174,9 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->noise_thresholds_p2 = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->noise_thresholds_magnitude = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 
-	nrepel->Gk = (float*)malloc((nrepel->fft_size_2+1)*sizeof(float));
-	memset(nrepel->Gk, 1, (nrepel->fft_size_2+1)*sizeof(float));
+	nrepel->Gk = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 
 	nrepel->auto_thresholds = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
-	compute_auto_thresholds(nrepel->auto_thresholds, nrepel->fft_size, nrepel->fft_size_2, nrepel->samp_rate);
   nrepel->prev_noise_thresholds = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->s_pow_spec = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->prev_s_pow_spec = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
@@ -193,6 +184,19 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->prev_p_min = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->speech_p_p = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->prev_speech_p_p = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
+
+	//Window combination initialization (pre processing window post processing window)
+	fft_pre_and_post_window(nrepel->window_input,
+													nrepel->window_output,
+													nrepel->fft_size,
+													nrepel->window_combination,
+													&nrepel->overlap_scale_factor);
+
+	//Set initial gain as unity
+	memset(nrepel->Gk, 1, (nrepel->fft_size_2+1)*sizeof(float));
+
+	//Compute auto mode initial thresholds
+	compute_auto_thresholds(nrepel->auto_thresholds, nrepel->fft_size, nrepel->fft_size_2, nrepel->samp_rate);
 
 	return (LV2_Handle)nrepel;
 }
@@ -286,7 +290,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 		memset(nrepel->noise_thresholds_p2, 0, (nrepel->fft_size_2+1)*sizeof(float));
 		memset(nrepel->noise_thresholds_magnitude, 0, (nrepel->fft_size_2+1)*sizeof(float));
 		memset(nrepel->Gk, 1, (nrepel->fft_size_2+1)*sizeof(float));
-		nrepel->window_count = 0.f;
+		nrepel->window_count = 0;
 
 		memset(nrepel->prev_noise_thresholds, 0, (nrepel->fft_size_2+1)*sizeof(float));
 		memset(nrepel->s_pow_spec, 0, (nrepel->fft_size_2+1)*sizeof(float));
@@ -326,9 +330,10 @@ run(LV2_Handle instance, uint32_t n_samples) {
 
 			//-----------GET INFO FROM BINS--------------
 
-			//Normalize values to obtain correct magnitude and power values
-			for (k = 0; k < nrepel->fft_size; k++){
-				nrepel->output_fft_buffer[k] /= nrepel->fft_size;
+			//Store previous magnitude and power values
+			for (k = 0; k <= nrepel->fft_size_2; k++){
+				nrepel->fft_p2_prev[k] = nrepel->fft_p2[k]; //store previous value for smoothing
+				nrepel->fft_magnitude_prev[k] = nrepel->fft_magnitude[k]; //store previous value for smoothing
 			}
 
 			//Get the positive spectrum and compute the magnitude
@@ -346,10 +351,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 					nrepel->p2 = nrepel->real_p*nrepel->real_p;
 					nrepel->mag = nrepel->real_p;
 				}
-
 				//Store values in magnitude and power arrays
-				nrepel->fft_p2_prev[k] = nrepel->fft_p2[k]; //store previous value for smoothing
-				nrepel->fft_magnitude_prev[k] = nrepel->fft_magnitude[k]; //store previous value for smoothing
 				nrepel->fft_p2[k] = nrepel->p2;
 				nrepel->fft_magnitude[k] = nrepel->mag;
 			}
@@ -410,7 +412,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 														 nrepel->fft_size,
 														 nrepel->output_fft_buffer,
 														 nrepel->Gk,
-														 from_dB(*(nrepel->makeup_gain)),
+														 *(nrepel->makeup_gain),
 														 nrepel->wet_dry,
 														 *(nrepel->residual_whitening),
 														 *(nrepel->noise_listen));
@@ -419,6 +421,11 @@ run(LV2_Handle instance, uint32_t n_samples) {
 			}
 
 			///////////////////////////////////////////////////////////
+
+			//Normalize values to obtain correct magnitude and power values
+			for (k = 0; k < nrepel->fft_size; k++){
+				nrepel->output_fft_buffer[k] /= nrepel->fft_size;
+			}
 
 
 			//------------FFT Synthesis-------------

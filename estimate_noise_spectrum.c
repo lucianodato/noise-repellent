@@ -151,14 +151,14 @@ void get_noise_statistics(float* fft_p2,
                           int fft_size_2,
                           float* noise_thresholds_p2,
                           float* noise_thresholds_magnitude,
-                          float* window_count) {
+                          int* window_count) {
   int k;
 
-  *(window_count) += 1.f;
+  *(window_count) += 1;
 
   //Get noise thresholds based on averageing the input noise signal between frames
   for(k = 0 ; k <= fft_size_2 ; k++) {
-    if(*(window_count) <= 1.f){
+    if(*(window_count) <= 1){
       noise_thresholds_p2[k] = fft_p2[k];
       noise_thresholds_magnitude[k] = fft_magnitude[k];
     } else {
