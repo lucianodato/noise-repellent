@@ -232,20 +232,17 @@ void fft_pre_and_post_window(float* window_input,
 void tappering_filter_calc(float* filter, int N) {
   int k;
   for (k = 0; k < N; k++){
-    filter[k] = hanning(k, N);//Half hann window tappering in favor of high frequencies
+    filter[k] = hamming(k, N);//Half hann window tappering in favor of high frequencies
   }
 }
 
 void whitening_of_spectrum(float* spectrum,float wa,int N){
-  float whitened_spectrum[N+1];
-  float tmp_min = min_spectral_value(spectrum,N);
-  float tmp_max = max_spectral_value(spectrum,N);
+  float whiten_factor = powf(max_spectral_value(spectrum,N),wa);
   for (int k = 0; k <= N; k++) {
-    whitened_spectrum[k] = powf((spectrum[k]/(tmp_max-tmp_min)),wa);
-    if(whitened_spectrum[k] > FLT_MIN){ //Protects against division by 0
-      spectrum[k] /= whitened_spectrum[k];
+    if(whiten_factor > FLT_MIN){ //Protects against division by 0
+      spectrum[k] /= whiten_factor;
       if(k < N){
-        spectrum[N-k] /= whitened_spectrum[k];
+        spectrum[N-k] /= whiten_factor;
       }
     }
   }

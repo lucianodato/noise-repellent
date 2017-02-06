@@ -103,8 +103,8 @@ void gain_application(float amount_of_reduction,
   //Residual signal Whitening and tappering
   if(residual_whitening > 0.f) {
     whitening_of_spectrum(residual_spectrum,residual_whitening,fft_size_2);
-    tappering_filter_calc(tappering_filter,(fft_size_2+1));
-    apply_tappering_filter(residual_spectrum,tappering_filter,fft_size_2);
+    //tappering_filter_calc(tappering_filter,(fft_size_2+1));
+    //apply_tappering_filter(residual_spectrum,tappering_filter,fft_size_2);
   }
 
   //Listen to cleaned signal or to noise only
