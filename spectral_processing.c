@@ -59,8 +59,8 @@ void spectral_gain_computing(float* fft_p2,
   nonlinear_power_sustraction(reduction_strenght,
                    reduction_scale,
                    fft_size_2,
-                   fft_magnitude,
-                   noise_thresholds_magnitude,
+                   fft_p2,
+                   noise_thresholds_p2,
                    Gk);
 
   //FREQUENCY SMOOTHING OF GAINS
