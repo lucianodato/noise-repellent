@@ -43,17 +43,18 @@ typedef enum {
 	NREPEL_CAPTURE = 0,
 	NREPEL_N_AUTO = 1,
 	NREPEL_AMOUNT = 2,
-	NREPEL_STRENGTH = 3,
-	NREPEL_SMOOTHING = 4,
-	NREPEL_FREQUENCY_SMOOTHING = 5,
-	NREPEL_LATENCY = 6,
-	NREPEL_WHITENING = 7,
-	NREPEL_MAKEUP = 8,
-	NREPEL_RESET = 9,
-	NREPEL_NOISE_LISTEN = 10,
-	NREPEL_ENABLE = 11,
-	NREPEL_INPUT = 12,
-	NREPEL_OUTPUT = 13,
+	NREPEL_SCALE = 3,
+	NREPEL_STRENGTH = 4,
+	NREPEL_SMOOTHING = 5,
+	NREPEL_FREQUENCY_SMOOTHING = 6,
+	NREPEL_LATENCY = 7,
+	NREPEL_WHITENING = 8,
+	NREPEL_MAKEUP = 9,
+	NREPEL_RESET = 10,
+	NREPEL_NOISE_LISTEN = 11,
+	NREPEL_ENABLE = 12,
+	NREPEL_INPUT = 13,
+	NREPEL_OUTPUT = 14,
 } PortIndex;
 
 typedef struct {
@@ -64,7 +65,8 @@ typedef struct {
 	//Parameters for the algorithm (user input)
 	float* capture_state;             //Capture Noise state (Manual-Off-Auto)
 	float* amount_of_reduction;       //Amount of noise to reduce in dB
-	float* reduction_strenght;        //Amount of noise to reduce in dB
+	float* reduction_scale;       		//Scale of reduction for nonlinear_power_sustraction
+	float* reduction_strenght;        //Second Oversustraction factor
 	float* report_latency;            //Latency necessary
 	float* reset_print;               //Reset Noise switch
 	float* noise_listen;              //For noise only listening
@@ -218,6 +220,9 @@ connect_port(LV2_Handle instance,
 		break;
 		case NREPEL_AMOUNT:
 		nrepel->amount_of_reduction = (float*)data;
+		break;
+		case NREPEL_SCALE:
+		nrepel->reduction_scale = (float*)data;
 		break;
 		case NREPEL_STRENGTH:
 		nrepel->reduction_strenght = (float*)data;
@@ -399,6 +404,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 																		nrepel->fft_magnitude,
 																		nrepel->fft_magnitude_prev,
 																		*(nrepel->time_smoothing),
+																		*(nrepel->reduction_scale),
 																		nrepel->noise_thresholds_p2,
 																		nrepel->noise_thresholds_magnitude,
 																		nrepel->fft_size_2,

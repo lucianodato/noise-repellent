@@ -24,6 +24,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 //Non linear Power Sustraction
 void nonlinear_power_sustraction(float reduction_strenght,
+                       float reduction_scale,
                        int fft_size_2,
                        float* spectrum,
                        float* noise_thresholds,
@@ -34,7 +35,7 @@ void nonlinear_power_sustraction(float reduction_strenght,
   for (k = 0; k <= fft_size_2 ; k++) {
     if (noise_thresholds[k] > FLT_MIN){
       if(spectrum[k] > FLT_MIN){
-        float alpha = 1.f/SCALING_FACTOR + sqrtf(spectrum[k]/noise_thresholds[k]);
+        float alpha = reduction_scale + sqrtf(spectrum[k]/noise_thresholds[k]);
 
         gain = MAX(spectrum[k]-alpha*noise_thresholds[k], 0.f) / spectrum[k];
       } else {
