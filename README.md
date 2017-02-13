@@ -14,6 +14,8 @@ How to improve the reduction quality:
 
 - The strength control will reduce more noise at the expense of removing low level detail in the signal. It will sound less bright.
 
+- The SNR influence control will activate the nonlinear sustraction supression rule so it will adaptively variate the reduction strenght to eliminate more noise (based on an SNR measurement) but it will supress low level details if is pushed to hard. When this control is used the reduction strenght turns into a second layer of strenght.
+
 - The smoothing control will control the amount of musical noise that is present after the reduction, if it is pushed too hard it will blur transients and sound reverberant.
 
 - A whitening option for post processing is provided where the residual spectrum will be modified to sound more like white noise, taking into consideration that our ears do well in discriminating sounds in white noise versus colored noise. Furthermore it will recover some of the high frequency detail and hide the low frequency noise more. Whitening is dependant of the reduction. If you reduce a lot, it won't have any effect since the noise floor is too low.

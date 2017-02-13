@@ -24,19 +24,22 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 //Non linear Power Sustraction
 void nonlinear_power_sustraction(float reduction_strenght,
-                       float reduction_scale,
+                       float snr_influence,
                        int fft_size_2,
                        float* spectrum,
                        float* noise_thresholds,
                        float* Gk) {
   int k;
-  float gain, Fk;
+  float gain, Fk, alpha;
 
   for (k = 0; k <= fft_size_2 ; k++) {
     if (noise_thresholds[k] > FLT_MIN){
       if(spectrum[k] > FLT_MIN){
-        float alpha = reduction_scale + sqrtf(spectrum[k]/noise_thresholds[k]);
-
+        if(snr_influence > 0){
+          alpha = snr_influence + sqrtf(spectrum[k]/noise_thresholds[k]);
+        }else{
+          alpha = 1.f;//Non linear spectral sustraction off
+        }
         gain = MAX(spectrum[k]-alpha*noise_thresholds[k], 0.f) / spectrum[k];
       } else {
         gain = 0.f;

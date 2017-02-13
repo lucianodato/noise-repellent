@@ -65,7 +65,7 @@ typedef struct {
 	//Parameters for the algorithm (user input)
 	float* capture_state;             //Capture Noise state (Manual-Off-Auto)
 	float* amount_of_reduction;       //Amount of noise to reduce in dB
-	float* reduction_scale;       		//Scale of reduction for nonlinear_power_sustraction
+	float* snr_influence;       		//Scale of reduction for nonlinear_power_sustraction
 	float* reduction_strenght;        //Second Oversustraction factor
 	float* report_latency;            //Latency necessary
 	float* reset_print;               //Reset Noise switch
@@ -222,7 +222,7 @@ connect_port(LV2_Handle instance,
 		nrepel->amount_of_reduction = (float*)data;
 		break;
 		case NREPEL_SCALE:
-		nrepel->reduction_scale = (float*)data;
+		nrepel->snr_influence = (float*)data;
 		break;
 		case NREPEL_STRENGTH:
 		nrepel->reduction_strenght = (float*)data;
@@ -404,7 +404,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 																		nrepel->fft_magnitude,
 																		nrepel->fft_magnitude_prev,
 																		*(nrepel->time_smoothing),
-																		*(nrepel->reduction_scale),
+																		*(nrepel->snr_influence),
 																		nrepel->noise_thresholds_p2,
 																		nrepel->noise_thresholds_magnitude,
 																		nrepel->fft_size_2,
