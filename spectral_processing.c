@@ -83,7 +83,7 @@ void gain_application(float amount_of_reduction,
                       float noise_listen){
 
   int k;
-  float reduction_coeff = from_dB(-1.f*sanitize_denormal(amount_of_reduction));
+  float reduction_coeff = from_dB(-1.f*amount_of_reduction);
   float denoised_fft_buffer[fft_size];
   float residual_spectrum[fft_size];
   float tappering_filter[fft_size_2+1];

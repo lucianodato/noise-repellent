@@ -34,7 +34,7 @@ void nonlinear_power_sustraction(float reduction_strenght,
 
   for (k = 0; k <= fft_size_2 ; k++) {
     if (noise_thresholds[k] > FLT_MIN){
-      if(spectrum[k] > FLT_MIN){
+      if(spectrum[k] > 0.f){
         if(snr_influence > 0){
           alpha = snr_influence + sqrtf(spectrum[k]/noise_thresholds[k]);
         }else{
