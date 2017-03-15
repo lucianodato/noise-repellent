@@ -30,7 +30,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define NREPEL_URI "https://github.com/lucianodato/noise-repellent"
 #define NS_MY "http://example.org/myplugin/schema#"
 
-//STFT default values (These are standart values)
+//STFT default values (These are standard values)
 #define FFT_SIZE 2048                 //max should be 8192 otherwise is too expensive
 #define WINDOW_COMBINATION 0          //0 HANN-HANN 1 HAMMING-HANN 2 BLACKMAN-HANN
 #define OVERLAP_FACTOR 4              //4 is 75% overlap
