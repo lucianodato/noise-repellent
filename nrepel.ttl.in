@@ -65,18 +65,6 @@
     a lv2:ControlPort,
       lv2:InputPort ;
     lv2:index 3 ;
-    lv2:symbol "scaling" ;
-    lv2:name "SNR influence",
-      "Influencia S/R"@es ,
-      "Influence S/B"@fr ;
-    lv2:minimum 0.0 ;
-    lv2:maximum 3.0 ;
-    lv2:default 0.0 ;
-    lv2:portProperty pprop:logarithmic ;
-  ], [
-    a lv2:ControlPort,
-      lv2:InputPort ;
-    lv2:index 4 ;
     lv2:symbol "threshold" ;
     lv2:name "Threshold",
       "Umbral"@es ;
@@ -87,87 +75,85 @@
   ], [
     a lv2:ControlPort,
       lv2:InputPort ;
-    lv2:index 5 ;
+    lv2:index 4 ;
     lv2:symbol "smoothing" ;
     lv2:name "Smoothing",
       "Suavizado"@es ,
       "Lissage"@fr ;
-    lv2:portProperty pprop:logarithmic;
     lv2:minimum 0.0 ;
     lv2:maximum 1.0 ;
     lv2:default 0.5 ;
   ], [
     a lv2:ControlPort,
       lv2:InputPort ;
-    lv2:index 6 ;
-    lv2:symbol "frequency_smoothing" ;
-    lv2:name "Frequency Smoothing",
-      "Suavizado de Frecuencia"@es ,
-      "Lissage de fréquence"@fr ;
-    lv2:minimum 0 ;
-    lv2:maximum 20 ;
-    lv2:default 0 ;
-    lv2:portProperty lv2:integer ;
+    lv2:index 5 ;
+    lv2:symbol "gsmoothing" ;
+    lv2:name "General Smoothing",
+      "Suavizado general"@es ,
+      "Lissage"@fr ;
+    lv2:minimum 0.0 ;
+    lv2:maximum 1.0 ;
+    lv2:default 0.0 ;
   ], [
     a lv2:OutputPort,
       lv2:ControlPort ;
     lv2:name "latency" ;
-    lv2:index 7 ;
+    lv2:index 6 ;
     lv2:symbol "latency" ;
     lv2:minimum 0 ;
-		lv2:maximum 8196 ;
-		lv2:portProperty lv2:reportsLatency, lv2:integer, pprop:notOnGUI ;
-		units:unit units:frame ;
+    lv2:maximum 8196 ;
+    lv2:portProperty lv2:reportsLatency, lv2:integer, pprop:notOnGUI ;
+    units:unit units:frame ;
   ], [
-		a lv2:InputPort,
-			lv2:ControlPort ;
-		lv2:index 8 ;
-		lv2:symbol "whitening";
-		lv2:name "Noise Whitening",
+    a lv2:InputPort,
+    lv2:ControlPort ;
+    lv2:index 7 ;
+    lv2:symbol "whitening";
+    lv2:name "Noise Whitening",
       "Blanqueo del Ruido"@es ,
       "Blanchissement du bruit"@fr ;
-		lv2:default 0.0 ;
-		lv2:minimum 0.0 ;
-		lv2:maximum 1.0 ;
+    lv2:default 0.0 ;
+    lv2:minimum 0.0 ;
+    lv2:maximum 1.0 ;
   ], [
-		a lv2:InputPort,
-			lv2:ControlPort ;
-		lv2:index 9 ;
-		lv2:symbol "makeup";
-		lv2:name "Makeup Gain",
+    a lv2:InputPort,
+    lv2:ControlPort ;
+    lv2:index 8 ;
+    lv2:symbol "makeup";
+    lv2:name "Makeup Gain",
       "Compensacion de Ganancia"@es ,
       "Compensation de gain"@fr ;
-		lv2:default 0.0 ;
-		lv2:minimum 0.0 ;
-		lv2:maximum 20.0 ;
+    lv2:default 0.0 ;
+    lv2:minimum 0.0 ;
+    lv2:maximum 20.0 ;
     units:unit units:db ;
-	], [
-		a lv2:InputPort,
-			lv2:ControlPort ;
-		lv2:index 10 ;
-		lv2:symbol "reset_noise_print" ;
-		lv2:name "Reset Noise Print",
+  ], [
+    a lv2:InputPort,
+    lv2:ControlPort ;
+    lv2:index 9 ;
+    lv2:symbol "reset_noise_print" ;
+    lv2:name "Reset Noise Print",
       "Reiniciar Perfil de Ruido"@es ,
       "Réinitialiser l'empreinte de bruit"@fr ;
-		lv2:default 0 ;
-		lv2:minimum 0 ;
-		lv2:maximum 1 ;
-		lv2:portProperty lv2:integer, lv2:toggled, pprop:trigger ;
-	], [
-		a lv2:InputPort,
-			lv2:ControlPort ;
-		lv2:index 11 ;
-		lv2:symbol "noise_listen" ;
-		lv2:name "Noise Listen",
+    lv2:default 0 ;
+    lv2:minimum 0 ;
+    lv2:maximum 1 ;
+    lv2:portProperty lv2:integer, lv2:toggled, pprop:trigger ;
+  ], [
+    a lv2:InputPort,
+    lv2:ControlPort ;
+    lv2:index 10 ;
+    lv2:symbol "noise_listen" ;
+    lv2:name "Noise Listen",
       "Escuchar solo Ruido"@es ,
       "Écoute du bruit"@fr ;
-		lv2:default 0 ;
-		lv2:minimum 0 ;
-		lv2:maximum 1 ;
-		lv2:portProperty lv2:toggled, lv2:integer ;
-	], [
+    lv2:default 0 ;
+    lv2:minimum 0 ;
+    lv2:maximum 1 ;
+    lv2:portProperty lv2:toggled, lv2:integer ;
+  ], [
     a lv2:InputPort, lv2:ControlPort ;
-    lv2:index 12 ;
+    lv2:index 11 ;
     lv2:name "Enable" ;
     lv2:symbol "enable" ;
     lv2:default 1.0 ;
@@ -175,16 +161,16 @@
     lv2:maximum 1.0 ;
     lv2:portProperty lv2:toggled, pprop:notOnGUI;
     lv2:designation <http://ardour.org/lv2/processing#enable>;
-	], [
+  ], [
     a lv2:AudioPort,
       lv2:InputPort ;
-    lv2:index 13 ;
+    lv2:index 12 ;
     lv2:symbol "input" ;
     lv2:name "Input" ;
   ], [
     a lv2:AudioPort,
       lv2:OutputPort ;
-    lv2:index 14 ;
+    lv2:index 13 ;
     lv2:symbol "output" ;
     lv2:name "Output" ;
   ];

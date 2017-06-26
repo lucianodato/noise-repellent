@@ -59,28 +59,19 @@ void nonlinear_power_sustraction(float snr_influence,
 	}
 }
 
-//Non linear Power Sustraction
-void nonlinear_power_sustraction_gate(float snr_influence,
-				 int fft_size_2,
-				 float fs,
-				 float* spectrum,
-				 float* noise_thresholds,
-				 float* Gk,
-				 float* Gk_prev) {
+//Power Sustraction
+void power_sustraction(int fft_size_2,
+		       float* spectrum,
+		       float* noise_thresholds,
+		       float* Gk) {
+
 	int k;
-	float gain, Fk, alpha;
-	float attack = expf(-logf(9.f)/(fs*0.00001));//10ms
-	float release = expf(-logf(9.f)/(fs*0.00005));//50ms
+	float gain, Fk;
 
 	for (k = 0; k <= fft_size_2 ; k++) {
 		if (noise_thresholds[k] > FLT_MIN){
 			if(spectrum[k] > 0.f){
-				if(snr_influence > 0.f){
-					alpha = snr_influence + sqrtf(spectrum[k]/noise_thresholds[k]);
-				}else{
-					alpha = 1.f;//Non linear spectral sustraction off
-				}
-				gain = MAX(spectrum[k]-alpha*noise_thresholds[k], 0.f) / spectrum[k];
+				gain = MAX(spectrum[k]-noise_thresholds[k], 0.f) / spectrum[k];
 			} else {
 				gain = 0.f;
 			}
@@ -93,21 +84,48 @@ void nonlinear_power_sustraction_gate(float snr_influence,
 
 			Gk[k] =  1.f - Fk;
 
-		  	//Gate envelopes application
-			if (spectrum[k] > noise_thresholds[k])
-			  Gk[k] = 1.f; // only avoid applying reduction if over the threshold
-
-			if (Gk[k] > Gk_prev[k])
-			  Gk[k] = attack*Gk_prev[k] + (1.f-attack)*Gk[k];
-		  	else
-			  Gk[k] = release*Gk_prev[k] + (1.f-release)*Gk[k];
-
-		  	//update previous gain
-			Gk_prev[k] = Gk[k];
-
 		} else {
 			//Otherwise we keep everything as is
 			Gk[k] = 1.f;
+		}
+	}
+}
+
+//Gating with envelope smoothing
+void gating(int fft_size_2,
+	    float fs,
+	    float* spectrum,
+	    float* noise_thresholds,
+	    float* Gk_gate,
+	    float* Gk_prev_gate) {
+
+	int k;
+
+	float gain;
+	float attack = expf(-logf(9.f)/(fs*0.01));//1ms
+	float release = expf(-logf(9.f)/(fs*0.05));//50ms
+
+	for (k = 0; k <= fft_size_2 ; k++) {
+		if (noise_thresholds[k] > FLT_MIN){
+
+			//Envelopes application
+			if (spectrum[k] > noise_thresholds[k]){
+				gain = 1.f; // only avoid applying reduction if over the threshold
+			}else{
+				gain = 0.f;
+			}
+
+			if (Gk_gate[k] > Gk_prev_gate[k])
+				Gk_gate[k] = attack*Gk_prev_gate[k] + (1.f-attack)*gain;
+			else
+				Gk_gate[k] = release*Gk_prev_gate[k] + (1.f-release)*gain;
+
+			//update previous gain
+			Gk_prev_gate[k] = Gk_gate[k];
+
+		} else {
+			//Otherwise we keep everything as is
+			Gk_gate[k] = 1.f;
 		}
 	}
 }

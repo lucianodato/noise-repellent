@@ -43,18 +43,17 @@ typedef enum {
 	NREPEL_CAPTURE = 0,
 	NREPEL_N_AUTO = 1,
 	NREPEL_AMOUNT = 2,
-	NREPEL_SCALE = 3,
-	NREPEL_THRESH = 4,
-	NREPEL_SMOOTHING = 5,
-	NREPEL_FREQUENCY_SMOOTHING = 6,
-	NREPEL_LATENCY = 7,
-	NREPEL_WHITENING = 8,
-	NREPEL_MAKEUP = 9,
-	NREPEL_RESET = 10,
-	NREPEL_NOISE_LISTEN = 11,
-	NREPEL_ENABLE = 12,
-	NREPEL_INPUT = 13,
-	NREPEL_OUTPUT = 14,
+	NREPEL_THRESH = 3,
+	NREPEL_SMOOTHING = 4,
+	NREPEL_GSMOOTHING = 5,
+	NREPEL_LATENCY = 6,
+	NREPEL_WHITENING = 7,
+	NREPEL_MAKEUP = 8,
+	NREPEL_RESET = 9,
+	NREPEL_NOISE_LISTEN = 10,
+	NREPEL_ENABLE = 11,
+	NREPEL_INPUT = 12,
+	NREPEL_OUTPUT = 13,
 } PortIndex;
 
 typedef struct {
@@ -65,16 +64,14 @@ typedef struct {
 	//Parameters for the algorithm (user input)
 	float* capture_state;             //Capture Noise state (Manual-Off-Auto)
 	float* amount_of_reduction;       //Amount of noise to reduce in dB
-	float* snr_influence;       	  //Scale of reduction for nonlinear_power_sustraction
 	float* threshold;        	  //Threshold influence for noise profile
 	float* report_latency;            //Latency necessary
 	float* reset_print;               //Reset Noise switch
 	float* noise_listen;              //For noise only listening
 	float* residual_whitening;        //Whitening of the residual spectrum
 	float* time_smoothing;            //constant that set the time smoothing coefficient
+	float* gsmoothing;            	  //gate spectral sustraction interpolation factor
 	float* auto_state;                //autocapture switch
-	float* frequency_smoothing;       //Smoothing over frequency
-	float* masking;                   //Activate masking threshold
 	float* enable;                    //For soft bypass (click free bypass)
 	float* makeup_gain;
 
@@ -119,8 +116,10 @@ typedef struct {
 	float* noise_thresholds_p2;       //captured noise print power spectrum
 	float* noise_thresholds_magnitude;//captured noise print magnitude spectrum
 
-	float* Gk;                        //gain to be applied
-	float* Gk_prev;			  //previous gain to apply envelope smoothing
+	float* Gk_gate;                   //gain to be applied to gate
+	float* Gk_prev_gate;		  //previous gain to apply envelope smoothing of the gate
+	float* Gk_ps;			  //gain to be applied to power sustraction
+	float* Gk;			  //definitive gain
 
 	//Loizou algorithm
 	float* auto_thresholds;           //Reference threshold for louizou algorithm
@@ -138,14 +137,14 @@ typedef struct {
 
 static LV2_Handle
 instantiate(const LV2_Descriptor*     descriptor,
-						double                    rate,
-						const char*               bundle_path,
-						const LV2_Feature* const* features) {
+	    double                    rate,
+	    const char*               bundle_path,
+	    const LV2_Feature* const* features) {
 	//Actual struct declaration
 	Nrepel* nrepel = (Nrepel*)malloc(sizeof(Nrepel));
 
 	//Initialize variables
-	nrepel->samp_rate = rate;
+	nrepel->samp_rate = (float)rate;
 	nrepel->fft_size = FFT_SIZE;
 	nrepel->fft_size_2 = nrepel->fft_size/2;
 	nrepel->window_combination = WINDOW_COMBINATION;
@@ -177,8 +176,10 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->noise_thresholds_p2 = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->noise_thresholds_magnitude = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 
+	nrepel->Gk_gate = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
+	nrepel->Gk_prev_gate = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
+	nrepel->Gk_ps = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->Gk = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
-	nrepel->Gk_prev = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 
 	nrepel->auto_thresholds = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->prev_noise_thresholds = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
@@ -191,14 +192,16 @@ instantiate(const LV2_Descriptor*     descriptor,
 
 	//Window combination initialization (pre processing window post processing window)
 	fft_pre_and_post_window(nrepel->window_input,
-													nrepel->window_output,
-													nrepel->fft_size,
-													nrepel->window_combination,
-													&nrepel->overlap_scale_factor);
+				nrepel->window_output,
+				nrepel->fft_size,
+				nrepel->window_combination,
+				&nrepel->overlap_scale_factor);
 
 	//Set initial gain as unity
+	memset(nrepel->Gk_gate, 1, (nrepel->fft_size_2+1)*sizeof(float));
+	memset(nrepel->Gk_prev_gate, 1, (nrepel->fft_size_2+1)*sizeof(float));
+	memset(nrepel->Gk_ps, 1, (nrepel->fft_size_2+1)*sizeof(float));
 	memset(nrepel->Gk, 1, (nrepel->fft_size_2+1)*sizeof(float));
-	memset(nrepel->Gk_prev, 1, (nrepel->fft_size_2+1)*sizeof(float));
 
 	//Compute auto mode initial thresholds
 	compute_auto_thresholds(nrepel->auto_thresholds, nrepel->fft_size, nrepel->fft_size_2, nrepel->samp_rate);
@@ -210,8 +213,8 @@ instantiate(const LV2_Descriptor*     descriptor,
 
 static void
 connect_port(LV2_Handle instance,
-						 uint32_t   port,
-						 void*      data) {
+	     uint32_t   port,
+	     void*      data) {
 	Nrepel* nrepel = (Nrepel*)instance;
 
 	switch ((PortIndex)port) {
@@ -224,17 +227,14 @@ connect_port(LV2_Handle instance,
 		case NREPEL_AMOUNT:
 		nrepel->amount_of_reduction = (float*)data;
 		break;
-		case NREPEL_SCALE:
-		nrepel->snr_influence = (float*)data;
-		break;
 		case NREPEL_THRESH:
 		nrepel->threshold = (float*)data;
 		break;
 		case NREPEL_SMOOTHING:
 		nrepel->time_smoothing = (float*)data;
 		break;
-		case NREPEL_FREQUENCY_SMOOTHING:
-		nrepel->frequency_smoothing = (float*)data;
+		case NREPEL_GSMOOTHING:
+		nrepel->gsmoothing = (float*)data;
 		break;
 		case NREPEL_LATENCY:
 		nrepel->report_latency = (float*)data;
@@ -297,8 +297,10 @@ run(LV2_Handle instance, uint32_t n_samples) {
 	if (*(nrepel->reset_print) == 1.f) {
 		memset(nrepel->noise_thresholds_p2, 0, (nrepel->fft_size_2+1)*sizeof(float));
 		memset(nrepel->noise_thresholds_magnitude, 0, (nrepel->fft_size_2+1)*sizeof(float));
+		memset(nrepel->Gk_gate, 1, (nrepel->fft_size_2+1)*sizeof(float));
+		memset(nrepel->Gk_prev_gate, 1, (nrepel->fft_size_2+1)*sizeof(float));
+		memset(nrepel->Gk_ps, 1, (nrepel->fft_size_2+1)*sizeof(float));
 		memset(nrepel->Gk, 1, (nrepel->fft_size_2+1)*sizeof(float));
-		memset(nrepel->Gk_prev, 1, (nrepel->fft_size_2+1)*sizeof(float));
 		nrepel->window_count = 0.f;
 
 		memset(nrepel->prev_noise_thresholds, 0, (nrepel->fft_size_2+1)*sizeof(float));
@@ -311,6 +313,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 
 		nrepel->noise_thresholds_availables = false;
 	}
+
 
 	//main loop for processing
 	for (pos = 0; pos < n_samples; pos++){
@@ -408,16 +411,17 @@ run(LV2_Handle instance, uint32_t n_samples) {
 									nrepel->fft_magnitude,
 									nrepel->fft_magnitude_prev,
 									*(nrepel->time_smoothing),
-									*(nrepel->snr_influence),
 									*(nrepel->threshold),
 									nrepel->noise_thresholds_p2,
 									nrepel->noise_thresholds_magnitude,
 									nrepel->fft_size_2,
 									nrepel->fft_size,
+									nrepel->Gk_gate,
+									nrepel->Gk_prev_gate,
+									nrepel->Gk_ps,
 									nrepel->Gk,
-									nrepel->Gk_prev,
 									nrepel->samp_rate,
-									*(nrepel->frequency_smoothing));
+									*(nrepel->gsmoothing));
 
 						//Gain Application
 						gain_application(*(nrepel->amount_of_reduction),
