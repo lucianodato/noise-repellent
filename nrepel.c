@@ -411,6 +411,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 									nrepel->fft_size_2,
 									nrepel->fft_size,
 									nrepel->Gk,
+									nrepel->samp_rate,
 									*(nrepel->frequency_smoothing));
 
 						//Gain Application

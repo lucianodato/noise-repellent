@@ -37,6 +37,7 @@ void spectral_gain_computing(float* fft_p2,
 			     int fft_size_2,
 			     int fft_size,
 			     float* Gk,
+			     float fs,
 			     float frequency_smoothing){
 
   //PREPROCESSING
@@ -71,8 +72,15 @@ void spectral_gain_computing(float* fft_p2,
 
   //GAIN CALCULATION
   //Non linear Power Sustraction
-  nonlinear_power_sustraction(snr_influence,
+  //nonlinear_power_sustraction(snr_influence,
+			//      fft_size_2,
+			//      fft_p2,
+			//      noise_spectrum,//noise_thresholds_p2,
+			//      Gk);
+  //Non linear Power Sustraction
+  nonlinear_power_sustraction_gate(snr_influence,
 			      fft_size_2,
+			      fs,
 			      fft_p2,
 			      noise_spectrum,//noise_thresholds_p2,
 			      Gk);

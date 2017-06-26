@@ -58,3 +58,43 @@ void nonlinear_power_sustraction(float snr_influence,
 		}
 	}
 }
+
+//Non linear Power Sustraction
+void nonlinear_power_sustraction_gate(float snr_influence,
+				 int fft_size_2,
+				 float fs,
+				 float* spectrum,
+				 float* noise_thresholds,
+				 float* Gk) {
+	int k;
+	float gain, Fk, alpha;
+	float attack = expf(-logf(9.f)/(fs*0.01));//10ms
+	float release = expf(-logf(9.f)/(fs*0.05));//50ms
+
+	for (k = 0; k <= fft_size_2 ; k++) {
+		if (noise_thresholds[k] > FLT_MIN){
+			if(spectrum[k] > 0.f){
+				if(snr_influence > 0.f){
+					alpha = snr_influence + sqrtf(spectrum[k]/noise_thresholds[k]);
+				}else{
+					alpha = 1.f;//Non linear spectral sustraction off
+				}
+			gain = MAX(spectrum[k]-alpha*noise_thresholds[k], 0.f) / spectrum[k];
+		} else {
+			gain = 0.f;
+		}
+
+			//Avoid invalid gain numbers
+			Fk = (1.f-gain);
+
+			if(Fk < 0.f) Fk = 0.f;
+			if(Fk > 1.f) Fk = 1.f;
+
+			Gk[k] =  1.f - Fk;
+
+		} else {
+			//Otherwise we keep everything as is
+			Gk[k] = 1.f;
+		}
+	}
+}
