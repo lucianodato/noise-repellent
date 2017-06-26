@@ -23,39 +23,38 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define SCALING_FACTOR 10.f //scaling factor for non linear power sustraction
 
 //Non linear Power Sustraction
-void nonlinear_power_sustraction(float reduction_strenght,
-                       float snr_influence,
-                       int fft_size_2,
-                       float* spectrum,
-                       float* noise_thresholds,
-                       float* Gk) {
-  int k;
-  float gain, Fk, alpha;
+void nonlinear_power_sustraction(float snr_influence,
+				 int fft_size_2,
+				 float* spectrum,
+				 float* noise_thresholds,
+				 float* Gk) {
+	int k;
+	float gain, Fk, alpha;
 
-  for (k = 0; k <= fft_size_2 ; k++) {
-    if (noise_thresholds[k] > FLT_MIN){
-      if(spectrum[k] > 0.f){
-        if(snr_influence > 0){
-          alpha = snr_influence + sqrtf(spectrum[k]/noise_thresholds[k]);
-        }else{
-          alpha = 1.f;//Non linear spectral sustraction off
-        }
-        gain = MAX(spectrum[k]-alpha*noise_thresholds[k], 0.f) / spectrum[k];
-      } else {
-        gain = 0.f;
-      }
+	for (k = 0; k <= fft_size_2 ; k++) {
+		if (noise_thresholds[k] > FLT_MIN){
+			if(spectrum[k] > 0.f){
+				if(snr_influence > 0.f){
+					alpha = snr_influence + sqrtf(spectrum[k]/noise_thresholds[k]);
+				}else{
+					alpha = 1.f;//Non linear spectral sustraction off
+				}
+			gain = MAX(spectrum[k]-alpha*noise_thresholds[k], 0.f) / spectrum[k];
+		} else {
+			gain = 0.f;
+		}
 
-      //Use reduction_strenght
-      Fk = reduction_strenght*(1.f-gain);
+			//Avoid invalid gain numbers
+			Fk = (1.f-gain);
 
-      if(Fk < 0.f) Fk = 0.f;
-      if(Fk > 1.f) Fk = 1.f;
+			if(Fk < 0.f) Fk = 0.f;
+			if(Fk > 1.f) Fk = 1.f;
 
-      Gk[k] =  1.f - Fk;
+			Gk[k] =  1.f - Fk;
 
-    } else {
-      //Otherwise we keep everything as is
-      Gk[k] = 1.f;
-    }
-  }
+		} else {
+			//Otherwise we keep everything as is
+			Gk[k] = 1.f;
+		}
+	}
 }

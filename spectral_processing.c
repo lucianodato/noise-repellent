@@ -26,61 +26,75 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 //------------GAIN AND THRESHOLD CALCULATION---------------
 
 void spectral_gain_computing(float* fft_p2,
-                             float* fft_p2_prev,
-                             float* fft_magnitude,
-                             float* fft_magnitude_prev,
-                             float time_smoothing,
-                             float snr_influence,
-                             float* noise_thresholds_p2,
-                             float* noise_thresholds_magnitude,
-                             int fft_size_2,
-                             float reduction_strenght,
-                             float* Gk,
-                             float frequency_smoothing){
+			     float* fft_p2_prev,
+			     float* fft_magnitude,
+			     float* fft_magnitude_prev,
+			     float time_smoothing,
+			     float snr_influence,
+			     float threshold,
+			     float* noise_thresholds_p2,
+			     float* noise_thresholds_magnitude,
+			     int fft_size_2,
+			     int fft_size,
+			     float* Gk,
+			     float frequency_smoothing){
 
   //PREPROCESSING
+  int k;
+  float noise_spectrum[fft_size];
+  //Get the threshold amount to scale from the noise profile
+  threshold = from_dB(threshold);
+
+  //apply threshold scaling over the noise profile
+  for (k = 0; k <= fft_size_2; k++) {
+    noise_spectrum[k] = noise_thresholds_p2[k] * (threshold * threshold);//squared threshold
+    //noise_spectrum[k] = noise_thresholds_magnitude[k] * (threshold * threshold);//squared threshold
+    if(k < fft_size_2){
+      noise_spectrum[fft_size-k] = noise_thresholds_p2[k] * (threshold * threshold);//squared threshold
+      //noise_spectrum[fft_size-k] = noise_thresholds_magnitude[k] * (threshold * threshold);//squared threshold
+    }
+  }
 
   //SMOOTHING
   //Time smoothing between current and past power spectrum and magnitude spectrum
   if (time_smoothing > 0.f){
     spectrum_time_smoothing(fft_size_2,
-                            fft_p2_prev,
-                            fft_p2,
-                            time_smoothing);
+			    fft_p2_prev,
+			    fft_p2,
+			    time_smoothing);
 
     spectrum_time_smoothing(fft_size_2,
-                            fft_magnitude_prev,
-                            fft_magnitude,
-                            time_smoothing);
+			    fft_magnitude_prev,
+			    fft_magnitude,
+			    time_smoothing);
   }
 
   //GAIN CALCULATION
   //Non linear Power Sustraction
-  nonlinear_power_sustraction(reduction_strenght,
-                   snr_influence,
-                   fft_size_2,
-                   fft_p2,
-                   noise_thresholds_p2,
-                   Gk);
+  nonlinear_power_sustraction(snr_influence,
+			      fft_size_2,
+			      fft_p2,
+			      noise_spectrum,//noise_thresholds_p2,
+			      Gk);
 
   //FREQUENCY SMOOTHING OF GAINS
   if (frequency_smoothing > 0.f){
     spectral_smoothing_MA(Gk,
-                          frequency_smoothing,
-                          fft_size_2);
+			  frequency_smoothing,
+			  fft_size_2);
   }
 }
 
 //GAIN APPLICATION
 void gain_application(float amount_of_reduction,
-                      int fft_size_2,
-                      int fft_size,
-                      float* output_fft_buffer,
-                      float* Gk,
-                      float makeup_gain,
-                      float wet_dry,
-                      float residual_whitening,
-                      float noise_listen){
+		      int fft_size_2,
+		      int fft_size,
+		      float* output_fft_buffer,
+		      float* Gk,
+		      float makeup_gain,
+		      float wet_dry,
+		      float residual_whitening,
+		      float noise_listen){
 
   int k;
   float reduction_coeff = from_dB(-1.f*amount_of_reduction);

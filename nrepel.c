@@ -44,7 +44,7 @@ typedef enum {
 	NREPEL_N_AUTO = 1,
 	NREPEL_AMOUNT = 2,
 	NREPEL_SCALE = 3,
-	NREPEL_STRENGTH = 4,
+	NREPEL_THRESH = 4,
 	NREPEL_SMOOTHING = 5,
 	NREPEL_FREQUENCY_SMOOTHING = 6,
 	NREPEL_LATENCY = 7,
@@ -65,8 +65,8 @@ typedef struct {
 	//Parameters for the algorithm (user input)
 	float* capture_state;             //Capture Noise state (Manual-Off-Auto)
 	float* amount_of_reduction;       //Amount of noise to reduce in dB
-	float* snr_influence;       		//Scale of reduction for nonlinear_power_sustraction
-	float* reduction_strenght;        //Second Oversustraction factor
+	float* snr_influence;       	  //Scale of reduction for nonlinear_power_sustraction
+	float* threshold;        	  //Threshold influence for noise profile
 	float* report_latency;            //Latency necessary
 	float* reset_print;               //Reset Noise switch
 	float* noise_listen;              //For noise only listening
@@ -179,7 +179,7 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->Gk = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 
 	nrepel->auto_thresholds = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
-  nrepel->prev_noise_thresholds = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
+	nrepel->prev_noise_thresholds = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->s_pow_spec = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->prev_s_pow_spec = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->p_min = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
@@ -224,8 +224,8 @@ connect_port(LV2_Handle instance,
 		case NREPEL_SCALE:
 		nrepel->snr_influence = (float*)data;
 		break;
-		case NREPEL_STRENGTH:
-		nrepel->reduction_strenght = (float*)data;
+		case NREPEL_THRESH:
+		nrepel->threshold = (float*)data;
 		break;
 		case NREPEL_SMOOTHING:
 		nrepel->time_smoothing = (float*)data;
@@ -368,17 +368,17 @@ run(LV2_Handle instance, uint32_t n_samples) {
 				//If autolearn is selected allways estimate noise_thresholds using Loizou
 				if(*(nrepel->auto_state) == 1.f) {
 					auto_capture_noise(nrepel->fft_p2,//this is supposed to be the power spectrum in Loizou method
-														 nrepel->fft_size_2,
-														 nrepel->noise_thresholds_p2,
-														 nrepel->noise_thresholds_magnitude,
-														 nrepel->auto_thresholds,
-														 nrepel->prev_noise_thresholds,
-														 nrepel->s_pow_spec,
-														 nrepel->prev_s_pow_spec,
-														 nrepel->p_min,
-														 nrepel->prev_p_min,
-														 nrepel->speech_p_p,
-														 nrepel->prev_speech_p_p);
+								nrepel->fft_size_2,
+								nrepel->noise_thresholds_p2,
+								nrepel->noise_thresholds_magnitude,
+								nrepel->auto_thresholds,
+								nrepel->prev_noise_thresholds,
+								nrepel->s_pow_spec,
+								nrepel->prev_s_pow_spec,
+								nrepel->p_min,
+								nrepel->prev_p_min,
+								nrepel->speech_p_p,
+								nrepel->prev_speech_p_p);
 
 					nrepel->noise_thresholds_availables = true;
 				}
@@ -388,11 +388,11 @@ run(LV2_Handle instance, uint32_t n_samples) {
 				 */
 				if(*(nrepel->capture_state) == 1.f) { //MANUAL
 					get_noise_statistics(nrepel->fft_p2,
-															 nrepel->fft_magnitude,
-															 nrepel->fft_size_2,
-															 nrepel->noise_thresholds_p2,
-															 nrepel->noise_thresholds_magnitude,
-															 &nrepel->window_count);
+								nrepel->fft_magnitude,
+								nrepel->fft_size_2,
+								nrepel->noise_thresholds_p2,
+								nrepel->noise_thresholds_magnitude,
+								&nrepel->window_count);
 
 					nrepel->noise_thresholds_availables = true;
 				} else {
@@ -400,29 +400,30 @@ run(LV2_Handle instance, uint32_t n_samples) {
 					if (nrepel->noise_thresholds_availables == true) {
 						//Gain Calculation
 						spectral_gain_computing(nrepel->fft_p2,
-																		nrepel->fft_p2_prev,
-																		nrepel->fft_magnitude,
-																		nrepel->fft_magnitude_prev,
-																		*(nrepel->time_smoothing),
-																		*(nrepel->snr_influence),
-																		nrepel->noise_thresholds_p2,
-																		nrepel->noise_thresholds_magnitude,
-																		nrepel->fft_size_2,
-																		*(nrepel->reduction_strenght),
-																		nrepel->Gk,
-																		*(nrepel->frequency_smoothing));
+									nrepel->fft_p2_prev,
+									nrepel->fft_magnitude,
+									nrepel->fft_magnitude_prev,
+									*(nrepel->time_smoothing),
+									*(nrepel->snr_influence),
+									*(nrepel->threshold),
+									nrepel->noise_thresholds_p2,
+									nrepel->noise_thresholds_magnitude,
+									nrepel->fft_size_2,
+									nrepel->fft_size,
+									nrepel->Gk,
+									*(nrepel->frequency_smoothing));
 
 						//Gain Application
 						gain_application(*(nrepel->amount_of_reduction),
-														 nrepel->fft_size_2,
-														 nrepel->fft_size,
-														 nrepel->output_fft_buffer,
-														 nrepel->Gk,
-														 *(nrepel->makeup_gain),
-														 nrepel->wet_dry,
-														 *(nrepel->residual_whitening),
-														 *(nrepel->noise_listen));
-					}
+									nrepel->fft_size_2,
+									nrepel->fft_size,
+									nrepel->output_fft_buffer,
+									nrepel->Gk,
+									*(nrepel->makeup_gain),
+									nrepel->wet_dry,
+									*(nrepel->residual_whitening),
+									*(nrepel->noise_listen));
+}
 				}
 			}
 

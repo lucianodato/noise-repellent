@@ -36,9 +36,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 //This thresholds will dictate how louizou algorithm recognizes noise
 void compute_auto_thresholds(float* auto_thresholds,
-                             float fft_size,
-                             float fft_size_2,
-                             float samp_rate){
+			     float fft_size,
+			     float fft_size_2,
+			     float samp_rate){
 
   //This was experimentally obteined in louizou paper
 	int LF = Freq2Index(CROSSOVER_POINT1,samp_rate,fft_size);//1kHz
@@ -58,16 +58,16 @@ void compute_auto_thresholds(float* auto_thresholds,
 
 //Loizou noise-estimation algorithm for highly non-stationary environments
 static void estimate_noise_loizou(float* thresh,
-                      int fft_size_2,
-                      float* p2,
-                      float* s_pow_spec,
-                      float* prev_s_pow_spec,
-                      float* noise_thresholds_p2,
-                      float* prev_noise,
-                      float* p_min,
-                      float* prev_p_min,
-                      float* speech_p_p,
-                      float* prev_speech_p_p) {
+				  int fft_size_2,
+				  float* p2,
+				  float* s_pow_spec,
+				  float* prev_s_pow_spec,
+				  float* noise_thresholds_p2,
+				  float* prev_noise,
+				  float* p_min,
+				  float* prev_p_min,
+				  float* speech_p_p,
+				  float* prev_speech_p_p) {
 
   int k;
   float ratio_ns = 0.f;
@@ -109,31 +109,31 @@ static void estimate_noise_loizou(float* thresh,
 
 //Automatic noise threshold estimation
 void auto_capture_noise(float* p2,
-                        int fft_size_2,
-                        float* noise_thresholds_p2,
-                        float* noise_thresholds_magnitude,
-                        float* thresh,
-                        float* prev_noise_thresholds,
-                        float* s_pow_spec,
-                        float* prev_s_pow_spec,
-                        float* p_min,
-                        float* prev_p_min,
-                        float* speech_p_p,
-                        float* prev_speech_p_p){
+			int fft_size_2,
+			float* noise_thresholds_p2,
+			float* noise_thresholds_magnitude,
+			float* thresh,
+			float* prev_noise_thresholds,
+			float* s_pow_spec,
+			float* prev_s_pow_spec,
+			float* p_min,
+			float* prev_p_min,
+			float* speech_p_p,
+			float* prev_speech_p_p){
   int k;
 
   //Loizou noise-estimation algorithm for highly non-stationary environments
   estimate_noise_loizou(thresh,
-                        fft_size_2,
-                        p2,
-                        s_pow_spec,
-                        prev_s_pow_spec,
-                        noise_thresholds_p2,
-                        prev_noise_thresholds,
-                        p_min,
-                        prev_p_min,
-                        speech_p_p,
-                        prev_speech_p_p);
+			fft_size_2,
+			p2,
+			s_pow_spec,
+			prev_s_pow_spec,
+			noise_thresholds_p2,
+			prev_noise_thresholds,
+			p_min,
+			prev_p_min,
+			speech_p_p,
+			prev_speech_p_p);
 
   //Update previous variables
   for(k = 0 ; k <= fft_size_2 ; k++) {
@@ -147,11 +147,11 @@ void auto_capture_noise(float* p2,
 
 //Manual Capture threshold estimation
 void get_noise_statistics(float* fft_p2,
-                          float* fft_magnitude,
-                          int fft_size_2,
-                          float* noise_thresholds_p2,
-                          float* noise_thresholds_magnitude,
-                          float* window_count) {
+			  float* fft_magnitude,
+			  int fft_size_2,
+			  float* noise_thresholds_p2,
+			  float* noise_thresholds_magnitude,
+			  float* window_count) {
   int k;
 
   *(window_count) += 1.f;
