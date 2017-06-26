@@ -37,6 +37,7 @@ void spectral_gain_computing(float* fft_p2,
 			     int fft_size_2,
 			     int fft_size,
 			     float* Gk,
+			     float* Gk_prev,
 			     float fs,
 			     float frequency_smoothing){
 
@@ -83,7 +84,8 @@ void spectral_gain_computing(float* fft_p2,
 			      fs,
 			      fft_p2,
 			      noise_spectrum,//noise_thresholds_p2,
-			      Gk);
+			      Gk,
+			      Gk_prev);
 
   //FREQUENCY SMOOTHING OF GAINS
   if (frequency_smoothing > 0.f){

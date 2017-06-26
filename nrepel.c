@@ -120,6 +120,7 @@ typedef struct {
 	float* noise_thresholds_magnitude;//captured noise print magnitude spectrum
 
 	float* Gk;                        //gain to be applied
+	float* Gk_prev;			  //previous gain to apply envelope smoothing
 
 	//Loizou algorithm
 	float* auto_thresholds;           //Reference threshold for louizou algorithm
@@ -177,6 +178,7 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->noise_thresholds_magnitude = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 
 	nrepel->Gk = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
+	nrepel->Gk_prev = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 
 	nrepel->auto_thresholds = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->prev_noise_thresholds = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
@@ -196,6 +198,7 @@ instantiate(const LV2_Descriptor*     descriptor,
 
 	//Set initial gain as unity
 	memset(nrepel->Gk, 1, (nrepel->fft_size_2+1)*sizeof(float));
+	memset(nrepel->Gk_prev, 1, (nrepel->fft_size_2+1)*sizeof(float));
 
 	//Compute auto mode initial thresholds
 	compute_auto_thresholds(nrepel->auto_thresholds, nrepel->fft_size, nrepel->fft_size_2, nrepel->samp_rate);
@@ -295,6 +298,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 		memset(nrepel->noise_thresholds_p2, 0, (nrepel->fft_size_2+1)*sizeof(float));
 		memset(nrepel->noise_thresholds_magnitude, 0, (nrepel->fft_size_2+1)*sizeof(float));
 		memset(nrepel->Gk, 1, (nrepel->fft_size_2+1)*sizeof(float));
+		memset(nrepel->Gk_prev, 1, (nrepel->fft_size_2+1)*sizeof(float));
 		nrepel->window_count = 0.f;
 
 		memset(nrepel->prev_noise_thresholds, 0, (nrepel->fft_size_2+1)*sizeof(float));
@@ -411,6 +415,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 									nrepel->fft_size_2,
 									nrepel->fft_size,
 									nrepel->Gk,
+									nrepel->Gk_prev,
 									nrepel->samp_rate,
 									*(nrepel->frequency_smoothing));
 
