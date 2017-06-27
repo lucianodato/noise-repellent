@@ -26,51 +26,57 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 //------------GAIN AND THRESHOLD CALCULATION---------------
 
 void spectral_gain_computing(float* fft_p2,
-			     float* fft_p2_prev,
-			     float* fft_magnitude,
-			     float* fft_magnitude_prev,
-			     float time_smoothing,
-			     float threshold,
-			     float* noise_thresholds_p2,
-			     float* noise_thresholds_magnitude,
-			     int fft_size_2,
-			     int fft_size,
-			     float* Gk_gate,
-			     float* Gk_prev_gate,
-			     float* Gk_ps,
-			     float* Gk,
-			     float fs,
-			     float gsmoothing){
+												     float* fft_p2_prev,
+												     float* fft_magnitude,
+												     float* fft_magnitude_prev,
+												     float time_smoothing,
+												     float strenght_scaling,
+												     float* noise_thresholds_p2,
+												     float* noise_thresholds_magnitude,
+												     int fft_size_2,
+												     int fft_size,
+												     float* Gk_gate,
+												     float* Gk_prev_gate,
+												     float* Gk_ps,
+												     float* Gk,
+												     float fs,
+														 float residual_whitening,
+												     float gsmoothing){
 
 	//PREPROCESSING
 	int k;
-	float noise_thresholds_scaled[fft_size];
+	float noise_thresholds_scaled[fft_size_2+1];
+	float tappering_filter[fft_size_2+1];
 
 	//Scale noise profile
 
-	//apply threshold scaling over the noise profile
+	//apply scaling over the noise profile
 	for (k = 0; k <= fft_size_2; k++) {
-		noise_thresholds_scaled[k] = noise_thresholds_p2[k] * from_dB(threshold);
-		if(k < fft_size_2){
-			noise_thresholds_scaled[fft_size-k] = noise_thresholds_p2[fft_size-k] * from_dB(threshold);
-		}
+		noise_thresholds_scaled[k] = noise_thresholds_p2[k] * strenght_scaling;
+	}
+
+	//Residual signal Whitening and tappering
+	if(residual_whitening > 0.f) {
+		whitening_of_spectrum(noise_thresholds_scaled,residual_whitening,fft_size_2+1);
+		//tappering_filter_calc(tappering_filter,(fft_size_2+1));
+		//apply_tappering_filter(noise_thresholds_scaled,tappering_filter,fft_size_2);
 	}
 
 	//SMOOTHING
 	//Time smoothing between current and past power spectrum and magnitude spectrum
 	if (time_smoothing > 0.f){
 		spectrum_time_smoothing(fft_size_2,
-				    fft_p2_prev,
-				    fft_p2,
-				    time_smoothing);
+												    fft_p2_prev,
+												    fft_p2,
+												    time_smoothing);
 	}
 
 	//GAIN CALCULATION
 	//Power Sustraction with envelopes smoothing
 	power_sustraction(fft_size_2,
-			  fft_p2,
-			  noise_thresholds_scaled,
-			  Gk_ps);
+									  fft_p2,
+									  noise_thresholds_scaled,
+									  Gk_ps);
 
 	gating(fft_size_2,
 	       fs,
@@ -90,27 +96,18 @@ void spectral_gain_computing(float* fft_p2,
 
 //GAIN APPLICATION
 void gain_application(float amount_of_reduction,
-		      int fft_size_2,
-		      int fft_size,
-		      float* output_fft_buffer,
-		      float* Gk,
-		      float makeup_gain,
-		      float wet_dry,
-		      float residual_whitening,
-		      float noise_listen){
+								      int fft_size_2,
+								      int fft_size,
+								      float* output_fft_buffer,
+								      float* Gk,
+								      float makeup_gain,
+								      float wet_dry,
+								      float noise_listen){
 
   int k;
   float reduction_coeff = from_dB(-1.f*amount_of_reduction);
   float residual_spectrum[fft_size];
   float denoised_fft_buffer[fft_size];
-  float tappering_filter[fft_size_2+1];
-
-  //Residual signal Whitening and tappering
-  if(residual_whitening > 0.f) {
-    whitening_of_spectrum(Gk,residual_whitening,fft_size_2);
-    tappering_filter_calc(tappering_filter,(fft_size_2+1));
-    apply_tappering_filter(Gk,tappering_filter,fft_size_2);
-  }
 
   //Apply the computed gain to the signal and store it in denoised array
   for (k = 0; k <= fft_size_2; k++) {

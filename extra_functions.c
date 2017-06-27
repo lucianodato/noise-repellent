@@ -226,40 +226,6 @@ void fft_pre_and_post_window(float* window_input,
   }
 }
 
-//---------------WHITENING--------------
-
-//unnormalized Hann windows for whitening tappering
-void tappering_filter_calc(float* filter, int N) {
-  int k;
-  for (k = 0; k < N; k++){
-    filter[k] = hamming(k, N);//Half hann window tappering in favor of high frequencies
-  }
-}
-
-void whitening_of_spectrum(float* spectrum,float wa,int N){
-  float whiten_factor = powf(max_spectral_value(spectrum,N),wa);
-  for (int k = 0; k <= N; k++) {
-    if(whiten_factor > FLT_MIN){ //Protects against division by 0
-      spectrum[k] /= whiten_factor;
-      if(k < N){
-        spectrum[N-k] /= whiten_factor;
-      }
-    }
-  }
-}
-
-void apply_tappering_filter(float* spectrum,float* filter,int N) {
-  for (int k = 0; k <= N; k++) {
-    if(spectrum[k] > FLT_MIN) {
-      spectrum[k] *= filter[N-k];//Half hann window tappering in favor of high frequencies
-      if(k < N) {
-        spectrum[N-k] *= filter[N-k];//Half hann window tappering in favor of high frequencies
-      }
-    }
-  }
-}
-
-
 //---------------------SMOOTHERS--------------------------
 
 //Spectral smoothing with rectangular boxcar or unweighted sliding-average smooth
@@ -463,3 +429,47 @@ void spectrum_time_smoothing(int fft_size_2,
     spectrum[k] = (1.f - coeff) * spectrum[k] + coeff * prev_spectrum[k];
   }
 }
+
+//---------------WHITENING--------------
+
+//unnormalized Hann windows for whitening tappering
+void tappering_filter_calc(float* filter, int N) {
+  int k;
+  for (k = 0; k < N; k++){
+    filter[k] = hamming(k, N);//Half hann window tappering in favor of high frequencies
+  }
+}
+
+void apply_tappering_filter(float* spectrum,float* filter,int N) {
+  for (int k = 0; k <= N; k++) {
+    if(spectrum[k] > FLT_MIN) {
+      spectrum[k] *= filter[N-k];//Half hann window tappering in favor of high frequencies
+      if(k < N) {
+        spectrum[N-k] *= filter[N-k];//Half hann window tappering in favor of high frequencies
+      }
+    }
+  }
+}
+
+
+void whitening_of_spectrum(float* spectrum,float b,int N){
+  float whiten_factor = powf(max_spectral_value(spectrum,N),b);
+
+  for (int k = 0; k <= N; k++) {
+    if(whiten_factor > FLT_MIN){ //Protects against division by 0
+      spectrum[k] /= whiten_factor;
+    }
+  }
+}
+// void whitening_of_spectrum(float* spectrum,float b,int N){
+//   float whiten_factor = powf(max_spectral_value(spectrum,N),b);
+//
+//   for (int k = 0; k <= N; k++) {
+//     if(whiten_factor > FLT_MIN){ //Protects against division by 0
+//       spectrum[k] /= whiten_factor;
+//       if(k < N){
+//         spectrum[N-k] /= whiten_factor;
+//       }
+//     }
+//   }
+// }

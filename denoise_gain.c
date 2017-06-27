@@ -103,19 +103,24 @@ void gating(int fft_size_2,
 	float release = expf(-logf(9.f)/(fs*0.05));//50ms
 
 	for (k = 0; k <= fft_size_2 ; k++) {
-		//Envelopes application
-		if (spectrum[k] >= noise_thresholds[k]){
-			Gk_gate[k] = 1.f; // only avoid applying reduction if over the threshold
-		}else{
-			Gk_gate[k] = 0.f;
+		if (noise_thresholds[k] > FLT_MIN){
+			//Envelopes application
+			if (spectrum[k] >= noise_thresholds[k]){
+				Gk_gate[k] = 1.f; // only avoid applying reduction if over the threshold
+			}else{
+				Gk_gate[k] = 0.f;
+			}
+
+			if (Gk_gate[k] > Gk_prev_gate[k])
+				Gk_gate[k] = (1.f-attack)*Gk_prev_gate[k] + attack*Gk_gate[k];
+			else
+				Gk_gate[k] = (1.f-release)*Gk_prev_gate[k] + release*Gk_gate[k];
+
+			//update previous gain
+			Gk_prev_gate[k] = Gk_gate[k];
+		} else {
+			//Otherwise we keep everything as is
+			Gk_gate[k] = 1.f;
 		}
-
-		if (Gk_gate[k] > Gk_prev_gate[k])
-			Gk_gate[k] = (1.f-attack)*Gk_prev_gate[k] + attack*Gk_gate[k];
-		else
-			Gk_gate[k] = (1.f-release)*Gk_prev_gate[k] + release*Gk_gate[k];
-
-		//update previous gain
-		Gk_prev_gate[k] = Gk_gate[k];
 	}
 }
