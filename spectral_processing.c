@@ -101,9 +101,16 @@ void gain_application(float amount_of_reduction,
 
   int k;
   float reduction_coeff = from_dB(-1.f*amount_of_reduction);
-  float denoised_fft_buffer[fft_size];
   float residual_spectrum[fft_size];
+  float denoised_fft_buffer[fft_size];
   float tappering_filter[fft_size_2+1];
+
+  //Residual signal Whitening and tappering
+  if(residual_whitening > 0.f) {
+    whitening_of_spectrum(Gk,residual_whitening,fft_size_2);
+    tappering_filter_calc(tappering_filter,(fft_size_2+1));
+    apply_tappering_filter(Gk,tappering_filter,fft_size_2);
+  }
 
   //Apply the computed gain to the signal and store it in denoised array
   for (k = 0; k <= fft_size_2; k++) {
@@ -117,13 +124,6 @@ void gain_application(float amount_of_reduction,
    residual_spectrum[k] = output_fft_buffer[k] - denoised_fft_buffer[k];
    if(k < fft_size_2)
     residual_spectrum[fft_size-k] = output_fft_buffer[fft_size-k] - denoised_fft_buffer[fft_size-k];
-  }
-
-  //Residual signal Whitening and tappering
-  if(residual_whitening > 0.f) {
-    whitening_of_spectrum(residual_spectrum,residual_whitening,fft_size_2);
-    tappering_filter_calc(tappering_filter,(fft_size_2+1));
-    apply_tappering_filter(residual_spectrum,tappering_filter,fft_size_2);
   }
 
   //Listen to cleaned signal or to noise only
