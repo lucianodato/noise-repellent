@@ -20,8 +20,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <float.h>
 #include <math.h>
 
-#define SCALING_FACTOR 10.f //scaling factor for non linear power sustraction
-
 //Non linear Power Sustraction
 void nonlinear_power_sustraction(float snr_influence,
 				 int fft_size_2,
@@ -101,31 +99,23 @@ void gating(int fft_size_2,
 
 	int k;
 
-	float gain;
 	float attack = expf(-logf(9.f)/(fs*0.01));//1ms
 	float release = expf(-logf(9.f)/(fs*0.05));//50ms
 
 	for (k = 0; k <= fft_size_2 ; k++) {
-		if (noise_thresholds[k] > FLT_MIN){
-
-			//Envelopes application
-			if (spectrum[k] > noise_thresholds[k]){
-				gain = 1.f; // only avoid applying reduction if over the threshold
-			}else{
-				gain = 0.f;
-			}
-
-			if (Gk_gate[k] > Gk_prev_gate[k])
-				Gk_gate[k] = attack*Gk_prev_gate[k] + (1.f-attack)*gain;
-			else
-				Gk_gate[k] = release*Gk_prev_gate[k] + (1.f-release)*gain;
-
-			//update previous gain
-			Gk_prev_gate[k] = Gk_gate[k];
-
-		} else {
-			//Otherwise we keep everything as is
-			Gk_gate[k] = 1.f;
+		//Envelopes application
+		if (spectrum[k] >= noise_thresholds[k]){
+			Gk_gate[k] = 1.f; // only avoid applying reduction if over the threshold
+		}else{
+			Gk_gate[k] = 0.f;
 		}
+
+		if (Gk_gate[k] > Gk_prev_gate[k])
+			Gk_gate[k] = (1.f-attack)*Gk_prev_gate[k] + attack*Gk_gate[k];
+		else
+			Gk_gate[k] = (1.f-release)*Gk_prev_gate[k] + release*Gk_gate[k];
+
+		//update previous gain
+		Gk_prev_gate[k] = Gk_gate[k];
 	}
 }
