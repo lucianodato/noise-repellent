@@ -124,3 +124,61 @@ void gating(int fft_size_2,
 		}
 	}
 }
+
+//Both power sustraction and gating at the same time
+void hybrid_reduction(int fft_size_2,
+									    float fs,
+									    float* spectrum,
+									    float* noise_thresholds,
+									    float* Gk,
+									    float* Gk_prev,
+											float gsmoothing) {
+
+	int k;
+
+	float gain, Fk, trigger, alpha;
+	float attack = expf(-logf(9.f)/(fs*0.01));//1ms
+	float release = expf(-logf(9.f)/(fs*0.05));//50ms
+
+	for (k = 0; k <= fft_size_2 ; k++) {
+		if (noise_thresholds[k] > FLT_MIN){
+			//Spectral sustraction for the frequency
+			if(spectrum[k] > 0.f){
+				alpha = sqrtf(spectrum[k]/noise_thresholds[k]);
+				gain = MAX(spectrum[k] - alpha*noise_thresholds[k], 0.f) / spectrum[k];
+			}else{
+				gain = 0.f;
+			}
+
+			//Avoid invalid gain numbers
+			Fk = (1.f-gain);
+			if(Fk < 0.f) Fk = 0.f;
+			if(Fk > 1.f) Fk = 1.f;
+			gain =  1.f - Fk;
+
+			//Gate triggering
+			if(spectrum[k] >= noise_thresholds[k]){
+				trigger = 1.f;
+			} else {
+				trigger = 0.f;
+			}
+
+			//Hybrid gain
+			Gk[k] = gsmoothing*trigger + (1.f-gsmoothing)*gain;
+
+			//Applying envelopes
+			if (Gk[k] > Gk_prev[k]){
+				Gk[k] = (1.f-attack)*Gk_prev[k] + attack*Gk[k];
+			}else{
+				Gk[k] = (1.f-release)*Gk_prev[k] + release*Gk[k];
+			}
+
+			//update previous gain
+			Gk_prev[k] = Gk[k];
+
+		} else {
+			//Otherwise we keep everything as is
+			Gk[k] = 1.f;
+		}
+	}
+}

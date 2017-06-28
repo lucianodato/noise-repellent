@@ -35,9 +35,7 @@ void spectral_gain_computing(float* fft_p2,
 												     float* noise_thresholds_magnitude,
 												     int fft_size_2,
 												     int fft_size,
-												     float* Gk_gate,
-												     float* Gk_prev_gate,
-												     float* Gk_ps,
+												     float* Gk_prev,
 												     float* Gk,
 												     float fs,
 														 float residual_whitening,
@@ -46,21 +44,19 @@ void spectral_gain_computing(float* fft_p2,
 	//PREPROCESSING
 	int k;
 	float noise_thresholds_scaled[fft_size_2+1];
-	float tappering_filter[fft_size_2+1];
+	// float tappering_filter[fft_size_2+1];
 
-	//Scale noise profile
-
-	//apply scaling over the noise profile
+	//Scale noise profile (equals applying an oversustraction factor)
 	for (k = 0; k <= fft_size_2; k++) {
 		noise_thresholds_scaled[k] = noise_thresholds_p2[k] * strenght_scaling;
 	}
 
-	//Residual signal Whitening and tappering
-	if(residual_whitening > 0.f) {
-		whitening_of_spectrum(noise_thresholds_scaled,residual_whitening,fft_size_2+1);
-		//tappering_filter_calc(tappering_filter,(fft_size_2+1));
-		//apply_tappering_filter(noise_thresholds_scaled,tappering_filter,fft_size_2);
-	}
+	// //Residual signal Whitening and tappering
+	// if(residual_whitening > 0.f) {
+	// 	whitening_of_spectrum(noise_thresholds_scaled,residual_whitening,fft_size_2+1);
+	// 	//tappering_filter_calc(tappering_filter,(fft_size_2+1));
+	// 	//apply_tappering_filter(noise_thresholds_scaled,tappering_filter,fft_size_2);
+	// }
 
 	//SMOOTHING
 	//Time smoothing between current and past power spectrum and magnitude spectrum
@@ -72,26 +68,14 @@ void spectral_gain_computing(float* fft_p2,
 	}
 
 	//GAIN CALCULATION
-	//Power Sustraction with envelopes smoothing
-	power_sustraction(fft_size_2,
-									  fft_p2,
-									  noise_thresholds_scaled,
-									  Gk_ps);
+	hybrid_reduction(fft_size_2,
+							     fs,
+							     fft_p2,
+							     noise_thresholds_scaled,
+							     Gk,
+							     Gk_prev,
+								 	 gsmoothing);
 
-	gating(fft_size_2,
-	       fs,
-	       fft_p2,
-	       noise_thresholds_scaled,
-	       Gk_gate,
-	       Gk_prev_gate);
-
-	//GLOBAL SMOOTHING (interpolation between gate gains and power sustraction gains)
-	for (k = 0; k <= fft_size_2; k++) {
-		Gk[k] = gsmoothing*Gk_gate[k] + (1.f-gsmoothing)*Gk_ps[k];
-		if(k < fft_size_2){
-			Gk[fft_size-k] = gsmoothing*Gk_gate[fft_size-k] + (1.f-gsmoothing)*Gk_ps[fft_size-k];
-		}
-	}
 }
 
 //GAIN APPLICATION

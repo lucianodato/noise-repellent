@@ -22,7 +22,7 @@
   doap:name "Noise Repellent",
     "Repelente de Ruido"@es ,
     "Répulseur de bruit"@fr ;
-@VERSION@
+lv2:microVersion 31 ;lv2:minorVersion 259 ;
   lv2:optionalFeature lv2:hardRTCapable ;
 
   lv2:port [
