@@ -38,25 +38,16 @@ void spectral_gain_computing(float* fft_p2,
 												     float* Gk_prev,
 												     float* Gk,
 												     float fs,
-														 float residual_whitening,
 												     float gsmoothing){
 
 	//PREPROCESSING
 	int k;
 	float noise_thresholds_scaled[fft_size_2+1];
-	// float tappering_filter[fft_size_2+1];
 
 	//Scale noise profile (equals applying an oversustraction factor)
 	for (k = 0; k <= fft_size_2; k++) {
 		noise_thresholds_scaled[k] = noise_thresholds_p2[k] * strenght_scaling;
 	}
-
-	// //Residual signal Whitening and tappering
-	// if(residual_whitening > 0.f) {
-	// 	whitening_of_spectrum(noise_thresholds_scaled,residual_whitening,fft_size_2+1);
-	// 	//tappering_filter_calc(tappering_filter,(fft_size_2+1));
-	// 	//apply_tappering_filter(noise_thresholds_scaled,tappering_filter,fft_size_2);
-	// }
 
 	//SMOOTHING
 	//Time smoothing between current and past power spectrum and magnitude spectrum
@@ -75,7 +66,6 @@ void spectral_gain_computing(float* fft_p2,
 							     Gk,
 							     Gk_prev,
 								 	 gsmoothing);
-
 }
 
 //GAIN APPLICATION

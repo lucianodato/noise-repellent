@@ -47,13 +47,12 @@ typedef enum {
 	NREPEL_SMOOTHING = 4,
 	NREPEL_GSMOOTHING = 5,
 	NREPEL_LATENCY = 6,
-	NREPEL_WHITENING = 7,
-	NREPEL_MAKEUP = 8,
-	NREPEL_RESET = 9,
-	NREPEL_NOISE_LISTEN = 10,
-	NREPEL_ENABLE = 11,
-	NREPEL_INPUT = 12,
-	NREPEL_OUTPUT = 13,
+	NREPEL_MAKEUP = 7,
+	NREPEL_RESET = 8,
+	NREPEL_NOISE_LISTEN = 9,
+	NREPEL_ENABLE = 10,
+	NREPEL_INPUT = 11,
+	NREPEL_OUTPUT = 12,
 } PortIndex;
 
 typedef struct {
@@ -68,7 +67,6 @@ typedef struct {
 	float* report_latency;            //Latency necessary
 	float* reset_print;               //Reset Noise switch
 	float* noise_listen;              //For noise only listening
-	float* residual_whitening;        //Whitening of the residual spectrum
 	float* time_smoothing;            //constant that set the time smoothing coefficient
 	float* gsmoothing;            	  //gate spectral sustraction interpolation factor
 	float* auto_state;                //autocapture switch
@@ -232,9 +230,6 @@ connect_port(LV2_Handle instance,
 		break;
 		case NREPEL_LATENCY:
 		nrepel->report_latency = (float*)data;
-		break;
-		case NREPEL_WHITENING:
-		nrepel->residual_whitening = (float*)data;
 		break;
 		case NREPEL_MAKEUP:
 		nrepel->makeup_gain = (float*)data;
@@ -411,7 +406,6 @@ run(LV2_Handle instance, uint32_t n_samples) {
 									nrepel->Gk_prev,
 									nrepel->Gk,
 									nrepel->samp_rate,
-									*(nrepel->residual_whitening),
 									*(nrepel->gsmoothing));
 
 						//Gain Application
