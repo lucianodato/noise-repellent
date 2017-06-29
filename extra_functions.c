@@ -237,12 +237,16 @@ void tappering_filter_calc(float* filter, int N) {
 }
 
 void whitening_of_spectrum(float* spectrum,float wa,int N){
-  float whiten_factor = powf(max_spectral_value(spectrum,N),wa);
+  float whitened_spectrum[N+1];
+  float tmp_max = max_spectral_value(spectrum,N);
+  float tmp_min = min_spectral_value(spectrum,N);
+
   for (int k = 0; k <= N; k++) {
-    if(whiten_factor > FLT_MIN){ //Protects against division by 0
-      spectrum[k] /= whiten_factor;
+    whitened_spectrum[k] = powf(spectrum[k]/(tmp_max-tmp_min),wa);
+    if(whitened_spectrum[k] > FLT_MIN){ //Protects against division by 0
+      spectrum[k] /= whitened_spectrum[k];
       if(k < N){
-        spectrum[N-k] /= whiten_factor;
+        spectrum[2*N-k] /= whitened_spectrum[k];
       }
     }
   }
@@ -253,7 +257,7 @@ void apply_tappering_filter(float* spectrum,float* filter,int N) {
     if(spectrum[k] > FLT_MIN) {
       spectrum[k] *= filter[N-k];//Half hann window tappering in favor of high frequencies
       if(k < N) {
-        spectrum[N-k] *= filter[N-k];//Half hann window tappering in favor of high frequencies
+        spectrum[2*N-k] *= filter[N-k];//Half hann window tappering in favor of high frequencies
       }
     }
   }
