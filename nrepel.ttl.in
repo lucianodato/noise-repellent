@@ -7,6 +7,9 @@
 @prefix param: <http://lv2plug.in/ns/ext/parameters#> .
 @prefix pg: <http://lv2plug.in/ns/ext/port-groups#> .
 @prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix state: <http://lv2plug.in/ns/ext/state#> .
+@prefix urid: <http://lv2plug.in/ns/ext/urid#> .
+
 
 <http://example.com/lucianodato#me>
   a foaf:Person ;
@@ -24,6 +27,8 @@
     "Répulseur de bruit"@fr ;
 @VERSION@
   lv2:optionalFeature lv2:hardRTCapable ;
+  lv2:extensionData state:interface ;
+  lv2:requiredFeature urid:map ;
 
   lv2:port [
     a lv2:ControlPort,
