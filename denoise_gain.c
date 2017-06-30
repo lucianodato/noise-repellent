@@ -139,13 +139,13 @@ void hybrid_reduction(int fft_size_2,
 	float gain, Fk, trigger, alpha;
 	float attack = expf(-logf(9.f)/(fs*0.01));//1ms
 	float release = expf(-logf(9.f)/(fs*0.05));//50ms
+  float gate_threshold = max_spectral_value(noise_thresholds,fft_size_2);
 
 	for (k = 0; k <= fft_size_2 ; k++) {
 		if (noise_thresholds[k] > FLT_MIN){
 			//Spectral sustraction for the frequency
 			if(spectrum[k] > 0.f){
-				alpha = sqrtf(spectrum[k]/noise_thresholds[k]);
-				gain = MAX(spectrum[k] - alpha*noise_thresholds[k], 0.f) / spectrum[k];
+				gain = MAX(spectrum[k] - noise_thresholds[k], 0.f) / spectrum[k];
 			}else{
 				gain = 0.f;
 			}
@@ -157,7 +157,7 @@ void hybrid_reduction(int fft_size_2,
 			gain =  1.f - Fk;
 
 			//Gate triggering
-			if(spectrum[k] >= noise_thresholds[k]){
+			if(spectrum[k] >= gate_threshold){
 				trigger = 1.f;
 			} else {
 				trigger = 0.f;
