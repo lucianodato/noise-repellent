@@ -136,7 +136,7 @@ void hybrid_reduction(int fft_size_2,
 
 	int k;
 
-	float gain, Fk, trigger, alpha;
+	float gain, Fk, trigger;
 	float attack = expf(-logf(9.f)/(fs*0.01));//1ms
 	float release = expf(-logf(9.f)/(fs*0.05));//50ms
   float gate_threshold = max_spectral_value(noise_thresholds,fft_size_2);
