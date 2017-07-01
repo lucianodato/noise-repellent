@@ -26,9 +26,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 #include "spectral_processing.c"
 #include "lv2/lv2plug.in/ns/lv2core/lv2.h"
+#include "lv2/lv2plug.in/ns/ext/urid/urid.h"
+#include "lv2/lv2plug.in/ns/ext/atom/atom.h"
+#include "lv2/lv2plug.in/ns/ext/state/state.h"
 
 #define NREPEL_URI "https://github.com/lucianodato/noise-repellent"
-#define NS_MY "http://example.org/myplugin/schema#"
 
 //STFT default values (These are standard values)
 #define FFT_SIZE 2048                 //max should be 8192 otherwise is too expensive
@@ -133,6 +135,16 @@ typedef struct {
 
 	// clock_t start, end;
 	// double cpu_time_used;
+
+	//URID
+	LV2_URID_Map* map;
+	LV2_URID atom_Vector;
+	LV2_URID atom_Int;
+	LV2_URID atom_Float;
+	LV2_URID prop_fftsize;
+	LV2_URID prop_nwindow;
+	LV2_URID prop_nrepelFFTp2;
+	LV2_URID prop_nrepelFFTmag;
 } Nrepel;
 
 static LV2_Handle
@@ -142,6 +154,26 @@ instantiate(const LV2_Descriptor*     descriptor,
 						const LV2_Feature* const* features) {
 	//Actual struct declaration
 	Nrepel* nrepel = (Nrepel*)malloc(sizeof(Nrepel));
+
+	//Retrieve the URID map callback, and needed URIDs
+	for (int i=0; features[i]; ++i) {
+		if (!strcmp(features[i]->URI, LV2_URID__map)) {
+			nrepel->map = (LV2_URID_Map*)features[i]->data;
+		}
+	}
+	if (!nrepel->map) {
+		//bail out: host does not support urid:map
+		free(nrepel);
+		return NULL;
+	}
+
+	nrepel->atom_Vector       = nrepel->map->map(nrepel->map->handle, LV2_ATOM__Vector);
+	nrepel->atom_Int          = nrepel->map->map(nrepel->map->handle, LV2_ATOM__Int);
+	nrepel->atom_Float        = nrepel->map->map(nrepel->map->handle, LV2_ATOM__Float);
+	nrepel->prop_fftsize      = nrepel->map->map(nrepel->map->handle, NREPEL_URI "#fftsize");
+	nrepel->prop_nwindow      = nrepel->map->map(nrepel->map->handle, NREPEL_URI "#nwindow");
+	nrepel->prop_nrepelFFTp2  = nrepel->map->map(nrepel->map->handle, NREPEL_URI "#FFTp2");
+	nrepel->prop_nrepelFFTmag = nrepel->map->map(nrepel->map->handle, NREPEL_URI "#FFTmag");
 
 	//Initialize variables
 	nrepel->samp_rate = rate;
@@ -495,9 +527,100 @@ cleanup(LV2_Handle instance)
 	free(instance);
 }
 
-const void*
+struct FFTVector {
+	uint32_t child_size;
+	uint32_t child_type;
+	float    array[FFT_SIZE/2+1];
+};
+
+static LV2_State_Status
+savestate(LV2_Handle     instance,
+     LV2_State_Store_Function  store,
+     LV2_State_Handle          handle,
+     uint32_t                  flags,
+     const LV2_Feature* const* features)
+{
+	Nrepel* nrepel = (Nrepel*)instance;
+
+	struct FFTVector vector;
+
+	vector.child_type = nrepel->atom_Float;
+	vector.child_size = sizeof(float);
+
+	store(handle, nrepel->prop_fftsize,
+			&nrepel->fft_size_2, sizeof(int),
+			nrepel->atom_Int, LV2_STATE_IS_POD | LV2_STATE_IS_PORTABLE);
+
+	store(handle, nrepel->prop_nwindow,
+			&nrepel->window_count, sizeof(float),
+			nrepel->atom_Float, LV2_STATE_IS_POD | LV2_STATE_IS_PORTABLE);
+
+	memcpy(vector.array, nrepel->noise_thresholds_p2, sizeof(vector.array));
+
+	store(handle, nrepel->prop_nrepelFFTp2,
+			(void*) &vector, sizeof(struct FFTVector),
+			nrepel->atom_Vector, LV2_STATE_IS_POD | LV2_STATE_IS_PORTABLE);
+
+	memcpy(vector.array, nrepel->noise_thresholds_magnitude, sizeof(vector.array));
+
+	store(handle, nrepel->prop_nrepelFFTmag,
+			(void*) &vector, sizeof(struct FFTVector),
+			nrepel->atom_Vector, LV2_STATE_IS_POD | LV2_STATE_IS_PORTABLE);
+
+  return LV2_STATE_SUCCESS;
+}
+
+static LV2_State_Status
+restorestate(LV2_Handle       instance,
+        LV2_State_Retrieve_Function retrieve,
+        LV2_State_Handle            handle,
+        uint32_t                    flags,
+        const LV2_Feature* const*   features)
+{
+	Nrepel* nrepel = (Nrepel*)instance;
+	size_t   size;
+	uint32_t type;
+	uint32_t valflags;
+
+	const int32_t* fftsize = retrieve(handle, nrepel->prop_fftsize, &size, &type, &valflags);
+	if (!fftsize || type != nrepel->atom_Int || *fftsize != nrepel->fft_size_2) {
+		return LV2_STATE_ERR_NO_PROPERTY;
+	}
+
+	const void* vecFFTp2 = retrieve(handle, nrepel->prop_nrepelFFTp2, &size, &type, &valflags);
+	if ( !vecFFTp2 || size != sizeof(struct FFTVector) || type != nrepel->atom_Vector)
+	{
+		return LV2_STATE_ERR_NO_PROPERTY;
+	}
+
+	const void* vecFFTmag = retrieve(handle, nrepel->prop_nrepelFFTmag, &size, &type, &valflags);
+	if ( !vecFFTmag || size != sizeof(struct FFTVector) || type != nrepel->atom_Vector)
+	{
+		return LV2_STATE_ERR_NO_PROPERTY;
+	}
+
+	nrepel->noise_thresholds_availables = false;
+
+	memcpy(nrepel->noise_thresholds_p2, (float*) LV2_ATOM_BODY(vecFFTp2), (nrepel->fft_size_2+1)*sizeof(float));
+	memcpy(nrepel->noise_thresholds_magnitude, (float*) LV2_ATOM_BODY(vecFFTmag), (nrepel->fft_size_2+1)*sizeof(float));
+
+	const float* wincount = retrieve(handle, nrepel->prop_nwindow, &size, &type, &valflags);
+	if (fftsize && type == nrepel->atom_Float) {
+		nrepel->window_count = *wincount;
+	}
+
+	nrepel->noise_thresholds_availables = true;
+
+	return LV2_STATE_SUCCESS;
+}
+
+static const void*
 extension_data(const char* uri)
 {
+	static const LV2_State_Interface  state  = { savestate, restorestate };
+	if (!strcmp(uri, LV2_STATE__interface)) {
+		return &state;
+	}
 	return NULL;
 }
 
