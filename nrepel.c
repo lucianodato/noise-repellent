@@ -37,6 +37,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define WINDOW_COMBINATION 0          //0 HANN-HANN 1 HAMMING-HANN 2 BLACKMAN-HANN
 #define OVERLAP_FACTOR 4              //4 is 75% overlap
 
+//spectum struct for noise print saving
+struct FFTVector {
+	uint32_t child_size;
+	uint32_t child_type;
+	float    array[FFT_SIZE/2+1];
+};
+
 ///---------------------------------------------------------------------
 
 //LV2 CODE
@@ -527,12 +534,6 @@ cleanup(LV2_Handle instance)
 	free(instance);
 }
 
-struct FFTVector {
-	uint32_t child_size;
-	uint32_t child_type;
-	float    array[FFT_SIZE/2+1];
-};
-
 static LV2_State_Status
 savestate(LV2_Handle     instance,
      LV2_State_Store_Function  store,
@@ -582,35 +583,36 @@ restorestate(LV2_Handle       instance,
 	uint32_t type;
 	uint32_t valflags;
 
+	//check if state is available
 	const int32_t* fftsize = retrieve(handle, nrepel->prop_fftsize, &size, &type, &valflags);
-	if (!fftsize || type != nrepel->atom_Int || *fftsize != nrepel->fft_size_2) {
+	if (!fftsize || type != nrepel->atom_Int || *fftsize != nrepel->fft_size_2){
 		return LV2_STATE_ERR_NO_PROPERTY;
 	}
 
+	//check if state is available
 	const void* vecFFTp2 = retrieve(handle, nrepel->prop_nrepelFFTp2, &size, &type, &valflags);
-	if ( !vecFFTp2 || size != sizeof(struct FFTVector) || type != nrepel->atom_Vector)
-	{
+	if ( !vecFFTp2 || size != sizeof(struct FFTVector) || type != nrepel->atom_Vector){
+		nrepel->noise_thresholds_availables = false;
 		return LV2_STATE_ERR_NO_PROPERTY;
 	}
 
+	//check if state is available
 	const void* vecFFTmag = retrieve(handle, nrepel->prop_nrepelFFTmag, &size, &type, &valflags);
-	if ( !vecFFTmag || size != sizeof(struct FFTVector) || type != nrepel->atom_Vector)
-	{
+	if ( !vecFFTmag || size != sizeof(struct FFTVector) || type != nrepel->atom_Vector){
+		nrepel->noise_thresholds_availables = false;
 		return LV2_STATE_ERR_NO_PROPERTY;
 	}
 
-	nrepel->noise_thresholds_availables = false;
-
+	//Copy to local variables
 	memcpy(nrepel->noise_thresholds_p2, (float*) LV2_ATOM_BODY(vecFFTp2), (nrepel->fft_size_2+1)*sizeof(float));
 	memcpy(nrepel->noise_thresholds_magnitude, (float*) LV2_ATOM_BODY(vecFFTmag), (nrepel->fft_size_2+1)*sizeof(float));
+	nrepel->noise_thresholds_availables = true;
 
+	//this might not be necessary if thresholds are already available
 	const float* wincount = retrieve(handle, nrepel->prop_nwindow, &size, &type, &valflags);
 	if (fftsize && type == nrepel->atom_Float) {
 		nrepel->window_count = *wincount;
 	}
-
-	nrepel->noise_thresholds_availables = true;
-
 	return LV2_STATE_SUCCESS;
 }
 

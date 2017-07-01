@@ -25,7 +25,7 @@
   doap:name "Noise Repellent",
     "Repelente de Ruido"@es ,
     "Répulseur de bruit"@fr ;
-@VERSION@
+  @VERSION@
   lv2:optionalFeature lv2:hardRTCapable ;
   lv2:extensionData state:interface ;
   lv2:requiredFeature urid:map ;
