@@ -587,27 +587,29 @@ restorestate(LV2_Handle       instance,
 	//check if state is available
 	const void* vecFFTp2 = retrieve(handle, nrepel->prop_nrepelFFTp2, &size, &type, &valflags);
 	if ( !vecFFTp2 || size != sizeof(struct FFTVector) || type != nrepel->atom_Vector){
-		nrepel->noise_thresholds_availables = false;
 		return LV2_STATE_ERR_NO_PROPERTY;
 	}
 
 	//check if state is available
 	const void* vecFFTmag = retrieve(handle, nrepel->prop_nrepelFFTmag, &size, &type, &valflags);
 	if ( !vecFFTmag || size != sizeof(struct FFTVector) || type != nrepel->atom_Vector){
-		nrepel->noise_thresholds_availables = false;
 		return LV2_STATE_ERR_NO_PROPERTY;
 	}
+
+	nrepel->noise_thresholds_availables = false;
 
 	//Copy to local variables
 	memcpy(nrepel->noise_thresholds_p2, (float*) LV2_ATOM_BODY(vecFFTp2), (nrepel->fft_size_2+1)*sizeof(float));
 	memcpy(nrepel->noise_thresholds_magnitude, (float*) LV2_ATOM_BODY(vecFFTmag), (nrepel->fft_size_2+1)*sizeof(float));
-	nrepel->noise_thresholds_availables = true;
 
 	//this might not be necessary if thresholds are already available
 	const float* wincount = retrieve(handle, nrepel->prop_nwindow, &size, &type, &valflags);
 	if (fftsize && type == nrepel->atom_Float) {
 		nrepel->window_count = *wincount;
 	}
+
+	nrepel->noise_thresholds_availables = true;
+
 	return LV2_STATE_SUCCESS;
 }
 
