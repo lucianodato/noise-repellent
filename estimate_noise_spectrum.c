@@ -109,17 +109,16 @@ static void estimate_noise_loizou(float* thresh,
 
 //Automatic noise threshold estimation
 void auto_capture_noise(float* p2,
-			int fft_size_2,
-			float* noise_thresholds_p2,
-			float* noise_thresholds_magnitude,
-			float* thresh,
-			float* prev_noise_thresholds,
-			float* s_pow_spec,
-			float* prev_s_pow_spec,
-			float* p_min,
-			float* prev_p_min,
-			float* speech_p_p,
-			float* prev_speech_p_p){
+												int fft_size_2,
+												float* noise_thresholds_p2,
+												float* thresh,
+												float* prev_noise_thresholds,
+												float* s_pow_spec,
+												float* prev_s_pow_spec,
+												float* p_min,
+												float* prev_p_min,
+												float* speech_p_p,
+												float* prev_speech_p_p){
   int k;
 
   //Loizou noise-estimation algorithm for highly non-stationary environments
@@ -141,7 +140,6 @@ void auto_capture_noise(float* p2,
     prev_s_pow_spec[k] = s_pow_spec[k];
     prev_p_min[k] = p_min[k];
     prev_speech_p_p[k] = speech_p_p[k];
-    noise_thresholds_magnitude[k] = sqrtf(noise_thresholds_p2[k]);
   }
 }
 
@@ -150,7 +148,6 @@ void get_noise_statistics(float* fft_p2,
 			  float* fft_magnitude,
 			  int fft_size_2,
 			  float* noise_thresholds_p2,
-			  float* noise_thresholds_magnitude,
 			  float* window_count) {
   int k;
 
@@ -160,10 +157,8 @@ void get_noise_statistics(float* fft_p2,
   for(k = 0 ; k <= fft_size_2 ; k++) {
     if(*(window_count) <= 1.f){
       noise_thresholds_p2[k] = fft_p2[k];
-      noise_thresholds_magnitude[k] = fft_magnitude[k];
     } else {
       noise_thresholds_p2[k] += ((fft_p2[k] - noise_thresholds_p2[k])/ *(window_count)); //rolling mean
-      noise_thresholds_magnitude[k] += ((fft_magnitude[k] - noise_thresholds_magnitude[k])/ *(window_count)); //rolling mean
     }
   }
 }

@@ -132,13 +132,14 @@ void hybrid_reduction(int fft_size_2,
 									    float* noise_thresholds,
 									    float* Gk,
 									    float* Gk_prev,
+											float release_time,
 											float gsmoothing) {
 
 	int k;
 
 	float gain, Fk, trigger;
-	float attack = expf(-logf(9.f)/(fs*0.01));//1ms
-	float release = expf(-logf(9.f)/(fs*0.05));//50ms
+	float attack = expf(-1000.f/(fs*10.f));//10ms
+	float release = expf(-1000.f/(fs*release_time));//User set parameter
 
 	for (k = 0; k <= fft_size_2 ; k++) {
 		if (noise_thresholds[k] > FLT_MIN){
