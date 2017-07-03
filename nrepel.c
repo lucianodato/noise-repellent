@@ -606,12 +606,14 @@ restorestate(LV2_Handle       instance,
 	//Copy to local variables
 	memcpy(nrepel->noise_thresholds_p2, (float*) LV2_ATOM_BODY(vecFFTp2), (nrepel->fft_size_2+1)*sizeof(float));
 	memcpy(nrepel->noise_thresholds_magnitude, (float*) LV2_ATOM_BODY(vecFFTmag), (nrepel->fft_size_2+1)*sizeof(float));
-	nrepel->noise_thresholds_availables = true;
 
 	const float* wincount = retrieve(handle, nrepel->prop_nwindow, &size, &type, &valflags);
 	if (fftsize && type == nrepel->atom_Float) {
 		nrepel->window_count = *wincount;
 	}
+
+	nrepel->noise_thresholds_availables = true;
+
 	return LV2_STATE_SUCCESS;
 }
 
