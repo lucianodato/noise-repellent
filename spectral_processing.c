@@ -93,9 +93,7 @@ void gain_application(float amount_of_reduction,
   }
 
 	//Apply scaling to the reduction amount in such way that the residual is more like white noise
-
-	spectral_smoothing_MA(whitening_influence,10,fft_size_2);
-
+	//This interpolates between whitening and no whitening reduction amount
 	for (k = 0; k <= fft_size_2; k++) {
 		reduction_influence[k] =  reduction_coeff*(1.f-whitening_factor) + whitening_factor*(whitening_influence[k]*reduction_coeff);
 		if(k < fft_size_2)

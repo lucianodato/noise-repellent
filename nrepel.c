@@ -91,7 +91,7 @@ typedef struct {
 	int hop;                          //Hop size for the STFT
 	float* window_input;              //Input Window values
 	float* window_output;             //Input Window values
-	float window_count;              //Count windows for mean computing
+	float window_count;               //Count windows for mean computing
 	float tau;                        //time constant for soft bypass
 	float wet_dry_target;             //softbypass target for softbypass
 	float wet_dry;                    //softbypass coeff
@@ -115,7 +115,7 @@ typedef struct {
 	float* fft_p2;                    //power spectrum
 	float* fft_p2_prev;               //power spectum of previous frame
 	float* noise_thresholds_p2;       //captured noise print power spectrum
-	float* whitening_influence;       //captured noise print power spectrum
+	float* whitening_influence;       //spectrum that indicate the noise spectralshape
 
 	float* Gk;			  								//definitive gain
 
