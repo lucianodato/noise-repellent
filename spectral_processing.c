@@ -73,6 +73,7 @@ void gain_application(float amount_of_reduction,
 
   int k;
   float reduction_coeff = from_dB(-1.f*amount_of_reduction);
+	float freq_scaling;
 	float reduction_influence[fft_size];
   float residual_spectrum[fft_size];
   float denoised_fft_buffer[fft_size];
@@ -93,11 +94,12 @@ void gain_application(float amount_of_reduction,
   }
 
 	//Apply scaling to the reduction amount in such way that the residual is more like white noise
-	//This interpolates between whitening and no whitening reduction amount
 	for (k = 0; k <= fft_size_2; k++) {
-		reduction_influence[k] =  reduction_coeff*(1.f-whitening_factor) + whitening_factor*(whitening_influence[k]*reduction_coeff);
+		freq_scaling = whitening_influence[k]*reduction_coeff;//This isn't quite correct
+		//This interpolates between whitening and no whitening reduction amount
+		reduction_influence[k] =  reduction_coeff*(1.f-whitening_factor) + whitening_factor*freq_scaling;
 		if(k < fft_size_2)
-			reduction_influence[fft_size-k] = reduction_coeff*(1.f-whitening_factor) + whitening_factor*(whitening_influence[k]*reduction_coeff);
+			reduction_influence[fft_size-k] = reduction_influence[k];//mirroring frequencies
 	}
 
   //Listen to processed signal or to noise only
