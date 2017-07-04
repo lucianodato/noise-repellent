@@ -27,18 +27,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 void spectral_gain_computing(float* fft_p2,
 												     float* fft_p2_prev,
-												     float* fft_magnitude,
-												     float* fft_magnitude_prev,
 												     float time_smoothing,
 												     float strenght_scaling,
-                             float release_time,
 												     float* noise_thresholds_p2,
 												     int fft_size_2,
 												     int fft_size,
-												     float* Gk_prev,
-												     float* Gk,
-												     float fs,
-												     float gsmoothing){
+												     float* Gk){
 
 	//PREPROCESSING
 	int k;
@@ -59,14 +53,10 @@ void spectral_gain_computing(float* fft_p2,
 	}
 
 	//GAIN CALCULATION
-	hybrid_reduction(fft_size_2,
-							     fs,
+	power_sustraction(fft_size_2,
 							     fft_p2,
 							     noise_thresholds_scaled,
-							     Gk,
-							     Gk_prev,
-                   release_time,
-								 	 gsmoothing);
+							     Gk);
 }
 
 //GAIN APPLICATION
@@ -75,12 +65,15 @@ void gain_application(float amount_of_reduction,
 								      int fft_size,
 								      float* output_fft_buffer,
 								      float* Gk,
+											float* whitening_influence,
+											float whitening_factor,
 								      float makeup_gain,
 								      float wet_dry,
 								      float noise_listen){
 
   int k;
   float reduction_coeff = from_dB(-1.f*amount_of_reduction);
+	float reduction_influence[fft_size];
   float residual_spectrum[fft_size];
   float denoised_fft_buffer[fft_size];
   float final_fft_buffer[fft_size];
@@ -99,13 +92,20 @@ void gain_application(float amount_of_reduction,
     residual_spectrum[fft_size-k] = output_fft_buffer[fft_size-k] - denoised_fft_buffer[fft_size-k];
   }
 
-  //Listen to cleaned signal or to noise only
+	//Apply whitening to the residual spectrum modifying mixing amount per frequency
+	for (k = 0; k <= fft_size_2; k++) {
+		reduction_influence[k] =  reduction_coeff*(1.f-whitening_factor) + whitening_factor*(whitening_influence[k]*reduction_coeff);
+		if(k < fft_size_2)
+			reduction_influence[fft_size-k] = reduction_coeff*(1.f-whitening_factor) + whitening_factor*(whitening_influence[k]*reduction_coeff);
+	}
+
+  //Listen to processed signal or to noise only
   if (noise_listen == 0.f){
     //Mix residual and processed (Parametric way of noise reduction)
     for (k = 0; k <= fft_size_2; k++) {
-      final_fft_buffer[k] =  denoised_fft_buffer[k] + residual_spectrum[k]*reduction_coeff;
+      final_fft_buffer[k] =  denoised_fft_buffer[k] + residual_spectrum[k]*reduction_influence[k];
       if(k < fft_size_2)
-        final_fft_buffer[fft_size-k] = denoised_fft_buffer[fft_size-k] + residual_spectrum[fft_size-k]*reduction_coeff;
+        final_fft_buffer[fft_size-k] = denoised_fft_buffer[fft_size-k] + residual_spectrum[fft_size-k]*reduction_influence[fft_size-k];
     }
   } else {
     //Output noise only

@@ -432,6 +432,22 @@ void spectrum_time_smoothing(int fft_size_2,
 
 //---------------WHITENING--------------
 
+
+//Normalize spectrum
+void get_normalized_spectum(float* spectrum,
+													 float* normalized_spectrum,
+													 int N){
+
+	int k;
+	float max_value = max_spectral_value(spectrum,N);
+	float min_value = min_spectral_value(spectrum,N);
+
+	//Normalizing the noise print
+	for(k = 0 ; k <= N ; k++){
+		normalized_spectrum[k] = spectrum[k]/(max_value-min_value);
+	}
+}
+
 //unnormalized Hann windows for whitening tappering
 void tappering_filter_calc(float* filter, int N) {
   int k;

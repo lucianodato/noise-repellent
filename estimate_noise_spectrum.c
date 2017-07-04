@@ -145,7 +145,6 @@ void auto_capture_noise(float* p2,
 
 //Manual Capture threshold estimation
 void get_noise_statistics(float* fft_p2,
-			  float* fft_magnitude,
 			  int fft_size_2,
 			  float* noise_thresholds_p2,
 			  float* window_count) {
