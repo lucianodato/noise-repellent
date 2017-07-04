@@ -28,7 +28,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 void spectral_gain_computing(float* fft_p2,
 												     float* fft_p2_prev,
 												     float time_smoothing,
-												     float strenght_scaling,
+												     float noise_thresholds_offset,
 												     float* noise_thresholds_p2,
 												     int fft_size_2,
 												     int fft_size,
@@ -40,7 +40,7 @@ void spectral_gain_computing(float* fft_p2,
 
 	//Scale noise profile (equals applying an oversustraction factor)
 	for (k = 0; k <= fft_size_2; k++) {
-		noise_thresholds_scaled[k] = noise_thresholds_p2[k] * strenght_scaling;
+		noise_thresholds_scaled[k] = noise_thresholds_p2[k] * noise_thresholds_offset;
 	}
 
 	//SMOOTHING
@@ -92,7 +92,10 @@ void gain_application(float amount_of_reduction,
     residual_spectrum[fft_size-k] = output_fft_buffer[fft_size-k] - denoised_fft_buffer[fft_size-k];
   }
 
-	//Apply whitening to the residual spectrum modifying mixing amount per frequency
+	//Apply scaling to the reduction amount in such way that the residual is more like white noise
+
+	spectral_smoothing_MA(whitening_influence,10,fft_size_2);
+
 	for (k = 0; k <= fft_size_2; k++) {
 		reduction_influence[k] =  reduction_coeff*(1.f-whitening_factor) + whitening_factor*(whitening_influence[k]*reduction_coeff);
 		if(k < fft_size_2)

@@ -440,11 +440,10 @@ void get_normalized_spectum(float* spectrum,
 
 	int k;
 	float max_value = max_spectral_value(spectrum,N);
-	float min_value = min_spectral_value(spectrum,N);
 
 	//Normalizing the noise print
 	for(k = 0 ; k <= N ; k++){
-		normalized_spectrum[k] = spectrum[k]/(max_value-min_value);
+		normalized_spectrum[k] = spectrum[k]/max_value;
 	}
 }
 

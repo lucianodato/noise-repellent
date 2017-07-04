@@ -67,7 +67,7 @@ typedef struct {
 	//Parameters for the algorithm (user input)
 	float* capture_state;             //Capture Noise state (Manual-Off-Auto)
 	float* amount_of_reduction;       //Amount of noise to reduce in dB
-	float* strenght_scaling;        	//strenght_scaling to scale the noise profile
+	float* noise_thresholds_offset;   //This is to scale the noise profile (over sustraction factor)
 	float* whitening_factor;					//Whitening amount of the reduction
 	float* report_latency;            //Latency necessary
 	float* reset_print;               //Reset Noise switch
@@ -248,7 +248,7 @@ connect_port(LV2_Handle instance,
 		nrepel->amount_of_reduction = (float*)data;
 		break;
 		case NREPEL_STRENGTH:
-		nrepel->strenght_scaling = (float*)data;
+		nrepel->noise_thresholds_offset = (float*)data;
 		break;
 		case NREPEL_SMOOTHING:
 		nrepel->time_smoothing = (float*)data;
@@ -427,7 +427,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 						spectral_gain_computing(nrepel->fft_p2,
 									nrepel->fft_p2_prev,
 									*(nrepel->time_smoothing),
-									*(nrepel->strenght_scaling),
+									*(nrepel->noise_thresholds_offset),
 									nrepel->noise_thresholds_p2,
 									nrepel->fft_size_2,
 									nrepel->fft_size,
