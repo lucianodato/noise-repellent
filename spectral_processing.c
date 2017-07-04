@@ -118,9 +118,9 @@ void gain_application(float amount_of_reduction,
 
   //Applying make up gain
   for (k = 0; k <= fft_size_2; k++) {
-    output_fft_buffer[k] *= from_dB(makeup_gain);
+    final_fft_buffer[k] *= from_dB(makeup_gain);
     if(k < fft_size_2)
-      output_fft_buffer[fft_size-k] *= from_dB(makeup_gain);
+      final_fft_buffer[fft_size-k] *= from_dB(makeup_gain);
   }
 
   //Smooth bypass
