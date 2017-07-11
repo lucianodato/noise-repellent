@@ -64,24 +64,14 @@ void power_sustraction(int fft_size_2,
 		       float* Gk) {
 
 	int k;
-	float gain, Fk;
 
 	for (k = 0; k <= fft_size_2 ; k++) {
 		if (noise_thresholds[k] > FLT_MIN){
-			if(spectrum[k] > 0.f){
-				gain = MAX(spectrum[k]-noise_thresholds[k], 0.f) / spectrum[k];
+			if(spectrum[k] > noise_thresholds[k]){
+				Gk[k] = (spectrum[k]-noise_thresholds[k]) / spectrum[k];
 			} else {
-				gain = 0.f;
+				Gk[k] = 0.f;
 			}
-
-			//Avoid invalid gain numbers
-			Fk = (1.f-gain);
-
-			if(Fk < 0.f) Fk = 0.f;
-			if(Fk > 1.f) Fk = 1.f;
-
-			Gk[k] =  1.f - Fk;
-
 		} else {
 			//Otherwise we keep everything as is
 			Gk[k] = 1.f;
@@ -91,36 +81,37 @@ void power_sustraction(int fft_size_2,
 
 //Gating with envelope smoothing
 void gating(int fft_size_2,
-	    float fs,
+	    float attack_coeff,
+			float release_coeff,
 	    float* spectrum,
 	    float* noise_thresholds,
-	    float* Gk_gate,
-	    float* Gk_prev_gate) {
+	    float* Gk,
+	    float* Gk_prev) {
 
 	int k;
-
-	float attack = expf(-logf(9.f)/(fs*0.01));//1ms
-	float release = expf(-logf(9.f)/(fs*0.05));//50ms
+	float current_value,knee_width;
 
 	for (k = 0; k <= fft_size_2 ; k++) {
 		if (noise_thresholds[k] > FLT_MIN){
 			//Envelopes application
 			if (spectrum[k] >= noise_thresholds[k]){
-				Gk_gate[k] = 1.f; // only avoid applying reduction if over the threshold
+				current_value = 1.f; // only avoid applying reduction if over the threshold
 			}else{
-				Gk_gate[k] = 0.f;
+				current_value = 0.f;
 			}
 
-			if (Gk_gate[k] > Gk_prev_gate[k])
-				Gk_gate[k] = (1.f-attack)*Gk_prev_gate[k] + attack*Gk_gate[k];
+			//Applying envelopes
+			if (current_value < Gk_prev[k])
+				//Is starting to reduce
+				Gk[k] = attack_coeff*Gk_prev[k] + (1.f-attack_coeff)*current_value;
 			else
-				Gk_gate[k] = (1.f-release)*Gk_prev_gate[k] + release*Gk_gate[k];
-
-			//update previous gain
-			Gk_prev_gate[k] = Gk_gate[k];
+				//Is finishing reduction
+				Gk[k] = release_coeff*Gk_prev[k] + (1.f-release_coeff)*current_value;
 		} else {
 			//Otherwise we keep everything as is
-			Gk_gate[k] = 1.f;
+			Gk[k] = 1.f;
 		}
+		//update previous gain
+		Gk_prev[k] = Gk[k];
 	}
 }

@@ -46,17 +46,18 @@ typedef enum {
 	NREPEL_CAPTURE = 0,
 	NREPEL_N_AUTO = 1,
 	NREPEL_AMOUNT = 2,
-	NREPEL_STRENGTH = 3,
+	NREPEL_NOFFSET = 3,
 	NREPEL_SMOOTHING = 4,
-	NREPEL_GSMOOTHING = 5,
-	NREPEL_WHITENING = 6,
-	NREPEL_LATENCY = 7,
-	NREPEL_MAKEUP = 8,
-	NREPEL_RESET = 9,
-	NREPEL_NOISE_LISTEN = 10,
-	NREPEL_ENABLE = 11,
-	NREPEL_INPUT = 12,
-	NREPEL_OUTPUT = 13,
+	NREPEL_ATTACK = 5,
+	NREPEL_RELEASE = 6,
+	NREPEL_WHITENING = 7,
+	NREPEL_LATENCY = 8,
+	NREPEL_MAKEUP = 9,
+	NREPEL_RESET = 10,
+	NREPEL_NOISE_LISTEN = 11,
+	NREPEL_ENABLE = 12,
+	NREPEL_INPUT = 13,
+	NREPEL_OUTPUT = 14,
 } PortIndex;
 
 typedef struct {
@@ -73,7 +74,8 @@ typedef struct {
 	float* reset_print;               //Reset Noise switch
 	float* noise_listen;              //For noise only listening
 	float* time_smoothing;            //constant that set the time smoothing coefficient
-	float* gsmoothing;            	  //gate spectral sustraction interpolation factor
+	float* attack;            	  		//attack time
+	float* release;            	  		//release time
 	float* auto_state;                //autocapture switch
 	float* enable;                    //For soft bypass (click free bypass)
 	float* makeup_gain;
@@ -96,6 +98,8 @@ typedef struct {
 	float wet_dry_target;             //softbypass target for softbypass
 	float wet_dry;                    //softbypass coeff
 	float reduction_coeff;            //Gain to apply to the residual noise
+	float attack_coeff;								//Attack coefficient for Envelopes
+	float release_coeff;							//Release coefficient for Envelopes
 
 	//Buffers for processing and outputting
 	int input_latency;
@@ -115,9 +119,10 @@ typedef struct {
 	float* fft_p2;                    //power spectrum
 	float* fft_p2_prev;               //power spectum of previous frame
 	float* noise_thresholds_p2;       //captured noise print power spectrum
-	float* whitening_influence;       //spectrum that indicate the noise spectralshape
 
+	//Reduction gains
 	float* Gk;			  								//definitive gain
+	float* Gk_prev;			  					  //previous gain
 
 	//Loizou algorithm
 	float* auto_thresholds;           //Reference threshold for louizou algorithm
@@ -140,7 +145,6 @@ typedef struct {
 	LV2_URID prop_fftsize;
 	LV2_URID prop_nwindow;
 	LV2_URID prop_nrepelFFTp2;
-	LV2_URID prop_nrepelWinfluence;
 } Nrepel;
 
 static LV2_Handle
@@ -169,7 +173,6 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->prop_fftsize           = nrepel->map->map(nrepel->map->handle, NREPEL_URI "#fftsize");
 	nrepel->prop_nwindow           = nrepel->map->map(nrepel->map->handle, NREPEL_URI "#nwindow");
 	nrepel->prop_nrepelFFTp2       = nrepel->map->map(nrepel->map->handle, NREPEL_URI "#FFTp2");
-	nrepel->prop_nrepelWinfluence  = nrepel->map->map(nrepel->map->handle, NREPEL_URI "#Winfluence");
 
 	//Initialize variables
 	nrepel->samp_rate = (float)rate;
@@ -200,9 +203,9 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->fft_p2 = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->fft_p2_prev = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->noise_thresholds_p2 = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
-	nrepel->whitening_influence = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 
 	nrepel->Gk = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
+	nrepel->Gk_prev = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 
 	nrepel->auto_thresholds = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->prev_noise_thresholds = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
@@ -222,6 +225,7 @@ instantiate(const LV2_Descriptor*     descriptor,
 
 	//Set initial gain as unity
 	memset(nrepel->Gk, 1, (nrepel->fft_size_2+1)*sizeof(float));
+	memset(nrepel->Gk_prev, 1, (nrepel->fft_size_2+1)*sizeof(float));
 
 	//Compute auto mode initial thresholds
 	compute_auto_thresholds(nrepel->auto_thresholds, nrepel->fft_size, nrepel->fft_size_2, nrepel->samp_rate);
@@ -247,14 +251,17 @@ connect_port(LV2_Handle instance,
 		case NREPEL_AMOUNT:
 		nrepel->amount_of_reduction = (float*)data;
 		break;
-		case NREPEL_STRENGTH:
+		case NREPEL_NOFFSET:
 		nrepel->noise_thresholds_offset = (float*)data;
 		break;
 		case NREPEL_SMOOTHING:
 		nrepel->time_smoothing = (float*)data;
 		break;
-		case NREPEL_GSMOOTHING:
-		nrepel->gsmoothing = (float*)data;
+		case NREPEL_ATTACK:
+		nrepel->attack = (float*)data;
+		break;
+		case NREPEL_RELEASE:
+		nrepel->release = (float*)data;
 		break;
 		case NREPEL_WHITENING:
 		nrepel->whitening_factor = (float*)data;
@@ -313,11 +320,15 @@ run(LV2_Handle instance, uint32_t n_samples) {
 	//Interpolate parameters over time softly to bypass without clicks or pops
 	nrepel->wet_dry += nrepel->tau * (nrepel->wet_dry_target - nrepel->wet_dry) + FLT_MIN;
 
+	//attack and release coefficients for envelopes
+	nrepel->attack_coeff = expf(-1000.f/(0.001 * (*(nrepel->attack)) * nrepel->samp_rate));//10ms
+	nrepel->release_coeff = expf(-1000.f/(0.001 * (*(nrepel->release)) * nrepel->samp_rate));
+
 	//Reset button state (if on)
 	if (*(nrepel->reset_print) == 1.f) {
 		memset(nrepel->noise_thresholds_p2, 0, (nrepel->fft_size_2+1)*sizeof(float));
-		memset(nrepel->whitening_influence, 0, (nrepel->fft_size_2+1)*sizeof(float));
 		memset(nrepel->Gk, 1, (nrepel->fft_size_2+1)*sizeof(float));
+		memset(nrepel->Gk_prev, 1, (nrepel->fft_size_2+1)*sizeof(float));
 		nrepel->window_count = 0.f;
 
 		memset(nrepel->prev_noise_thresholds, 0, (nrepel->fft_size_2+1)*sizeof(float));
@@ -377,7 +388,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 					//Nyquist - this is due to half complex transform look at http://www.fftw.org/doc/The-Halfcomplex_002dformat-DFT.html
 					nrepel->p2 = nrepel->real_p*nrepel->real_p;
 				}
-				//Store values in magnitude and power arrays
+				//Store values in magnitude and power arrays (this stores the positive spectrum only)
 				nrepel->fft_p2[k] = nrepel->p2;
 			}
 
@@ -399,10 +410,6 @@ run(LV2_Handle instance, uint32_t n_samples) {
 								nrepel->speech_p_p,
 								nrepel->prev_speech_p_p);
 
-								get_normalized_spectum(nrepel->noise_thresholds_p2,
-																			nrepel->whitening_influence,
-																			nrepel->fft_size_2);
-
 					nrepel->noise_thresholds_availables = true;
 				}
 
@@ -415,9 +422,6 @@ run(LV2_Handle instance, uint32_t n_samples) {
 								nrepel->noise_thresholds_p2,
 								&nrepel->window_count);
 
-					get_normalized_spectum(nrepel->noise_thresholds_p2,
-																nrepel->whitening_influence,
-																nrepel->fft_size_2);
 
 					nrepel->noise_thresholds_availables = true;
 				} else {
@@ -431,7 +435,10 @@ run(LV2_Handle instance, uint32_t n_samples) {
 									nrepel->noise_thresholds_p2,
 									nrepel->fft_size_2,
 									nrepel->fft_size,
-									nrepel->Gk);
+									nrepel->Gk,
+									nrepel->Gk_prev,
+									nrepel->attack_coeff,
+									nrepel->release_coeff);
 
 						//Gain Application
 						gain_application(*(nrepel->amount_of_reduction),
@@ -439,7 +446,6 @@ run(LV2_Handle instance, uint32_t n_samples) {
 									nrepel->fft_size,
 									nrepel->output_fft_buffer,
 									nrepel->Gk,
-									nrepel->whitening_influence,
 									*(nrepel->whitening_factor),
 									*(nrepel->makeup_gain),
 									nrepel->wet_dry,
@@ -552,12 +558,6 @@ savestate(LV2_Handle     instance,
 			(void*) &vector, sizeof(struct FFTVector),
 			nrepel->atom_Vector, LV2_STATE_IS_POD | LV2_STATE_IS_PORTABLE);
 
-	memcpy(vector.array, nrepel->whitening_influence, sizeof(vector.array));
-
-	store(handle, nrepel->prop_nrepelWinfluence,
-			(void*) &vector, sizeof(struct FFTVector),
-			nrepel->atom_Vector, LV2_STATE_IS_POD | LV2_STATE_IS_PORTABLE);
-
   return LV2_STATE_SUCCESS;
 }
 
@@ -585,18 +585,11 @@ restorestate(LV2_Handle       instance,
 		return LV2_STATE_ERR_NO_PROPERTY;
 	}
 
-	//check if state is available
-	const void* vecWinfluence = retrieve(handle, nrepel->prop_nrepelWinfluence, &size, &type, &valflags);
-	if ( !vecWinfluence || size != sizeof(struct FFTVector) || type != nrepel->atom_Vector){
-		return LV2_STATE_ERR_NO_PROPERTY;
-	}
-
 	//Deactivate any denoising before loading any noise profile
 	nrepel->noise_thresholds_availables = false;
 
 	//Copy to local variables
 	memcpy(nrepel->noise_thresholds_p2, (float*) LV2_ATOM_BODY(vecFFTp2), (nrepel->fft_size_2+1)*sizeof(float));
-	memcpy(nrepel->whitening_influence, (float*) LV2_ATOM_BODY(vecWinfluence), (nrepel->fft_size_2+1)*sizeof(float));
 
 	//this might not be necessary if thresholds are already available
 	const float* wincount = retrieve(handle, nrepel->prop_nwindow, &size, &type, &valflags);
