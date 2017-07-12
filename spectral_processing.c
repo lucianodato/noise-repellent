@@ -28,12 +28,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 void spectral_gain_computing(float* fft_p2,
 												     float* fft_p2_prev,
 												     float time_smoothing,
+														 float artifact_control,
 												     float noise_thresholds_offset,
 												     float* noise_thresholds_p2,
 												     int fft_size_2,
 												     int fft_size,
 												     float* Gk,
 													 	 float* Gk_prev,
+													 	 float* Gk_prev_wide,
 														 float attack_coeff,
 														 float release_coeff,
 													 	 float knee_width){
@@ -41,6 +43,9 @@ void spectral_gain_computing(float* fft_p2,
 	//PREPROCESSING
 	int k;
 	float noise_thresholds_scaled[fft_size_2+1];
+	//float Gk_wideband_gate[fft_size_2+1];
+	float Gk_power_sustraction[fft_size_2+1];
+	float Gk_spectral_gate[fft_size_2+1];
 
 	//Scale noise profile (equals applying an oversustraction factor in spectral sustraction)
 	for (k = 0; k <= fft_size_2; k++) {
@@ -57,19 +62,34 @@ void spectral_gain_computing(float* fft_p2,
 	}
 
 	//GAIN CALCULATION
-	// power_sustraction(fft_size_2,
-	// 						     fft_p2,
-	// 						     noise_thresholds_scaled,
-	// 						     Gk);
+	power_sustraction(fft_size_2,
+							     fft_p2,
+							     noise_thresholds_scaled,
+							     Gk_power_sustraction);
 
-	gating(fft_size_2,
+
+	spectral_gating(fft_size_2,
 		    attack_coeff,
 				release_coeff,
 				knee_width,
 		    fft_p2,
 		    noise_thresholds_scaled,
-		    Gk,
+		    Gk_spectral_gate,
 		    Gk_prev);
+
+	// wideband_gating(fft_size_2,
+	// 	    attack_coeff,
+	// 			release_coeff,
+	// 			knee_width,
+	// 	    fft_p2,
+	// 	    noise_thresholds_scaled,
+	// 	    Gk_wideband_gate,
+	// 	    Gk_prev_wide);
+
+	//Artifact control (interpolation between power sustraction and gating strategies)
+	for (k = 0; k <= fft_size_2; k++) {
+		Gk[k] = (1.f - artifact_control)*Gk_power_sustraction[k] + artifact_control*Gk_spectral_gate[k];
+	}
 }
 
 //GAIN APPLICATION
@@ -79,6 +99,7 @@ void gain_application(float amount_of_reduction,
 								      float* output_fft_buffer,
 								      float* Gk,
 											float whitening_factor,
+											float tapering,
 								      float makeup_gain,
 								      float wet_dry,
 								      float noise_listen){
@@ -87,7 +108,7 @@ void gain_application(float amount_of_reduction,
   float reduction_amount = from_dB(-1.f*amount_of_reduction);
 	float gain = from_dB(makeup_gain);
   float residual_spectrum[fft_size];
-  //float tappering_filter[fft_size];
+  float tapering_filter[fft_size];
   float denoised_fft_buffer[fft_size];
   float final_fft_buffer[fft_size];
 
@@ -108,8 +129,10 @@ void gain_application(float amount_of_reduction,
 	//Whitening and tappering
 	if(whitening_factor > 0.f) {
 		whitening_of_spectrum(residual_spectrum,whitening_factor,fft_size_2);
-		//tappering_filter_calc(tappering_filter,(fft_size_2+1));
-		//apply_tappering_filter(final_fft_buffer,tappering_filter,fft_size_2);
+		if(tapering > 0.f){
+			tapering_filter_calc(tapering_filter,(fft_size_2+1));
+			apply_tapering_filter(residual_spectrum,tapering_filter,fft_size_2);
+		}
 	}
 
   //Listen to processed signal or to noise only

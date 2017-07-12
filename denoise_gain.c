@@ -80,7 +80,7 @@ void power_sustraction(int fft_size_2,
 }
 
 //Gating with envelope smoothing
-void gating(int fft_size_2,
+void spectral_gating(int fft_size_2,
 	    float attack_coeff,
 			float release_coeff,
 			float knee_width,
@@ -128,7 +128,72 @@ void gating(int fft_size_2,
 			}
 
 			//Applying envelopes
-			if (current_value > Gk_prev[k])
+			if (current_value < Gk_prev[k])
+				//Is starting to reduce
+				Gk[k] = attack_coeff*Gk_prev[k] + (1.f-attack_coeff)*current_value;
+			else
+				//Is finishing reduction
+				Gk[k] = release_coeff*Gk_prev[k] + (1.f-release_coeff)*current_value;
+		} else {
+			//Otherwise we keep everything as is
+			Gk[k] = 1.f;
+		}
+		//update previous gain
+		Gk_prev[k] = Gk[k];
+	}
+}
+
+void wideband_gating(int fft_size_2,
+	    float attack_coeff,
+			float release_coeff,
+			float knee_width,
+	    float* spectrum,
+	    float* noise_thresholds,
+	    float* Gk,
+	    float* Gk_prev) {
+
+	int k;
+	float current_value;//, gain;//, ratio = 100.f,;
+	float x_value = 0.f, n_value = 0.f;
+
+	for (k = 0; k <= fft_size_2 ; k++) {
+		x_value +=  spectrum[k];
+		n_value += noise_thresholds[k];
+	}
+	for (k = 0; k <= fft_size_2 ; k++) {
+
+		if (n_value > FLT_MIN){
+			//gain calculation
+
+			// //Hard knee
+			// if (spectrum[k] >= noise_thresholds[k]){
+			// 	//over the threshold
+			// 	current_value = 1.f;
+			// }else{
+			// 	//under the threshold
+			// 	current_value = 0.f;
+			// }
+
+
+			//Soft knee
+			float lower_bound = (n_value - knee_width/2.f);
+			float higher_bound = (n_value + knee_width/2.f);
+
+			if (x_value > higher_bound){
+				//over the threshold and transition zone
+				current_value = 1.f; // only avoid applying reduction if over the threshold
+			}else{
+				if(x_value < lower_bound){
+					//under the threshold and transition zone
+					current_value = 0.f;
+				}else{
+					//transition zone
+					current_value = 0.5*((x_value - lower_bound)/knee_width);
+				}
+			}
+
+			//Applying envelopes
+			if (current_value < Gk_prev[k])
 				//Is starting to reduce
 				Gk[k] = attack_coeff*Gk_prev[k] + (1.f-attack_coeff)*current_value;
 			else

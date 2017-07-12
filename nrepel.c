@@ -45,20 +45,22 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 typedef enum {
 	NREPEL_CAPTURE = 0,
 	NREPEL_N_AUTO = 1,
-	NREPEL_AMOUNT = 2,
-	NREPEL_NOFFSET = 3,
-	NREPEL_SMOOTHING = 4,
-	NREPEL_ATTACK = 5,
-	NREPEL_RELEASE = 6,
-	NREPEL_KNEE = 7,
-	NREPEL_WHITENING = 8,
-	NREPEL_LATENCY = 9,
-	NREPEL_MAKEUP = 10,
-	NREPEL_RESET = 11,
-	NREPEL_NOISE_LISTEN = 12,
-	NREPEL_ENABLE = 13,
-	NREPEL_INPUT = 14,
-	NREPEL_OUTPUT = 15,
+	NREPEL_N_TAPERING = 2,
+	NREPEL_AMOUNT = 3,
+	NREPEL_NOFFSET = 4,
+	NREPEL_SMOOTHING = 5,
+	NREPEL_ARTIFACT_CONTROL = 6,
+	NREPEL_ATTACK = 7,
+	NREPEL_RELEASE = 8,
+	NREPEL_KNEE = 9,
+	NREPEL_WHITENING = 10,
+	NREPEL_LATENCY = 11,
+	NREPEL_MAKEUP = 12,
+	NREPEL_RESET = 13,
+	NREPEL_NOISE_LISTEN = 14,
+	NREPEL_ENABLE = 15,
+	NREPEL_INPUT = 16,
+	NREPEL_OUTPUT = 17,
 } PortIndex;
 
 typedef struct {
@@ -78,7 +80,9 @@ typedef struct {
 	float* attack;            	  		//attack time
 	float* release;            	  		//release time
 	float* knee;											//knee width
+	float* artifact_control;					//Mix between gate reduction and power sustraction
 	float* auto_state;                //autocapture switch
+	float* tapering;                	//tapering switch
 	float* enable;                    //For soft bypass (click free bypass)
 	float* makeup_gain;
 
@@ -125,6 +129,7 @@ typedef struct {
 	//Reduction gains
 	float* Gk;			  								//definitive gain
 	float* Gk_prev;			  					  //previous gain
+	float* Gk_prev_wide;			  			//previous gain wideband
 
 	//Loizou algorithm
 	float* auto_thresholds;           //Reference threshold for louizou algorithm
@@ -208,6 +213,7 @@ instantiate(const LV2_Descriptor*     descriptor,
 
 	nrepel->Gk = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->Gk_prev = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
+	nrepel->Gk_prev_wide = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 
 	nrepel->auto_thresholds = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->prev_noise_thresholds = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
@@ -228,6 +234,7 @@ instantiate(const LV2_Descriptor*     descriptor,
 	//Set initial gain as unity
 	memset(nrepel->Gk, 1, (nrepel->fft_size_2+1)*sizeof(float));
 	memset(nrepel->Gk_prev, 1, (nrepel->fft_size_2+1)*sizeof(float));
+	memset(nrepel->Gk_prev_wide, 1, (nrepel->fft_size_2+1)*sizeof(float));
 
 	//Compute auto mode initial thresholds
 	compute_auto_thresholds(nrepel->auto_thresholds, nrepel->fft_size, nrepel->fft_size_2, nrepel->samp_rate);
@@ -250,6 +257,9 @@ connect_port(LV2_Handle instance,
 		case NREPEL_N_AUTO:
 		nrepel->auto_state = (float*)data;
 		break;
+		case NREPEL_N_TAPERING:
+		nrepel->tapering = (float*)data;
+		break;
 		case NREPEL_AMOUNT:
 		nrepel->amount_of_reduction = (float*)data;
 		break;
@@ -258,6 +268,9 @@ connect_port(LV2_Handle instance,
 		break;
 		case NREPEL_SMOOTHING:
 		nrepel->time_smoothing = (float*)data;
+		break;
+		case NREPEL_ARTIFACT_CONTROL:
+		nrepel->artifact_control = (float*)data;
 		break;
 		case NREPEL_ATTACK:
 		nrepel->attack = (float*)data;
@@ -334,6 +347,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 		memset(nrepel->noise_thresholds_p2, 0, (nrepel->fft_size_2+1)*sizeof(float));
 		memset(nrepel->Gk, 1, (nrepel->fft_size_2+1)*sizeof(float));
 		memset(nrepel->Gk_prev, 1, (nrepel->fft_size_2+1)*sizeof(float));
+		memset(nrepel->Gk_prev_wide, 1, (nrepel->fft_size_2+1)*sizeof(float));
 		nrepel->window_count = 0.f;
 
 		memset(nrepel->prev_noise_thresholds, 0, (nrepel->fft_size_2+1)*sizeof(float));
@@ -436,12 +450,14 @@ run(LV2_Handle instance, uint32_t n_samples) {
 						spectral_gain_computing(nrepel->fft_p2,
 									nrepel->fft_p2_prev,
 									*(nrepel->time_smoothing),
+									*(nrepel->artifact_control),
 									*(nrepel->noise_thresholds_offset),
 									nrepel->noise_thresholds_p2,
 									nrepel->fft_size_2,
 									nrepel->fft_size,
 									nrepel->Gk,
 									nrepel->Gk_prev,
+									nrepel->Gk_prev_wide,
 									nrepel->attack_coeff,
 									nrepel->release_coeff,
 									*(nrepel->knee));
@@ -453,6 +469,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 									nrepel->output_fft_buffer,
 									nrepel->Gk,
 									*(nrepel->whitening_factor),
+									*(nrepel->tapering),
 									*(nrepel->makeup_gain),
 									nrepel->wet_dry,
 									*(nrepel->noise_listen));
