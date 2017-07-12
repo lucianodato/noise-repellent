@@ -455,8 +455,6 @@ void tapering_filter_calc(float* filter, int N) {
 }
 
 void apply_tapering_filter(float* spectrum,float* filter,int N) {
-  //get_normalized_spectum(filter,N);
-
   for (int k = 0; k <= N; k++) {
     if(spectrum[k] > FLT_MIN) {
       spectrum[k] *= filter[N-k];//Half hann window tappering in favor of high frequencies

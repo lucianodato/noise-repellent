@@ -128,7 +128,7 @@ void gain_application(float amount_of_reduction,
   }
 
 	//Whitening and tappering
-	if(whitening_factor > 0.f) {
+	if(whitening_factor > 0.f && !is_empty(denoised_fft_buffer,fft_size_2)) {
 		whitening_of_spectrum(residual_spectrum,whitening_factor,fft_size_2);
 		if(tapering > 0.f){
 			tapering_filter_calc(tapering_filter,(fft_size_2+1));

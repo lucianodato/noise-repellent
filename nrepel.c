@@ -345,8 +345,8 @@ run(LV2_Handle instance, uint32_t n_samples) {
 	nrepel->wet_dry += nrepel->tau * (nrepel->wet_dry_target - nrepel->wet_dry) + FLT_MIN;
 
 	//attack and release coefficients for envelopes
-	nrepel->attack_coeff = expf(-1000.f/((*(nrepel->attack)) * (nrepel->samp_rate/nrepel->fft_size_2)));//10ms
-	nrepel->release_coeff = expf(-1000.f/((*(nrepel->release)) * (nrepel->samp_rate/nrepel->fft_size_2)));
+	nrepel->attack_coeff = expf(-1000.f/((*(nrepel->attack)) * (nrepel->samp_rate/nrepel->fft_size)));
+	nrepel->release_coeff = expf(-1000.f/((*(nrepel->release)) * (nrepel->samp_rate/nrepel->fft_size)));
 	nrepel->adaptation_coeff = expf(-1000.f/(nrepel->samp_rate * *(nrepel->adaptation_time)));
 
 	printf("%f\n", nrepel->adaptation_coeff);

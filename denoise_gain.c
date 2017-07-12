@@ -98,32 +98,32 @@ void spectral_gating(int fft_size_2,
 		if (noise_thresholds[k] > FLT_MIN){
 			//gain calculation
 
-			// //Hard knee
-			// if (spectrum[k] >= noise_thresholds[k]){
-			// 	//over the threshold
-			// 	current_value = 1.f;
-			// }else{
-			// 	//under the threshold
-			// 	current_value = 0.f;
-			// }
-
-
-			//Soft knee
-			float lower_bound = (noise_thresholds[k] - knee_width/2.f);
-			float higher_bound = (noise_thresholds[k] + knee_width/2.f);
-
-			if (spectrum[k] > higher_bound){
-				//over the threshold and transition zone
-				current_value = 1.f; // only avoid applying reduction if over the threshold
+			//Hard knee
+			if (spectrum[k] >= noise_thresholds[k]){
+				//over the threshold
+				current_value = 1.f;
 			}else{
-				if(spectrum[k] < lower_bound){
-					//under the threshold and transition zone
-					current_value = 0.f;
-				}else{
-					//transition zone
-					current_value = 0.5*((spectrum[k] - lower_bound)/knee_width);//Check this!!!
-				}
+				//under the threshold
+				current_value = 0.f;
 			}
+
+
+			// //Soft knee
+			// float lower_bound = (noise_thresholds[k] - knee_width/2.f);
+			// float higher_bound = (noise_thresholds[k] + knee_width/2.f);
+			//
+			// if (spectrum[k] > higher_bound){
+			// 	//over the threshold and transition zone
+			// 	current_value = 1.f; // only avoid applying reduction if over the threshold
+			// }else{
+			// 	if(spectrum[k] < lower_bound){
+			// 		//under the threshold and transition zone
+			// 		current_value = 0.f;
+			// 	}else{
+			// 		//transition zone
+			// 		current_value = 0.5*((spectrum[k] - lower_bound)/knee_width);//Check this!!!
+			// 	}
+			// }
 
 			//Applying envelopes
 			if (current_value < Gk_prev[k])
@@ -191,7 +191,7 @@ void wideband_gating(int fft_size_2,
 			}
 
 			//Applying envelopes
-			if (current_value < Gk_prev[k])
+			if (current_value > Gk_prev[k])
 				//Is starting to reduce
 				Gk[k] = attack_coeff*Gk_prev[k] + (1.f-attack_coeff)*current_value;
 			else
