@@ -48,8 +48,9 @@ void spectral_gain_computing(float* fft_p2,
 	float Gk_spectral_gate[fft_size_2+1];
 
 	//Scale noise profile (equals applying an oversustraction factor in spectral sustraction)
+	//This must be adaptive using masking or local snr strategy
 	for (k = 0; k <= fft_size_2; k++) {
-		noise_thresholds_scaled[k] = noise_thresholds_p2[k] * noise_thresholds_offset;
+		noise_thresholds_scaled[k] = noise_thresholds_p2[k] * noise_thresholds_offset * (1.f + sqrtf(fft_p2[k]/noise_thresholds_p2[k]));
 	}
 
 	//SMOOTHING
