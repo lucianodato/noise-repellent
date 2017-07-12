@@ -35,7 +35,8 @@ void spectral_gain_computing(float* fft_p2,
 												     float* Gk,
 													 	 float* Gk_prev,
 														 float attack_coeff,
-														 float release_coeff){
+														 float release_coeff,
+													 	 float knee_width){
 
 	//PREPROCESSING
 	int k;
@@ -64,6 +65,7 @@ void spectral_gain_computing(float* fft_p2,
 	gating(fft_size_2,
 		    attack_coeff,
 				release_coeff,
+				knee_width,
 		    fft_p2,
 		    noise_thresholds_scaled,
 		    Gk,
@@ -85,7 +87,7 @@ void gain_application(float amount_of_reduction,
   float reduction_amount = from_dB(-1.f*amount_of_reduction);
 	float gain = from_dB(makeup_gain);
   float residual_spectrum[fft_size];
-  float tappering_filter[fft_size];
+  //float tappering_filter[fft_size];
   float denoised_fft_buffer[fft_size];
   float final_fft_buffer[fft_size];
 
@@ -103,6 +105,13 @@ void gain_application(float amount_of_reduction,
     residual_spectrum[fft_size-k] = output_fft_buffer[fft_size-k] - denoised_fft_buffer[fft_size-k];
   }
 
+	//Whitening and tappering
+	if(whitening_factor > 0.f) {
+		whitening_of_spectrum(residual_spectrum,whitening_factor,fft_size_2);
+		//tappering_filter_calc(tappering_filter,(fft_size_2+1));
+		//apply_tappering_filter(final_fft_buffer,tappering_filter,fft_size_2);
+	}
+
   //Listen to processed signal or to noise only
   if (noise_listen == 0.f){
     //Mix residual and processed (Parametric way of noise reduction)
@@ -111,13 +120,6 @@ void gain_application(float amount_of_reduction,
       if(k < fft_size_2)
         final_fft_buffer[fft_size-k] = denoised_fft_buffer[fft_size-k] + (residual_spectrum[fft_size-k]*reduction_amount);
     }
-
-		//Whitening and tappering
-		if(whitening_factor > 0.f) {
-			whitening_of_spectrum(final_fft_buffer,whitening_factor,fft_size_2);
-			tappering_filter_calc(tappering_filter,(fft_size_2+1));
-			apply_tappering_filter(final_fft_buffer,tappering_filter,fft_size_2);
-		}
   } else {
     //Output noise only
     for (k = 0; k <= fft_size_2; k++) {

@@ -446,35 +446,46 @@ void get_normalized_spectum(float* spectrum,
 	}
 }
 
-//Normalized Hann windows for whitening tappering
-void tappering_filter_calc(float* filter, int N) {
-  int k;
-  for (k = 0; k <= N; k++){
-    filter[k] = hamming(k, N);//Half hann window tappering in favor of high frequencies
-  }
-}
+// //Normalized Hann windows for whitening tappering
+// void tappering_filter_calc(float* filter, int N) {
+//   int k;
+//   for (k = 0; k <= N; k++){
+//     filter[k] = hamming(k, N);//Half hann window tappering in favor of high frequencies
+//   }
+// }
+//
+// void apply_tappering_filter(float* spectrum,float* filter,int N) {
+//   get_normalized_spectum(filter,N);
+//
+//   for (int k = 0; k <= N; k++) {
+//     if(spectrum[k] > FLT_MIN) {
+//       spectrum[k] *= filter[N-k];//Half hann window tappering in favor of high frequencies
+//       if(k < N) {
+//         spectrum[(2*N)-k] *= filter[N-k];//Half hann window tappering in favor of high frequencies
+//       }
+//     }
+//   }
+// }
 
-void apply_tappering_filter(float* spectrum,float* filter,int N) {
-  get_normalized_spectum(filter,N);
-
-  for (int k = 0; k <= N; k++) {
-    if(spectrum[k] > FLT_MIN) {
-      spectrum[k] *= filter[N-k];//Half hann window tappering in favor of high frequencies
-      if(k < N) {
-        spectrum[(2*N)-k] *= filter[N-k];//Half hann window tappering in favor of high frequencies
-      }
-    }
-  }
-}
-
+// void whitening_of_spectrum(float* spectrum,float b,int N){
+//   float whitening_factor = powf(max_spectral_value(spectrum,N),b);
+//
+//   for (int k = 0; k <= N; k++) {
+//     if(whitening_factor > FLT_MIN){ //Protects against division by 0
+//       spectrum[k] /= whitening_factor;
+//       if(k < N){
+//         spectrum[(2*N)-k] /= whitening_factor;
+//       }
+//     }
+//   }
+// }
 void whitening_of_spectrum(float* spectrum,float b,int N){
-  float whitening_factor = powf(max_spectral_value(spectrum,N),b);
 
   for (int k = 0; k <= N; k++) {
-    if(whitening_factor > FLT_MIN){ //Protects against division by 0
-      spectrum[k] /= whitening_factor;
+    if(spectrum[k] > FLT_MIN){ //Protects against division by 0
+      spectrum[k] = (1.f - b)*spectrum[k] + b*(1.f - spectrum[k]);
       if(k < N){
-        spectrum[(2*N)-k] /= whitening_factor;
+        spectrum[(2*N)-k] = (1.f - b)*spectrum[(2*N)-k] + b*(1.f - spectrum[(2*N)-k]);
       }
     }
   }

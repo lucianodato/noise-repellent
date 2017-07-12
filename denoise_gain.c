@@ -83,25 +83,52 @@ void power_sustraction(int fft_size_2,
 void gating(int fft_size_2,
 	    float attack_coeff,
 			float release_coeff,
+			float knee_width,
 	    float* spectrum,
 	    float* noise_thresholds,
 	    float* Gk,
 	    float* Gk_prev) {
 
 	int k;
-	float current_value,knee_width;
+	float current_value;//, gain;//, ratio = 100.f,;
+
 
 	for (k = 0; k <= fft_size_2 ; k++) {
+		// float x_db = to_dB(spectrum[k]);
+		// float n_db = to_dB(noise_thresholds[k]);
+
 		if (noise_thresholds[k] > FLT_MIN){
-			//Envelopes application
-			if (spectrum[k] >= noise_thresholds[k]){
+			//gain calculation
+
+			// //Hard knee
+			// if (spectrum[k] >= noise_thresholds[k]){
+			// 	//over the threshold
+			// 	current_value = 1.f;
+			// }else{
+			// 	//under the threshold
+			// 	current_value = 0.f;
+			// }
+
+
+			//Soft knee
+			float lower_bound = (noise_thresholds[k] - knee_width/2.f);
+			float higher_bound = (noise_thresholds[k] + knee_width/2.f);
+
+			if (spectrum[k] > higher_bound){
+				//over the threshold and transition zone
 				current_value = 1.f; // only avoid applying reduction if over the threshold
 			}else{
-				current_value = 0.f;
+				if(spectrum[k] < lower_bound){
+					//under the threshold and transition zone
+					current_value = 0.f;
+				}else{
+					//transition zone
+					current_value = 0.5*((spectrum[k] - lower_bound)/knee_width);
+				}
 			}
 
 			//Applying envelopes
-			if (current_value < Gk_prev[k])
+			if (current_value > Gk_prev[k])
 				//Is starting to reduce
 				Gk[k] = attack_coeff*Gk_prev[k] + (1.f-attack_coeff)*current_value;
 			else

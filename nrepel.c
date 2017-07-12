@@ -50,14 +50,15 @@ typedef enum {
 	NREPEL_SMOOTHING = 4,
 	NREPEL_ATTACK = 5,
 	NREPEL_RELEASE = 6,
-	NREPEL_WHITENING = 7,
-	NREPEL_LATENCY = 8,
-	NREPEL_MAKEUP = 9,
-	NREPEL_RESET = 10,
-	NREPEL_NOISE_LISTEN = 11,
-	NREPEL_ENABLE = 12,
-	NREPEL_INPUT = 13,
-	NREPEL_OUTPUT = 14,
+	NREPEL_KNEE = 7,
+	NREPEL_WHITENING = 8,
+	NREPEL_LATENCY = 9,
+	NREPEL_MAKEUP = 10,
+	NREPEL_RESET = 11,
+	NREPEL_NOISE_LISTEN = 12,
+	NREPEL_ENABLE = 13,
+	NREPEL_INPUT = 14,
+	NREPEL_OUTPUT = 15,
 } PortIndex;
 
 typedef struct {
@@ -76,6 +77,7 @@ typedef struct {
 	float* time_smoothing;            //constant that set the time smoothing coefficient
 	float* attack;            	  		//attack time
 	float* release;            	  		//release time
+	float* knee;											//knee width
 	float* auto_state;                //autocapture switch
 	float* enable;                    //For soft bypass (click free bypass)
 	float* makeup_gain;
@@ -185,7 +187,7 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->read_ptr = nrepel->input_latency; //the initial position because we are that many samples ahead
 	nrepel->window_count = 0.f;
 	nrepel->noise_thresholds_availables = false;
-	nrepel->tau = (1.f - exp (-2.f * M_PI * 25.f * 64.f  / nrepel->samp_rate));
+	nrepel->tau = (1.f - exp (-2.f * M_PI * 25.f * 64.f  / nrepel->samp_rate));//This should be revised!!!
 	nrepel->wet_dry = 0.f;
 
 	nrepel->in_fifo = (float*)calloc(nrepel->fft_size,sizeof(float));
@@ -263,6 +265,9 @@ connect_port(LV2_Handle instance,
 		case NREPEL_RELEASE:
 		nrepel->release = (float*)data;
 		break;
+		case NREPEL_KNEE:
+		nrepel->knee = (float*)data;
+		break;
 		case NREPEL_WHITENING:
 		nrepel->whitening_factor = (float*)data;
 		break;
@@ -321,8 +326,8 @@ run(LV2_Handle instance, uint32_t n_samples) {
 	nrepel->wet_dry += nrepel->tau * (nrepel->wet_dry_target - nrepel->wet_dry) + FLT_MIN;
 
 	//attack and release coefficients for envelopes
-	nrepel->attack_coeff = expf(-1000.f/(0.001 * (*(nrepel->attack)) * nrepel->samp_rate));//10ms
-	nrepel->release_coeff = expf(-1000.f/(0.001 * (*(nrepel->release)) * nrepel->samp_rate));
+	nrepel->attack_coeff = expf(-1000.f/((*(nrepel->attack)) * (nrepel->samp_rate/nrepel->fft_size_2)));//10ms
+	nrepel->release_coeff = expf(-1000.f/((*(nrepel->release)) * (nrepel->samp_rate/nrepel->fft_size_2)));
 
 	//Reset button state (if on)
 	if (*(nrepel->reset_print) == 1.f) {
@@ -438,7 +443,8 @@ run(LV2_Handle instance, uint32_t n_samples) {
 									nrepel->Gk,
 									nrepel->Gk_prev,
 									nrepel->attack_coeff,
-									nrepel->release_coeff);
+									nrepel->release_coeff,
+									*(nrepel->knee));
 
 						//Gain Application
 						gain_application(*(nrepel->amount_of_reduction),
