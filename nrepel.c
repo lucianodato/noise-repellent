@@ -56,11 +56,12 @@ typedef enum {
 	NREPEL_WHITENING = 10,
 	NREPEL_LATENCY = 11,
 	NREPEL_MAKEUP = 12,
-	NREPEL_RESET = 13,
-	NREPEL_NOISE_LISTEN = 14,
-	NREPEL_ENABLE = 15,
-	NREPEL_INPUT = 16,
-	NREPEL_OUTPUT = 17,
+	NREPEL_ADAPTATION = 13,
+	NREPEL_RESET = 14,
+	NREPEL_NOISE_LISTEN = 15,
+	NREPEL_ENABLE = 16,
+	NREPEL_INPUT = 17,
+	NREPEL_OUTPUT = 18,
 } PortIndex;
 
 typedef struct {
@@ -80,6 +81,7 @@ typedef struct {
 	float* attack;            	  		//attack time
 	float* release;            	  		//release time
 	float* knee;											//knee width
+	float* adaptation_time;						//integration time for noise learning
 	float* artifact_control;					//Mix between gate reduction and power sustraction
 	float* auto_state;                //autocapture switch
 	float* tapering;                	//tapering switch
@@ -106,6 +108,7 @@ typedef struct {
 	float reduction_coeff;            //Gain to apply to the residual noise
 	float attack_coeff;								//Attack coefficient for Envelopes
 	float release_coeff;							//Release coefficient for Envelopes
+	float adaptation_coeff;						//Adaptation coefficient for noise profiling
 
 	//Buffers for processing and outputting
 	int input_latency;
@@ -290,6 +293,9 @@ connect_port(LV2_Handle instance,
 		case NREPEL_MAKEUP:
 		nrepel->makeup_gain = (float*)data;
 		break;
+		case NREPEL_ADAPTATION:
+		nrepel->adaptation_time = (float*)data;
+		break;
 		case NREPEL_RESET:
 		nrepel->reset_print = (float*)data;
 		break;
@@ -341,6 +347,9 @@ run(LV2_Handle instance, uint32_t n_samples) {
 	//attack and release coefficients for envelopes
 	nrepel->attack_coeff = expf(-1000.f/((*(nrepel->attack)) * (nrepel->samp_rate/nrepel->fft_size_2)));//10ms
 	nrepel->release_coeff = expf(-1000.f/((*(nrepel->release)) * (nrepel->samp_rate/nrepel->fft_size_2)));
+	nrepel->adaptation_coeff = expf(-1000.f/(nrepel->samp_rate * *(nrepel->adaptation_time)));
+
+	printf("%f\n", nrepel->adaptation_coeff);
 
 	//Reset button state (if on)
 	if (*(nrepel->reset_print) == 1.f) {
@@ -417,17 +426,23 @@ run(LV2_Handle instance, uint32_t n_samples) {
 			if(!is_empty(nrepel->fft_p2,nrepel->fft_size_2)){
 				//If autolearn is selected allways estimate noise_thresholds using Loizou
 				if(*(nrepel->auto_state) == 1.f) {
-					auto_capture_noise(nrepel->fft_p2,//this is supposed to be the power spectrum in Loizou method
+					// auto_capture_noise(nrepel->fft_p2,//this is supposed to be the power spectrum in Loizou method
+					// 			nrepel->fft_size_2,
+					// 			nrepel->noise_thresholds_p2,
+					// 			nrepel->auto_thresholds,
+					// 			nrepel->prev_noise_thresholds,
+					// 			nrepel->s_pow_spec,
+					// 			nrepel->prev_s_pow_spec,
+					// 			nrepel->p_min,
+					// 			nrepel->prev_p_min,
+					// 			nrepel->speech_p_p,
+					// 			nrepel->prev_speech_p_p);
+
+					adaptive_noise_profile(nrepel->fft_p2,
 								nrepel->fft_size_2,
 								nrepel->noise_thresholds_p2,
-								nrepel->auto_thresholds,
-								nrepel->prev_noise_thresholds,
-								nrepel->s_pow_spec,
-								nrepel->prev_s_pow_spec,
-								nrepel->p_min,
-								nrepel->prev_p_min,
-								nrepel->speech_p_p,
-								nrepel->prev_speech_p_p);
+								nrepel->adaptation_coeff,
+								&nrepel->window_count);
 
 					nrepel->noise_thresholds_availables = true;
 				}

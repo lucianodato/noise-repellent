@@ -90,12 +90,10 @@ void spectral_gating(int fft_size_2,
 	    float* Gk_prev) {
 
 	int k;
-	float current_value;//, gain;//, ratio = 100.f,;
+	float current_value;
 
 
 	for (k = 0; k <= fft_size_2 ; k++) {
-		// float x_db = to_dB(spectrum[k]);
-		// float n_db = to_dB(noise_thresholds[k]);
 
 		if (noise_thresholds[k] > FLT_MIN){
 			//gain calculation
@@ -123,7 +121,7 @@ void spectral_gating(int fft_size_2,
 					current_value = 0.f;
 				}else{
 					//transition zone
-					current_value = 0.5*((spectrum[k] - lower_bound)/knee_width);
+					current_value = 0.5*((spectrum[k] - lower_bound)/knee_width);//Check this!!!
 				}
 			}
 
@@ -153,7 +151,7 @@ void wideband_gating(int fft_size_2,
 	    float* Gk_prev) {
 
 	int k;
-	float current_value;//, gain;//, ratio = 100.f,;
+	float current_value;
 	float x_value = 0.f, n_value = 0.f;
 
 	for (k = 0; k <= fft_size_2 ; k++) {
