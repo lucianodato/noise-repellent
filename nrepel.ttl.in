@@ -46,10 +46,9 @@
     a lv2:ControlPort,
       lv2:InputPort ;
     lv2:index 1 ;
-    lv2:symbol "noise_auto_capture" ;
-    lv2:name "Auto Learn Noise",
-    "Auto Aprender Ruido"@es ,
-    "Auto apprentissage du bruit"@fr ;
+    lv2:symbol "adaptive_noise" ;
+    lv2:name "Audaptive Noise",
+    "Adaptar Ruido"@es ;
     lv2:minimum 0 ;
     lv2:maximum 1 ;
     lv2:default 0 ;

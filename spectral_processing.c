@@ -50,16 +50,16 @@ void spectral_gain_computing(float* fft_p2,
 
 	//Scale noise profile (equals applying an oversustraction factor in spectral sustraction)
 	//This must be adaptive using masking or local snr strategy
-	if (auto_state != 1.f){
+	// if (auto_state != 1.f){
 		for (k = 0; k <= fft_size_2; k++) {
 			noise_thresholds_scaled[k] = noise_thresholds_p2[k] * noise_thresholds_offset * (1.f + sqrtf(fft_p2[k]/noise_thresholds_p2[k]));
 		}
-	}else{
-		//Prevent local snr scaling when using adaptive profiling
-		for (k = 0; k <= fft_size_2; k++) {
-			noise_thresholds_scaled[k] = noise_thresholds_p2[k] * noise_thresholds_offset;
-		}
-	}
+	// }else{
+	// 	//Prevent local snr scaling when using adaptive profiling
+	// 	for (k = 0; k <= fft_size_2; k++) {
+	// 		noise_thresholds_scaled[k] = noise_thresholds_p2[k] * noise_thresholds_offset;
+	// 	}
+	// }
 
 
 	//SMOOTHING
@@ -99,6 +99,7 @@ void spectral_gain_computing(float* fft_p2,
 	//Artifact control (interpolation between power sustraction and gating strategies)
 	for (k = 0; k <= fft_size_2; k++) {
 		Gk[k] = (1.f - artifact_control)*Gk_power_sustraction[k] + artifact_control*Gk_spectral_gate[k];
+		//Gk[k] = (1.f - artifact_control)*Gk_spectral_gate[k] + artifact_control*Gk_wideband_gate[k];
 	}
 }
 
