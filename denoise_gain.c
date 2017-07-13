@@ -81,41 +81,23 @@ void power_sustraction(int fft_size_2,
 
 //Gating with envelope smoothing
 void spectral_gating(int fft_size_2,
-	    float attack_coeff,
-			float release_coeff,
 			float knee_width,
 	    float* spectrum,
-	    float* spectrum_prev,
 	    float* noise_thresholds,
-	    float* Gk,
-	    float* Gk_prev) {
+	    float* Gk) {
 
 	int k;
-	float current_Gk;
-
 
 	for (k = 0; k <= fft_size_2 ; k++) {
-
 		if (noise_thresholds[k] > FLT_MIN){
-
-
-
-			//Applying envelopes to signal power spectrum
-			if (spectrum[k] < spectrum_prev[k])
-				//attack
-				spectrum[k] = attack_coeff*spectrum_prev[k] + (1.f-attack_coeff)*spectrum[k];
-			else
-				//Release
-				spectrum[k] = release_coeff*spectrum_prev[k] + (1.f-release_coeff)*spectrum[k];
-
 			if (knee_width == 0.f){
 				//Hard knee
 				if (spectrum[k] >= noise_thresholds[k]){
 					//over the threshold
-					current_Gk = 1.f;
+					Gk[k] = 1.f;
 				}else{
 					//under the threshold
-					current_Gk = 0.f;
+					Gk[k] = 0.f;
 				}
 			}else{
 				//Soft knee
@@ -124,97 +106,72 @@ void spectral_gating(int fft_size_2,
 
 				if (spectrum[k] > higher_bound){
 					//over the threshold and transition zone
-					current_Gk = 1.f; // only avoid applying reduction if over the threshold
+					Gk[k] = 1.f; // only avoid applying reduction if over the threshold
 				}else{
 					if(spectrum[k] < lower_bound){
 						//under the threshold and transition zone
-						current_Gk = 0.f;
+						Gk[k] = 0.f;
 					}else{
 						//transition zone
-						current_Gk = ((spectrum[k] - lower_bound)/knee_width);//linear iterpolation between y [0,1] and x[lower_bound,higher_bound]
+						Gk[k] = ((spectrum[k] - lower_bound)/knee_width)*0.5;//linear iterpolation between y [0,1] and x[lower_bound,higher_bound]
 					}
 				}
 			}
 
-			// //Applying envelopes
-			// if (current_Gk < Gk_prev[k])
-			// 	//Is starting to reduce
-			// 	Gk[k] = attack_coeff*Gk_prev[k] + (1.f-attack_coeff)*current_Gk;
-			// else
-			// 	//Is finishing reduction
-			// 	Gk[k] = release_coeff*Gk_prev[k] + (1.f-release_coeff)*current_Gk;
-
-			Gk[k] = current_Gk;
 		} else {
 			//Otherwise we keep everything as is
 			Gk[k] = 1.f;
 		}
-		//update previous gain
-		Gk_prev[k] = Gk[k];
 	}
 }
 
 void wideband_gating(int fft_size_2,
-	    float attack_coeff,
-			float release_coeff,
 			float knee_width,
 	    float* spectrum,
 	    float* noise_thresholds,
-	    float* Gk,
-	    float* Gk_prev) {
+	    float* Gk) {
 
 	int k;
-	float current_Gk;
 	float x_value = 0.f, n_value = 0.f;
 
+	//This probably could be better
 	for (k = 0; k <= fft_size_2 ; k++) {
 		x_value +=  spectrum[k];
 		n_value += noise_thresholds[k];
 	}
+
 	for (k = 0; k <= fft_size_2 ; k++) {
-
 		if (n_value > FLT_MIN){
-			//gain calculation
-
-			// //Hard knee
-			// if (spectrum[k] >= noise_thresholds[k]){
-			// 	//over the threshold
-			// 	current_Gk = 1.f;
-			// }else{
-			// 	//under the threshold
-			// 	current_Gk = 0.f;
-			// }
-
-
-			//Soft knee
-			float lower_bound = (n_value - knee_width/2.f);
-			float higher_bound = (n_value + knee_width/2.f);
-
-			if (x_value > higher_bound){
-				//over the threshold and transition zone
-				current_Gk = 1.f; // only avoid applying reduction if over the threshold
-			}else{
-				if(x_value < lower_bound){
-					//under the threshold and transition zone
-					current_Gk = 0.f;
+			if (knee_width == 0.f){
+				//Hard knee
+				if (x_value >= n_value){
+					//over the threshold
+					Gk[k] = 1.f;
 				}else{
-					//transition zone
-					current_Gk = 0.5*((x_value - lower_bound)/knee_width);
+					//under the threshold
+					Gk[k] = 0.f;
+				}
+			}else{
+				//Soft knee
+				float lower_bound = (n_value - knee_width/2.f);
+				float higher_bound = (n_value + knee_width/2.f);
+
+				if (x_value > higher_bound){
+					//over the threshold and transition zone
+					Gk[k] = 1.f; // only avoid applying reduction if over the threshold
+				}else{
+					if(x_value < lower_bound){
+						//under the threshold and transition zone
+						Gk[k] = 0.f;
+					}else{
+						//transition zone
+						Gk[k] = ((x_value - lower_bound)/knee_width)*0.5;//linear iterpolation between y [0,1] and x[lower_bound,higher_bound]
+					}
 				}
 			}
-
-			//Applying envelopes
-			if (current_Gk > Gk_prev[k])
-				//Is starting to reduce
-				Gk[k] = attack_coeff*Gk_prev[k] + (1.f-attack_coeff)*current_Gk;
-			else
-				//Is finishing reduction
-				Gk[k] = release_coeff*Gk_prev[k] + (1.f-release_coeff)*current_Gk;
 		} else {
 			//Otherwise we keep everything as is
 			Gk[k] = 1.f;
 		}
-		//update previous gain
-		Gk_prev[k] = Gk[k];
 	}
 }

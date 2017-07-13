@@ -56,12 +56,11 @@ typedef enum {
 	NREPEL_WHITENING = 10,
 	NREPEL_LATENCY = 11,
 	NREPEL_MAKEUP = 12,
-	NREPEL_ADAPTATION = 13,
-	NREPEL_RESET = 14,
-	NREPEL_NOISE_LISTEN = 15,
-	NREPEL_ENABLE = 16,
-	NREPEL_INPUT = 17,
-	NREPEL_OUTPUT = 18,
+	NREPEL_RESET = 13,
+	NREPEL_NOISE_LISTEN = 14,
+	NREPEL_ENABLE = 15,
+	NREPEL_INPUT = 16,
+	NREPEL_OUTPUT = 17,
 } PortIndex;
 
 typedef struct {
@@ -81,7 +80,6 @@ typedef struct {
 	float* attack;            	  		//attack time
 	float* release;            	  		//release time
 	float* knee;											//knee width
-	float* adaptation_time;						//integration time for noise learning
 	float* artifact_control;					//Mix between gate reduction and power sustraction
 	float* adaptive_state;                //autocapture switch
 	float* tapering;                	//tapering switch
@@ -295,9 +293,6 @@ connect_port(LV2_Handle instance,
 		case NREPEL_MAKEUP:
 		nrepel->makeup_gain = (float*)data;
 		break;
-		case NREPEL_ADAPTATION:
-		nrepel->adaptation_time = (float*)data;
-		break;
 		case NREPEL_RESET:
 		nrepel->reset_print = (float*)data;
 		break;
@@ -351,9 +346,8 @@ run(LV2_Handle instance, uint32_t n_samples) {
 	//FFT-BASED DYNAMIC RANGE COMPRESSION
 	nrepel->attack_coeff = expf(-1000.f/(((*(nrepel->attack)) * nrepel->samp_rate) / nrepel->hop) );
 	nrepel->release_coeff = expf(-1000.f/(((*(nrepel->release)) * nrepel->samp_rate)/ nrepel->hop) );
-	nrepel->adaptation_coeff = expf(-1.f/((*(nrepel->adaptation_time) * nrepel->samp_rate) / nrepel->hop) );
 
-	printf("%f\n", nrepel->adaptation_coeff);
+	//printf("%f\n", nrepel->release_coeff );
 
 	//Reset button state (if on)
 	if (*(nrepel->reset_print) == 1.f) {
@@ -430,25 +424,19 @@ run(LV2_Handle instance, uint32_t n_samples) {
 			if(!is_empty(nrepel->fft_p2,nrepel->fft_size_2)){
 				//If adaptive noise is selected the noise is adapted in time
 				if(*(nrepel->adaptive_state) == 1.f) {
-					// auto_capture_noise(nrepel->fft_p2,//this is supposed to be the power spectrum in Loizou method
-					// 			nrepel->fft_size_2,
-					// 			nrepel->noise_thresholds_p2,
-					// 			nrepel->auto_thresholds,
-					// 			nrepel->prev_noise_thresholds,
-					// 			nrepel->s_pow_spec,
-					// 			nrepel->prev_s_pow_spec,
-					// 			nrepel->p_min,
-					// 			nrepel->prev_p_min,
-					// 			nrepel->speech_p_p,
-					// 			nrepel->prev_speech_p_p);
 
-					//This should incorporate some kind of heuristic to differenciate the noise from the signal
-					//as a VAD will do
-
-					adaptive_noise_profile(nrepel->fft_p2,
+					//This has to be revised(issue 8 on github)
+					auto_capture_noise(nrepel->fft_p2,//this is supposed to be the power spectrum in Loizou method
 								nrepel->fft_size_2,
 								nrepel->noise_thresholds_p2,
-								nrepel->adaptation_coeff);
+								nrepel->auto_thresholds,
+								nrepel->prev_noise_thresholds,
+								nrepel->s_pow_spec,
+								nrepel->prev_s_pow_spec,
+								nrepel->p_min,
+								nrepel->prev_p_min,
+								nrepel->speech_p_p,
+								nrepel->prev_speech_p_p);
 
 					nrepel->noise_thresholds_availables = true;
 				}

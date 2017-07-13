@@ -161,16 +161,3 @@ void get_noise_statistics(float* fft_p2,
     }
   }
 }
-
-//Manual Capture threshold estimation
-void adaptive_noise_profile(float* fft_p2,
-			  int fft_size_2,
-			  float* noise_thresholds_p2,
-			  float adaptation_time) {
-  int k;
-
-  //Get noise thresholds based on exponential moving averageing
-  for(k = 0 ; k <= fft_size_2 ; k++) {
-    noise_thresholds_p2[k] = adaptation_time*fft_p2[k] + (1.f - adaptation_time)*noise_thresholds_p2[k]; //rolling mean
-  }
-}
