@@ -127,6 +127,7 @@ typedef struct {
 	float real_p,imag_n,mag,p2;
 	float* fft_p2;                    //power spectrum
 	float* fft_p2_prev;               //power spectum of previous frame
+	float* fft_p2_prev_gate;               //power spectum of previous frame
 	float* noise_thresholds_p2;       //captured noise print power spectrum
 
 	//Reduction gains
@@ -212,6 +213,7 @@ instantiate(const LV2_Descriptor*     descriptor,
 
 	nrepel->fft_p2 = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->fft_p2_prev = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
+	nrepel->fft_p2_prev_gate = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->noise_thresholds_p2 = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 
 	nrepel->Gk = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
@@ -351,7 +353,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 	nrepel->release_coeff = expf(-1000.f/(((*(nrepel->release)) * nrepel->samp_rate)/ nrepel->hop) );
 	nrepel->adaptation_coeff = expf(-1.f/((*(nrepel->adaptation_time) * nrepel->samp_rate) / nrepel->hop) );
 
-	//printf("%f\n", nrepel->adaptation_coeff);
+	printf("%f\n", nrepel->adaptation_coeff);
 
 	//Reset button state (if on)
 	if (*(nrepel->reset_print) == 1.f) {
@@ -446,8 +448,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 					adaptive_noise_profile(nrepel->fft_p2,
 								nrepel->fft_size_2,
 								nrepel->noise_thresholds_p2,
-								nrepel->adaptation_coeff,
-								&nrepel->window_count);
+								nrepel->adaptation_coeff);
 
 					nrepel->noise_thresholds_availables = true;
 				}
@@ -469,6 +470,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 						//Gain Calculation
 						spectral_gain_computing(nrepel->fft_p2,
 									nrepel->fft_p2_prev,
+									nrepel->fft_p2_prev_gate,
 									*(nrepel->time_smoothing),
 									*(nrepel->artifact_control),
 									*(nrepel->noise_thresholds_offset),

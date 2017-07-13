@@ -53,12 +53,13 @@ inline int sign(float x) {
 
 //-----------dB SCALE-----------
 
+//power scales
 inline float from_dB(float gdb) {
-  return (expf(gdb/20.f*logf(10.f)));
+  return (expf(gdb/10.f*logf(10.f)));
 }
 
 inline float to_dB(float g) {
-  return (20.f*log10f(g));
+  return (10.f*log10f(g));
 }
 
 //-----------FREQ <> INDEX OR BIN------------

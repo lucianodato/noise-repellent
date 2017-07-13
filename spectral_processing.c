@@ -27,10 +27,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 void spectral_gain_computing(float* fft_p2,
 												     float* fft_p2_prev,
+												     float* fft_p2_prev_gate,
 												     float time_smoothing,
 														 float artifact_control,
 												     float noise_thresholds_offset,
-														 float auto_state,
+														 float adaptive_state,
 												     float* noise_thresholds_p2,
 												     int fft_size_2,
 												     int fft_size,
@@ -50,16 +51,16 @@ void spectral_gain_computing(float* fft_p2,
 
 	//Scale noise profile (equals applying an oversustraction factor in spectral sustraction)
 	//This must be adaptive using masking or local snr strategy
-	// if (auto_state != 1.f){
+	if (adaptive_state != 1.f){
 		for (k = 0; k <= fft_size_2; k++) {
 			noise_thresholds_scaled[k] = noise_thresholds_p2[k] * noise_thresholds_offset * (1.f + sqrtf(fft_p2[k]/noise_thresholds_p2[k]));
 		}
-	// }else{
-	// 	//Prevent local snr scaling when using adaptive profiling
-	// 	for (k = 0; k <= fft_size_2; k++) {
-	// 		noise_thresholds_scaled[k] = noise_thresholds_p2[k] * noise_thresholds_offset;
-	// 	}
-	// }
+	}else{
+		//Prevent local snr scaling when using adaptive profiling
+		for (k = 0; k <= fft_size_2; k++) {
+			noise_thresholds_scaled[k] = noise_thresholds_p2[k] * noise_thresholds_offset;
+		}
+	}
 
 
 	//SMOOTHING
@@ -83,6 +84,7 @@ void spectral_gain_computing(float* fft_p2,
 				release_coeff,
 				knee_width,
 		    fft_p2,
+		    fft_p2_prev_gate,
 		    noise_thresholds_scaled,
 		    Gk_spectral_gate,
 		    Gk_prev);
