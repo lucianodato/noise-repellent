@@ -456,7 +456,7 @@ void tapering_filter_calc(float* filter, int N) {
 
 void apply_tapering_filter(float* spectrum,float* filter,int N) {
   for (int k = 0; k <= N; k++) {
-    if(spectrum[k] > FLT_MIN) {
+    if(spectrum[k] > FLT_MIN && spectrum[(2*N)-k] > FLT_MIN) {
       spectrum[k] *= filter[N-k];//Half hann window tappering in favor of high frequencies
       if(k < N) {
         spectrum[(2*N)-k] *= filter[N-k];//Half hann window tappering in favor of high frequencies
@@ -468,7 +468,7 @@ void apply_tapering_filter(float* spectrum,float* filter,int N) {
 void whitening_of_spectrum(float* spectrum,float b,int N){
 
   for (int k = 0; k <= N; k++) {
-    if(spectrum[k] > FLT_MIN){ //Protects against division by 0
+    if(spectrum[k] > FLT_MIN && spectrum[(2*N)-k] > FLT_MIN){
       spectrum[k] = (1.f - b)*spectrum[k] + b*(1.f - spectrum[k]);
       if(k < N){
         spectrum[(2*N)-k] = (1.f - b)*spectrum[(2*N)-k] + b*(1.f - spectrum[(2*N)-k]);

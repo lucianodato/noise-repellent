@@ -177,7 +177,7 @@ void adaptive_noise_profile(float* fft_p2,
     if(*(window_count) <= 1.f){
       noise_thresholds_p2[k] = fft_p2[k];
     } else {
-      noise_thresholds_p2[k] = (1.f - adaptation_time)*fft_p2[k] + adaptation_time*noise_thresholds_p2[k]; //rolling mean
+      noise_thresholds_p2[k] = adaptation_time*fft_p2[k] + (1.f - adaptation_time)*noise_thresholds_p2[k]; //rolling mean
     }
   }
 }

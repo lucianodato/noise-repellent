@@ -30,6 +30,7 @@ void spectral_gain_computing(float* fft_p2,
 												     float time_smoothing,
 														 float artifact_control,
 												     float noise_thresholds_offset,
+														 float auto_state,
 												     float* noise_thresholds_p2,
 												     int fft_size_2,
 												     int fft_size,
@@ -49,9 +50,17 @@ void spectral_gain_computing(float* fft_p2,
 
 	//Scale noise profile (equals applying an oversustraction factor in spectral sustraction)
 	//This must be adaptive using masking or local snr strategy
-	for (k = 0; k <= fft_size_2; k++) {
-		noise_thresholds_scaled[k] = noise_thresholds_p2[k] * noise_thresholds_offset * (1.f + sqrtf(fft_p2[k]/noise_thresholds_p2[k]));
+	if (auto_state != 1.f){
+		for (k = 0; k <= fft_size_2; k++) {
+			noise_thresholds_scaled[k] = noise_thresholds_p2[k] * noise_thresholds_offset * (1.f + sqrtf(fft_p2[k]/noise_thresholds_p2[k]));
+		}
+	}else{
+		//Prevent local snr scaling when using adaptive profiling
+		for (k = 0; k <= fft_size_2; k++) {
+			noise_thresholds_scaled[k] = noise_thresholds_p2[k] * noise_thresholds_offset;
+		}
 	}
+
 
 	//SMOOTHING
 	//Time smoothing between current and past power spectrum and magnitude spectrum
@@ -128,7 +137,7 @@ void gain_application(float amount_of_reduction,
   }
 
 	//Whitening and tappering
-	if(whitening_factor > 0.f && !is_empty(denoised_fft_buffer,fft_size_2)) {
+	if(whitening_factor > 0.f) {
 		whitening_of_spectrum(residual_spectrum,whitening_factor,fft_size_2);
 		if(tapering > 0.f){
 			tapering_filter_calc(tapering_filter,(fft_size_2+1));

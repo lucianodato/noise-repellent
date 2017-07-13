@@ -96,7 +96,6 @@ void spectral_gating(int fft_size_2,
 	for (k = 0; k <= fft_size_2 ; k++) {
 
 		if (noise_thresholds[k] > FLT_MIN){
-			//gain calculation
 
 			//Hard knee
 			if (spectrum[k] >= noise_thresholds[k]){
@@ -121,7 +120,7 @@ void spectral_gating(int fft_size_2,
 			// 		current_value = 0.f;
 			// 	}else{
 			// 		//transition zone
-			// 		current_value = 0.5*((spectrum[k] - lower_bound)/knee_width);//Check this!!!
+			// 		current_value = ((spectrum[k] - lower_bound)/knee_width)/2.f;//Check this!!!
 			// 	}
 			// }
 

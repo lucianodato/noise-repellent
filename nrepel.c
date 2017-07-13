@@ -195,7 +195,7 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->read_ptr = nrepel->input_latency; //the initial position because we are that many samples ahead
 	nrepel->window_count = 0.f;
 	nrepel->noise_thresholds_availables = false;
-	nrepel->tau = (1.f - exp (-2.f * M_PI * 25.f * 64.f  / nrepel->samp_rate));//This should be revised!!!
+	nrepel->tau = (1.f - exp (-2.f * M_PI * 25.f * 64.f  / nrepel->samp_rate));
 	nrepel->wet_dry = 0.f;
 
 	nrepel->in_fifo = (float*)calloc(nrepel->fft_size,sizeof(float));
@@ -344,12 +344,14 @@ run(LV2_Handle instance, uint32_t n_samples) {
 	//Interpolate parameters over time softly to bypass without clicks or pops
 	nrepel->wet_dry += nrepel->tau * (nrepel->wet_dry_target - nrepel->wet_dry) + FLT_MIN;
 
-	//attack and release coefficients for envelopes
-	nrepel->attack_coeff = expf(-1000.f/((*(nrepel->attack)) * (nrepel->samp_rate/nrepel->fft_size)));
-	nrepel->release_coeff = expf(-1000.f/((*(nrepel->release)) * (nrepel->samp_rate/nrepel->fft_size)));
-	nrepel->adaptation_coeff = expf(-1000.f/(nrepel->samp_rate * *(nrepel->adaptation_time)));
+	//exponential decay coefficients for envelopes and adaptive noise profiling
+	//These must take into account the hop size as explained in the following paper
+	//FFT-BASED DYNAMIC RANGE COMPRESSION
+	nrepel->attack_coeff = expf(-1000.f/(((*(nrepel->attack)) * nrepel->samp_rate) / nrepel->hop) );
+	nrepel->release_coeff = expf(-1000.f/(((*(nrepel->release)) * nrepel->samp_rate)/ nrepel->hop) );
+	nrepel->adaptation_coeff = expf(-1000.f/((*(nrepel->adaptation_time) * nrepel->samp_rate) / nrepel->hop) );
 
-	printf("%f\n", nrepel->adaptation_coeff);
+	//printf("%f\n", nrepel->adaptation_coeff);
 
 	//Reset button state (if on)
 	if (*(nrepel->reset_print) == 1.f) {
@@ -467,6 +469,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 									*(nrepel->time_smoothing),
 									*(nrepel->artifact_control),
 									*(nrepel->noise_thresholds_offset),
+									*(nrepel->auto_state),
 									nrepel->noise_thresholds_p2,
 									nrepel->fft_size_2,
 									nrepel->fft_size,
