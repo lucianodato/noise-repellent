@@ -52,7 +52,7 @@ typedef enum {
 	NREPEL_ARTIFACT_CONTROL = 6,
 	NREPEL_ATTACK = 7,
 	NREPEL_RELEASE = 8,
-	NREPEL_KNEE = 9,
+	NREPEL_HOLD = 9,
 	NREPEL_WHITENING = 10,
 	NREPEL_LATENCY = 11,
 	NREPEL_MAKEUP = 12,
@@ -79,7 +79,7 @@ typedef struct {
 	float* time_smoothing;            //constant that set the time smoothing coefficient
 	float* attack;            	  		//attack time
 	float* release;            	  		//release time
-	float* knee;											//knee width
+	float* hold;											//hold time
 	float* artifact_control;					//Mix between gate reduction and power sustraction
 	float* adaptive_state;                //autocapture switch
 	float* tapering;                	//tapering switch
@@ -106,6 +106,9 @@ typedef struct {
 	float reduction_coeff;            //Gain to apply to the residual noise
 	float attack_coeff;								//Attack coefficient for Envelopes
 	float release_coeff;							//Release coefficient for Envelopes
+	float attack_counter;							//Counter to be used with hold time
+	float release_counter;							//Counter to be used with hold time
+	float envelope_state;							//0 if in attack phase 1 release
 	float adaptation_coeff;						//Adaptation coefficient for noise profiling
 
 	//Buffers for processing and outputting
@@ -196,6 +199,9 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->noise_thresholds_availables = false;
 	nrepel->tau = (1.f - exp (-2.f * M_PI * 25.f * 64.f  / nrepel->samp_rate));
 	nrepel->wet_dry = 0.f;
+	nrepel->attack_counter = 0.f;
+	nrepel->release_counter = 0.f;
+	nrepel->envelope_state = 0.f;
 
 	nrepel->in_fifo = (float*)calloc(nrepel->fft_size,sizeof(float));
 	nrepel->out_fifo = (float*)calloc(nrepel->fft_size,sizeof(float));
@@ -281,8 +287,8 @@ connect_port(LV2_Handle instance,
 		case NREPEL_RELEASE:
 		nrepel->release = (float*)data;
 		break;
-		case NREPEL_KNEE:
-		nrepel->knee = (float*)data;
+		case NREPEL_HOLD:
+		nrepel->hold = (float*)data;
 		break;
 		case NREPEL_WHITENING:
 		nrepel->whitening_factor = (float*)data;
@@ -466,7 +472,10 @@ run(LV2_Handle instance, uint32_t n_samples) {
 									nrepel->Gk_prev_wide,
 									nrepel->attack_coeff,
 									nrepel->release_coeff,
-									*(nrepel->knee));
+									&nrepel->envelope_state,
+									nrepel->attack_counter,
+									nrepel->release_counter,
+									*(nrepel->hold));
 
 						//Gain Application
 						gain_application(*(nrepel->amount_of_reduction),

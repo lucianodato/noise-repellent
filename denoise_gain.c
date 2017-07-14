@@ -81,7 +81,6 @@ void power_sustraction(int fft_size_2,
 
 //Gating with envelope smoothing
 void spectral_gating(int fft_size_2,
-			float knee_width,
 	    float* spectrum,
 	    float* noise_thresholds,
 	    float* Gk) {
@@ -90,34 +89,14 @@ void spectral_gating(int fft_size_2,
 
 	for (k = 0; k <= fft_size_2 ; k++) {
 		if (noise_thresholds[k] > FLT_MIN){
-			if (knee_width == 0.f){
-				//Hard knee
-				if (spectrum[k] >= noise_thresholds[k]){
-					//over the threshold
-					Gk[k] = 1.f;
-				}else{
-					//under the threshold
-					Gk[k] = 0.f;
-				}
+			//Hard knee
+			if (spectrum[k] >= noise_thresholds[k]){
+				//over the threshold
+				Gk[k] = 1.f;
 			}else{
-				//Soft knee
-				float lower_bound = (noise_thresholds[k] - knee_width/2.f);
-				float higher_bound = (noise_thresholds[k] + knee_width/2.f);
-
-				if (spectrum[k] > higher_bound){
-					//over the threshold and transition zone
-					Gk[k] = 1.f; // only avoid applying reduction if over the threshold
-				}else{
-					if(spectrum[k] < lower_bound){
-						//under the threshold and transition zone
-						Gk[k] = 0.f;
-					}else{
-						//transition zone
-						Gk[k] = ((spectrum[k] - lower_bound)/knee_width)*0.5;//linear iterpolation between y [0,1] and x[lower_bound,higher_bound]
-					}
-				}
+				//under the threshold
+				Gk[k] = 0.f;
 			}
-
 		} else {
 			//Otherwise we keep everything as is
 			Gk[k] = 1.f;
@@ -126,7 +105,6 @@ void spectral_gating(int fft_size_2,
 }
 
 void wideband_gating(int fft_size_2,
-			float knee_width,
 	    float* spectrum,
 	    float* noise_thresholds,
 	    float* Gk) {
@@ -134,7 +112,7 @@ void wideband_gating(int fft_size_2,
 	int k;
 	float x_value = 0.f, n_value = 0.f;
 
-	//This probably could be better
+	//This probably could be better TODO!!
 	for (k = 0; k <= fft_size_2 ; k++) {
 		x_value +=  spectrum[k];
 		n_value += noise_thresholds[k];
@@ -142,32 +120,14 @@ void wideband_gating(int fft_size_2,
 
 	for (k = 0; k <= fft_size_2 ; k++) {
 		if (n_value > FLT_MIN){
-			if (knee_width == 0.f){
-				//Hard knee
-				if (x_value >= n_value){
-					//over the threshold
-					Gk[k] = 1.f;
-				}else{
-					//under the threshold
-					Gk[k] = 0.f;
-				}
-			}else{
-				//Soft knee
-				float lower_bound = (n_value - knee_width/2.f);
-				float higher_bound = (n_value + knee_width/2.f);
 
-				if (x_value > higher_bound){
-					//over the threshold and transition zone
-					Gk[k] = 1.f; // only avoid applying reduction if over the threshold
-				}else{
-					if(x_value < lower_bound){
-						//under the threshold and transition zone
-						Gk[k] = 0.f;
-					}else{
-						//transition zone
-						Gk[k] = ((x_value - lower_bound)/knee_width)*0.5;//linear iterpolation between y [0,1] and x[lower_bound,higher_bound]
-					}
-				}
+			//Hard knee
+			if (x_value >= n_value){
+				//over the threshold
+				Gk[k] = 1.f;
+			}else{
+				//under the threshold
+				Gk[k] = 0.f;
 			}
 		} else {
 			//Otherwise we keep everything as is

@@ -40,7 +40,10 @@ void spectral_gain_computing(float* fft_p2,
 													 	 float* Gk_prev_wide,
 														 float attack_coeff,
 														 float release_coeff,
-													 	 float knee_width){
+														 float* envelope_state,
+														 float attack_counter,
+														 float release_counter,
+													 	 float hold){
 
 	//PREPROCESSING
 	int k;
@@ -53,12 +56,18 @@ void spectral_gain_computing(float* fft_p2,
 
 	//Applying envelopes to signal power spectrum
 	for (k = 0; k <= fft_size_2 ; k++) {
-		if (fft_p2[k] < fft_p2_prev_gate[k])
+
+		if (fft_p2[k] < fft_p2_prev_gate[k]){
 			//attack
 			fft_p2[k] = attack_coeff*fft_p2_prev_gate[k] + (1.f-attack_coeff)*fft_p2[k];
-		else
+
+			*envelope_state = 0.f;
+		}else{
 			//Release
 			fft_p2[k] = release_coeff*fft_p2_prev_gate[k] + (1.f-release_coeff)*fft_p2[k];
+
+			*envelope_state = 1.f;
+		}
 
 		//Update Previous
 		fft_p2_prev_gate[k] = fft_p2[k];
@@ -76,6 +85,7 @@ void spectral_gain_computing(float* fft_p2,
 	}
 
 	//OVERSUSTRACTION
+
 	//Scale noise profile (equals applying an oversustraction factor in spectral sustraction)
 	//This must be adaptive using masking or local snr strategy
 	if (adaptive_state != 1.f){
@@ -96,7 +106,6 @@ void spectral_gain_computing(float* fft_p2,
 	// 						     Gk_power_sustraction);
 
 	spectral_gating(fft_size_2,
-				knee_width,
 				fft_p2,
 				noise_thresholds_scaled,
 				Gk_spectral_gate);
@@ -104,7 +113,6 @@ void spectral_gain_computing(float* fft_p2,
 	if(artifact_control > 0.f){
 			//If wide band gating is enabled
 			wideband_gating(fft_size_2,
-						knee_width,
 						fft_p2,
 						noise_thresholds_scaled,
 						Gk_wideband_gate);
