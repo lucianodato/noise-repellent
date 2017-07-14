@@ -97,18 +97,23 @@ void spectral_gain_computing(float* fft_p2,
 				noise_thresholds_scaled,
 				Gk_spectral_gate);
 
-	wideband_gating(fft_size_2,
-				knee_width,
-		    fft_p2,
-		    noise_thresholds_scaled,
-		    Gk_wideband_gate);
+	if(artifact_control > 0.f){
+			//If wide band gating is enabled
+			wideband_gating(fft_size_2,
+						knee_width,
+						fft_p2,
+						noise_thresholds_scaled,
+						Gk_wideband_gate);
 
-	//Artifact control (interpolation between power sustraction and gating strategies)
-	for (k = 0; k <= fft_size_2; k++) {
-		//Gk[k] = (1.f - artifact_control)*Gk_power_sustraction[k] + artifact_control*Gk_spectral_gate[k];
-		Gk[k] = (1.f - artifact_control)*Gk_spectral_gate[k] + artifact_control*Gk_wideband_gate[k];
-	}
-
+			//Artifact control (interpolation between power sustraction and gating strategies)
+			for (k = 0; k <= fft_size_2; k++) {
+				//Gk[k] = (1.f - artifact_control)*Gk_power_sustraction[k] + artifact_control*Gk_spectral_gate[k];
+				Gk[k] = (1.f - artifact_control)*Gk_spectral_gate[k] + artifact_control*Gk_wideband_gate[k];
+			}
+		}else{
+			//Otherwise spectral gate gains
+			memcpy(Gk,Gk_spectral_gate,sizeof(float)*(fft_size_2+1));
+		}
 
 }
 
