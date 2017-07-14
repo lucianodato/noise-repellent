@@ -50,6 +50,7 @@ void spectral_gain_computing(float* fft_p2,
 	float Gk_spectral_gate[fft_size_2+1];
 
 	//SMOOTHING
+
 	//Applying envelopes to signal power spectrum
 	for (k = 0; k <= fft_size_2 ; k++) {
 		if (fft_p2[k] < fft_p2_prev_gate[k])
@@ -69,6 +70,9 @@ void spectral_gain_computing(float* fft_p2,
 														fft_p2_prev,
 														fft_p2,
 														time_smoothing);
+
+		//Store previous power values for smoothing
+		memcpy(fft_p2_prev,fft_p2,sizeof(float)*(fft_size_2+1));
 	}
 
 	//OVERSUSTRACTION

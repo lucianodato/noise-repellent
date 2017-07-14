@@ -396,9 +396,6 @@ run(LV2_Handle instance, uint32_t n_samples) {
 
 			//-----------GET INFO FROM BINS--------------
 
-			//Store previous power values for smoothing
-			memcpy(nrepel->fft_p2_prev,nrepel->fft_p2,sizeof(float)*(nrepel->fft_size_2+1));
-
 			//Get the positive spectrum and compute the magnitude
 			for (k = 0; k <= nrepel->fft_size_2; k++){
 				//Get the half complex spectrum reals and complex
