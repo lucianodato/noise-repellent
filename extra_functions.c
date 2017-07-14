@@ -431,6 +431,43 @@ void spectrum_time_smoothing(int fft_size_2,
   }
 }
 
+void apply_envelope(float* spectrum,
+                    float* spectrum_prev,
+                    float N,
+                    float attack_counter,
+                    float release_counter,
+                    float hold_samples,
+                    float attack_coeff,
+                    float release_coeff,
+                    int* envelope_state){
+  int k;
+
+  for (k = 0; k <= N ; k++) {
+
+		if (spectrum[k] > spectrum_prev[k]/* && attack_counter > hold_samples*/){
+			//attack
+			spectrum[k] = attack_coeff*spectrum_prev[k] + (1.f-attack_coeff)*spectrum[k];
+
+			*envelope_state = 0;
+		}else{
+			if (spectrum[k] <= spectrum_prev[k] /*&& release_counter > hold_samples*/){
+				//Release
+				spectrum[k] = release_coeff*spectrum_prev[k] + (1.f-release_coeff)*spectrum[k];
+
+				*envelope_state = 1;
+			}else{
+				// //Holding
+				// spectrum[k] = spectrum_prev[k];
+        //
+        // *envelope_state = 2;
+			}
+		}
+
+		//Update Previous
+		spectrum_prev[k] = spectrum[k];
+	}
+}
+
 //---------------WHITENING--------------
 
 //Normalize spectrum

@@ -40,10 +40,10 @@ void spectral_gain_computing(float* fft_p2,
 													 	 float* Gk_prev_wide,
 														 float attack_coeff,
 														 float release_coeff,
-														 float* envelope_state,
+														 int* envelope_state,
 														 float attack_counter,
 														 float release_counter,
-													 	 float hold){
+													 	 float hold_samples){
 
 	//PREPROCESSING
 	int k;
@@ -55,23 +55,15 @@ void spectral_gain_computing(float* fft_p2,
 	//SMOOTHING
 
 	//Applying envelopes to signal power spectrum
-	for (k = 0; k <= fft_size_2 ; k++) {
-
-		if (fft_p2[k] < fft_p2_prev_gate[k]){
-			//attack
-			fft_p2[k] = attack_coeff*fft_p2_prev_gate[k] + (1.f-attack_coeff)*fft_p2[k];
-
-			*envelope_state = 0.f;
-		}else{
-			//Release
-			fft_p2[k] = release_coeff*fft_p2_prev_gate[k] + (1.f-release_coeff)*fft_p2[k];
-
-			*envelope_state = 1.f;
-		}
-
-		//Update Previous
-		fft_p2_prev_gate[k] = fft_p2[k];
-	}
+	apply_envelope(fft_p2,
+                 fft_p2_prev_gate,
+                 fft_size_2,
+                 attack_counter,
+                 release_counter,
+                 hold_samples,
+                 attack_coeff,
+                 release_coeff,
+                 envelope_state);
 
 	//Time smoothing between current and past power spectrum (similar effect to ephraim and malah)
 	if (time_smoothing > 0.f){
@@ -87,7 +79,7 @@ void spectral_gain_computing(float* fft_p2,
 	//OVERSUSTRACTION
 
 	//Scale noise profile (equals applying an oversustraction factor in spectral sustraction)
-	//This must be adaptive using masking or local snr strategy
+	//This could be adaptive using masking or local snr strategy TODO
 	if (adaptive_state != 1.f){
 		for (k = 0; k <= fft_size_2; k++) {
 			noise_thresholds_scaled[k] = noise_thresholds_p2[k] * noise_thresholds_offset * (1.f + sqrtf(fft_p2[k]/noise_thresholds_p2[k]));

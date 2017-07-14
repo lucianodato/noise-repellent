@@ -112,7 +112,7 @@ void wideband_gating(int fft_size_2,
 	int k;
 	float x_value = 0.f, n_value = 0.f;
 
-	//This probably could be better TODO!!
+	//This probably could be better TODO
 	for (k = 0; k <= fft_size_2 ; k++) {
 		x_value +=  spectrum[k];
 		n_value += noise_thresholds[k];

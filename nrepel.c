@@ -107,9 +107,9 @@ typedef struct {
 	float attack_coeff;								//Attack coefficient for Envelopes
 	float release_coeff;							//Release coefficient for Envelopes
 	float attack_counter;							//Counter to be used with hold time
-	float release_counter;							//Counter to be used with hold time
-	float envelope_state;							//0 if in attack phase 1 release
-	float adaptation_coeff;						//Adaptation coefficient for noise profiling
+	float release_counter;						//Counter to be used with hold time
+	int envelope_state;								//0 if in attack phase 1 release
+	float hold_samples;								//Numbers of samples to hold
 
 	//Buffers for processing and outputting
 	int input_latency;
@@ -353,6 +353,24 @@ run(LV2_Handle instance, uint32_t n_samples) {
 	nrepel->attack_coeff = expf(-1000.f/(((*(nrepel->attack)) * nrepel->samp_rate) / nrepel->hop) );
 	nrepel->release_coeff = expf(-1000.f/(((*(nrepel->release)) * nrepel->samp_rate)/ nrepel->hop) );
 
+	//Hold related stuff
+	nrepel->hold_samples = roundf((nrepel->hop*1000.f/nrepel->samp_rate)* *(nrepel->hold));
+
+	switch(nrepel->envelope_state){
+		case 0:
+			nrepel->attack_counter ++;
+			nrepel->release_counter = 0.f;
+			break;
+		case 1:
+			nrepel->release_counter ++;
+			nrepel->attack_counter = 0.f;
+			break;
+		case 2:
+			nrepel->attack_counter = 0.f;
+			nrepel->release_counter = 0.f;
+			break;
+	}
+
 	//printf("%f\n", nrepel->release_coeff );
 
 	//Reset button state (if on)
@@ -475,7 +493,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 									&nrepel->envelope_state,
 									nrepel->attack_counter,
 									nrepel->release_counter,
-									*(nrepel->hold));
+									nrepel->hold_samples);
 
 						//Gain Application
 						gain_application(*(nrepel->amount_of_reduction),
