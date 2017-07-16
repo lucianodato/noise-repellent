@@ -55,11 +55,11 @@ inline int sign(float x) {
 
 //power scales
 inline float from_dB(float gdb) {
-  return (expf(gdb/10.f*logf(10.f)));
+  return (expf(gdb/20.f*logf(10.f)));
 }
 
 inline float to_dB(float g) {
-  return (10.f*log10f(g));
+  return (20.f*log10f(g));
 }
 
 //-----------FREQ <> INDEX OR BIN------------
@@ -434,34 +434,16 @@ void spectrum_time_smoothing(int fft_size_2,
 void apply_envelope(float* spectrum,
                     float* spectrum_prev,
                     float N,
-                    float attack_counter,
-                    float release_counter,
-                    float hold_samples,
-                    float attack_coeff,
-                    float release_coeff,
-                    int* envelope_state){
+                    float release_coeff){
   int k;
 
   for (k = 0; k <= N ; k++) {
 
-		if (spectrum[k] > spectrum_prev[k]/* && attack_counter > hold_samples*/){
-			//attack
-			spectrum[k] = attack_coeff*spectrum_prev[k] + (1.f-attack_coeff)*spectrum[k];
-
-			*envelope_state = 0;
-		}else{
-			if (spectrum[k] <= spectrum_prev[k] /*&& release_counter > hold_samples*/){
-				//Release
-				spectrum[k] = release_coeff*spectrum_prev[k] + (1.f-release_coeff)*spectrum[k];
-
-				*envelope_state = 1;
-			}else{
-				// //Holding
-				// spectrum[k] = spectrum_prev[k];
-        //
-        // *envelope_state = 2;
-			}
-		}
+    //It doesn't make much sense to have an attack slider when there is time smoothing
+    if (spectrum[k] >= spectrum_prev[k]){
+      //Release (when signal is incrementing in amplitude)
+      spectrum[k] = release_coeff*spectrum_prev[k] + (1.f-release_coeff)*spectrum[k];
+    }
 
 		//Update Previous
 		spectrum_prev[k] = spectrum[k];

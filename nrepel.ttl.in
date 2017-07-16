@@ -112,39 +112,17 @@
     a lv2:ControlPort,
       lv2:InputPort ;
     lv2:index 7 ;
-    lv2:symbol "attack" ;
-    lv2:name "Attack",
-      "Ataque"@es ;
+    lv2:symbol "release" ;
+    lv2:name "Release",
+      "Relevo"@es ;
     lv2:minimum 1.0 ;
-    lv2:maximum 200.0 ;
-    lv2:default 10.0 ;
+    lv2:maximum 1000.0 ;
+    lv2:default 30.0 ;
     units:unit units:ms ;
   ], [
     a lv2:ControlPort,
       lv2:InputPort ;
     lv2:index 8 ;
-    lv2:symbol "release" ;
-    lv2:name "Release",
-      "Relevo"@es ;
-    lv2:minimum 10.0 ;
-    lv2:maximum 1000.0 ;
-    lv2:default 60.0 ;
-    units:unit units:ms ;
-  ], [
-    a lv2:ControlPort,
-      lv2:InputPort ;
-    lv2:index 9 ;
-    lv2:symbol "hold" ;
-    lv2:name "Hold",
-      "Mantener"@es ;
-    lv2:minimum 0.0 ;
-    lv2:maximum 2000.0 ;
-    lv2:default 0.0 ;
-    units:unit units:ms ;
-  ], [
-    a lv2:ControlPort,
-      lv2:InputPort ;
-    lv2:index 10 ;
     lv2:symbol "whitening" ;
     lv2:name "Residual whitening",
       "Blanqueo de residuo"@es ;
@@ -155,7 +133,7 @@
     a lv2:OutputPort,
       lv2:ControlPort ;
     lv2:name "latency" ;
-    lv2:index 11 ;
+    lv2:index 9 ;
     lv2:symbol "latency" ;
     lv2:minimum 0 ;
     lv2:maximum 8196 ;
@@ -164,7 +142,7 @@
   ], [
     a lv2:InputPort,
     lv2:ControlPort ;
-    lv2:index 12 ;
+    lv2:index 10 ;
     lv2:symbol "makeup";
     lv2:name "Makeup Gain",
       "Compensacion de Ganancia"@es ,
@@ -176,7 +154,7 @@
   ], [
     a lv2:InputPort,
     lv2:ControlPort ;
-    lv2:index 13 ;
+    lv2:index 11 ;
     lv2:symbol "reset_noise_print" ;
     lv2:name "Reset Noise Print",
       "Reiniciar Perfil de Ruido"@es ,
@@ -188,7 +166,7 @@
   ], [
     a lv2:InputPort,
     lv2:ControlPort ;
-    lv2:index 14 ;
+    lv2:index 12 ;
     lv2:symbol "noise_listen" ;
     lv2:name "Noise Listen",
       "Escuchar solo Ruido"@es ,
@@ -199,7 +177,7 @@
     lv2:portProperty lv2:toggled, lv2:integer ;
   ], [
     a lv2:InputPort, lv2:ControlPort ;
-    lv2:index 15 ;
+    lv2:index 13 ;
     lv2:name "Enable" ;
     lv2:symbol "enable" ;
     lv2:default 1.0 ;
@@ -210,13 +188,13 @@
   ], [
     a lv2:AudioPort,
       lv2:InputPort ;
-    lv2:index 16 ;
+    lv2:index 14 ;
     lv2:symbol "input" ;
     lv2:name "Input" ;
   ], [
     a lv2:AudioPort,
       lv2:OutputPort ;
-    lv2:index 17 ;
+    lv2:index 15 ;
     lv2:symbol "output" ;
     lv2:name "Output" ;
   ];

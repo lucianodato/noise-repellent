@@ -50,17 +50,15 @@ typedef enum {
 	NREPEL_NOFFSET = 4,
 	NREPEL_SMOOTHING = 5,
 	NREPEL_ARTIFACT_CONTROL = 6,
-	NREPEL_ATTACK = 7,
-	NREPEL_RELEASE = 8,
-	NREPEL_HOLD = 9,
-	NREPEL_WHITENING = 10,
-	NREPEL_LATENCY = 11,
-	NREPEL_MAKEUP = 12,
-	NREPEL_RESET = 13,
-	NREPEL_NOISE_LISTEN = 14,
-	NREPEL_ENABLE = 15,
-	NREPEL_INPUT = 16,
-	NREPEL_OUTPUT = 17,
+	NREPEL_RELEASE = 7,
+	NREPEL_WHITENING = 8,
+	NREPEL_LATENCY = 9,
+	NREPEL_MAKEUP = 10,
+	NREPEL_RESET = 11,
+	NREPEL_NOISE_LISTEN = 12,
+	NREPEL_ENABLE = 13,
+	NREPEL_INPUT = 14,
+	NREPEL_OUTPUT = 15,
 } PortIndex;
 
 typedef struct {
@@ -79,7 +77,6 @@ typedef struct {
 	float* time_smoothing;            //constant that set the time smoothing coefficient
 	float* attack;            	  		//attack time
 	float* release;            	  		//release time
-	float* hold;											//hold time
 	float* artifact_control;					//Mix between gate reduction and power sustraction
 	float* adaptive_state;                //autocapture switch
 	float* tapering;                	//tapering switch
@@ -104,12 +101,7 @@ typedef struct {
 	float wet_dry_target;             //softbypass target for softbypass
 	float wet_dry;                    //softbypass coeff
 	float reduction_coeff;            //Gain to apply to the residual noise
-	float attack_coeff;								//Attack coefficient for Envelopes
 	float release_coeff;							//Release coefficient for Envelopes
-	float attack_counter;							//Counter to be used with hold time
-	float release_counter;						//Counter to be used with hold time
-	int envelope_state;								//0 if in attack phase 1 release
-	float hold_samples;								//Numbers of samples to hold
 
 	//Buffers for processing and outputting
 	int input_latency;
@@ -128,7 +120,7 @@ typedef struct {
 	float real_p,imag_n,mag,p2;
 	float* fft_p2;                    //power spectrum
 	float* fft_p2_prev;               //power spectum of previous frame
-	float* fft_p2_prev_gate;               //power spectum of previous frame
+	float* fft_p2_prev_env;               //power spectum of previous frame
 	float* noise_thresholds_p2;       //captured noise print power spectrum
 
 	//Reduction gains
@@ -199,9 +191,6 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->noise_thresholds_availables = false;
 	nrepel->tau = (1.f - exp (-2.f * M_PI * 25.f * 64.f  / nrepel->samp_rate));
 	nrepel->wet_dry = 0.f;
-	nrepel->attack_counter = 0.f;
-	nrepel->release_counter = 0.f;
-	nrepel->envelope_state = 0.f;
 
 	nrepel->in_fifo = (float*)calloc(nrepel->fft_size,sizeof(float));
 	nrepel->out_fifo = (float*)calloc(nrepel->fft_size,sizeof(float));
@@ -217,7 +206,7 @@ instantiate(const LV2_Descriptor*     descriptor,
 
 	nrepel->fft_p2 = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->fft_p2_prev = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
-	nrepel->fft_p2_prev_gate = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
+	nrepel->fft_p2_prev_env = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->noise_thresholds_p2 = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 
 	nrepel->Gk = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
@@ -241,9 +230,9 @@ instantiate(const LV2_Descriptor*     descriptor,
 				&nrepel->overlap_scale_factor);
 
 	//Set initial gain as unity
-	memset(nrepel->Gk, 1, (nrepel->fft_size_2+1)*sizeof(float));
-	memset(nrepel->Gk_prev, 1, (nrepel->fft_size_2+1)*sizeof(float));
-	memset(nrepel->Gk_prev_wide, 1, (nrepel->fft_size_2+1)*sizeof(float));
+	memset(nrepel->Gk, 0, (nrepel->fft_size_2+1)*sizeof(float));
+	memset(nrepel->Gk_prev, 0, (nrepel->fft_size_2+1)*sizeof(float));
+	memset(nrepel->Gk_prev_wide, 0, (nrepel->fft_size_2+1)*sizeof(float));
 
 	//Compute auto mode initial thresholds
 	compute_auto_thresholds(nrepel->auto_thresholds, nrepel->fft_size, nrepel->fft_size_2, nrepel->samp_rate);
@@ -281,14 +270,8 @@ connect_port(LV2_Handle instance,
 		case NREPEL_ARTIFACT_CONTROL:
 		nrepel->artifact_control = (float*)data;
 		break;
-		case NREPEL_ATTACK:
-		nrepel->attack = (float*)data;
-		break;
 		case NREPEL_RELEASE:
 		nrepel->release = (float*)data;
-		break;
-		case NREPEL_HOLD:
-		nrepel->hold = (float*)data;
 		break;
 		case NREPEL_WHITENING:
 		nrepel->whitening_factor = (float*)data;
@@ -350,35 +333,16 @@ run(LV2_Handle instance, uint32_t n_samples) {
 	//exponential decay coefficients for envelopes and adaptive noise profiling
 	//These must take into account the hop size as explained in the following paper
 	//FFT-BASED DYNAMIC RANGE COMPRESSION
-	nrepel->attack_coeff = expf(-1000.f/(((*(nrepel->attack)) * nrepel->samp_rate) / nrepel->hop) );
 	nrepel->release_coeff = expf(-1000.f/(((*(nrepel->release)) * nrepel->samp_rate)/ nrepel->hop) );
-
-	//Hold related stuff
-	nrepel->hold_samples = roundf((nrepel->hop*1000.f/nrepel->samp_rate)* *(nrepel->hold));
-
-	switch(nrepel->envelope_state){
-		case 0:
-			nrepel->attack_counter ++;
-			nrepel->release_counter = 0.f;
-			break;
-		case 1:
-			nrepel->release_counter ++;
-			nrepel->attack_counter = 0.f;
-			break;
-		case 2:
-			nrepel->attack_counter = 0.f;
-			nrepel->release_counter = 0.f;
-			break;
-	}
 
 	//printf("%f\n", nrepel->release_coeff );
 
 	//Reset button state (if on)
 	if (*(nrepel->reset_print) == 1.f) {
 		memset(nrepel->noise_thresholds_p2, 0, (nrepel->fft_size_2+1)*sizeof(float));
-		memset(nrepel->Gk, 1, (nrepel->fft_size_2+1)*sizeof(float));
-		memset(nrepel->Gk_prev, 1, (nrepel->fft_size_2+1)*sizeof(float));
-		memset(nrepel->Gk_prev_wide, 1, (nrepel->fft_size_2+1)*sizeof(float));
+		memset(nrepel->Gk, 0, (nrepel->fft_size_2+1)*sizeof(float));
+		memset(nrepel->Gk_prev, 0, (nrepel->fft_size_2+1)*sizeof(float));
+		memset(nrepel->Gk_prev_wide, 0, (nrepel->fft_size_2+1)*sizeof(float));
 		nrepel->window_count = 0.f;
 
 		memset(nrepel->prev_noise_thresholds, 0, (nrepel->fft_size_2+1)*sizeof(float));
@@ -477,23 +441,17 @@ run(LV2_Handle instance, uint32_t n_samples) {
 						//Gain Calculation
 						spectral_gain_computing(nrepel->fft_p2,
 									nrepel->fft_p2_prev,
-									nrepel->fft_p2_prev_gate,
+									nrepel->fft_p2_prev_env,
 									*(nrepel->time_smoothing),
 									*(nrepel->artifact_control),
 									*(nrepel->noise_thresholds_offset),
-									*(nrepel->adaptive_state),
 									nrepel->noise_thresholds_p2,
 									nrepel->fft_size_2,
 									nrepel->fft_size,
 									nrepel->Gk,
 									nrepel->Gk_prev,
 									nrepel->Gk_prev_wide,
-									nrepel->attack_coeff,
-									nrepel->release_coeff,
-									&nrepel->envelope_state,
-									nrepel->attack_counter,
-									nrepel->release_counter,
-									nrepel->hold_samples);
+									nrepel->release_coeff);
 
 						//Gain Application
 						gain_application(*(nrepel->amount_of_reduction),

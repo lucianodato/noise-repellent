@@ -118,20 +118,19 @@ void wideband_gating(int fft_size_2,
 		n_value += noise_thresholds[k];
 	}
 
-	for (k = 0; k <= fft_size_2 ; k++) {
-		if (n_value > FLT_MIN){
+	if (n_value > FLT_MIN){
 
-			//Hard knee
-			if (x_value >= n_value){
-				//over the threshold
-				Gk[k] = 1.f;
-			}else{
-				//under the threshold
-				Gk[k] = 0.f;
-			}
-		} else {
-			//Otherwise we keep everything as is
-			Gk[k] = 1.f;
+		//Hard knee
+		if (x_value >= n_value){
+			//over the threshold
+			*Gk = 1.f;
+		}else{
+			//under the threshold
+			*Gk = 0.f;
 		}
+	} else {
+		//Otherwise we keep everything as is
+		*Gk = 1.f;
 	}
+
 }
