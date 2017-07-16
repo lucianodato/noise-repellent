@@ -45,20 +45,21 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 typedef enum {
 	NREPEL_CAPTURE = 0,
 	NREPEL_N_AUTO = 1,
-	NREPEL_N_TAPERING = 2,
-	NREPEL_AMOUNT = 3,
-	NREPEL_NOFFSET = 4,
-	NREPEL_SMOOTHING = 5,
-	NREPEL_ARTIFACT_CONTROL = 6,
-	NREPEL_RELEASE = 7,
-	NREPEL_WHITENING = 8,
-	NREPEL_LATENCY = 9,
-	NREPEL_MAKEUP = 10,
-	NREPEL_RESET = 11,
-	NREPEL_NOISE_LISTEN = 12,
-	NREPEL_ENABLE = 13,
-	NREPEL_INPUT = 14,
-	NREPEL_OUTPUT = 15,
+	NREPEL_AMOUNT = 2,
+	NREPEL_NOFFSET = 3,
+	NREPEL_SMOOTHING = 4,
+	NREPEL_ARTIFACT_CONTROL = 5,
+	NREPEL_RELEASE = 6,
+	NREPEL_WHITENING = 7,
+	NREPEL_LATENCY = 8,
+	NREPEL_MAKEUP = 9,
+	NREPEL_RESET = 10,
+	NREPEL_NOISE_LISTEN = 11,
+	NREPEL_N_TAPERING = 12,
+	NREPEL_TPRESERV = 13,
+	NREPEL_ENABLE = 14,
+	NREPEL_INPUT = 15,
+	NREPEL_OUTPUT = 16,
 } PortIndex;
 
 typedef struct {
@@ -78,8 +79,9 @@ typedef struct {
 	float* attack;            	  		//attack time
 	float* release;            	  		//release time
 	float* artifact_control;					//Mix between gate reduction and power sustraction
-	float* adaptive_state;                //autocapture switch
+	float* adaptive_state;            //autocapture switch
 	float* tapering;                	//tapering switch
+	float* transient_preservation;    //transient preservation switch
 	float* enable;                    //For soft bypass (click free bypass)
 	float* makeup_gain;
 
@@ -119,8 +121,9 @@ typedef struct {
 	//Arrays and variables for getting bins info
 	float real_p,imag_n,mag,p2;
 	float* fft_p2;                    //power spectrum
-	float* fft_p2_prev;               //power spectum of previous frame
-	float* fft_p2_prev_env;               //power spectum of previous frame
+	float* fft_p2_prev_tsmooth;       //power spectum of previous frame
+	float* fft_p2_prev_env;           //power spectum of previous frame
+	float* fft_p2_prev_tpres;           //power spectum of previous frame
 	float* noise_thresholds_p2;       //captured noise print power spectrum
 
 	//Reduction gains
@@ -205,8 +208,9 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->backward = fftwf_plan_r2r_1d(nrepel->fft_size, nrepel->output_fft_buffer, nrepel->input_fft_buffer, FFTW_HC2R, FFTW_ESTIMATE);
 
 	nrepel->fft_p2 = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
-	nrepel->fft_p2_prev = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
+	nrepel->fft_p2_prev_tsmooth = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->fft_p2_prev_env = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
+	nrepel->fft_p2_prev_tpres = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->noise_thresholds_p2 = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 
 	nrepel->Gk = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
@@ -287,6 +291,9 @@ connect_port(LV2_Handle instance,
 		break;
 		case NREPEL_NOISE_LISTEN:
 		nrepel->noise_listen = (float*)data;
+		break;
+		case NREPEL_TPRESERV:
+		nrepel->transient_preservation = (float*)data;
 		break;
 		case NREPEL_ENABLE:
 		nrepel->enable = (float*)data;
@@ -440,11 +447,13 @@ run(LV2_Handle instance, uint32_t n_samples) {
 					if (nrepel->noise_thresholds_availables == true) {
 						//Gain Calculation
 						spectral_gain_computing(nrepel->fft_p2,
-									nrepel->fft_p2_prev,
+									nrepel->fft_p2_prev_tsmooth,
 									nrepel->fft_p2_prev_env,
+									nrepel->fft_p2_prev_tpres,
 									*(nrepel->time_smoothing),
 									*(nrepel->artifact_control),
 									*(nrepel->noise_thresholds_offset),
+									*(nrepel->transient_preservation),
 									nrepel->noise_thresholds_p2,
 									nrepel->fft_size_2,
 									nrepel->fft_size,

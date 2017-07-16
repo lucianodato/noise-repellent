@@ -26,11 +26,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 //------------GAIN AND THRESHOLD CALCULATION---------------
 
 void spectral_gain_computing(float* fft_p2,
-												     float* fft_p2_prev,
+												     float* fft_p2_prev_tsmooth,
 												     float* fft_p2_prev_env,
+												     float* fft_p2_prev_tpres,
 												     float time_smoothing,
 														 float artifact_control,
 												     float noise_thresholds_offset,
+												     float transient_preservation_switch,
 												     float* noise_thresholds_p2,
 												     int fft_size_2,
 												     int fft_size,
@@ -45,6 +47,9 @@ void spectral_gain_computing(float* fft_p2,
 	float Gk_wideband_gate;
 	//float Gk_power_sustraction[fft_size_2+1];
 	float Gk_spectral_gate[fft_size_2+1];
+	float original_spectrum[fft_size_2+1];
+	memcpy(original_spectrum,fft_p2,sizeof(float)*(fft_size_2+1));
+	float transient_preservation_coeff = 1.f;
 
 	//SMOOTHING DETECTOR
 
@@ -57,20 +62,32 @@ void spectral_gain_computing(float* fft_p2,
 	//Time smoothing between current and past power spectrum (similar effect to ephraim and malah)
 	if (time_smoothing > 0.f){
 		spectrum_time_smoothing(fft_size_2,
-														fft_p2_prev,
+														fft_p2_prev_tsmooth,
 														fft_p2,
 														time_smoothing);
 
 		//Store previous power values for smoothing
-		memcpy(fft_p2_prev,fft_p2,sizeof(float)*(fft_size_2+1));
+		memcpy(fft_p2_prev_tsmooth,fft_p2,sizeof(float)*(fft_size_2+1));
 	}
 
 	//OVERSUSTRACTION
 
+	//Transient preservation using onset detection
+	if(transient_preservation_switch > 0.f){
+		transient_preservation_coeff = transient_preservation(original_spectrum,
+																													fft_p2_prev_tpres,
+																													fft_size_2);
+
+		//printf("%f\n", spectral_flux_value );
+
+		memcpy(fft_p2_prev_tpres,original_spectrum,sizeof(float)*(fft_size_2+1));
+	}
+
+
 	//Scale noise profile (equals applying an oversustraction factor in spectral sustraction)
 	//This could be adaptive using masking instead of local snr scaling TODO
 	for (k = 0; k <= fft_size_2; k++) {
-		noise_thresholds_scaled[k] = noise_thresholds_p2[k] * (noise_thresholds_offset + sqrtf(fft_p2[k]/noise_thresholds_p2[k]));
+			noise_thresholds_scaled[k] = noise_thresholds_p2[k] * (noise_thresholds_offset + sqrtf(fft_p2[k]/noise_thresholds_p2[k])) * transient_preservation_coeff;
 	}
 
 	//GAIN CALCULATION

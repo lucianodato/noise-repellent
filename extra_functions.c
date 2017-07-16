@@ -32,6 +32,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 #define M_PI 3.14159265358979323846f
 
+#define ONSET_THRESH 100.f  //For onset detection
+
 //AUXILIARY Functions
 #define MAX(a,b) (((a) > (b)) ? (a) : (b))
 #define MIN(a,b) (((a) < (b)) ? (a) : (b))
@@ -162,6 +164,24 @@ inline float spectral_moda(int n, float* x) {
       }
   }
   return x[pos_max];
+}
+
+inline float transient_preservation(float* spectrum,
+                                    float* spectrum_prev,
+                                    float N){
+  int i;
+  float spectral_flux = 0.f;
+  float temp;
+
+  for(i = 0;i <= N; i++) {
+    temp = sqrtf(spectrum[i]) - sqrtf(spectrum_prev[i]);
+    spectral_flux += (temp + fabs(temp))/2.f;
+  }
+
+  if (spectral_flux > ONSET_THRESH) //This can be better heuristic TODO
+    return 1.f/spectral_flux;
+  else
+    return 1.f;
 }
 
 //-----------WINDOW---------------
