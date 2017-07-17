@@ -34,29 +34,6 @@
     a lv2:ControlPort,
       lv2:InputPort ;
     lv2:index 0 ;
-    lv2:symbol "noise_capture" ;
-    lv2:name "Capture Noise Print",
-      "Capturar Perfil de Ruido"@es ,
-      "Capturer l'empreinte de bruit"@fr ;
-    lv2:minimum 0 ;
-    lv2:maximum 1 ;
-    lv2:default 0 ;
-    lv2:portProperty lv2:toggled, lv2:integer ;
-  ], [
-    a lv2:ControlPort,
-      lv2:InputPort ;
-    lv2:index 1 ;
-    lv2:symbol "adaptive_noise" ;
-    lv2:name "Adaptive Noise",
-    "Adaptar Ruido"@es ;
-    lv2:minimum 0 ;
-    lv2:maximum 1 ;
-    lv2:default 0 ;
-    lv2:portProperty lv2:toggled, lv2:integer ;
-  ], [
-    a lv2:ControlPort,
-      lv2:InputPort ;
-    lv2:index 2 ;
     lv2:symbol "reduction" ;
     lv2:name "Reduction Amount",
       "Cantidad de Reduccion"@es ,
@@ -68,7 +45,7 @@
   ], [
     a lv2:ControlPort,
       lv2:InputPort ;
-    lv2:index 3 ;
+    lv2:index 1 ;
     lv2:symbol "offset" ;
     lv2:name "Noise offset",
       "Compensacion de Ruido"@es ;
@@ -79,7 +56,7 @@
   ], [
     a lv2:ControlPort,
       lv2:InputPort ;
-    lv2:index 4 ;
+    lv2:index 2 ;
     lv2:symbol "smoothing" ;
     lv2:name "Smoothing",
       "Suavizado"@es ,
@@ -90,7 +67,7 @@
   ], [
     a lv2:ControlPort,
       lv2:InputPort ;
-    lv2:index 5 ;
+    lv2:index 3 ;
     lv2:symbol "artifact_control" ;
     lv2:name "Artifact Control",
       "Control de Artefactos"@es ;
@@ -100,7 +77,7 @@
   ], [
     a lv2:ControlPort,
       lv2:InputPort ;
-    lv2:index 6 ;
+    lv2:index 4 ;
     lv2:symbol "release" ;
     lv2:name "Release",
       "Relevo"@es ;
@@ -111,7 +88,7 @@
   ], [
     a lv2:ControlPort,
       lv2:InputPort ;
-    lv2:index 7 ;
+    lv2:index 5 ;
     lv2:symbol "whitening" ;
     lv2:name "Residual whitening",
       "Blanqueo de residuo"@es ;
@@ -119,19 +96,9 @@
     lv2:maximum 1.0 ;
     lv2:default 0.0 ;
   ], [
-    a lv2:OutputPort,
-      lv2:ControlPort ;
-    lv2:name "latency" ;
-    lv2:index 8 ;
-    lv2:symbol "latency" ;
-    lv2:minimum 0 ;
-    lv2:maximum 8196 ;
-    lv2:portProperty lv2:reportsLatency, lv2:integer, pprop:notOnGUI ;
-    units:unit units:frame ;
-  ], [
     a lv2:InputPort,
     lv2:ControlPort ;
-    lv2:index 9 ;
+    lv2:index 6 ;
     lv2:symbol "makeup";
     lv2:name "Makeup Gain",
       "Compensacion de Ganancia"@es ,
@@ -141,9 +108,32 @@
     lv2:maximum 20.0 ;
     units:unit units:db ;
   ], [
+    a lv2:ControlPort,
+      lv2:InputPort ;
+    lv2:index 7 ;
+    lv2:symbol "noise_capture" ;
+    lv2:name "Capture Noise Print",
+      "Capturar Perfil de Ruido"@es ,
+      "Capturer l'empreinte de bruit"@fr ;
+    lv2:minimum 0 ;
+    lv2:maximum 1 ;
+    lv2:default 0 ;
+    lv2:portProperty lv2:toggled, lv2:integer ;
+  ], [
+    a lv2:ControlPort,
+      lv2:InputPort ;
+    lv2:index 8 ;
+    lv2:symbol "adaptive_noise" ;
+    lv2:name "Adaptive Noise",
+    "Adaptar Ruido"@es ;
+    lv2:minimum 0 ;
+    lv2:maximum 1 ;
+    lv2:default 0 ;
+    lv2:portProperty lv2:toggled, lv2:integer ;
+  ], [
     a lv2:InputPort,
     lv2:ControlPort ;
-    lv2:index 10 ;
+    lv2:index 9 ;
     lv2:symbol "reset_noise_print" ;
     lv2:name "Reset Noise Print",
       "Reiniciar Perfil de Ruido"@es ,
@@ -155,7 +145,7 @@
   ], [
     a lv2:InputPort,
     lv2:ControlPort ;
-    lv2:index 11 ;
+    lv2:index 10 ;
     lv2:symbol "noise_listen" ;
     lv2:name "Noise Listen",
       "Escuchar solo Ruido"@es ,
@@ -167,7 +157,7 @@
   ], [
     a lv2:ControlPort,
       lv2:InputPort ;
-    lv2:index 12 ;
+    lv2:index 11 ;
     lv2:symbol "tappering" ;
     lv2:name "HF residual emphasis",
     "Enfasis Residuo"@es ;
@@ -178,7 +168,7 @@
   ], [
     a lv2:ControlPort,
       lv2:InputPort ;
-    lv2:index 13 ;
+    lv2:index 12 ;
     lv2:symbol "transient_preservation" ;
     lv2:name "Transient Preservation",
     "Preservacion de Transientes"@es ;
@@ -188,7 +178,7 @@
     lv2:portProperty lv2:toggled, lv2:integer ;
   ], [
     a lv2:InputPort, lv2:ControlPort ;
-    lv2:index 14 ;
+    lv2:index 13 ;
     lv2:name "Enable" ;
     lv2:symbol "enable" ;
     lv2:default 1.0 ;
@@ -196,6 +186,16 @@
     lv2:maximum 1.0 ;
     lv2:portProperty lv2:toggled, pprop:notOnGUI;
     lv2:designation <http://ardour.org/lv2/processing#enable>;
+  ], [
+    a lv2:OutputPort,
+      lv2:ControlPort ;
+    lv2:name "latency" ;
+    lv2:index 14 ;
+    lv2:symbol "latency" ;
+    lv2:minimum 0 ;
+    lv2:maximum 8196 ;
+    lv2:portProperty lv2:reportsLatency, lv2:integer, pprop:notOnGUI ;
+    units:unit units:frame ;
   ], [
     a lv2:AudioPort,
       lv2:InputPort ;

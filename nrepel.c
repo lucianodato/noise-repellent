@@ -37,27 +37,29 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define WINDOW_COMBINATION 0          //0 HANN-HANN 1 HAMMING-HANN 2 BLACKMAN-HANN
 #define OVERLAP_FACTOR 4              //4 is 75% overlap
 
+//Lookahead
+#define L_SECONDS 2.f										//lookahead seconds
 
 ///---------------------------------------------------------------------
 
 //LV2 CODE
 
 typedef enum {
-	NREPEL_CAPTURE = 0,
-	NREPEL_N_AUTO = 1,
-	NREPEL_AMOUNT = 2,
-	NREPEL_NOFFSET = 3,
-	NREPEL_SMOOTHING = 4,
-	NREPEL_ARTIFACT_CONTROL = 5,
-	NREPEL_RELEASE = 6,
-	NREPEL_WHITENING = 7,
-	NREPEL_LATENCY = 8,
-	NREPEL_MAKEUP = 9,
-	NREPEL_RESET = 10,
-	NREPEL_NOISE_LISTEN = 11,
-	NREPEL_N_TAPERING = 12,
-	NREPEL_TPRESERV = 13,
-	NREPEL_ENABLE = 14,
+	NREPEL_AMOUNT = 0,
+	NREPEL_NOFFSET = 1,
+	NREPEL_SMOOTHING = 2,
+	NREPEL_ARTIFACT_CONTROL = 3,
+	NREPEL_RELEASE = 4,
+	NREPEL_WHITENING = 5,
+	NREPEL_MAKEUP = 6,
+	NREPEL_CAPTURE = 7,
+	NREPEL_N_AUTO = 8,
+	NREPEL_RESET = 9,
+	NREPEL_NOISE_LISTEN = 10,
+	NREPEL_N_TAPERING = 11,
+	NREPEL_TPRESERV = 12,
+	NREPEL_ENABLE = 13,
+	NREPEL_LATENCY = 14,
 	NREPEL_INPUT = 15,
 	NREPEL_OUTPUT = 16,
 } PortIndex;
@@ -68,26 +70,24 @@ typedef struct {
 	float samp_rate;                  //Sample rate received from the host
 
 	//Parameters for the algorithm (user input)
-	float* capture_state;             //Capture Noise state (Manual-Off-Auto)
 	float* amount_of_reduction;       //Amount of noise to reduce in dB
 	float* noise_thresholds_offset;   //This is to scale the noise profile (over sustraction factor)
+	float* time_smoothing;            //constant that set the time smoothing coefficient (interpolation between past and present frame)
+	float* artifact_control;					//Mix between spectal gating and wideband gating
+	float* release;            	  		//Release time
 	float* whitening_factor;					//Whitening amount of the reduction
-	float* report_latency;            //Latency necessary
+	float* makeup_gain;								//Output Makeup gain
+	float* capture_state;             //Capture Noise state (Manual-Off-Auto)
+	float* adaptive_state;            //Autocapture switch
 	float* reset_print;               //Reset Noise switch
 	float* noise_listen;              //For noise only listening
-	float* time_smoothing;            //constant that set the time smoothing coefficient
-	float* attack;            	  		//attack time
-	float* release;            	  		//release time
-	float* artifact_control;					//Mix between gate reduction and power sustraction
-	float* adaptive_state;            //autocapture switch
-	float* tapering;                	//tapering switch
-	float* transient_preservation;    //transient preservation switch
+	float* tapering;                	//Tapering switch (HF emphasis for residual signal)
+	float* transient_preservation;    //Transient preservation switch
 	float* enable;                    //For soft bypass (click free bypass)
-	float* makeup_gain;
+	float* report_latency;            //Latency necessary
 
 	//Control variables
 	bool noise_thresholds_availables; //indicate whether a noise print is available or no
-
 
 	//Parameters values and arrays for the STFT
 	int fft_size;                     //FFTW input size
@@ -107,6 +107,7 @@ typedef struct {
 
 	//Buffers for processing and outputting
 	int input_latency;
+	int lookahead_n_samples ;					//Number of samples to lookahead for noise estimation
 	float* in_fifo;                   //internal input buffer
 	float* out_fifo;                  //internal output buffer
 	float* output_accum;              //FFT output accumulator
@@ -144,7 +145,7 @@ typedef struct {
 	// clock_t start, end;
 	// double cpu_time_used;
 
-	//URID
+	//LV2 state URID (Save and restore noise profile)
 	LV2_URID_Map* map;
 	LV2_URID atom_Vector;
 	LV2_URID atom_Int;
@@ -194,6 +195,7 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->noise_thresholds_availables = false;
 	nrepel->tau = (1.f - exp (-2.f * M_PI * 25.f * 64.f  / nrepel->samp_rate));
 	nrepel->wet_dry = 0.f;
+	nrepel->lookahead_n_samples  = roundf(nrepel->samp_rate*L_SECONDS);
 
 	nrepel->in_fifo = (float*)calloc(nrepel->fft_size,sizeof(float));
 	nrepel->out_fifo = (float*)calloc(nrepel->fft_size,sizeof(float));
@@ -253,15 +255,6 @@ connect_port(LV2_Handle instance,
 	Nrepel* nrepel = (Nrepel*)instance;
 
 	switch ((PortIndex)port) {
-		case NREPEL_CAPTURE:
-		nrepel->capture_state = (float*)data;
-		break;
-		case NREPEL_N_AUTO:
-		nrepel->adaptive_state = (float*)data;
-		break;
-		case NREPEL_N_TAPERING:
-		nrepel->tapering = (float*)data;
-		break;
 		case NREPEL_AMOUNT:
 		nrepel->amount_of_reduction = (float*)data;
 		break;
@@ -280,23 +273,32 @@ connect_port(LV2_Handle instance,
 		case NREPEL_WHITENING:
 		nrepel->whitening_factor = (float*)data;
 		break;
-		case NREPEL_LATENCY:
-		nrepel->report_latency = (float*)data;
-		break;
 		case NREPEL_MAKEUP:
 		nrepel->makeup_gain = (float*)data;
+		break;
+		case NREPEL_CAPTURE:
+		nrepel->capture_state = (float*)data;
+		break;
+		case NREPEL_N_AUTO:
+		nrepel->adaptive_state = (float*)data;
+		break;
+		case NREPEL_NOISE_LISTEN:
+		nrepel->noise_listen = (float*)data;
 		break;
 		case NREPEL_RESET:
 		nrepel->reset_print = (float*)data;
 		break;
-		case NREPEL_NOISE_LISTEN:
-		nrepel->noise_listen = (float*)data;
+		case NREPEL_N_TAPERING:
+		nrepel->tapering = (float*)data;
 		break;
 		case NREPEL_TPRESERV:
 		nrepel->transient_preservation = (float*)data;
 		break;
 		case NREPEL_ENABLE:
 		nrepel->enable = (float*)data;
+		break;
+		case NREPEL_LATENCY:
+		nrepel->report_latency = (float*)data;
 		break;
 		case NREPEL_INPUT:
 		nrepel->input = (const float*)data;
@@ -337,9 +339,9 @@ run(LV2_Handle instance, uint32_t n_samples) {
 	//Interpolate parameters over time softly to bypass without clicks or pops
 	nrepel->wet_dry += nrepel->tau * (nrepel->wet_dry_target - nrepel->wet_dry) + FLT_MIN;
 
-	//exponential decay coefficients for envelopes and adaptive noise profiling
-	//These must take into account the hop size as explained in the following paper
-	//FFT-BASED DYNAMIC RANGE COMPRESSION
+	/*exponential decay coefficients for envelopes and adaptive noise profiling
+		These must take into account the hop size as explained in the following paper
+		FFT-BASED DYNAMIC RANGE COMPRESSION*/
 	nrepel->release_coeff = expf(-1000.f/(((*(nrepel->release)) * nrepel->samp_rate)/ nrepel->hop) );
 
 	//printf("%f\n", nrepel->release_coeff );

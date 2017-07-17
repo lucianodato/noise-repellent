@@ -166,9 +166,9 @@ inline float spectral_moda(int n, float* x) {
   return x[pos_max];
 }
 
-inline float transient_preservation(float* spectrum,
-                                    float* spectrum_prev,
-                                    float N){
+inline float spectral_flux(float* spectrum,
+                          float* spectrum_prev,
+                          float N){
   int i;
   float spectral_flux = 0.f;
   float temp;
@@ -177,11 +177,7 @@ inline float transient_preservation(float* spectrum,
     temp = sqrtf(spectrum[i]) - sqrtf(spectrum_prev[i]);
     spectral_flux += (temp + fabs(temp))/2.f;
   }
-
-  if (spectral_flux > ONSET_THRESH) //This can be better heuristic TODO
-    return 1.f/spectral_flux;
-  else
-    return 1.f;
+  return spectral_flux;
 }
 
 //-----------WINDOW---------------
@@ -441,6 +437,8 @@ void spectral_smoothing_SG_quart(float* spectrum, int kernel_width,int N){
   }
 }
 
+//---------------TIME SMOOTHING--------------
+
 void spectrum_time_smoothing(int fft_size_2,
                                   float* prev_spectrum,
                                   float* spectrum,
@@ -515,4 +513,17 @@ void whitening_of_spectrum(float* spectrum,float b,int N){
       }
     }
   }
+}
+
+//---------------TRANSIENTS--------------
+
+inline float transient_preservation(float* spectrum,
+                                    float* spectrum_prev,
+                                    float N){
+  float spectral_flux = spectral_flux(spectrum, spectrum_prev, N);
+
+  if (spectral_flux > ONSET_THRESH) //This can be better heuristic TODO
+    return 1.f/spectral_flux;
+  else
+    return 1.f;
 }
