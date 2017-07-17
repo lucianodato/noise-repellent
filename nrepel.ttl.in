@@ -47,7 +47,7 @@
       lv2:InputPort ;
     lv2:index 1 ;
     lv2:symbol "adaptive_noise" ;
-    lv2:name "Audaptive Noise",
+    lv2:name "Adaptive Noise",
     "Adaptar Ruido"@es ;
     lv2:minimum 0 ;
     lv2:maximum 1 ;
@@ -169,8 +169,8 @@
       lv2:InputPort ;
     lv2:index 12 ;
     lv2:symbol "tappering" ;
-    lv2:name "Residual Tapering",
-    "Ventaneo de Residuo"@es ;
+    lv2:name "HF residual emphasis",
+    "Enfasis Residuo"@es ;
     lv2:minimum 0 ;
     lv2:maximum 1 ;
     lv2:default 0 ;

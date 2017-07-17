@@ -10,26 +10,21 @@ Warning!!! This plugin is meant to be used with Ardour. It will introduce latenc
 
 Using it: First select a portion of noise in your track of at least one second and loop it. Turn on Noise print capture for a bit (at least one loop). Use the reduction slider to reduce the noise.
 
-How to improve the reduction quality:
+Sliders explained:
 
-- The strength control will reduce more noise at the expense of removing low level detail in the signal. It will sound less bright.
+- Amount of reduction: Determines how much the noise floor will be reduced.
+- Noise Offset: Scales the noise print captured. Greater values will reduce more noise at the expense of removing low level detail of the signal.
+- Smoothing: Reduces the variance between frames to remove musical noise. Greater values may introduce echoes in the signal or blur transients.
+- Artifact control: Interpolate between spectral gating and wideband gating in low SNR zones. Greater values might reduce artifacts in those zones.
+- Release: Timing of spectral gate releases. Larger values will reduce artifacts but might blur nearby transients
+- Whitening: Modifies the residual noise to be more like white noise. This take into account that our ears do well discriminating sounds in white noise versus colored noise.
+- Makeup Gain: Output gain if needed.
 
-- The SNR influence control will activate the nonlinear sustraction supression rule so it will adaptively variate the reduction strenght to eliminate more noise (based on an SNR measurement) but it will supress low level details if it's pushed too hard. When this control is used, the reduction strenght turns into a second layer of strenght.
+Buttons explained:
 
-- The smoothing control will control the amount of musical noise that is present after the reduction, if it is pushed too hard it will blur transients and sound reverberant.
-
-- A whitening option for post processing is provided where the residual spectrum will be modified to sound more like white noise, taking into consideration that our ears do well in discriminating sounds in white noise versus colored noise. Furthermore it will recover some of the high frequency details and hide the low frequency noise more. Whitening is dependant of the reduction. If you reduce a lot, it won't have any effect since the noise floor is too low.
-
-- A noise listen control is provided to tune what is reduced by listening to the residual signal.
-
-- Other thing that is important is that you select a representative noise region to capture, since reduction is based on that. The longest the better. Make sure that is noise only too!
-
-- The last control available is frequency smoothing, it will reduce musical noise at the expense of some low frequency loss.
-
-- An auto learn noise feature is provided. It tries to track the noise spectrum automaticaly at the same time signal is processed. It will work best for gentle noise reduction of speech signals. Use this feature where noise is changing over time and rapidly. It will never sound as good as if you do good noise profiling yourself.
-
-General Rules:
-
-- With hum noise, do not use frequency smoothing.
-
-- With white noise you can use frequency smoothing. If you loose too much detail from the original signal, use whitening and not too much reduction. Multiple pass will reduce more noise in pauses and less during signal presence. If you use multiple passes, do gentle parameters each time and re learn noise every time.
+- Capture noise print: To manually take the noise print.
+- Adaptive Noise: To change the noise profile dynamically in time (not ready yet).
+- Reset noise print: Removes the noise print previously captured.
+- Noise listen: To hear only the residual noise.
+- HF residual emphasis: Applies a window to the residue for HF boost. This might recover HF details.
+- Transient preservation: Compute onsets to avoid distorting transients. Useful for percusive instruments.
