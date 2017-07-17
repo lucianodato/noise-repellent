@@ -37,9 +37,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define WINDOW_COMBINATION 0          //0 HANN-HANN 1 HAMMING-HANN 2 BLACKMAN-HANN
 #define OVERLAP_FACTOR 4              //4 is 75% overlap
 
-//Lookahead
-#define L_SECONDS 2.f										//lookahead seconds
-
 ///---------------------------------------------------------------------
 
 //LV2 CODE
@@ -53,7 +50,7 @@ typedef enum {
 	NREPEL_WHITENING = 5,
 	NREPEL_MAKEUP = 6,
 	NREPEL_CAPTURE = 7,
-	NREPEL_N_AUTO = 8,
+	NREPEL_N_ADAPTIVE = 8,
 	NREPEL_RESET = 9,
 	NREPEL_NOISE_LISTEN = 10,
 	NREPEL_N_TAPERING = 11,
@@ -107,7 +104,6 @@ typedef struct {
 
 	//Buffers for processing and outputting
 	int input_latency;
-	int lookahead_n_samples ;					//Number of samples to lookahead for noise estimation
 	float* in_fifo;                   //internal input buffer
 	float* out_fifo;                  //internal output buffer
 	float* output_accum;              //FFT output accumulator
@@ -195,7 +191,6 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->noise_thresholds_availables = false;
 	nrepel->tau = (1.f - exp (-2.f * M_PI * 25.f * 64.f  / nrepel->samp_rate));
 	nrepel->wet_dry = 0.f;
-	nrepel->lookahead_n_samples  = roundf(nrepel->samp_rate*L_SECONDS);
 
 	nrepel->in_fifo = (float*)calloc(nrepel->fft_size,sizeof(float));
 	nrepel->out_fifo = (float*)calloc(nrepel->fft_size,sizeof(float));
@@ -279,7 +274,7 @@ connect_port(LV2_Handle instance,
 		case NREPEL_CAPTURE:
 		nrepel->capture_state = (float*)data;
 		break;
-		case NREPEL_N_AUTO:
+		case NREPEL_N_ADAPTIVE:
 		nrepel->adaptive_state = (float*)data;
 		break;
 		case NREPEL_NOISE_LISTEN:
@@ -418,17 +413,17 @@ run(LV2_Handle instance, uint32_t n_samples) {
 				if(*(nrepel->adaptive_state) == 1.f) {
 
 					//This has to be revised(issue 8 on github)
-					auto_capture_noise(nrepel->fft_p2,//this is supposed to be the power spectrum in Loizou method
-								nrepel->fft_size_2,
-								nrepel->noise_thresholds_p2,
-								nrepel->auto_thresholds,
-								nrepel->prev_noise_thresholds,
-								nrepel->s_pow_spec,
-								nrepel->prev_s_pow_spec,
-								nrepel->p_min,
-								nrepel->prev_p_min,
-								nrepel->speech_p_p,
-								nrepel->prev_speech_p_p);
+					adapt_noise(nrepel->fft_p2,//this is supposed to be the power spectrum in Loizou method
+											nrepel->fft_size_2,
+											nrepel->noise_thresholds_p2,
+											nrepel->auto_thresholds,
+											nrepel->prev_noise_thresholds,
+											nrepel->s_pow_spec,
+											nrepel->prev_s_pow_spec,
+											nrepel->p_min,
+											nrepel->prev_p_min,
+											nrepel->speech_p_p,
+											nrepel->prev_speech_p_p);
 
 					nrepel->noise_thresholds_availables = true;
 				}
