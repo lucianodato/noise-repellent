@@ -23,41 +23,44 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include "estimate_noise_spectrum.c"
 #include "denoise_gain.c"
 
+#define ESTIMATION_INIT_OFFSET 0.01f             //Scaling for the adaptive noise estimated (often it overestimates so this scales it down)
+
 //------------GAIN AND THRESHOLD CALCULATION---------------
 
-void spectral_gain_computing(float* fft_p2,
-												     float* fft_p2_prev_tsmooth,
-												     float* fft_p2_prev_env,
-												     float* fft_p2_prev_tpres,
-												     float time_smoothing,
-														 float artifact_control,
-												     float noise_thresholds_offset,
-												     float transient_preservation_switch,
-												     float* noise_thresholds_p2,
-												     int fft_size_2,
-												     int fft_size,
-												     float* Gk,
-													 	 float* Gk_prev,
-													 	 float* Gk_prev_wide,
-														 float release_coeff){
+//MANUAL NOISE PROFILE
+void spectral_gain_manual(float* fft_p2,
+										     float* fft_p2_prev_tsmooth,
+										     float* fft_p2_prev_env,
+										     float* fft_p2_prev_tpres,
+										     float time_smoothing,
+												 float artifact_control,
+										     float noise_thresholds_offset,
+										     float transient_preservation_switch,
+										     float* noise_thresholds_p2,
+										     int fft_size_2,
+										     float* Gk,
+											 	 float* Gk_prev,
+											 	 float* Gk_prev_wide,
+												 float release_coeff){
 
-	//PREPROCESSING
 	int k;
 	float noise_thresholds_scaled[fft_size_2+1];
 	float Gk_wideband_gate;
-	//float Gk_power_sustraction[fft_size_2+1];
 	float Gk_spectral_gate[fft_size_2+1];
 	float original_spectrum[fft_size_2+1];
 	memcpy(original_spectrum,fft_p2,sizeof(float)*(fft_size_2+1));
 	float transient_preservation_coeff = 1.f;
+	float oversustraction_factor;
+
+	//PREPROCESSING
 
 	//SMOOTHING DETECTOR
 
 	//Applying envelopes to signal power spectrum
 	apply_envelope(fft_p2,
-                 fft_p2_prev_env,
-                 fft_size_2,
-                 release_coeff);
+								 fft_p2_prev_env,
+								 fft_size_2,
+								 release_coeff);
 
 	//Time smoothing between current and past power spectrum (similar effect to ephraim and malah)
 	if (time_smoothing > 0.f){
@@ -83,11 +86,11 @@ void spectral_gain_computing(float* fft_p2,
 		memcpy(fft_p2_prev_tpres,original_spectrum,sizeof(float)*(fft_size_2+1));
 	}
 
-
 	//Scale noise profile (equals applying an oversustraction factor in spectral sustraction)
-	//This could be adaptive using masking instead of local snr scaling TODO
 	for (k = 0; k <= fft_size_2; k++) {
-			noise_thresholds_scaled[k] = noise_thresholds_p2[k] * (noise_thresholds_offset * transient_preservation_coeff + sqrtf(fft_p2[k]/noise_thresholds_p2[k]));
+		//This could be adaptive using masking instead of local snr scaling TODO
+		oversustraction_factor = (noise_thresholds_offset * transient_preservation_coeff + sqrtf(fft_p2[k]/noise_thresholds_p2[k]));
+		noise_thresholds_scaled[k] = noise_thresholds_p2[k] * oversustraction_factor;
 	}
 
 	//GAIN CALCULATION
@@ -102,9 +105,9 @@ void spectral_gain_computing(float* fft_p2,
 
 	//SPECTRAL GATE
 	spectral_gating(fft_size_2,
-				fft_p2,
-				noise_thresholds_scaled,
-				Gk_spectral_gate);
+									fft_p2,
+									noise_thresholds_scaled,
+									Gk_spectral_gate);
 
 	memcpy(Gk,Gk_spectral_gate,sizeof(float)*(fft_size_2+1));
 
@@ -113,9 +116,9 @@ void spectral_gain_computing(float* fft_p2,
 	//Artifact control (applying wideband gating between pauses)
 	if(artifact_control > 0.f){
 		wideband_gating(fft_size_2,
-					fft_p2,
-					noise_thresholds_scaled,
-					&Gk_wideband_gate);
+										fft_p2,
+										noise_thresholds_scaled,
+										&Gk_wideband_gate);
 
 		for (k = 0; k <= fft_size_2; k++) {
 			//Only apply wideband gate when signal is below the threshold and scale is set by the user
@@ -123,6 +126,36 @@ void spectral_gain_computing(float* fft_p2,
 				Gk[k] = (1.f-artifact_control)*Gk[k] +  artifact_control*Gk_wideband_gate;
 		}
 	}
+
+}
+
+//ADAPTIVE NOISE PROFILE
+void spectral_gain_adaptive(float* fft_p2,
+											     float noise_thresholds_offset,
+											     float* noise_thresholds_p2,
+											     int fft_size_2,
+											     float* Gk){
+	int k;
+	float noise_thresholds_scaled[fft_size_2+1];
+	float Gk_power_sustraction[fft_size_2+1];
+	float oversustraction_factor;
+
+	//PREPROCESSING
+
+	//OVERSUSTRACTION
+	oversustraction_factor = noise_thresholds_offset * ESTIMATION_INIT_OFFSET;
+	//Scale noise profile (equals applying an oversustraction factor in spectral sustraction)
+	for (k = 0; k <= fft_size_2; k++) {
+		noise_thresholds_scaled[k] = noise_thresholds_p2[k] * oversustraction_factor;
+	}
+
+	//GAIN CALCULATION
+	power_sustraction(fft_size_2,
+							     fft_p2,
+							     noise_thresholds_scaled,
+							     Gk_power_sustraction);
+
+	memcpy(Gk,Gk_power_sustraction,sizeof(float)*(fft_size_2+1));
 }
 
 //GAIN APPLICATION
