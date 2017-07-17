@@ -174,7 +174,7 @@ inline float spectral_flux(float* spectrum,
   float temp;
 
   for(i = 0;i <= N; i++) {
-    temp = sqrtf(spectrum[i]) - sqrtf(spectrum_prev[i]);
+    temp = sqrtf(spectrum[i]) - sqrtf(spectrum_prev[i]); //Recieves power spectrum uses magnitude
     spectral_flux += (temp + fabs(temp))/2.f;
   }
   return spectral_flux;
@@ -520,10 +520,10 @@ void whitening_of_spectrum(float* spectrum,float b,int N){
 inline float transient_preservation(float* spectrum,
                                     float* spectrum_prev,
                                     float N){
-  float spectral_flux = spectral_flux(spectrum, spectrum_prev, N);
+  float spectral_flux_value = spectral_flux(spectrum, spectrum_prev, N);
 
-  if (spectral_flux > ONSET_THRESH) //This can be better heuristic TODO
-    return 1.f/spectral_flux;
+  if (spectral_flux_value > ONSET_THRESH) //This can be better heuristic TODO
+    return 1.f/spectral_flux_value;
   else
     return 1.f;
 }
