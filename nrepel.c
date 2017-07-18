@@ -448,12 +448,16 @@ run(LV2_Handle instance, uint32_t n_samples) {
 																     *(nrepel->noise_thresholds_offset),
 																     nrepel->noise_thresholds_p2,
 																     nrepel->fft_size_2,
+																		 *(nrepel->amount_of_reduction),
 																     nrepel->Gk);
 						}else{
 							spectral_gain_manual(nrepel->fft_p2,
 																			nrepel->fft_p2_prev_tsmooth,
 																			nrepel->fft_p2_prev_env,
 																			nrepel->fft_p2_prev_tpres,
+																			*(nrepel->amount_of_reduction),
+																			*(nrepel->whitening_factor),
+																			*(nrepel->tapering),
 																			*(nrepel->time_smoothing),
 																			*(nrepel->artifact_control),
 																			*(nrepel->noise_thresholds_offset),
@@ -467,13 +471,10 @@ run(LV2_Handle instance, uint32_t n_samples) {
 						}
 
 						//Gain Application
-						gain_application(*(nrepel->amount_of_reduction),
-									nrepel->fft_size_2,
+						gain_application(nrepel->fft_size_2,
 									nrepel->fft_size,
 									nrepel->output_fft_buffer,
 									nrepel->Gk,
-									*(nrepel->whitening_factor),
-									*(nrepel->tapering),
 									*(nrepel->makeup_gain),
 									nrepel->wet_dry,
 									*(nrepel->noise_listen));
