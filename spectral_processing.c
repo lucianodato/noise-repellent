@@ -33,7 +33,6 @@ void spectral_gain_manual(float* fft_p2,
 											    float* fft_p2_prev_env,
 											    float* fft_p2_prev_tpres,
 													float amount_of_reduction,
-		 											float whitening_factor,
 		 											float tapering,
 											    float time_smoothing,
 													float artifact_control,
@@ -50,15 +49,15 @@ void spectral_gain_manual(float* fft_p2,
 	float noise_thresholds_scaled[fft_size_2+1];
 	float Gk_wideband_gate;
 	float original_spectrum[fft_size_2+1];
-	memcpy(original_spectrum,fft_p2,sizeof(float)*(fft_size_2+1));
 	float transient_preservation_coeff = 1.f;
 	float oversustraction_factor;
 	float reduction_amount = from_dB(-1.f*amount_of_reduction);
-	//float tapering_filter[fft_size_2+1];
+
+	memcpy(original_spectrum,fft_p2,sizeof(float)*(fft_size_2+1));
 
 	//PREPROCESSING
 
-	//SMOOTHING DETECTOR
+	//------SMOOTHING DETECTOR------
 
 	//Applying envelopes to signal power spectrum
 	apply_envelope(fft_p2,
@@ -77,45 +76,46 @@ void spectral_gain_manual(float* fft_p2,
 		memcpy(fft_p2_prev_tsmooth,fft_p2,sizeof(float)*(fft_size_2+1));
 	}
 
-	//OVERSUSTRACTION
+	//------OVERSUSTRACTION------
 
-	//Transient preservation using onset detection
+	//Transient preservation using onset detection (very basic spectral flux)
 	if(transient_preservation_switch > 0.f){
 		transient_preservation_coeff = transient_preservation(original_spectrum,
 																													fft_p2_prev_tpres,
 																													fft_size_2);
 
-		//printf("%f\n", spectral_flux_value );
-
 		memcpy(fft_p2_prev_tpres,original_spectrum,sizeof(float)*(fft_size_2+1));
 	}
 
 	//Scale noise profile (equals applying an oversustraction factor in spectral sustraction)
+	//User scaling of thresholds
+	oversustraction_factor = noise_thresholds_offset * transient_preservation_coeff;
+
+	//Scaling noise thresholds
 	for (k = 0; k <= fft_size_2; k++) {
-		//This could be adaptive using masking instead of local snr scaling TODO
-		oversustraction_factor = noise_thresholds_offset * transient_preservation_coeff * (SNR_INFLUENCE + sqrtf(fft_p2[k]/noise_thresholds_p2[k]));
+		//Adapting threshold using local SNR as in Non linear sustraction
+		oversustraction_factor *= (SNR_INFLUENCE + sqrtf(fft_p2[k]/noise_thresholds_p2[k])); //This could be adaptive using masking instead of local snr scaling TODO
+
 		noise_thresholds_scaled[k] = noise_thresholds_p2[k] * oversustraction_factor;
 	}
 
-	//GAIN CALCULATION
+	//------GAIN CALCULATION------
 
-	//POWER SUSTRACTION FILTER
+	//Power sustraction filter
 	// power_sustraction(fft_size_2,
 	// 							    fft_p2,
 	// 									reduction_amount,
 	// 							    noise_thresholds_scaled,
-	// 							    Gk_power_sustraction);
-	//
-	// memcpy(Gk,Gk_power_sustraction,sizeof(float)*(fft_size_2+1));
+	// 							    Gk);
 
-	//SPECTRAL GATE
+	//Spectral gate
 	spectral_gating(fft_size_2,
 									fft_p2,
 									reduction_amount,
 									noise_thresholds_scaled,
 									Gk);
 
-	//POSTPROCESSING GAINS
+	//------POSTPROCESSING GAINS------
 
 	//Artifact control (applying wideband gating between pauses)
 	if(artifact_control > 0.f){
@@ -131,14 +131,10 @@ void spectral_gain_manual(float* fft_p2,
 		}
 	}
 
-	// //Whitening and tappering POSTPROCESSING
-	// if(whitening_factor > 0.f) {
-	// 	whitening_of_spectrum(residual_spectrum,whitening_factor,fft_size_2);
-	// 	if(tapering > 0.f){
-	// 		tapering_filter_calc(tapering_filter,(fft_size_2+1));
-	// 		apply_tapering_filter(residual_spectrum,tapering_filter,fft_size_2);
-	// 	}
-	// }
+	//Tappering (filter more HF)
+	if(tapering > 0.f){
+		apply_tapering_filter(Gk,fft_size_2);
+	}
 
 }
 
@@ -174,6 +170,8 @@ void gain_application(int fft_size_2,
 								      int fft_size,
 								      float* output_fft_buffer,
 								      float* Gk,
+											float whitening_factor,
+											float amount_of_reduction,
 											float makeup_gain,
 								      float wet_dry,
 								      float noise_listen){
@@ -183,6 +181,8 @@ void gain_application(int fft_size_2,
   float denoised_fft_buffer[fft_size];
   float final_fft_buffer[fft_size];
 	float gain = from_dB(makeup_gain);
+	float reduction_amount = from_dB(-1.f*amount_of_reduction);
+
 
   //Apply the computed gain to the signal and store it in denoised array
   for (k = 0; k <= fft_size_2; k++) {
@@ -198,9 +198,14 @@ void gain_application(int fft_size_2,
     residual_spectrum[fft_size-k] = output_fft_buffer[fft_size-k] - denoised_fft_buffer[fft_size-k];
   }
 
-  //Listen to processed signal or to noise only
+	//Whitening (residual spectrum more similar to white noise) POSTPROCESSING
+	if(whitening_factor > 0.f) {
+		whitening_of_residual(residual_spectrum,denoised_fft_buffer,whitening_factor,reduction_amount,fft_size_2);
+	}
+
+  //Output processed signal or to noise only
   if (noise_listen == 0.f){
-    //Mix residual and processed (Parametric way of noise reduction)
+    //Output denoised result
     for (k = 0; k <= fft_size_2; k++) {
       final_fft_buffer[k] =  denoised_fft_buffer[k];
       if(k < fft_size_2)

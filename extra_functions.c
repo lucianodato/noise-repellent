@@ -74,6 +74,69 @@ inline int Freq2Index(float freq, float samp_rate, int N) {
   return (int) (freq / (samp_rate / N / 2.f));
 }
 
+//-----------WINDOW---------------
+
+//blackman window values computing
+inline float blackman(int k, int N) {
+  float p = ((float)(k))/((float)(N));
+  return 0.42-0.5*cosf(2.f*M_PI*p) + 0.08*cosf(4.f*M_PI*p);
+}
+
+//hanning window values computing
+inline float hanning(int k, int N) {
+  float p = ((float)(k))/((float)(N));
+  return 0.5 - 0.5 * cosf(2.f*M_PI*p);
+}
+
+//hamming window values computing
+inline float hamming(int k, int N) {
+  float p = ((float)(k))/((float)(N));
+  return 0.54 - 0.46 * cosf(2.f*M_PI*p);
+}
+
+//wrapper to compute windows values
+void fft_window(float* window, int N, int window_type) {
+  int k;
+  for (k = 0; k < N; k++){
+    switch (window_type){
+      case BLACKMAN_WINDOW:
+      window[k] = blackman(k, N);
+      break;
+      case HANN_WINDOW:
+      window[k] = hanning(k, N);
+      break;
+      case HAMMING_WINDOW:
+      window[k] = hamming(k, N);
+      break;
+    }
+  }
+}
+
+//wrapper for pre and post processing windows
+void fft_pre_and_post_window(float* window_input,
+                             float* window_output,
+                             int fft_size,
+                             int window_combination,
+                             float* overlap_scale_factor) {
+  switch(window_combination){
+    case 0: // HANN-HANN
+      fft_window(window_input,fft_size,0); //STFT input window
+      fft_window(window_output,fft_size,0); //STFT output window
+      *(overlap_scale_factor) = HANN_HANN_SCALING;
+      break;
+    case 1: //HAMMING-HANN
+      fft_window(window_input,fft_size,1); //STFT input window
+      fft_window(window_output,fft_size,0); //STFT output window
+      *(overlap_scale_factor) = HAMMING_HANN_SCALING;
+      break;
+    case 2: //BLACKMAN-HANN
+      fft_window(window_input,fft_size,2); //STFT input window
+      fft_window(window_output,fft_size,0); //STFT output window
+      *(overlap_scale_factor) = BLACKMAN_HANN_SCALING;
+      break;
+  }
+}
+
 //---------SPECTRAL OPERATIONS-------------
 
 //verifies if the spectrum is full of zeros
@@ -166,6 +229,45 @@ inline float spectral_moda(int n, float* x) {
   return x[pos_max];
 }
 
+void get_normalized_spectum(float* spectrum,
+													 int N){
+
+	int k;
+	float max_value = max_spectral_value(spectrum,N);
+	float min_value = min_spectral_value(spectrum,N);
+
+	//Normalizing the noise print
+	for(k = 0 ; k <= N ; k++){
+		spectrum[k] = (spectrum[k]-min_value)/(max_value-min_value);
+	}
+}
+
+//---------------WHITENING--------------
+
+void apply_tapering_filter(float* spectrum,int N) {
+  for (int k = 0; k <= N; k++) {
+    if(spectrum[k] > FLT_MIN) {
+      spectrum[k] *= hamming(N-k, N);//Half hann window tappering in favor of high frequencies
+      // if(k < N && spectrum[(2*N)-k] > FLT_MIN) {
+      //   spectrum[(2*N)-k] *= hamming(N-k, N);//Half hann window tappering in favor of high frequencies
+      // }
+    }
+  }
+}
+
+void whitening_of_residual(float* residual,float* denoised,float b,float scale_noise_floor,int N){
+  for (int k = 0; k <= N; k++) {
+    if(residual[k] > FLT_MIN  && residual[(2*N)-k] > FLT_MIN){
+      denoised[k] += scale_noise_floor*b*(1.f - residual[k]);//(1.f - b)*spectrum[k] +
+      if(k < N){
+        denoised[(2*N)-k] += scale_noise_floor*b*(1.f - residual[(2*N)-k]);//(1.f - b)*spectrum[(2*N)-k] +
+      }
+    }
+  }
+}
+
+//---------------TRANSIENTS--------------
+
 inline float spectral_flux(float* spectrum,
                           float* spectrum_prev,
                           float N){
@@ -180,70 +282,49 @@ inline float spectral_flux(float* spectrum,
   return spectral_flux;
 }
 
-//-----------WINDOW---------------
+inline float transient_preservation(float* spectrum,
+                                    float* spectrum_prev,
+                                    float N){
+  float spectral_flux_value = spectral_flux(spectrum, spectrum_prev, N);
 
-//blackman window values computing
-inline float blackman(int k, int N) {
-  float p = ((float)(k))/((float)(N));
-  return 0.42-0.5*cosf(2.f*M_PI*p) + 0.08*cosf(4.f*M_PI*p);
+  if (spectral_flux_value > ONSET_THRESH) //This can be better heuristic TODO
+    return 1.f/spectral_flux_value;
+  else
+    return 1.f;
 }
 
-//hanning window values computing
-inline float hanning(int k, int N) {
-  float p = ((float)(k))/((float)(N));
-  return 0.5 - 0.5 * cosf(2.f*M_PI*p);
-}
+//---------------TIME SMOOTHING--------------
 
-//hamming window values computing
-inline float hamming(int k, int N) {
-  float p = ((float)(k))/((float)(N));
-  return 0.54 - 0.46 * cosf(2.f*M_PI*p);
-}
-
-//wrapper to compute windows values
-void fft_window(float* window, int N, int window_type) {
+void spectrum_time_smoothing(int fft_size_2,
+                                  float* prev_spectrum,
+                                  float* spectrum,
+                                  float coeff){
   int k;
-  for (k = 0; k < N; k++){
-    switch (window_type){
-      case BLACKMAN_WINDOW:
-      window[k] = blackman(k, N);
-      break;
-      case HANN_WINDOW:
-      window[k] = hanning(k, N);
-      break;
-      case HAMMING_WINDOW:
-      window[k] = hamming(k, N);
-      break;
+  for (k = 0; k <= fft_size_2; k++) {
+    spectrum[k] = (1.f - coeff) * spectrum[k] + coeff * prev_spectrum[k];
+  }
+}
+
+void apply_envelope(float* spectrum,
+                    float* spectrum_prev,
+                    float N,
+                    float release_coeff){
+  int k;
+
+  for (k = 0; k <= N ; k++) {
+
+    //It doesn't make much sense to have an attack slider when there is time smoothing
+    if (spectrum[k] >= spectrum_prev[k]){
+      //Release (when signal is incrementing in amplitude)
+      spectrum[k] = release_coeff*spectrum_prev[k] + (1.f-release_coeff)*spectrum[k];
     }
-  }
+
+		//Update Previous
+		spectrum_prev[k] = spectrum[k];
+	}
 }
 
-//wrapper for pre and post processing windows
-void fft_pre_and_post_window(float* window_input,
-                             float* window_output,
-                             int fft_size,
-                             int window_combination,
-                             float* overlap_scale_factor) {
-  switch(window_combination){
-    case 0: // HANN-HANN
-      fft_window(window_input,fft_size,0); //STFT input window
-      fft_window(window_output,fft_size,0); //STFT output window
-      *(overlap_scale_factor) = HANN_HANN_SCALING;
-      break;
-    case 1: //HAMMING-HANN
-      fft_window(window_input,fft_size,1); //STFT input window
-      fft_window(window_output,fft_size,0); //STFT output window
-      *(overlap_scale_factor) = HAMMING_HANN_SCALING;
-      break;
-    case 2: //BLACKMAN-HANN
-      fft_window(window_input,fft_size,2); //STFT input window
-      fft_window(window_output,fft_size,0); //STFT output window
-      *(overlap_scale_factor) = BLACKMAN_HANN_SCALING;
-      break;
-  }
-}
-
-//---------------------SMOOTHERS--------------------------
+//---------------------SPECTRAL SMOOTHERS--------------------------
 
 //Spectral smoothing with rectangular boxcar or unweighted sliding-average smooth
 void spectral_smoothing_MA(float* spectrum, int kernel_width,int N){
@@ -435,95 +516,4 @@ void spectral_smoothing_SG_quart(float* spectrum, int kernel_width,int N){
   for (k = 0; k <= N; ++k){
     spectrum[k] = smoothing_tmp[k];
   }
-}
-
-//---------------TIME SMOOTHING--------------
-
-void spectrum_time_smoothing(int fft_size_2,
-                                  float* prev_spectrum,
-                                  float* spectrum,
-                                  float coeff){
-  int k;
-  for (k = 0; k <= fft_size_2; k++) {
-    spectrum[k] = (1.f - coeff) * spectrum[k] + coeff * prev_spectrum[k];
-  }
-}
-
-void apply_envelope(float* spectrum,
-                    float* spectrum_prev,
-                    float N,
-                    float release_coeff){
-  int k;
-
-  for (k = 0; k <= N ; k++) {
-
-    //It doesn't make much sense to have an attack slider when there is time smoothing
-    if (spectrum[k] >= spectrum_prev[k]){
-      //Release (when signal is incrementing in amplitude)
-      spectrum[k] = release_coeff*spectrum_prev[k] + (1.f-release_coeff)*spectrum[k];
-    }
-
-		//Update Previous
-		spectrum_prev[k] = spectrum[k];
-	}
-}
-
-//---------------WHITENING--------------
-
-//Normalize spectrum
-void get_normalized_spectum(float* spectrum,
-													 int N){
-
-	int k;
-	float max_value = max_spectral_value(spectrum,N);
-	float min_value = min_spectral_value(spectrum,N);
-
-	//Normalizing the noise print
-	for(k = 0 ; k <= N ; k++){
-		spectrum[k] = (spectrum[k]-min_value)/(max_value-min_value);
-	}
-}
-
-//Normalized Hann windows for whitening tappering
-void tapering_filter_calc(float* filter, int N) {
-  int k;
-  for (k = 0; k <= N; k++){
-    filter[k] = hamming(k, N);//Half hann window tappering in favor of high frequencies
-  }
-}
-
-void apply_tapering_filter(float* spectrum,float* filter,int N) {
-  for (int k = 0; k <= N; k++) {
-    if(spectrum[k] > FLT_MIN && spectrum[(2*N)-k] > FLT_MIN) {
-      spectrum[k] *= filter[N-k];//Half hann window tappering in favor of high frequencies
-      if(k < N) {
-        spectrum[(2*N)-k] *= filter[N-k];//Half hann window tappering in favor of high frequencies
-      }
-    }
-  }
-}
-
-void whitening_of_spectrum(float* spectrum,float b,int N){
-
-  for (int k = 0; k <= N; k++) {
-    if(spectrum[k] > FLT_MIN && spectrum[(2*N)-k] > FLT_MIN){
-      spectrum[k] = (1.f - b)*spectrum[k] + b*(1.f - spectrum[k]);
-      if(k < N){
-        spectrum[(2*N)-k] = (1.f - b)*spectrum[(2*N)-k] + b*(1.f - spectrum[(2*N)-k]);
-      }
-    }
-  }
-}
-
-//---------------TRANSIENTS--------------
-
-inline float transient_preservation(float* spectrum,
-                                    float* spectrum_prev,
-                                    float N){
-  float spectral_flux_value = spectral_flux(spectrum, spectrum_prev, N);
-
-  if (spectral_flux_value > ONSET_THRESH) //This can be better heuristic TODO
-    return 1.f/spectral_flux_value;
-  else
-    return 1.f;
 }

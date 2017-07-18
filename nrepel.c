@@ -452,32 +452,33 @@ run(LV2_Handle instance, uint32_t n_samples) {
 																     nrepel->Gk);
 						}else{
 							spectral_gain_manual(nrepel->fft_p2,
-																			nrepel->fft_p2_prev_tsmooth,
-																			nrepel->fft_p2_prev_env,
-																			nrepel->fft_p2_prev_tpres,
-																			*(nrepel->amount_of_reduction),
-																			*(nrepel->whitening_factor),
-																			*(nrepel->tapering),
-																			*(nrepel->time_smoothing),
-																			*(nrepel->artifact_control),
-																			*(nrepel->noise_thresholds_offset),
-																			*(nrepel->transient_preservation),
-																			nrepel->noise_thresholds_p2,
-																			nrepel->fft_size_2,
-																			nrepel->Gk,
-																			nrepel->Gk_prev,
-																			nrepel->Gk_prev_wide,
-																			nrepel->release_coeff);
+																	nrepel->fft_p2_prev_tsmooth,
+																	nrepel->fft_p2_prev_env,
+																	nrepel->fft_p2_prev_tpres,
+																	*(nrepel->amount_of_reduction),
+																	*(nrepel->tapering),
+																	*(nrepel->time_smoothing),
+																	*(nrepel->artifact_control),
+																	*(nrepel->noise_thresholds_offset),
+																	*(nrepel->transient_preservation),
+																	nrepel->noise_thresholds_p2,
+																	nrepel->fft_size_2,
+																	nrepel->Gk,
+																	nrepel->Gk_prev,
+																	nrepel->Gk_prev_wide,
+																	nrepel->release_coeff);
 						}
 
 						//Gain Application
 						gain_application(nrepel->fft_size_2,
-									nrepel->fft_size,
-									nrepel->output_fft_buffer,
-									nrepel->Gk,
-									*(nrepel->makeup_gain),
-									nrepel->wet_dry,
-									*(nrepel->noise_listen));
+															nrepel->fft_size,
+															nrepel->output_fft_buffer,
+															nrepel->Gk,
+															*(nrepel->whitening_factor),
+															*(nrepel->amount_of_reduction),
+															*(nrepel->makeup_gain),
+															nrepel->wet_dry,
+															*(nrepel->noise_listen));
 					}
 				}
 			}
