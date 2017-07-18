@@ -29,9 +29,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 //for auto_thresholds initialization
 #define CROSSOVER_POINT1 1000.f     //crossover point for loizou reference thresholds
 #define CROSSOVER_POINT2 3000.f     //crossover point for loizou reference thresholds
-#define BAND_1_GAIN 3.f             //gain for the band
-#define BAND_2_GAIN 2.f             //gain for the band
-#define BAND_3_GAIN 5.f             //gain for the band
+#define BAND_1_GAIN 2.0f             //gain for the band
+#define BAND_2_GAIN 2.0f             //gain for the band
+#define BAND_3_GAIN 3.0f            //gain for the band
 
 //This thresholds will dictate how louizou algorithm recognizes noise
 void compute_auto_thresholds(float* auto_thresholds,
@@ -43,15 +43,16 @@ void compute_auto_thresholds(float* auto_thresholds,
 	int LF = Freq2Index(CROSSOVER_POINT1,samp_rate,fft_size);//1kHz
 	int MF = Freq2Index(CROSSOVER_POINT2,samp_rate,fft_size);//3kHz
 	for (int k = 0;k <= fft_size_2; k++){
-		if(k < LF){
+		if(k <= LF){
 			auto_thresholds[k] = BAND_1_GAIN;
 		}
 		if(k > LF && k < MF){
 			auto_thresholds[k] = BAND_2_GAIN;
 		}
-		if(k > MF){
+		if(k >= MF){
 			auto_thresholds[k] = BAND_3_GAIN;
 		}
+		printf("%f\n", auto_thresholds[k]);
 	}
 }
 
@@ -78,7 +79,7 @@ static void estimate_noise_loizou(float* thresh,
     s_pow_spec[k] = N_SMOOTH * prev_s_pow_spec[k] + (1.f-N_SMOOTH) * p2[k]; //interpolation between
 
     //2- Compute the local minimum of noisy speech
-    if(prev_p_min < s_pow_spec) {
+    if(prev_p_min[k] < s_pow_spec[k]) {
       p_min[k] = GAMMA * prev_p_min[k] + ((1.f-GAMMA)/(1.f-BETA_AT)) * (s_pow_spec[k] - BETA_AT * prev_s_pow_spec[k]);
     } else {
       p_min[k] = s_pow_spec[k];

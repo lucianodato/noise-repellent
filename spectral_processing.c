@@ -23,8 +23,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include "estimate_noise_spectrum.c"
 #include "denoise_gain.c"
 
-#define ESTIMATION_INIT_OFFSET 0.01f             //Scaling for the adaptive noise estimated (often it overestimates so this scales it down)
-
 //------------GAIN AND THRESHOLD CALCULATION---------------
 
 //MANUAL NOISE PROFILE
@@ -131,29 +129,27 @@ void spectral_gain_manual(float* fft_p2,
 
 //ADAPTIVE NOISE PROFILE
 void spectral_gain_adaptive(float* fft_p2,
-											     float noise_thresholds_offset,
-											     float* noise_thresholds_p2,
-											     int fft_size_2,
-											     float* Gk){
+												    float noise_thresholds_offset,
+												    float* noise_thresholds_p2,
+												    int fft_size_2,
+												    float* Gk){
 	int k;
 	float noise_thresholds_scaled[fft_size_2+1];
 	float Gk_power_sustraction[fft_size_2+1];
-	float oversustraction_factor;
 
 	//PREPROCESSING
 
 	//OVERSUSTRACTION
-	oversustraction_factor = noise_thresholds_offset * ESTIMATION_INIT_OFFSET;
 	//Scale noise profile (equals applying an oversustraction factor in spectral sustraction)
 	for (k = 0; k <= fft_size_2; k++) {
-		noise_thresholds_scaled[k] = noise_thresholds_p2[k] * oversustraction_factor;
+		noise_thresholds_scaled[k] = noise_thresholds_p2[k] * noise_thresholds_offset;
 	}
 
 	//GAIN CALCULATION
 	power_sustraction(fft_size_2,
-							     fft_p2,
-							     noise_thresholds_scaled,
-							     Gk_power_sustraction);
+								    fft_p2,
+								    noise_thresholds_scaled,
+								    Gk_power_sustraction);
 
 	memcpy(Gk,Gk_power_sustraction,sizeof(float)*(fft_size_2+1));
 }
