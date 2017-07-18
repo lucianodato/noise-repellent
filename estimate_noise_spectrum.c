@@ -19,55 +19,55 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 #include "extra_functions.c"
 
-//For louizou algorithm
+//For louizou algorith
 #define N_SMOOTH 0.7f                //Smoothing over the power spectrum [0.9 - previous / 0.7 - actual]
 #define BETA_AT 0.8f                 //Adaption time of the local minimun [1 - slower / 0 - faster]
 #define GAMMA 0.998f                 //Smoothing factor over local minimun [1 - previous / 0 - actual]
 #define ALPHA_P 0.2f                 //smoothing constant over speech presence [1 - previous / 0 - actual]
-#define ALPHA_D 0.99f                //time–frequency dependent smoothing [0-1] [1 - previous / 0 - actual]
+#define ALPHA_D 0.95f                //time–frequency dependent smoothing [0-1] [1 - previous / 0 - actual]
 
 //for auto_thresholds initialization
 #define CROSSOVER_POINT1 1000.f     //crossover point for loizou reference thresholds
 #define CROSSOVER_POINT2 3000.f     //crossover point for loizou reference thresholds
-#define BAND_1_GAIN 2.f             //gain for the band
-#define BAND_2_GAIN 2.f             //gain for the band
-#define BAND_3_GAIN 2.f             //gain for the band
-
+#define BAND_1_GAIN 2.0f             //gain for the band
+#define BAND_2_GAIN 2.0f             //gain for the band
+#define BAND_3_GAIN 5.0f            //gain for the band
 
 //This thresholds will dictate how louizou algorithm recognizes noise
 void compute_auto_thresholds(float* auto_thresholds,
-                             float fft_size,
-                             float fft_size_2,
-                             float samp_rate){
+												     float fft_size,
+												     float fft_size_2,
+												     float samp_rate){
 
   //This was experimentally obteined in louizou paper
 	int LF = Freq2Index(CROSSOVER_POINT1,samp_rate,fft_size);//1kHz
 	int MF = Freq2Index(CROSSOVER_POINT2,samp_rate,fft_size);//3kHz
 	for (int k = 0;k <= fft_size_2; k++){
-		if(k < LF){
+		if(k <= LF){
 			auto_thresholds[k] = BAND_1_GAIN;
 		}
 		if(k > LF && k < MF){
 			auto_thresholds[k] = BAND_2_GAIN;
 		}
-		if(k > MF){
+		if(k >= MF){
 			auto_thresholds[k] = BAND_3_GAIN;
 		}
+		printf("%f\n", auto_thresholds[k]);
 	}
 }
 
 //Loizou noise-estimation algorithm for highly non-stationary environments
 static void estimate_noise_loizou(float* thresh,
-                      int fft_size_2,
-                      float* p2,
-                      float* s_pow_spec,
-                      float* prev_s_pow_spec,
-                      float* noise_thresholds_p2,
-                      float* prev_noise,
-                      float* p_min,
-                      float* prev_p_min,
-                      float* speech_p_p,
-                      float* prev_speech_p_p) {
+																  int fft_size_2,
+																  float* p2,
+																  float* s_pow_spec,
+																  float* prev_s_pow_spec,
+																  float* noise_thresholds_p2,
+																  float* prev_noise,
+																  float* p_min,
+																  float* prev_p_min,
+																  float* speech_p_p,
+																  float* prev_speech_p_p) {
 
   int k;
   float ratio_ns = 0.f;
@@ -79,7 +79,7 @@ static void estimate_noise_loizou(float* thresh,
     s_pow_spec[k] = N_SMOOTH * prev_s_pow_spec[k] + (1.f-N_SMOOTH) * p2[k]; //interpolation between
 
     //2- Compute the local minimum of noisy speech
-    if(prev_p_min < s_pow_spec) {
+    if(prev_p_min[k] < s_pow_spec[k]) {
       p_min[k] = GAMMA * prev_p_min[k] + ((1.f-GAMMA)/(1.f-BETA_AT)) * (s_pow_spec[k] - BETA_AT * prev_s_pow_spec[k]);
     } else {
       p_min[k] = s_pow_spec[k];
@@ -108,50 +108,44 @@ static void estimate_noise_loizou(float* thresh,
 
 
 //Automatic noise threshold estimation
-void auto_capture_noise(float* p2,
-                        int fft_size_2,
-                        float* noise_thresholds_p2,
-                        float* noise_thresholds_magnitude,
-                        float* thresh,
-                        float* prev_noise_thresholds,
-                        float* s_pow_spec,
-                        float* prev_s_pow_spec,
-                        float* p_min,
-                        float* prev_p_min,
-                        float* speech_p_p,
-                        float* prev_speech_p_p){
-  int k;
+void adapt_noise(float* p2,
+								int fft_size_2,
+								float* noise_thresholds_p2,
+								float* thresh,
+								float* prev_noise_thresholds,
+								float* s_pow_spec,
+								float* prev_s_pow_spec,
+								float* p_min,
+								float* prev_p_min,
+								float* speech_p_p,
+								float* prev_speech_p_p){
 
   //Loizou noise-estimation algorithm for highly non-stationary environments
   estimate_noise_loizou(thresh,
-                        fft_size_2,
-                        p2,
-                        s_pow_spec,
-                        prev_s_pow_spec,
-                        noise_thresholds_p2,
-                        prev_noise_thresholds,
-                        p_min,
-                        prev_p_min,
-                        speech_p_p,
-                        prev_speech_p_p);
+												fft_size_2,
+												p2,
+												s_pow_spec,
+												prev_s_pow_spec,
+												noise_thresholds_p2,
+												prev_noise_thresholds,
+												p_min,
+												prev_p_min,
+												speech_p_p,
+												prev_speech_p_p);
 
   //Update previous variables
-  for(k = 0 ; k <= fft_size_2 ; k++) {
-    prev_noise_thresholds[k] = noise_thresholds_p2[k];
-    prev_s_pow_spec[k] = s_pow_spec[k];
-    prev_p_min[k] = p_min[k];
-    prev_speech_p_p[k] = speech_p_p[k];
-    noise_thresholds_magnitude[k] = sqrtf(noise_thresholds_p2[k]);
-  }
+	memcpy(prev_noise_thresholds,noise_thresholds_p2,sizeof(float)*(fft_size_2+1));
+	memcpy(prev_s_pow_spec,s_pow_spec,sizeof(float)*(fft_size_2+1));
+	memcpy(prev_p_min,p_min,sizeof(float)*(fft_size_2+1));
+	memcpy(prev_speech_p_p,speech_p_p,sizeof(float)*(fft_size_2+1));
+
 }
 
 //Manual Capture threshold estimation
 void get_noise_statistics(float* fft_p2,
-                          float* fft_magnitude,
-                          int fft_size_2,
-                          float* noise_thresholds_p2,
-                          float* noise_thresholds_magnitude,
-                          float* window_count) {
+												  int fft_size_2,
+												  float* noise_thresholds_p2,
+												  float* window_count) {
   int k;
 
   *(window_count) += 1.f;
@@ -160,10 +154,8 @@ void get_noise_statistics(float* fft_p2,
   for(k = 0 ; k <= fft_size_2 ; k++) {
     if(*(window_count) <= 1.f){
       noise_thresholds_p2[k] = fft_p2[k];
-      noise_thresholds_magnitude[k] = fft_magnitude[k];
     } else {
       noise_thresholds_p2[k] += ((fft_p2[k] - noise_thresholds_p2[k])/ *(window_count)); //rolling mean
-      noise_thresholds_magnitude[k] += ((fft_magnitude[k] - noise_thresholds_magnitude[k])/ *(window_count)); //rolling mean
     }
   }
 }

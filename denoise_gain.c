@@ -20,42 +20,117 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <float.h>
 #include <math.h>
 
-#define SCALING_FACTOR 10.f //scaling factor for non linear power sustraction
-
 //Non linear Power Sustraction
-void nonlinear_power_sustraction(float reduction_strenght,
-                       float snr_influence,
-                       int fft_size_2,
-                       float* spectrum,
-                       float* noise_thresholds,
-                       float* Gk) {
-  int k;
-  float gain, Fk, alpha;
+void nonlinear_power_sustraction(float snr_influence,
+				 int fft_size_2,
+				 float* spectrum,
+				 float* noise_thresholds,
+				 float* Gk) {
+	int k;
+	float gain, Fk, alpha;
 
-  for (k = 0; k <= fft_size_2 ; k++) {
-    if (noise_thresholds[k] > FLT_MIN){
-      if(spectrum[k] > 0.f){
-        if(snr_influence > 0){
-          alpha = snr_influence + sqrtf(spectrum[k]/noise_thresholds[k]);
-        }else{
-          alpha = 1.f;//Non linear spectral sustraction off
-        }
-        gain = MAX(spectrum[k]-alpha*noise_thresholds[k], 0.f) / spectrum[k];
-      } else {
-        gain = 0.f;
-      }
+	for (k = 0; k <= fft_size_2 ; k++) {
+		if (noise_thresholds[k] > FLT_MIN){
+			if(spectrum[k] > 0.f){
+				if(snr_influence > 0.f){
+					alpha = snr_influence + sqrtf(spectrum[k]/noise_thresholds[k]);
+				}else{
+					alpha = 1.f;//Non linear spectral sustraction off
+				}
+				gain = MAX(spectrum[k]-alpha*noise_thresholds[k], 0.f) / spectrum[k];
+			} else {
+				gain = 0.f;
+			}
 
-      //Use reduction_strenght
-      Fk = reduction_strenght*(1.f-gain);
+			//Avoid invalid gain numbers
+			Fk = (1.f-gain);
 
-      if(Fk < 0.f) Fk = 0.f;
-      if(Fk > 1.f) Fk = 1.f;
+			if(Fk < 0.f) Fk = 0.f;
+			if(Fk > 1.f) Fk = 1.f;
 
-      Gk[k] =  1.f - Fk;
+			Gk[k] =  1.f - Fk;
 
-    } else {
-      //Otherwise we keep everything as is
-      Gk[k] = 1.f;
-    }
-  }
+		} else {
+			//Otherwise we keep everything as is
+			Gk[k] = 1.f;
+		}
+	}
+}
+
+//Power Sustraction
+void power_sustraction(int fft_size_2,
+		       float* spectrum,
+		       float* noise_thresholds,
+		       float* Gk) {
+
+	int k;
+
+	for (k = 0; k <= fft_size_2 ; k++) {
+		if (noise_thresholds[k] > FLT_MIN){
+			if(spectrum[k] > noise_thresholds[k]){
+				Gk[k] = (spectrum[k]-noise_thresholds[k]) / spectrum[k];
+			} else {
+				Gk[k] = 0.f;
+			}
+		} else {
+			//Otherwise we keep everything as is
+			Gk[k] = 1.f;
+		}
+	}
+}
+
+//Gating with envelope smoothing
+void spectral_gating(int fft_size_2,
+	    float* spectrum,
+	    float* noise_thresholds,
+	    float* Gk) {
+
+	int k;
+
+	for (k = 0; k <= fft_size_2 ; k++) {
+		if (noise_thresholds[k] > FLT_MIN){
+			//Hard knee
+			if (spectrum[k] >= noise_thresholds[k]){
+				//over the threshold
+				Gk[k] = 1.f;
+			}else{
+				//under the threshold
+				Gk[k] = 0.f;
+			}
+		} else {
+			//Otherwise we keep everything as is
+			Gk[k] = 1.f;
+		}
+	}
+}
+
+void wideband_gating(int fft_size_2,
+	    float* spectrum,
+	    float* noise_thresholds,
+	    float* Gk) {
+
+	int k;
+	float x_value = 0.f, n_value = 0.f;
+
+	//This probably could be better TODO
+	for (k = 0; k <= fft_size_2 ; k++) {
+		x_value +=  spectrum[k];
+		n_value += noise_thresholds[k];
+	}
+
+	if (n_value > FLT_MIN){
+
+		//Hard knee
+		if (x_value >= n_value){
+			//over the threshold
+			*Gk = 1.f;
+		}else{
+			//under the threshold
+			*Gk = 0.f;
+		}
+	} else {
+		//Otherwise we keep everything as is
+		*Gk = 1.f;
+	}
+
 }
