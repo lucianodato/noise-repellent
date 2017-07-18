@@ -615,10 +615,11 @@ restorestate(LV2_Handle       instance,
 	//Deactivate any denoising before loading any noise profile
 	nrepel->noise_thresholds_availables = false;
 
+	nrepel->noise_thresholds_availables = false;
+
 	//Copy to local variables
 	memcpy(nrepel->noise_thresholds_p2, (float*) LV2_ATOM_BODY(vecFFTp2), (nrepel->fft_size_2+1)*sizeof(float));
 
-	//this might not be necessary if thresholds are already available
 	const float* wincount = retrieve(handle, nrepel->prop_nwindow, &size, &type, &valflags);
 	if (fftsize && type == nrepel->atom_Float) {
 		nrepel->window_count = *wincount;
