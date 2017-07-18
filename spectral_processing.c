@@ -44,7 +44,6 @@ void spectral_gain_manual(float* fft_p2,
 	int k;
 	float noise_thresholds_scaled[fft_size_2+1];
 	float Gk_wideband_gate;
-	float Gk_spectral_gate[fft_size_2+1];
 	float original_spectrum[fft_size_2+1];
 	memcpy(original_spectrum,fft_p2,sizeof(float)*(fft_size_2+1));
 	float transient_preservation_coeff = 1.f;
@@ -105,9 +104,7 @@ void spectral_gain_manual(float* fft_p2,
 	spectral_gating(fft_size_2,
 									fft_p2,
 									noise_thresholds_scaled,
-									Gk_spectral_gate);
-
-	memcpy(Gk,Gk_spectral_gate,sizeof(float)*(fft_size_2+1));
+									Gk);
 
 	//POSTPROCESSING GAINS
 
@@ -135,7 +132,6 @@ void spectral_gain_adaptive(float* fft_p2,
 												    float* Gk){
 	int k;
 	float noise_thresholds_scaled[fft_size_2+1];
-	float Gk_power_sustraction[fft_size_2+1];
 
 	//PREPROCESSING
 
@@ -149,9 +145,7 @@ void spectral_gain_adaptive(float* fft_p2,
 	power_sustraction(fft_size_2,
 								    fft_p2,
 								    noise_thresholds_scaled,
-								    Gk_power_sustraction);
-
-	memcpy(Gk,Gk_power_sustraction,sizeof(float)*(fft_size_2+1));
+								    Gk);
 }
 
 //GAIN APPLICATION

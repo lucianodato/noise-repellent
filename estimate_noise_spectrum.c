@@ -19,19 +19,19 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 #include "extra_functions.c"
 
-//For louizou algorithm
+//For louizou algorith
 #define N_SMOOTH 0.7f                //Smoothing over the power spectrum [0.9 - previous / 0.7 - actual]
 #define BETA_AT 0.8f                 //Adaption time of the local minimun [1 - slower / 0 - faster]
 #define GAMMA 0.998f                 //Smoothing factor over local minimun [1 - previous / 0 - actual]
 #define ALPHA_P 0.2f                 //smoothing constant over speech presence [1 - previous / 0 - actual]
-#define ALPHA_D 0.99f                //time–frequency dependent smoothing [0-1] [1 - previous / 0 - actual]
+#define ALPHA_D 0.95f                //time–frequency dependent smoothing [0-1] [1 - previous / 0 - actual]
 
 //for auto_thresholds initialization
 #define CROSSOVER_POINT1 1000.f     //crossover point for loizou reference thresholds
 #define CROSSOVER_POINT2 3000.f     //crossover point for loizou reference thresholds
 #define BAND_1_GAIN 2.0f             //gain for the band
 #define BAND_2_GAIN 2.0f             //gain for the band
-#define BAND_3_GAIN 3.0f            //gain for the band
+#define BAND_3_GAIN 5.0f            //gain for the band
 
 //This thresholds will dictate how louizou algorithm recognizes noise
 void compute_auto_thresholds(float* auto_thresholds,
