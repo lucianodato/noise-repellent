@@ -23,7 +23,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include "estimate_noise_spectrum.c"
 #include "denoise_gain.c"
 
-#define SNR_INFLUENCE 1.0f    //local SNR Influence for threshold scaing (from non linear sustraction)
+#define SNR_INFLUENCE 1.0    //local SNR Influence for threshold scaing (from non linear sustraction)
 
 //------------GAIN AND THRESHOLD CALCULATION---------------
 
@@ -33,7 +33,6 @@ void spectral_gain_manual(float* fft_p2,
 											    float* fft_p2_prev_env,
 											    float* fft_p2_prev_tpres,
 													float amount_of_reduction,
-		 											float tapering,
 											    float time_smoothing,
 													float artifact_control,
 											    float noise_thresholds_offset,
@@ -66,7 +65,7 @@ void spectral_gain_manual(float* fft_p2,
 								 release_coeff);
 
 	//Time smoothing between current and past power spectrum (similar effect to ephraim and malah)
-	if (time_smoothing > 0.f){
+	if (time_smoothing > 0.f){ //Issue 33 TODO
 		spectrum_time_smoothing(fft_size_2,
 														fft_p2_prev_tsmooth,
 														fft_p2,
@@ -87,15 +86,10 @@ void spectral_gain_manual(float* fft_p2,
 		memcpy(fft_p2_prev_tpres,original_spectrum,sizeof(float)*(fft_size_2+1));
 	}
 
-	//Scale noise profile (equals applying an oversustraction factor in spectral sustraction)
-	//User scaling of thresholds
-	oversustraction_factor = noise_thresholds_offset * transient_preservation_coeff;
-
-	//Scaling noise thresholds
+	//Scale noise thresholds (equals applying an oversustraction factor in spectral sustraction)
 	for (k = 0; k <= fft_size_2; k++) {
 		//Adapting threshold using local SNR as in Non linear sustraction
-		oversustraction_factor *= (SNR_INFLUENCE + sqrtf(fft_p2[k]/noise_thresholds_p2[k])); //This could be adaptive using masking instead of local snr scaling TODO
-
+		oversustraction_factor = noise_thresholds_offset * transient_preservation_coeff * (SNR_INFLUENCE + sqrtf(fft_p2[k]/noise_thresholds_p2[k])); //This could be adaptive using masking instead of local snr scaling TODO
 		noise_thresholds_scaled[k] = noise_thresholds_p2[k] * oversustraction_factor;
 	}
 
@@ -130,12 +124,6 @@ void spectral_gain_manual(float* fft_p2,
 				Gk[k] = (1.f-artifact_control)*Gk[k] +  artifact_control*Gk_wideband_gate;
 		}
 	}
-
-	//Tappering (filter more HF)
-	if(tapering > 0.f){
-		apply_tapering_filter(Gk,fft_size_2);
-	}
-
 }
 
 //ADAPTIVE NOISE PROFILE
@@ -171,6 +159,7 @@ void gain_application(int fft_size_2,
 								      float* output_fft_buffer,
 								      float* Gk,
 											float whitening_factor,
+											float tapering,
 											float amount_of_reduction,
 											float makeup_gain,
 								      float wet_dry,
@@ -198,10 +187,15 @@ void gain_application(int fft_size_2,
     residual_spectrum[fft_size-k] = output_fft_buffer[fft_size-k] - denoised_fft_buffer[fft_size-k];
   }
 
-	//Whitening (residual spectrum more similar to white noise) POSTPROCESSING
+	//POSTPROCESSING RESIDUAL
+
+	//Whitening (residual spectrum more similar to white noise)
+	//Tappering (avoid filtering HF)
 	if(whitening_factor > 0.f) {
-		whitening_of_residual(residual_spectrum,denoised_fft_buffer,whitening_factor,reduction_amount,fft_size_2);
+		whitening_and_tapering(residual_spectrum,denoised_fft_buffer,whitening_factor,reduction_amount,tapering,fft_size_2);
 	}
+
+	//OUTPUT RESULTS
 
   //Output processed signal or to noise only
   if (noise_listen == 0.f){
