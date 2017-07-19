@@ -35,7 +35,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 //STFT default values (These are standard values)
 #define FFT_SIZE 2048                 //max should be 8192 otherwise is too expensive
 #define WINDOW_COMBINATION 0          //0 HANN-HANN 1 HAMMING-HANN 2 BLACKMAN-HANN
-#define OVERLAP_FACTOR 4              //4 is 75% overlap
+#define OVERLAP_FACTOR 4              //4 is 75% overlap 2 is 50%
 
 ///---------------------------------------------------------------------
 
@@ -122,6 +122,7 @@ typedef struct {
 	float* fft_p2_prev_env;           //power spectum of previous frame
 	float* fft_p2_prev_tpres;           //power spectum of previous frame
 	float* noise_thresholds_p2;       //captured noise print power spectrum
+	float* fft_magnitude;             //magnitude spectrum
 
 	//Reduction gains
 	float* Gk;			  								//definitive gain
@@ -209,6 +210,7 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->fft_p2_prev_env = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->fft_p2_prev_tpres = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->noise_thresholds_p2 = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
+	nrepel->fft_magnitude = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 
 	nrepel->Gk = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->Gk_prev = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
@@ -397,15 +399,23 @@ run(LV2_Handle instance, uint32_t n_samples) {
 				//Get the magnitude and power spectrum
 				if(k < nrepel->fft_size){
 					nrepel->p2 = (nrepel->real_p*nrepel->real_p + nrepel->imag_n*nrepel->imag_n);
+					nrepel->mag = sqrtf(nrepel->p2);//sqrt(real^2+imag^2)
 				} else {
 					//Nyquist - this is due to half complex transform look at http://www.fftw.org/doc/The-Halfcomplex_002dformat-DFT.html
 					nrepel->p2 = nrepel->real_p*nrepel->real_p;
+					nrepel->mag = nrepel->real_p;
 				}
 				//Store values in magnitude and power arrays (this stores the positive spectrum only)
 				nrepel->fft_p2[k] = nrepel->p2;
+				nrepel->fft_magnitude[k] = nrepel->mag; //This is not used but part of the STFT transform for generic use
 			}
 
 			/////////////////////SPECTRAL PROCESSING//////////////////////////
+
+			/*This section countains the specific noise reduction processing blocks
+				but it could be replaced with any spectral processing (I'm looking at you future tinkerer)
+				Parameters for the STFT transform can be changed at the top of this file
+			*/
 
 			//If the spectrum is not silence
 			if(!is_empty(nrepel->fft_p2,nrepel->fft_size_2)){
@@ -443,30 +453,22 @@ run(LV2_Handle instance, uint32_t n_samples) {
 					//If there is a noise profile reduce noise
 					if (nrepel->noise_thresholds_availables == true) {
 						//Gain Calculation
-						if(*nrepel->adaptive_state > 0.f){
-							spectral_gain_adaptive(nrepel->fft_p2,
-																     *(nrepel->noise_thresholds_offset),
-																     nrepel->noise_thresholds_p2,
-																     nrepel->fft_size_2,
-																		 *(nrepel->amount_of_reduction),
-																     nrepel->Gk);
-						}else{
-							spectral_gain_manual(nrepel->fft_p2,
-																	nrepel->fft_p2_prev_tsmooth,
-																	nrepel->fft_p2_prev_env,
-																	nrepel->fft_p2_prev_tpres,
-																	*(nrepel->amount_of_reduction),
-																	*(nrepel->time_smoothing),
-																	*(nrepel->artifact_control),
-																	*(nrepel->noise_thresholds_offset),
-																	*(nrepel->transient_preservation),
-																	nrepel->noise_thresholds_p2,
-																	nrepel->fft_size_2,
-																	nrepel->Gk,
-																	nrepel->Gk_prev,
-																	nrepel->Gk_prev_wide,
-																	nrepel->release_coeff);
-						}
+						spectral_gain(nrepel->fft_p2,
+													nrepel->fft_p2_prev_tsmooth,
+													nrepel->fft_p2_prev_env,
+													nrepel->fft_p2_prev_tpres,
+													*(nrepel->amount_of_reduction),
+													*(nrepel->time_smoothing),
+													*(nrepel->artifact_control),
+													*(nrepel->noise_thresholds_offset),
+													*(nrepel->transient_preservation),
+													*(nrepel->adaptive_state),
+													nrepel->noise_thresholds_p2,
+													nrepel->fft_size_2,
+													nrepel->Gk,
+													nrepel->Gk_prev,
+													nrepel->Gk_prev_wide,
+													nrepel->release_coeff);
 
 						//Gain Application
 						gain_application(nrepel->fft_size_2,
