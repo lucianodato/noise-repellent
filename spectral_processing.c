@@ -39,9 +39,9 @@ void spectral_gain(float* fft_p2,
 									float adaptive,
 							    float* noise_thresholds_p2,
 							    int fft_size_2,
+									float* prev_beta,
 							    float* Gk,
 								 	float* Gk_prev,
-								 	float* Gk_prev_wide,
 									float release_coeff){
 
 	int k;
@@ -64,15 +64,25 @@ void spectral_gain(float* fft_p2,
 								 fft_size_2,
 								 release_coeff);
 
-	//Time smoothing between current and past power spectrum (similar effect to ephraim and malah)
+	/*Time smoothing between current and past power spectrum (similar effect to ephraim and malah)
+		The best option here is to adaptively smooth 2D spectral components so it will require a biger buffer
+		as suggested by Lukin in Suppression of Musical Noise Artifacts in Audio Noise Reduction by Adaptive 2D Filtering
+	*/
 	if (time_smoothing > 0.f){ //Issue 33 TODO
 		spectrum_time_smoothing(fft_size_2,
 														fft_p2_prev_tsmooth,
 														fft_p2,
 														time_smoothing);
 
-		//Store previous power values for smoothing
-		memcpy(fft_p2_prev_tsmooth,fft_p2,sizeof(float)*(fft_size_2+1));
+		// spectrum_adaptive_time_smoothing(fft_size_2,
+		// 																fft_p2_prev_tsmooth,
+		// 																fft_p2,
+		// 																noise_thresholds_p2,
+		// 																prev_beta,
+		// 																time_smoothing);
+		//
+		// //Store previous power values for smoothing
+		// memcpy(fft_p2_prev_tsmooth,fft_p2,sizeof(float)*(fft_size_2+1));
 	}
 
 	//------OVERSUSTRACTION------
@@ -133,6 +143,16 @@ void spectral_gain(float* fft_p2,
 			if (Gk_wideband_gate < 1.f)
 				Gk[k] = (1.f-artifact_control)*Gk[k] +  artifact_control*Gk_wideband_gate;
 		}
+
+		// spectrum_adaptive_time_smoothing(fft_size_2,
+		// 																Gk_prev,
+		// 																Gk,
+		// 																fft_p2,
+		// 																noise_thresholds_p2,
+		// 																prev_beta,
+		// 																artifact_control);
+		//
+		// memcpy(Gk_prev,Gk,sizeof(float)*(fft_size_2+1));
 	}
 }
 

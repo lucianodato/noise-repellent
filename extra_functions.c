@@ -314,9 +314,53 @@ void spectrum_time_smoothing(int fft_size_2,
                                   float coeff){
   int k;
   for (k = 0; k <= fft_size_2; k++) {
+    //Smoothing proposed by McAulay and Malpass (avoid reducing onsets but introduces echo)
+    //spectrum[k] = MAX((1.f - coeff) * spectrum[k] + coeff * prev_spectrum[k],spectrum[k]);
     spectrum[k] = (1.f - coeff) * spectrum[k] + coeff * prev_spectrum[k];
   }
 }
+
+void spectrum_adaptive_time_smoothing(int fft_size_2,
+                                      float* Gk_prev,
+                                      float* Gk,
+                                      float* spectrum,
+                                      float* noise_thresholds,
+                                      float* prev_beta,
+                                      float coeff){
+  int k;
+  float roughness, numerator = 0.f, denominator = 0.f;
+  float beta;
+  float beta_smooth;
+  float gamma;
+
+  for (k = 0; k <= fft_size_2; k++) {
+    numerator += fabs(spectrum[k] - noise_thresholds[k]);
+    denominator += noise_thresholds[k];
+  }
+  //this is the roughness of the signal
+  roughness = numerator/denominator;
+  //beta is the adaptive coefficient
+  beta = MIN(1.f,roughness);
+
+  //Gamma is the smoothing coefficient of the adaptive factor beta
+  if(*prev_beta < beta){
+    gamma = 0.f;
+  }else{
+    gamma = coeff;
+  }
+
+  //Smoothing beta
+  beta_smooth = gamma * *(prev_beta) + (1.f - gamma)*beta;
+
+  //copy current value to previous
+  *prev_beta = beta;
+
+  //Apply the adaptive smoothed beta over the signal
+  for (k = 0; k <= fft_size_2; k++) {
+    Gk[k] = (1.f - beta_smooth) * Gk[k] + beta_smooth * Gk_prev[k];
+  }
+}
+
 
 void apply_envelope(float* spectrum,
                     float* spectrum_prev,

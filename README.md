@@ -14,7 +14,7 @@ Sliders explained:
 
 - Amount of reduction: Determines how much the noise floor will be reduced.
 - Noise Offset: Scales the noise print captured. Greater values will reduce more noise at the expense of removing low level detail of the signal.
-- Smoothing: Reduces the variance between frames to remove musical noise. Greater values may introduce echoes in the signal or blur transients.
+- Smoothing: Reduces the variance between frames to remove musical noise. Greater values may introduce echoes in the signal.
 - Artifact control: Interpolate between spectral gating and wideband gating in low SNR zones. Greater values might reduce artifacts in those zones.
 - Release: Timing of spectral gate releases. Larger values will reduce artifacts but might blur nearby transients
 - Whitening: Modifies the residual noise to be more like white noise. This take into account that our ears do well discriminating sounds in white noise versus colored noise.

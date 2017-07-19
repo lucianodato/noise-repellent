@@ -101,6 +101,7 @@ typedef struct {
 	float wet_dry;                    //softbypass coeff
 	float reduction_coeff;            //Gain to apply to the residual noise
 	float release_coeff;							//Release coefficient for Envelopes
+	float prev_beta;									//For the adaptive smoothing
 
 	//Buffers for processing and outputting
 	int input_latency;
@@ -127,7 +128,6 @@ typedef struct {
 	//Reduction gains
 	float* Gk;			  								//definitive gain
 	float* Gk_prev;			  					  //previous gain
-	float* Gk_prev_wide;			  			//previous gain wideband
 
 	//Loizou algorithm
 	float* auto_thresholds;           //Reference threshold for louizou algorithm
@@ -192,6 +192,7 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->noise_thresholds_availables = false;
 	nrepel->tau = (1.f - exp (-2.f * M_PI * 25.f * 64.f  / nrepel->samp_rate));
 	nrepel->wet_dry = 0.f;
+	nrepel->prev_beta = 0.f;
 
 	nrepel->in_fifo = (float*)calloc(nrepel->fft_size,sizeof(float));
 	nrepel->out_fifo = (float*)calloc(nrepel->fft_size,sizeof(float));
@@ -214,7 +215,6 @@ instantiate(const LV2_Descriptor*     descriptor,
 
 	nrepel->Gk = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->Gk_prev = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
-	nrepel->Gk_prev_wide = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 
 	nrepel->auto_thresholds = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->prev_noise_thresholds = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
@@ -235,7 +235,6 @@ instantiate(const LV2_Descriptor*     descriptor,
 	//Set initial gain as unity
 	memset(nrepel->Gk, 0, (nrepel->fft_size_2+1)*sizeof(float));
 	memset(nrepel->Gk_prev, 0, (nrepel->fft_size_2+1)*sizeof(float));
-	memset(nrepel->Gk_prev_wide, 0, (nrepel->fft_size_2+1)*sizeof(float));
 
 	//Compute auto mode initial thresholds
 	compute_auto_thresholds(nrepel->auto_thresholds, nrepel->fft_size, nrepel->fft_size_2, nrepel->samp_rate);
@@ -348,7 +347,6 @@ run(LV2_Handle instance, uint32_t n_samples) {
 		memset(nrepel->noise_thresholds_p2, 0, (nrepel->fft_size_2+1)*sizeof(float));
 		memset(nrepel->Gk, 0, (nrepel->fft_size_2+1)*sizeof(float));
 		memset(nrepel->Gk_prev, 0, (nrepel->fft_size_2+1)*sizeof(float));
-		memset(nrepel->Gk_prev_wide, 0, (nrepel->fft_size_2+1)*sizeof(float));
 		nrepel->window_count = 0.f;
 
 		memset(nrepel->prev_noise_thresholds, 0, (nrepel->fft_size_2+1)*sizeof(float));
@@ -465,9 +463,9 @@ run(LV2_Handle instance, uint32_t n_samples) {
 													*(nrepel->adaptive_state),
 													nrepel->noise_thresholds_p2,
 													nrepel->fft_size_2,
+													&nrepel->prev_beta,
 													nrepel->Gk,
 													nrepel->Gk_prev,
-													nrepel->Gk_prev_wide,
 													nrepel->release_coeff);
 
 						//Gain Application
