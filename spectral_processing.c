@@ -81,8 +81,9 @@ void spectral_gain(float* fft_p2,
 		// 																prev_beta,
 		// 																time_smoothing);
 		//
-		// //Store previous power values for smoothing
-		// memcpy(fft_p2_prev_tsmooth,fft_p2,sizeof(float)*(fft_size_2+1));
+
+		//Store previous power values for smoothing
+		memcpy(fft_p2_prev_tsmooth,fft_p2,sizeof(float)*(fft_size_2+1));
 	}
 
 	//------OVERSUSTRACTION------

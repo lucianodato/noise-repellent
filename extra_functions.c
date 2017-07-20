@@ -314,9 +314,10 @@ void spectrum_time_smoothing(int fft_size_2,
                                   float coeff){
   int k;
   for (k = 0; k <= fft_size_2; k++) {
+    spectrum[k] = (1.f - coeff) * spectrum[k] + coeff * prev_spectrum[k];
+
     //Smoothing proposed by McAulay and Malpass (avoid reducing onsets but introduces echo)
     //spectrum[k] = MAX((1.f - coeff) * spectrum[k] + coeff * prev_spectrum[k],spectrum[k]);
-    spectrum[k] = (1.f - coeff) * spectrum[k] + coeff * prev_spectrum[k];
   }
 }
 
@@ -357,7 +358,7 @@ void spectrum_adaptive_time_smoothing(int fft_size_2,
 
   //Apply the adaptive smoothed beta over the signal
   for (k = 0; k <= fft_size_2; k++) {
-    Gk[k] = (1.f - beta_smooth) * Gk[k] + beta_smooth * Gk_prev[k];
+    Gk[k] = beta_smooth * Gk[k] + (1.f - beta_smooth) * Gk_prev[k];
   }
 }
 
