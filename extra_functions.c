@@ -321,44 +321,47 @@ void spectrum_time_smoothing(int fft_size_2,
   }
 }
 
+//This was proposed in this work SPECTRAL SUBTRACTION WITH ADAPTIVE AVERAGING OF THE GAIN FUNCTION
 void spectrum_adaptive_time_smoothing(int fft_size_2,
-                                      float* Gk_prev,
-                                      float* Gk,
+                                      float* spectrum_prev,
                                       float* spectrum,
                                       float* noise_thresholds,
                                       float* prev_beta,
                                       float coeff){
   int k;
-  float roughness, numerator = 0.f, denominator = 0.f;
-  float beta;
+  float discrepancy, numerator = 0.f, denominator = 0.f;
+  float beta_ts;
   float beta_smooth;
-  float gamma;
+  float gamma_ts;
 
   for (k = 0; k <= fft_size_2; k++) {
-    numerator += fabs(spectrum[k] - noise_thresholds[k]);
-    denominator += noise_thresholds[k];
+    //These has to be magnitude spectrums
+    numerator += fabs(sqrtf(spectrum[k]) - sqrtf(noise_thresholds[k]));
+    denominator += sqrtf(noise_thresholds[k]);
   }
-  //this is the roughness of the signal
-  roughness = numerator/denominator;
+  //this is the discrepancy of the spectum
+  discrepancy = numerator/denominator;
   //beta is the adaptive coefficient
-  beta = MIN(1.f,roughness);
+  beta_ts = MIN(discrepancy,1.f);
+
+  //printf("%f\n", beta_ts);
 
   //Gamma is the smoothing coefficient of the adaptive factor beta
-  if(*prev_beta < beta){
-    gamma = 0.f;
+  if(*prev_beta < beta_ts){
+    gamma_ts = 0.f;
   }else{
-    gamma = coeff;
+    gamma_ts = coeff;
   }
 
   //Smoothing beta
-  beta_smooth = gamma * *(prev_beta) + (1.f - gamma)*beta;
+  beta_smooth = gamma_ts * *(prev_beta) + (1.f - gamma_ts)*beta_ts;
 
   //copy current value to previous
-  *prev_beta = beta;
+  *prev_beta = beta_smooth;
 
   //Apply the adaptive smoothed beta over the signal
   for (k = 0; k <= fft_size_2; k++) {
-    Gk[k] = beta_smooth * Gk[k] + (1.f - beta_smooth) * Gk_prev[k];
+    spectrum[k] = beta_ts * spectrum[k] + (1.f - beta_ts) * spectrum_prev[k];
   }
 }
 

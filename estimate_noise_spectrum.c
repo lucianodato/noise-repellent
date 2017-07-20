@@ -52,7 +52,6 @@ void compute_auto_thresholds(float* auto_thresholds,
 		if(k >= MF){
 			auto_thresholds[k] = BAND_3_GAIN;
 		}
-		printf("%f\n", auto_thresholds[k]);
 	}
 }
 
