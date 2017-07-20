@@ -99,12 +99,12 @@ void spectral_gain(float* fft_p2,
 
 	//Scale noise thresholds (equals applying an oversustraction factor in spectral sustraction)
 	if (adaptive >0.f){
-		//ADAPTIVE NOISE PROFILE
+		//FOR ADAPTIVE NOISE PROFILE
 		for (k = 0; k <= fft_size_2; k++) {
 			noise_thresholds_scaled[k] = noise_thresholds_p2[k] * noise_thresholds_offset;
 		}
 	}else{
-		//MANUAL NOISE PROFILE
+		//FOR MANUAL NOISE PROFILE
 		for (k = 0; k <= fft_size_2; k++) {
 			//Adapting threshold using local SNR as in Non linear sustraction
 			oversustraction_factor = noise_thresholds_offset * transient_preservation_coeff * (SNR_INFLUENCE + sqrtf(fft_p2[k]/noise_thresholds_p2[k])); //This could be adaptive using masking instead of local snr scaling TODO
@@ -116,19 +116,23 @@ void spectral_gain(float* fft_p2,
 
 	//------GAIN CALCULATION------
 
-	//Power sustraction filter
-	// power_sustraction(fft_size_2,
-	// 							    fft_p2,
-	// 									reduction_amount,
-	// 							    noise_thresholds_scaled,
-	// 							    Gk);
-
-	//Spectral gate
-	spectral_gating(fft_size_2,
-									fft_p2,
-									reduction_amount,
-									noise_thresholds_scaled,
-									Gk);
+	if (adaptive >0.f){
+		//FOR ADAPTIVE NOISE PROFILE
+		//Power sustraction filter
+		power_sustraction(fft_size_2,
+									    fft_p2,
+											reduction_amount,
+									    noise_thresholds_scaled,
+									    Gk);
+	}else{
+		//FOR MANUAL NOISE PROFILE
+		//Spectral gate
+		spectral_gating(fft_size_2,
+										fft_p2,
+										reduction_amount,
+										noise_thresholds_scaled,
+										Gk);
+	}
 
 	//------POSTPROCESSING GAINS------
 
