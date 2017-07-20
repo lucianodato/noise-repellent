@@ -69,17 +69,17 @@ void spectral_gain(float* fft_p2,
 		as suggested by Lukin in Suppression of Musical Noise Artifacts in Audio Noise Reduction by Adaptive 2D Filtering
 	*/
 	if (time_smoothing > 0.f){ //Issue 33 TODO
-		// spectrum_time_smoothing(fft_size_2,
-		// 												fft_p2_prev_tsmooth,
-		// 												fft_p2,
-		// 												time_smoothing);
+		spectrum_time_smoothing(fft_size_2,
+														fft_p2_prev_tsmooth,
+														fft_p2,
+														time_smoothing);
 
-		spectrum_adaptive_time_smoothing(fft_size_2,
-																		fft_p2_prev_tsmooth,
-																		fft_p2,
-																		noise_thresholds_p2,
-																		prev_beta,
-																		time_smoothing);
+		// spectrum_adaptive_time_smoothing(fft_size_2,
+		// 																fft_p2_prev_tsmooth,
+		// 																fft_p2,
+		// 																noise_thresholds_p2,
+		// 																prev_beta,
+		// 																time_smoothing);
 
 
 		//Store previous power values for smoothing
