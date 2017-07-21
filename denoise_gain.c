@@ -23,7 +23,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 //Power Sustraction
 void power_sustraction(int fft_size_2,
 		       float* spectrum,
-					 float reduction_limit,
 		       float* noise_thresholds,
 		       float* Gk) {
 
@@ -34,7 +33,7 @@ void power_sustraction(int fft_size_2,
 			if(spectrum[k] > noise_thresholds[k]){
 				Gk[k] = (spectrum[k]-noise_thresholds[k]) / spectrum[k];
 			} else {
-				Gk[k] = reduction_limit;
+				Gk[k] = 0.f;
 			}
 		} else {
 			//Otherwise we keep everything as is
@@ -46,7 +45,6 @@ void power_sustraction(int fft_size_2,
 //Gating with envelope smoothing
 void spectral_gating(int fft_size_2,
 	    float* spectrum,
-			float reduction_limit,
 	    float* noise_thresholds,
 	    float* Gk) {
 
@@ -60,7 +58,7 @@ void spectral_gating(int fft_size_2,
 				Gk[k] = 1.f;
 			}else{
 				//under the threshold
-				Gk[k] = reduction_limit;
+				Gk[k] = 0.f;
 			}
 		} else {
 			//Otherwise we keep everything as is
@@ -91,7 +89,7 @@ void wideband_gating(int fft_size_2,
 			*Gk = 1.f;
 		}else{
 			//under the threshold
-			*Gk = 0.f; //Maybe add a limit range TODO
+			*Gk = 0.f; 
 		}
 	} else {
 		//Otherwise we keep everything as is

@@ -255,25 +255,20 @@ void apply_tapering_filter(float* spectrum,int N) {
   }
 }
 
-void whitening_and_tapering(float* residual,float* denoised,float b,float scale_noise_floor,float tapering,int N){
-
+void whitening_and_tapering(float* spectrum,float b,float tapering,int N){
   for (int k = 0; k <= N; k++) {
-    if(residual[k] > FLT_MIN  && residual[(2*N)-k] > FLT_MIN){
-
+    if(spectrum[k] > FLT_MIN  && spectrum[(2*N)-k] > FLT_MIN){
       if (tapering > 0.f){
-        denoised[k] += scale_noise_floor * b * (1.f - residual[k]) * hamming(N-k, N) ;//Half hann window tappering in favor of high frequencies
+        spectrum[k] = ((1.f - b)*spectrum[k] + b*(1.f - spectrum[k])) * hamming(N-k, N) ;//tapering
       }else{
-        denoised[k] += scale_noise_floor * b * (1.f - residual[k]);
+        spectrum[k] = (1.f - b)*spectrum[k] + b*(1.f - spectrum[k]);
       }
-
       if(k < N){
-
         if (tapering > 0.f){
-          denoised[(2*N)-k] += scale_noise_floor * b * (1.f - residual[(2*N)-k]) * hamming(N-k, N);//Half hann window tappering in favor of high frequencies
+          spectrum[(2*N)-k] = ((1.f - b)*spectrum[(2*N)-k] + b*(1.f - spectrum[(2*N)-k])) * hamming(N-k, N);//tapering
         }else{
-          denoised[(2*N)-k] += scale_noise_floor * b * (1.f - residual[(2*N)-k]);
+          spectrum[(2*N)-k] = (1.f - b)*spectrum[(2*N)-k] + b*(1.f - spectrum[(2*N)-k]);
         }
-
       }
     }
   }

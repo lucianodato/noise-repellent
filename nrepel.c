@@ -102,6 +102,8 @@ typedef struct {
 	float reduction_coeff;            //Gain to apply to the residual noise
 	float release_coeff;							//Release coefficient for Envelopes
 	float prev_beta;									//For the adaptive smoothing
+	float make_gain_lineal;						//Makeup gain lineal value
+	float reduction_amount;						//Reduction amount lineal value
 
 	//Buffers for processing and outputting
 	int input_latency;
@@ -119,11 +121,11 @@ typedef struct {
 	//Arrays and variables for getting bins info
 	float real_p,imag_n,mag,p2;
 	float* fft_p2;                    //power spectrum
-	float* fft_p2_prev_tsmooth;       //power spectum of previous frame
-	float* fft_p2_prev_env;           //power spectum of previous frame
-	float* fft_p2_prev_tpres;           //power spectum of previous frame
-	float* noise_thresholds_p2;       //captured noise print power spectrum
 	float* fft_magnitude;             //magnitude spectrum
+	float* fft_p2_prev_tsmooth;       //power spectum of previous frame for time smoothing
+	float* fft_p2_prev_env;           //power spectum of previous frame for envelopes
+	float* fft_p2_prev_tpres;         //power spectum of previous frame for transient preservation
+	float* noise_thresholds_p2;       //captured noise print power spectrum
 
 	//Reduction gains
 	float* Gk;			  								//definitive gain
@@ -331,9 +333,10 @@ run(LV2_Handle instance, uint32_t n_samples) {
 	} else { //if enabled
 		nrepel->wet_dry_target = 1.f;
 	}
-
 	//Interpolate parameters over time softly to bypass without clicks or pops
 	nrepel->wet_dry += nrepel->tau * (nrepel->wet_dry_target - nrepel->wet_dry) + FLT_MIN;
+
+	//Parameters values
 
 	/*exponential decay coefficients for envelopes and adaptive noise profiling
 		These must take into account the hop size as explained in the following paper
@@ -341,6 +344,9 @@ run(LV2_Handle instance, uint32_t n_samples) {
 	nrepel->release_coeff = expf(-1000.f/(((*(nrepel->release)) * nrepel->samp_rate)/ nrepel->hop) );
 
 	//printf("%f\n", nrepel->release_coeff );
+
+	nrepel->make_gain_lineal = from_dB(*(nrepel->makeup_gain));
+	nrepel->reduction_amount = from_dB(-1.f * *(nrepel->amount_of_reduction));
 
 	//Reset button state (if on)
 	if (*(nrepel->reset_print) == 1.f) {
@@ -455,7 +461,6 @@ run(LV2_Handle instance, uint32_t n_samples) {
 													nrepel->fft_p2_prev_tsmooth,
 													nrepel->fft_p2_prev_env,
 													nrepel->fft_p2_prev_tpres,
-													*(nrepel->amount_of_reduction),
 													*(nrepel->time_smoothing),
 													*(nrepel->artifact_control),
 													*(nrepel->noise_thresholds_offset),
@@ -475,8 +480,8 @@ run(LV2_Handle instance, uint32_t n_samples) {
 															nrepel->Gk,
 															*(nrepel->whitening_factor),
 															*(nrepel->tapering),
-															*(nrepel->amount_of_reduction),
-															*(nrepel->makeup_gain),
+															nrepel->reduction_amount,
+															nrepel->make_gain_lineal,
 															nrepel->wet_dry,
 															*(nrepel->noise_listen));
 					}
