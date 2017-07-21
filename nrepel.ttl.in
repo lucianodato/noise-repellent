@@ -73,8 +73,9 @@
       "Suavizado"@es ,
       "Lissage"@fr ;
     lv2:minimum 0.0 ;
-    lv2:maximum 1.0 ;
+    lv2:maximum 100.0 ;
     lv2:default 0.0 ;
+    units:unit units:pc ;
   ], [
     a lv2:ControlPort,
       lv2:InputPort ;
@@ -83,8 +84,9 @@
     lv2:name "Artifact Control",
       "Control de Artefactos"@es ;
     lv2:minimum 0.0 ;
-    lv2:maximum 1.0 ;
+    lv2:maximum 100.0 ;
     lv2:default 0.0 ;
+    units:unit units:pc ;
   ], [
     a lv2:ControlPort,
       lv2:InputPort ;
@@ -94,8 +96,9 @@
       "Blanqueo de residuo"@es ,
       "Blanchissement du bruit"@fr ;
     lv2:minimum 0.0 ;
-    lv2:maximum 1.0 ;
+    lv2:maximum 100.0 ;
     lv2:default 0.0 ;
+    units:unit units:pc ;
   ], [
     a lv2:InputPort,
     lv2:ControlPort ;

@@ -68,10 +68,10 @@ typedef struct {
 	//Parameters for the algorithm (user input)
 	float* amount_of_reduction;       //Amount of noise to reduce in dB
 	float* noise_thresholds_offset;   //This is to scale the noise profile (over subtraction factor)
-	float* time_smoothing;            //constant that set the time smoothing coefficient (interpolation between past and present frame)
-	float* artifact_control;					//Mix between spectal gating and wideband gating
+	float* time_smoothing_pc;        //degree that set the time smoothing coefficient (interpolation between past and present frame)
+	float* artifact_control_pc;			//Mix between spectal gating and wideband gating percentage
 	float* release;            	  		//Release time
-	float* whitening_factor;					//Whitening amount of the reduction
+	float* whitening_factor_pc;			//Whitening amount of the reduction percentage
 	float* makeup_gain;								//Output Makeup gain
 	float* capture_state;             //Capture Noise state (Manual-Off-Auto)
 	float* adaptive_state;            //Autocapture switch
@@ -103,6 +103,9 @@ typedef struct {
 	float make_gain_linear;						//Makeup gain linear value
 	float reduction_amount;						//Reduction amount linear value
 	float offset_thresholds_linear;		//Threshold offset linear value
+	float artifact_control;						//Mix between spectal gating and wideband gating
+	float time_smoothing;							//constant that set the time smoothing coefficient (interpolation between past and present frame)
+	float whitening_factor;						//Whitening amount of the reduction
 
 	//Buffers for processing and outputting
 	int input_latency;
@@ -256,16 +259,16 @@ connect_port(LV2_Handle instance,
 		nrepel->noise_thresholds_offset = (float*)data;
 		break;
 		case NREPEL_SMOOTHING:
-		nrepel->time_smoothing = (float*)data;
+		nrepel->time_smoothing_pc = (float*)data;
 		break;
 		case NREPEL_ARTIFACT_CONTROL:
-		nrepel->artifact_control = (float*)data;
+		nrepel->artifact_control_pc = (float*)data;
 		break;
 		case NREPEL_RELEASE:
 		nrepel->release = (float*)data;
 		break;
 		case NREPEL_WHITENING:
-		nrepel->whitening_factor = (float*)data;
+		nrepel->whitening_factor_pc = (float*)data;
 		break;
 		case NREPEL_MAKEUP:
 		nrepel->makeup_gain = (float*)data;
@@ -341,6 +344,9 @@ run(LV2_Handle instance, uint32_t n_samples) {
 	nrepel->make_gain_linear = from_dB(*(nrepel->makeup_gain));
 	nrepel->reduction_amount = from_dB(-1.f * *(nrepel->amount_of_reduction));
 	nrepel->offset_thresholds_linear = from_dB(*(nrepel->noise_thresholds_offset));
+	nrepel->time_smoothing= *(nrepel->time_smoothing_pc)/100.f;
+	nrepel->artifact_control = *(nrepel->artifact_control_pc)/100.f;
+	nrepel->whitening_factor = *(nrepel->whitening_factor_pc)/100.f;
 
 	//Reset button state (if on)
 	if (*(nrepel->reset_print) == 1.f) {
@@ -465,8 +471,8 @@ run(LV2_Handle instance, uint32_t n_samples) {
 																		nrepel->fft_p2_prev_tsmooth,
 																		nrepel->fft_p2_prev_env,
 																		nrepel->fft_p2_prev_tpres,
-																		*(nrepel->time_smoothing),
-																		*(nrepel->artifact_control),
+																		nrepel->time_smoothing,
+																		nrepel->artifact_control,
 																		nrepel->offset_thresholds_linear,
 																		nrepel->noise_thresholds_p2,
 																		nrepel->fft_size_2,
@@ -480,7 +486,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 															nrepel->fft_size,
 															nrepel->output_fft_buffer,
 															nrepel->Gk,
-															*(nrepel->whitening_factor),
+															nrepel->whitening_factor,
 															*(nrepel->tapering),
 															nrepel->reduction_amount,
 															nrepel->make_gain_linear,
