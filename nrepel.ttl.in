@@ -161,7 +161,7 @@
     lv2:index 11 ;
     lv2:symbol "tappering" ;
     lv2:name "HF residual emphasis",
-            "Enfasis Residuo"@es ;
+            "Enfasis HF Residual"@es ;
     lv2:minimum 0 ;
     lv2:maximum 1 ;
     lv2:default 0 ;
