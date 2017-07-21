@@ -450,19 +450,30 @@ run(LV2_Handle instance, uint32_t n_samples) {
 					//If there is a noise profile reduce noise
 					if (nrepel->noise_thresholds_availables == true) {
 						//Gain Calculation
-						spectral_gain(nrepel->fft_p2,
-													nrepel->fft_p2_prev_tsmooth,
-													nrepel->fft_p2_prev_env,
-													nrepel->fft_p2_prev_tpres,
-													*(nrepel->time_smoothing),
-													*(nrepel->artifact_control),
-													nrepel->offset_thresholds_linear,
-													*(nrepel->adaptive_state),
-													nrepel->noise_thresholds_p2,
-													nrepel->fft_size_2,
-													&nrepel->prev_beta,
-													nrepel->Gk,
-													nrepel->release_coeff);
+						if(*(nrepel->adaptive_state) > 0.f){
+							//ADAPTIVE NOISE PROFILE
+							spectral_gain_adaptive(nrepel->fft_p2,
+																		 nrepel->fft_p2_prev_env,
+																		 nrepel->offset_thresholds_linear,
+																		 nrepel->noise_thresholds_p2,
+																		 nrepel->fft_size_2,
+																		 nrepel->release_coeff,
+																		 nrepel->Gk);
+						}else{
+							//FOR MANUAL NOISE PROFILE
+							spectral_gain_manual(nrepel->fft_p2,
+																		nrepel->fft_p2_prev_tsmooth,
+																		nrepel->fft_p2_prev_env,
+																		nrepel->fft_p2_prev_tpres,
+																		*(nrepel->time_smoothing),
+																		*(nrepel->artifact_control),
+																		nrepel->offset_thresholds_linear,
+																		nrepel->noise_thresholds_p2,
+																		nrepel->fft_size_2,
+																		&nrepel->prev_beta,
+																		nrepel->Gk,
+																		nrepel->release_coeff);
+						}
 
 						//Gain Application
 						gain_application(nrepel->fft_size_2,
