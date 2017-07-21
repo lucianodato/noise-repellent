@@ -54,11 +54,10 @@ typedef enum {
 	NREPEL_RESET = 9,
 	NREPEL_NOISE_LISTEN = 10,
 	NREPEL_N_TAPERING = 11,
-	NREPEL_TPRESERV = 12,
-	NREPEL_ENABLE = 13,
-	NREPEL_LATENCY = 14,
-	NREPEL_INPUT = 15,
-	NREPEL_OUTPUT = 16,
+	NREPEL_ENABLE = 12,
+	NREPEL_LATENCY = 13,
+	NREPEL_INPUT = 14,
+	NREPEL_OUTPUT = 15,
 } PortIndex;
 
 typedef struct {
@@ -79,7 +78,6 @@ typedef struct {
 	float* reset_print;               //Reset Noise switch
 	float* noise_listen;              //For noise only listening
 	float* tapering;                	//Tapering switch (HF emphasis for residual signal)
-	float* transient_preservation;    //Transient preservation switch
 	float* enable;                    //For soft bypass (click free bypass)
 	float* report_latency;            //Latency necessary
 
@@ -129,7 +127,6 @@ typedef struct {
 
 	//Reduction gains
 	float* Gk;			  								//definitive gain
-	float* Gk_prev;			  					  //previous gain
 
 	//Loizou algorithm
 	float* auto_thresholds;           //Reference threshold for louizou algorithm
@@ -216,7 +213,6 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->fft_magnitude = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 
 	nrepel->Gk = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
-	nrepel->Gk_prev = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 
 	nrepel->auto_thresholds = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->prev_noise_thresholds = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
@@ -288,9 +284,6 @@ connect_port(LV2_Handle instance,
 		break;
 		case NREPEL_N_TAPERING:
 		nrepel->tapering = (float*)data;
-		break;
-		case NREPEL_TPRESERV:
-		nrepel->transient_preservation = (float*)data;
 		break;
 		case NREPEL_ENABLE:
 		nrepel->enable = (float*)data;
@@ -464,13 +457,11 @@ run(LV2_Handle instance, uint32_t n_samples) {
 													*(nrepel->time_smoothing),
 													*(nrepel->artifact_control),
 													*(nrepel->noise_thresholds_offset),
-													*(nrepel->transient_preservation),
 													*(nrepel->adaptive_state),
 													nrepel->noise_thresholds_p2,
 													nrepel->fft_size_2,
 													&nrepel->prev_beta,
 													nrepel->Gk,
-													nrepel->Gk_prev,
 													nrepel->release_coeff);
 
 						//Gain Application

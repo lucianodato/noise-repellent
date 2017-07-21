@@ -32,8 +32,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 #define M_PI 3.14159265358979323846f
 
-#define ONSET_THRESH 100.f  //For onset detection
-
 //AUXILIARY Functions
 #define MAX(a,b) (((a) > (b)) ? (a) : (b))
 #define MIN(a,b) (((a) < (b)) ? (a) : (b))
@@ -244,17 +242,6 @@ void get_normalized_spectum(float* spectrum,
 
 //---------------WHITENING--------------
 
-void apply_tapering_filter(float* spectrum,int N) {
-  for (int k = 0; k <= N; k++) {
-    if(spectrum[k] > FLT_MIN && spectrum[(2*N)-k] > FLT_MIN) {
-      spectrum[k] *= hamming(N-k, N);//Half hann window tappering in favor of high frequencies
-      if(k < N){
-        spectrum[(2*N)-k] *= hamming(N-k, N);//Half hann window tappering in favor of high frequencies
-      }
-    }
-  }
-}
-
 void whitening_and_tapering(float* spectrum,float b,float tapering,int N){
   for (int k = 0; k <= N; k++) {
     if(spectrum[k] > FLT_MIN  && spectrum[(2*N)-k] > FLT_MIN){
@@ -274,33 +261,6 @@ void whitening_and_tapering(float* spectrum,float b,float tapering,int N){
   }
 }
 
-//---------------TRANSIENTS--------------
-
-inline float spectral_flux(float* spectrum,
-                          float* spectrum_prev,
-                          float N){
-  int i;
-  float spectral_flux = 0.f;
-  float temp;
-
-  for(i = 0;i <= N; i++) {
-    temp = sqrtf(spectrum[i]) - sqrtf(spectrum_prev[i]); //Recieves power spectrum uses magnitude
-    spectral_flux += (temp + fabs(temp))/2.f;
-  }
-  return spectral_flux;
-}
-
-inline float transient_preservation(float* spectrum,
-                                    float* spectrum_prev,
-                                    float N){
-  float spectral_flux_value = spectral_flux(spectrum, spectrum_prev, N);
-
-  if (spectral_flux_value > ONSET_THRESH) //This can be better heuristic TODO
-    return 1.f/spectral_flux_value;
-  else
-    return 1.f;
-}
-
 //---------------TIME SMOOTHING--------------
 
 void spectrum_time_smoothing(int fft_size_2,
@@ -315,51 +275,6 @@ void spectrum_time_smoothing(int fft_size_2,
     //spectrum[k] = MAX((1.f - coeff) * spectrum[k] + coeff * prev_spectrum[k],spectrum[k]);
   }
 }
-
-//This was proposed in this work SPECTRAL SUBTRACTION WITH ADAPTIVE AVERAGING OF THE GAIN FUNCTION
-void spectrum_adaptive_time_smoothing(int fft_size_2,
-                                      float* spectrum_prev,
-                                      float* spectrum,
-                                      float* noise_thresholds,
-                                      float* prev_beta,
-                                      float coeff){
-  int k;
-  float discrepancy, numerator = 0.f, denominator = 0.f;
-  float beta_ts;
-  float beta_smooth;
-  float gamma_ts;
-
-  for (k = 0; k <= fft_size_2; k++) {
-    //These has to be magnitude spectrums
-    numerator += fabs(sqrtf(spectrum[k]) - sqrtf(noise_thresholds[k]));
-    denominator += sqrtf(noise_thresholds[k]);
-  }
-  //this is the discrepancy of the spectum
-  discrepancy = numerator/denominator;
-  //beta is the adaptive coefficient
-  beta_ts = MIN(discrepancy,1.f);
-
-  //printf("%f\n", beta_ts);
-
-  //Gamma is the smoothing coefficient of the adaptive factor beta
-  if(*prev_beta < beta_ts){
-    gamma_ts = 0.f;
-  }else{
-    gamma_ts = coeff;
-  }
-
-  //Smoothing beta
-  beta_smooth = gamma_ts * *(prev_beta) + (1.f - gamma_ts)*beta_ts;
-
-  //copy current value to previous
-  *prev_beta = beta_smooth;
-
-  //Apply the adaptive smoothed beta over the signal
-  for (k = 0; k <= fft_size_2; k++) {
-    spectrum[k] = beta_ts * spectrum[k] + (1.f - beta_ts) * spectrum_prev[k];
-  }
-}
-
 
 void apply_envelope(float* spectrum,
                     float* spectrum_prev,

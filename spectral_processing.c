@@ -34,20 +34,17 @@ void spectral_gain(float* fft_p2,
 							    float time_smoothing,
 									float artifact_control,
 							    float noise_thresholds_offset,
-							    float transient_preservation_switch,
 									float adaptive,
 							    float* noise_thresholds_p2,
 							    int fft_size_2,
 									float* prev_beta,
 							    float* Gk,
-								 	float* Gk_prev,
 									float release_coeff){
 
 	int k;
 	float noise_thresholds_scaled[fft_size_2+1];
 	float Gk_wideband_gate;
 	float original_spectrum[fft_size_2+1];
-	float transient_preservation_coeff = 1.f;
 	float non_lineal_snr;
 
 	memcpy(original_spectrum,fft_p2,sizeof(float)*(fft_size_2+1));
@@ -72,28 +69,11 @@ void spectral_gain(float* fft_p2,
 														fft_p2,
 														time_smoothing);
 
-		// spectrum_adaptive_time_smoothing(fft_size_2,
-		// 																fft_p2_prev_tsmooth,
-		// 																fft_p2,
-		// 																noise_thresholds_p2,
-		// 																prev_beta,
-		// 																time_smoothing);
-
-
 		//Store previous power values for smoothing
 		memcpy(fft_p2_prev_tsmooth,fft_p2,sizeof(float)*(fft_size_2+1));
 	}
 
 	//------OVERSUSTRACTION------
-
-	//Transient preservation using onset detection (very basic spectral flux)
-	if(transient_preservation_switch > 0.f){
-		transient_preservation_coeff = transient_preservation(original_spectrum,
-																													fft_p2_prev_tpres,
-																													fft_size_2);
-
-		memcpy(fft_p2_prev_tpres,original_spectrum,sizeof(float)*(fft_size_2+1));
-	}
 
 	//Scale noise thresholds (equals applying an oversustraction factor in spectral sustraction)
 	if (adaptive >0.f){
@@ -107,14 +87,12 @@ void spectral_gain(float* fft_p2,
 		for (k = 0; k <= fft_size_2; k++) {
 			//Adapting scaling of thresholds using local SNR as in Non linear sustraction
 			//This could be adaptive using masking instead of local snr scaling TODO
-			non_lineal_snr = (SNR_INFLUENCE + sqrtf(original_spectrum[k]/noise_thresholds_p2[k]));
+			non_lineal_snr = SNR_INFLUENCE + sqrtf(original_spectrum[k]/noise_thresholds_p2[k]);
 
 			//Application of every scaling factor to noise thresholds
-			noise_thresholds_scaled[k] = noise_thresholds_p2[k] * transient_preservation_coeff * noise_thresholds_offset * non_lineal_snr;
+			noise_thresholds_scaled[k] = noise_thresholds_p2[k] * noise_thresholds_offset * non_lineal_snr;
 		}
 	}
-
-
 
 	//------GAIN CALCULATION------
 

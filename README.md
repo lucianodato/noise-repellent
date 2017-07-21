@@ -26,5 +26,4 @@ Buttons explained:
 - Adaptive Noise: To change the noise profile dynamically in time. This enables the automatic estimation of noise thresholds.
 - Reset noise print: Removes the noise print previously captured.
 - Noise listen: To hear only the residual noise.
-- HF residual emphasis: Applies a window to the residue for HF boost. This might recover HF details.
-- Transient preservation: Compute onsets to avoid distorting transients. Useful for percusive instruments.
+- HF residual emphasis: When whitening is applied this will reduce lower frequencies but keep the boosted highs.
