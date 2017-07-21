@@ -232,7 +232,6 @@ instantiate(const LV2_Descriptor*     descriptor,
 
 	//Set initial gain as unity
 	memset(nrepel->Gk, 0, (nrepel->fft_size_2+1)*sizeof(float));
-	memset(nrepel->Gk_prev, 0, (nrepel->fft_size_2+1)*sizeof(float));
 
 	//Compute auto mode initial thresholds
 	compute_auto_thresholds(nrepel->auto_thresholds, nrepel->fft_size, nrepel->fft_size_2, nrepel->samp_rate);
@@ -345,7 +344,6 @@ run(LV2_Handle instance, uint32_t n_samples) {
 	if (*(nrepel->reset_print) == 1.f) {
 		memset(nrepel->noise_thresholds_p2, 0, (nrepel->fft_size_2+1)*sizeof(float));
 		memset(nrepel->Gk, 0, (nrepel->fft_size_2+1)*sizeof(float));
-		memset(nrepel->Gk_prev, 0, (nrepel->fft_size_2+1)*sizeof(float));
 		nrepel->window_count = 0.f;
 
 		memset(nrepel->prev_noise_thresholds, 0, (nrepel->fft_size_2+1)*sizeof(float));
