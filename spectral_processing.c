@@ -149,9 +149,9 @@ void gain_application(int fft_size_2,
 
   //Apply the computed gain to the signal and store it in denoised array
   for (k = 0; k <= fft_size_2; k++) {
-    denoised_fft_buffer[k] = output_fft_buffer[k] * Gk[k] * 2.f;
-    // if(k < fft_size_2)
-    //   denoised_fft_buffer[fft_size-k] = output_fft_buffer[fft_size-k] * Gk[k];
+    denoised_fft_buffer[k] = output_fft_buffer[k] * Gk[k];
+    if(k < fft_size_2)
+      denoised_fft_buffer[fft_size-k] = output_fft_buffer[fft_size-k] * Gk[k];
   }
 
   //Residual signal
