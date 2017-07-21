@@ -110,6 +110,16 @@ void fft_window(float* window, int N, int window_type) {
   }
 }
 
+inline float get_window_scale_factor(float* window_input,
+                             float* window_output,
+                             int fft_size){
+ 	float sum=0.f;
+ 	for(int i=0; i<fft_size; i++)
+ 			sum+= window_input[i] * window_output[i];
+
+ 	return (sum/(float)(fft_size));
+}
+
 //wrapper for pre and post processing windows
 void fft_pre_and_post_window(float* window_input,
                              float* window_output,
@@ -120,17 +130,17 @@ void fft_pre_and_post_window(float* window_input,
     case 0: // HANN-HANN
       fft_window(window_input,fft_size,0); //STFT input window
       fft_window(window_output,fft_size,0); //STFT output window
-      *(overlap_scale_factor) = HANN_HANN_SCALING;
+      *(overlap_scale_factor) = get_window_scale_factor(window_input,window_output,fft_size);
       break;
     case 1: //HAMMING-HANN
       fft_window(window_input,fft_size,1); //STFT input window
       fft_window(window_output,fft_size,0); //STFT output window
-      *(overlap_scale_factor) = HAMMING_HANN_SCALING;
+      *(overlap_scale_factor) = get_window_scale_factor(window_input,window_output,fft_size);
       break;
     case 2: //BLACKMAN-HANN
       fft_window(window_input,fft_size,2); //STFT input window
       fft_window(window_output,fft_size,0); //STFT output window
-      *(overlap_scale_factor) = BLACKMAN_HANN_SCALING;
+      *(overlap_scale_factor) = get_window_scale_factor(window_input,window_output,fft_size);
       break;
   }
 }

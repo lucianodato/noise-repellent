@@ -35,7 +35,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 //STFT default values (These are standard values)
 #define FFT_SIZE 2048                 //max should be 8192 otherwise is too expensive
 #define WINDOW_COMBINATION 0          //0 HANN-HANN 1 HAMMING-HANN 2 BLACKMAN-HANN
-#define OVERLAP_FACTOR 4              //4 is 75% overlap 2 is 50%
+#define OVERLAP_FACTOR 4              //4 is 75% overlap Values bigger than 4 will scale correctly
 
 ///---------------------------------------------------------------------
 
