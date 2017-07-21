@@ -23,7 +23,7 @@ Sliders explained:
 Buttons explained:
 
 - Capture noise print: To manually take the noise print.
-- Adaptive Noise: To change the noise profile dynamically in time. This enables the automatic estimation of noise thresholds. It needs a few seconds to learn it.
+- Adaptive Noise: To change the noise profile dynamically in time. This enables the automatic estimation of noise thresholds. It needs a few seconds to learn it. (Smoothing and Artifact control won't work when this is active)
 - Reset noise print: Removes the noise print previously captured.
 - Noise listen: To hear only the residual noise.
 - HF residual emphasis: When whitening is applied this will reduce lower frequencies but keep the boosted highs.
