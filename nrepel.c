@@ -44,9 +44,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 typedef enum {
 	NREPEL_AMOUNT = 0,
 	NREPEL_NOFFSET = 1,
-	NREPEL_SMOOTHING = 2,
-	NREPEL_ARTIFACT_CONTROL = 3,
-	NREPEL_RELEASE = 4,
+	NREPEL_RELEASE = 2,
+	NREPEL_SMOOTHING = 3,
+	NREPEL_ARTIFACT_CONTROL = 4,
 	NREPEL_WHITENING = 5,
 	NREPEL_MAKEUP = 6,
 	NREPEL_CAPTURE = 7,
@@ -102,6 +102,7 @@ typedef struct {
 	float prev_beta;									//For the adaptive smoothing
 	float make_gain_linear;						//Makeup gain linear value
 	float reduction_amount;						//Reduction amount linear value
+	float offset_thresholds_linear;		//Threshold offset linear value
 
 	//Buffers for processing and outputting
 	int input_latency;
@@ -339,6 +340,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 
 	nrepel->make_gain_linear = from_dB(*(nrepel->makeup_gain));
 	nrepel->reduction_amount = from_dB(-1.f * *(nrepel->amount_of_reduction));
+	nrepel->offset_thresholds_linear = from_dB(*(nrepel->noise_thresholds_offset));
 
 	//Reset button state (if on)
 	if (*(nrepel->reset_print) == 1.f) {
@@ -454,7 +456,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 													nrepel->fft_p2_prev_tpres,
 													*(nrepel->time_smoothing),
 													*(nrepel->artifact_control),
-													*(nrepel->noise_thresholds_offset),
+													nrepel->offset_thresholds_linear,
 													*(nrepel->adaptive_state),
 													nrepel->noise_thresholds_p2,
 													nrepel->fft_size_2,

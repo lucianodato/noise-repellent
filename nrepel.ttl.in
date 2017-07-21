@@ -40,23 +40,34 @@
       "Quantité de réduction"@fr ;
     lv2:minimum 0.0 ;
     lv2:maximum 48.0 ;
-    lv2:default 10.0 ;
+    lv2:default 5.0 ;
     units:unit units:db ;
   ], [
     a lv2:ControlPort,
       lv2:InputPort ;
     lv2:index 1 ;
     lv2:symbol "offset" ;
-    lv2:name "Noise offset",
-      "Compensacion de Ruido"@es ;
-    lv2:minimum 0.0 ;
+    lv2:name "Threshold offset",
+      "Compensacion de Umbrales"@es ;
+    lv2:minimum -24.0 ;
     lv2:maximum 24.0 ;
-    lv2:default 1.0 ;
-    lv2:portProperty pprop:logarithmic ;
+    lv2:default 0.0 ;
+    units:unit units:db ;
   ], [
     a lv2:ControlPort,
       lv2:InputPort ;
     lv2:index 2 ;
+    lv2:symbol "release" ;
+    lv2:name "Release",
+      "Relevo"@es ;
+    lv2:minimum 1.0 ;
+    lv2:maximum 1000.0 ;
+    lv2:default 30.0 ;
+    units:unit units:ms ;
+  ], [
+    a lv2:ControlPort,
+      lv2:InputPort ;
+    lv2:index 3 ;
     lv2:symbol "smoothing" ;
     lv2:name "Smoothing",
       "Suavizado"@es ,
@@ -67,24 +78,13 @@
   ], [
     a lv2:ControlPort,
       lv2:InputPort ;
-    lv2:index 3 ;
+    lv2:index 4 ;
     lv2:symbol "artifact_control" ;
     lv2:name "Artifact Control",
       "Control de Artefactos"@es ;
     lv2:minimum 0.0 ;
     lv2:maximum 1.0 ;
     lv2:default 0.0 ;
-  ], [
-    a lv2:ControlPort,
-      lv2:InputPort ;
-    lv2:index 4 ;
-    lv2:symbol "release" ;
-    lv2:name "Release",
-      "Relevo"@es ;
-    lv2:minimum 1.0 ;
-    lv2:maximum 1000.0 ;
-    lv2:default 30.0 ;
-    units:unit units:ms ;
   ], [
     a lv2:ControlPort,
       lv2:InputPort ;
