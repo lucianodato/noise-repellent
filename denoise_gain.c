@@ -20,8 +20,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <float.h>
 #include <math.h>
 
-//Power Sustraction
-void power_sustraction(int fft_size_2,
+//Power subtraction
+void power_subtraction(int fft_size_2,
 		       float* spectrum,
 		       float* noise_thresholds,
 		       float* Gk) {
@@ -89,7 +89,7 @@ void wideband_gating(int fft_size_2,
 			*Gk = 1.f;
 		}else{
 			//under the threshold
-			*Gk = 0.f; 
+			*Gk = 0.f;
 		}
 	} else {
 		//Otherwise we keep everything as is

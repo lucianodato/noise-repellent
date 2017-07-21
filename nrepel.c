@@ -67,7 +67,7 @@ typedef struct {
 
 	//Parameters for the algorithm (user input)
 	float* amount_of_reduction;       //Amount of noise to reduce in dB
-	float* noise_thresholds_offset;   //This is to scale the noise profile (over sustraction factor)
+	float* noise_thresholds_offset;   //This is to scale the noise profile (over subtraction factor)
 	float* time_smoothing;            //constant that set the time smoothing coefficient (interpolation between past and present frame)
 	float* artifact_control;					//Mix between spectal gating and wideband gating
 	float* release;            	  		//Release time
@@ -100,8 +100,8 @@ typedef struct {
 	float reduction_coeff;            //Gain to apply to the residual noise
 	float release_coeff;							//Release coefficient for Envelopes
 	float prev_beta;									//For the adaptive smoothing
-	float make_gain_lineal;						//Makeup gain lineal value
-	float reduction_amount;						//Reduction amount lineal value
+	float make_gain_linear;						//Makeup gain linear value
+	float reduction_amount;						//Reduction amount linear value
 
 	//Buffers for processing and outputting
 	int input_latency;
@@ -337,7 +337,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 
 	//printf("%f\n", nrepel->release_coeff );
 
-	nrepel->make_gain_lineal = from_dB(*(nrepel->makeup_gain));
+	nrepel->make_gain_linear = from_dB(*(nrepel->makeup_gain));
 	nrepel->reduction_amount = from_dB(-1.f * *(nrepel->amount_of_reduction));
 
 	//Reset button state (if on)
@@ -470,7 +470,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 															*(nrepel->whitening_factor),
 															*(nrepel->tapering),
 															nrepel->reduction_amount,
-															nrepel->make_gain_lineal,
+															nrepel->make_gain_linear,
 															nrepel->wet_dry,
 															*(nrepel->noise_listen));
 					}
