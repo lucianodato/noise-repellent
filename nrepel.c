@@ -34,7 +34,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 //STFT default values (These are standard values)
 #define FFT_SIZE 2048                 //max should be 8192 otherwise is too expensive
-#define WINDOW_COMBINATION 0          //0 HANN-HANN 1 HAMMING-HANN 2 BLACKMAN-HANN
+#define INPUT_WINDOW 2          			//0 HANN 1 HAMMING 2 BLACKMAN Input windows for STFT algorithm
+#define OUTPUT_WINDOW 2          			//0 HANN 1 HAMMING 2 BLACKMAN Output windows for STFT algorithm
 #define OVERLAP_FACTOR 4              //4 is 75% overlap Values bigger than 4 will scale correctly
 
 ///---------------------------------------------------------------------
@@ -87,7 +88,8 @@ typedef struct {
 	//Parameters values and arrays for the STFT
 	int fft_size;                     //FFTW input size
 	int fft_size_2;                   //FFTW half input size
-	int window_combination;           //Window combination for the STFT
+	int input_window_option;          //Input Window for the STFT
+	int output_window_option;         //Output Window for the STFT
 	float overlap_factor;             //oversampling factor for overlap calculations
 	float overlap_scale_factor;       //Scaling factor for conserving the final amplitude
 	int hop;                          //Hop size for the STFT
@@ -186,7 +188,8 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->samp_rate = (float)rate;
 	nrepel->fft_size = FFT_SIZE;
 	nrepel->fft_size_2 = nrepel->fft_size/2;
-	nrepel->window_combination = WINDOW_COMBINATION;
+	nrepel->input_window_option = INPUT_WINDOW;
+	nrepel->output_window_option = OUTPUT_WINDOW;
 	nrepel->overlap_factor = OVERLAP_FACTOR;
 	nrepel->hop = nrepel->fft_size/nrepel->overlap_factor;
 	nrepel->input_latency = nrepel->fft_size - nrepel->hop;
@@ -231,7 +234,8 @@ instantiate(const LV2_Descriptor*     descriptor,
 	fft_pre_and_post_window(nrepel->window_input,
 				nrepel->window_output,
 				nrepel->fft_size,
-				nrepel->window_combination,
+				nrepel->input_window_option,
+				nrepel->output_window_option,
 				&nrepel->overlap_scale_factor);
 
 	//Set initial gain as unity

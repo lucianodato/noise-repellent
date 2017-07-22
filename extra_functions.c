@@ -124,25 +124,37 @@ inline float get_window_scale_factor(float* window_input,
 void fft_pre_and_post_window(float* window_input,
                              float* window_output,
                              int fft_size,
-                             int window_combination,
+                             int input_window_option,
+                             int output_window_option,
                              float* overlap_scale_factor) {
-  switch(window_combination){
+  //Input window
+  switch(input_window_option){
     case 0: // HANN-HANN
       fft_window(window_input,fft_size,0); //STFT input window
-      fft_window(window_output,fft_size,0); //STFT output window
-      *(overlap_scale_factor) = get_window_scale_factor(window_input,window_output,fft_size);
       break;
     case 1: //HAMMING-HANN
       fft_window(window_input,fft_size,1); //STFT input window
-      fft_window(window_output,fft_size,0); //STFT output window
-      *(overlap_scale_factor) = get_window_scale_factor(window_input,window_output,fft_size);
       break;
     case 2: //BLACKMAN-HANN
       fft_window(window_input,fft_size,2); //STFT input window
-      fft_window(window_output,fft_size,0); //STFT output window
-      *(overlap_scale_factor) = get_window_scale_factor(window_input,window_output,fft_size);
       break;
   }
+
+  //Output window
+  switch(output_window_option){
+    case 0: // HANN-HANN
+      fft_window(window_output,fft_size,0); //STFT input window
+      break;
+    case 1: //HAMMING-HANN
+      fft_window(window_output,fft_size,1); //STFT input window
+      break;
+    case 2: //BLACKMAN-HANN
+      fft_window(window_output,fft_size,2); //STFT input window
+      break;
+  }
+
+  //Scaling necessary for perfect reconstruction using Overlapp Add 
+  *(overlap_scale_factor) = get_window_scale_factor(window_input,window_output,fft_size);
 }
 
 //---------SPECTRAL OPERATIONS-------------
