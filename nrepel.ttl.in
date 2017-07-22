@@ -186,7 +186,7 @@
     lv2:index 13 ;
     lv2:symbol "latency" ;
     lv2:minimum 0 ;
-    lv2:maximum 8196 ;
+    lv2:maximum 8192 ;
     lv2:portProperty lv2:reportsLatency, lv2:integer, pprop:notOnGUI ;
     units:unit units:frame ;
   ], [

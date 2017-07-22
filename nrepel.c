@@ -69,10 +69,10 @@ typedef struct {
 	//Parameters for the algorithm (user input)
 	float* amount_of_reduction;       //Amount of noise to reduce in dB
 	float* noise_thresholds_offset;   //This is to scale the noise profile (over subtraction factor)
-	float* time_smoothing_pc;        //degree that set the time smoothing coefficient (interpolation between past and present frame)
-	float* artifact_control_pc;			//Mix between spectal gating and wideband gating percentage
+	float* time_smoothing_pc;        	//degree that set the time smoothing coefficient (interpolation between past and present frame)
+	float* artifact_control_pc;				//Mix between spectal gating and wideband gating percentage
 	float* release;            	  		//Release time
-	float* whitening_factor_pc;			//Whitening amount of the reduction percentage
+	float* whitening_factor_pc;				//Whitening amount of the reduction percentage
 	float* makeup_gain;								//Output Makeup gain
 	float* capture_state;             //Capture Noise state (Manual-Off-Auto)
 	float* adaptive_state;            //Autocapture switch
@@ -502,7 +502,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 
 			///////////////////////////////////////////////////////////
 
-			//Normalize values to obtain correct magnitude and power values
+			//Normalize values to obtain correct values
 			for (k = 0; k < nrepel->fft_size; k++){
 				nrepel->output_fft_buffer[k] /= nrepel->fft_size;
 			}
@@ -515,12 +515,12 @@ run(LV2_Handle instance, uint32_t n_samples) {
 
 			//------------OVERLAPADD-------------
 
-			//Accumulate (Overlapadd)
+			//Accumulate (Overlapadd) and rescale
 			for(k = 0; k < nrepel->fft_size; k++){
-				nrepel->output_accum[k] += nrepel->window_output[k]*nrepel->input_fft_buffer[k]/( nrepel->overlap_scale_factor * nrepel->overlap_factor);
+				nrepel->output_accum[k] += nrepel->window_output[k]*nrepel->input_fft_buffer[k]/(nrepel->overlap_scale_factor * nrepel->overlap_factor);
 			}
 
-			//Output samples up to the hop size (using makeup gain setted by the user)
+			//Output samples up to the hop size
 			for (k = 0; k < nrepel->hop; k++){
 				nrepel->out_fifo[k] = nrepel->output_accum[k];
 			}
