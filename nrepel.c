@@ -101,7 +101,6 @@ typedef struct {
 	float wet_dry;                    //softbypass coeff
 	float reduction_coeff;            //Gain to apply to the residual noise
 	float release_coeff;							//Release coefficient for Envelopes
-	float prev_beta;									//For the adaptive smoothing
 	float make_gain_linear;						//Makeup gain linear value
 	float reduction_amount;						//Reduction amount linear value
 	float offset_thresholds_linear;		//Threshold offset linear value
@@ -198,7 +197,6 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->noise_thresholds_availables = false;
 	nrepel->tau = (1.f - exp (-2.f * M_PI * 25.f * 64.f  / nrepel->samp_rate));
 	nrepel->wet_dry = 0.f;
-	nrepel->prev_beta = 0.f;
 
 	nrepel->in_fifo = (float*)calloc(nrepel->fft_size,sizeof(float));
 	nrepel->out_fifo = (float*)calloc(nrepel->fft_size,sizeof(float));
@@ -480,7 +478,6 @@ run(LV2_Handle instance, uint32_t n_samples) {
 																		nrepel->offset_thresholds_linear,
 																		nrepel->noise_thresholds_p2,
 																		nrepel->fft_size_2,
-																		&nrepel->prev_beta,
 																		nrepel->Gk,
 																		nrepel->release_coeff);
 						}

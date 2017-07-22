@@ -69,7 +69,6 @@ void spectral_gain_manual(float* fft_p2,
 							    float noise_thresholds_offset,
 							    float* noise_thresholds_p2,
 							    int fft_size_2,
-									float* prev_beta,
 							    float* Gk,
 									float release_coeff){
 
@@ -184,7 +183,7 @@ void gain_application(int fft_size_2,
 	//OUTPUT RESULTS
 
   //Output processed signal or to noise only
-  if (noise_listen == 0.f){
+  if (noise_listen < 1.f){
     //Output denoised result
 		//Parametric application of the reduction
     for (k = 0; k <= fft_size_2; k++) {
