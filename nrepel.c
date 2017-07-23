@@ -34,8 +34,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 //STFT default values (These are standard values)
 #define FFT_SIZE 2048                 //max should be 8192 otherwise is too expensive
-#define INPUT_WINDOW 2          			//0 HANN 1 HAMMING 2 BLACKMAN Input windows for STFT algorithm
-#define OUTPUT_WINDOW 2          			//0 HANN 1 HAMMING 2 BLACKMAN Output windows for STFT algorithm
+#define INPUT_WINDOW 0          			//0 HANN 1 HAMMING 2 BLACKMAN Input windows for STFT algorithm
+#define OUTPUT_WINDOW 0          			//0 HANN 1 HAMMING 2 BLACKMAN Output windows for STFT algorithm
 #define OVERLAP_FACTOR 4              //4 is 75% overlap Values bigger than 4 will scale correctly
 
 ///---------------------------------------------------------------------
@@ -195,7 +195,7 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->read_ptr = nrepel->input_latency; //the initial position because we are that many samples ahead
 	nrepel->window_count = 0.f;
 	nrepel->noise_thresholds_availables = false;
-	nrepel->tau = (1.f - exp (-2.f * M_PI * 25.f * 64.f  / nrepel->samp_rate));
+	nrepel->tau = (1.f - expf(-2.f * M_PI * 25.f * 64.f  / nrepel->samp_rate));
 	nrepel->wet_dry = 0.f;
 
 	nrepel->in_fifo = (float*)calloc(nrepel->fft_size,sizeof(float));
@@ -340,15 +340,14 @@ run(LV2_Handle instance, uint32_t n_samples) {
 		These must take into account the hop size as explained in the following paper
 		FFT-BASED DYNAMIC RANGE COMPRESSION*/
 	nrepel->release_coeff = expf(-1000.f/(((*(nrepel->release)) * nrepel->samp_rate)/ nrepel->hop) );
-
-	//printf("%f\n", nrepel->release_coeff );
-
 	nrepel->make_gain_linear = from_dB(*(nrepel->makeup_gain));
 	nrepel->reduction_amount = from_dB(-1.f * *(nrepel->amount_of_reduction));
 	nrepel->offset_thresholds_linear = from_dB(*(nrepel->noise_thresholds_offset));
 	nrepel->time_smoothing= *(nrepel->time_smoothing_pc)/100.f;
 	nrepel->artifact_control = *(nrepel->artifact_control_pc)/100.f;
 	nrepel->whitening_factor = *(nrepel->whitening_factor_pc)/100.f;
+
+	//printf("%f\n", nrepel->release_coeff );
 
 	//Reset button state (if on)
 	if (*(nrepel->reset_print) == 1.f) {
@@ -458,7 +457,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 					//If there is a noise profile reduce noise
 					if (nrepel->noise_thresholds_availables == true) {
 						//Gain Calculation
-						if(*(nrepel->adaptive_state) > 0.f){
+						if(*(nrepel->adaptive_state) == 1.f){
 							//ADAPTIVE NOISE PROFILE
 							spectral_gain_adaptive(nrepel->fft_p2,
 																		 nrepel->fft_p2_prev_env,

@@ -153,7 +153,7 @@ void fft_pre_and_post_window(float* window_input,
       break;
   }
 
-  //Scaling necessary for perfect reconstruction using Overlapp Add 
+  //Scaling necessary for perfect reconstruction using Overlapp Add
   *(overlap_scale_factor) = get_window_scale_factor(window_input,window_output,fft_size);
 }
 
@@ -307,7 +307,7 @@ void apply_envelope(float* spectrum,
   for (k = 0; k <= N ; k++) {
 
     //It doesn't make much sense to have an attack slider when there is time smoothing
-    if (spectrum[k] >= spectrum_prev[k]){
+    if (spectrum[k] > spectrum_prev[k]){
       //Release (when signal is incrementing in amplitude)
       spectrum[k] = release_coeff*spectrum_prev[k] + (1.f-release_coeff)*spectrum[k];
     }

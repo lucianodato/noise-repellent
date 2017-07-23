@@ -94,7 +94,7 @@ void spectral_gain_manual(float* fft_p2,
 		The best option here is to adaptively smooth 2D spectral components so it will require a biger buffer
 		as suggested by Lukin in Suppression of Musical Noise Artifacts in Audio Noise Reduction by Adaptive 2D Filtering
 	*/
-	if (time_smoothing > 0.f){ //Issue 33 TODO
+	if (time_smoothing == 1.f){ //Issue 33 TODO
 		spectrum_time_smoothing(fft_size_2,
 														fft_p2_prev_tsmooth,
 														fft_p2,
@@ -127,7 +127,7 @@ void spectral_gain_manual(float* fft_p2,
 	//------POSTPROCESSING GAINS------
 
 	//Artifact control (applying wideband gating between pauses)
-	if(artifact_control > 0.f){
+	if(artifact_control == 1.f){
 		wideband_gating(fft_size_2,
 										fft_p2,
 										noise_thresholds_scaled,
@@ -156,61 +156,43 @@ void gain_application(int fft_size_2,
 
   int k;
   float residual_spectrum[fft_size];
-  float denoised_fft_buffer[fft_size];
-  float final_fft_buffer[fft_size];
+  float denoised_spectrum[fft_size];
 
   //Apply the computed gain to the signal and store it in denoised array
   for (k = 0; k <= fft_size_2; k++) {
-    denoised_fft_buffer[k] = output_fft_buffer[k] * Gk[k];
+    denoised_spectrum[k] = output_fft_buffer[k] * Gk[k];
     if(k < fft_size_2)
-      denoised_fft_buffer[fft_size-k] = output_fft_buffer[fft_size-k] * Gk[k];
+      denoised_spectrum[fft_size-k] = output_fft_buffer[fft_size-k] * Gk[k];
   }
 
   //Residual signal
   for (k = 0; k <= fft_size_2; k++) {
-   residual_spectrum[k] = output_fft_buffer[k] - denoised_fft_buffer[k];
+   residual_spectrum[k] = output_fft_buffer[k] - denoised_spectrum[k];
    if(k < fft_size_2)
-    residual_spectrum[fft_size-k] = output_fft_buffer[fft_size-k] - denoised_fft_buffer[fft_size-k];
+    residual_spectrum[fft_size-k] = output_fft_buffer[fft_size-k] - denoised_spectrum[fft_size-k];
   }
 
 	//POSTPROCESSING RESIDUAL
 	//Whitening (residual spectrum more similar to white noise)
 	//Tappering (preserves HF but reduces more lower ones)
-	if(whitening_factor > 0.f) {
+	if(whitening_factor == 1.f) {
 		whitening_and_tapering(residual_spectrum,whitening_factor,tapering,fft_size_2);
 	}
 
-	//OUTPUT RESULTS
-
-  //Output processed signal or to noise only
-  if (noise_listen < 1.f){
-    //Output denoised result
-		//Parametric application of the reduction
-    for (k = 0; k <= fft_size_2; k++) {
-      final_fft_buffer[k] =  denoised_fft_buffer[k] + residual_spectrum[k]*reduction_amount;
-      if(k < fft_size_2)
-        final_fft_buffer[fft_size-k] = denoised_fft_buffer[fft_size-k] + residual_spectrum[fft_size-k]*reduction_amount ;
-    }
-  } else {
-    //Output noise only
-    for (k = 0; k <= fft_size_2; k++) {
-      final_fft_buffer[k] = residual_spectrum[k];
-      if(k < fft_size_2)
-        final_fft_buffer[fft_size-k] = residual_spectrum[fft_size-k];
-    }
-  }
-
-  //Applying make up gain
-  for (k = 0; k <= fft_size_2; k++) {
-    final_fft_buffer[k] *= makeup_gain;
-    if(k < fft_size_2)
-      final_fft_buffer[fft_size-k] *= makeup_gain;
-  }
-
-  //Smooth bypass
-  for (k = 0; k <= fft_size_2; k++) {
-    output_fft_buffer[k] = (1.f-wet_dry) * output_fft_buffer[k] + final_fft_buffer[k] * wet_dry;
-    if(k < fft_size_2)
-      output_fft_buffer[fft_size-k] = (1.f-wet_dry) * output_fft_buffer[fft_size-k] + final_fft_buffer[fft_size-k] * wet_dry;
-  }
+	//OUTPUT RESULTS using smooth bypass and parametric sustraction
+	if (noise_listen == 0.f){
+	//Mix residual and processed (Parametric way of noise reduction)
+		for (k = 0; k <= fft_size_2; k++) {
+			output_fft_buffer[k] =  (1.f-wet_dry) * output_fft_buffer[k] + makeup_gain * (denoised_spectrum[k] + residual_spectrum[k]*reduction_amount) * wet_dry;
+			if(k < fft_size_2)
+				output_fft_buffer[fft_size-k] = (1.f-wet_dry) * output_fft_buffer[fft_size-k] + makeup_gain * (denoised_spectrum[fft_size-k] + residual_spectrum[fft_size-k]*reduction_amount) * wet_dry;
+		}
+	} else {
+		//Output noise only
+		for (k = 0; k <= fft_size_2; k++) {
+			output_fft_buffer[k] = (1.f-wet_dry) * output_fft_buffer[k] + makeup_gain * residual_spectrum[k] * wet_dry;
+			if(k < fft_size_2)
+				output_fft_buffer[fft_size-k] = (1.f-wet_dry) * output_fft_buffer[fft_size-k] + makeup_gain * residual_spectrum[fft_size-k] * wet_dry;
+		}
+	}
 }
