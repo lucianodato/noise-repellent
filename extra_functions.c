@@ -292,9 +292,6 @@ void spectrum_time_smoothing(int fft_size_2,
   int k;
   for (k = 0; k <= fft_size_2; k++) {
     spectrum[k] = (1.f - coeff) * spectrum[k] + coeff * prev_spectrum[k];
-
-    //Smoothing proposed by McAulay and Malpass (avoid reducing onsets but introduces echo)
-    //spectrum[k] = MAX((1.f - coeff) * spectrum[k] + coeff * prev_spectrum[k],spectrum[k]);
   }
 }
 

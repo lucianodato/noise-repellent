@@ -125,13 +125,12 @@ typedef struct {
 	float real_p,imag_n,mag,p2;
 	float* fft_p2;                    //power spectrum
 	float* fft_magnitude;             //magnitude spectrum
-	float* fft_p2_prev_tsmooth;       //power spectum of previous frame for time smoothing
 	float* fft_p2_prev_env;           //power spectum of previous frame for envelopes
-	float* fft_p2_prev_tpres;         //power spectum of previous frame for transient preservation
 	float* noise_thresholds_p2;       //captured noise print power spectrum
 
 	//Reduction gains
 	float* Gk;			  								//definitive gain
+	float* Gk_prev;       						//power spectum of previous frame for time smoothing
 
 	//Loizou algorithm
 	float* auto_thresholds;           //Reference threshold for louizou algorithm
@@ -211,13 +210,13 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->backward = fftwf_plan_r2r_1d(nrepel->fft_size, nrepel->output_fft_buffer, nrepel->input_fft_buffer, FFTW_HC2R, FFTW_ESTIMATE);
 
 	nrepel->fft_p2 = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
-	nrepel->fft_p2_prev_tsmooth = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->fft_p2_prev_env = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
-	nrepel->fft_p2_prev_tpres = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->noise_thresholds_p2 = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->fft_magnitude = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 
 	nrepel->Gk = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
+	nrepel->Gk_prev = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
+
 
 	nrepel->auto_thresholds = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->prev_noise_thresholds = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
@@ -238,6 +237,7 @@ instantiate(const LV2_Descriptor*     descriptor,
 
 	//Set initial gain as unity
 	memset(nrepel->Gk, 0, (nrepel->fft_size_2+1)*sizeof(float));
+	memset(nrepel->Gk_prev, 0, (nrepel->fft_size_2+1)*sizeof(float));
 
 	//Compute auto mode initial thresholds
 	compute_auto_thresholds(nrepel->auto_thresholds, nrepel->fft_size, nrepel->fft_size_2, nrepel->samp_rate);
@@ -353,6 +353,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 	if (*(nrepel->reset_print) == 1.f) {
 		memset(nrepel->noise_thresholds_p2, 0, (nrepel->fft_size_2+1)*sizeof(float));
 		memset(nrepel->Gk, 0, (nrepel->fft_size_2+1)*sizeof(float));
+		memset(nrepel->Gk_prev, 0, (nrepel->fft_size_2+1)*sizeof(float));
 		nrepel->window_count = 0.f;
 
 		memset(nrepel->prev_noise_thresholds, 0, (nrepel->fft_size_2+1)*sizeof(float));
@@ -469,15 +470,14 @@ run(LV2_Handle instance, uint32_t n_samples) {
 						}else{
 							//FOR MANUAL NOISE PROFILE
 							spectral_gain_manual(nrepel->fft_p2,
-																		nrepel->fft_p2_prev_tsmooth,
 																		nrepel->fft_p2_prev_env,
-																		nrepel->fft_p2_prev_tpres,
 																		nrepel->time_smoothing,
 																		nrepel->artifact_control,
 																		nrepel->offset_thresholds_linear,
 																		nrepel->noise_thresholds_p2,
 																		nrepel->fft_size_2,
 																		nrepel->Gk,
+																		nrepel->Gk_prev,
 																		nrepel->release_coeff);
 						}
 

@@ -64,15 +64,14 @@ void spectral_gain_adaptive(float* fft_p2,
 
 //FOR MANUAL NOISE PROFILE
 void spectral_gain_manual(float* fft_p2,
-							    float* fft_p2_prev_tsmooth,
 							    float* fft_p2_prev_env,
-							    float* fft_p2_prev_tpres,
 							    float time_smoothing,
 									float artifact_control,
 							    float noise_thresholds_offset,
 							    float* noise_thresholds_p2,
 							    int fft_size_2,
 							    float* Gk,
+									float* Gk_prev,
 									float release_coeff){
 
 	int k;
@@ -104,21 +103,6 @@ void spectral_gain_manual(float* fft_p2,
 
 	memcpy(fft_p2_prev_env,fft_p2,sizeof(float)*(fft_size_2+1));
 
-
-	/*Time smoothing between current and past power spectrum (similar effect to ephraim and malah)
-		The best option here is to adaptively smooth 2D spectral components so it will require a biger buffer
-		as suggested by Lukin in Suppression of Musical Noise Artifacts in Audio Noise Reduction by Adaptive 2D Filtering
-	*/
-	if (time_smoothing > 0.f){ //Issue 33 TODO
-		spectrum_time_smoothing(fft_size_2,
-														fft_p2_prev_tsmooth,
-														fft_p2,
-														time_smoothing);
-
-		//Store previous power values for smoothing
-		memcpy(fft_p2_prev_tsmooth,fft_p2,sizeof(float)*(fft_size_2+1));
-	}
-
 	//------GAIN CALCULATION------
 
 	//Spectral gate
@@ -128,6 +112,20 @@ void spectral_gain_manual(float* fft_p2,
 									Gk);
 
 	//------POSTPROCESSING GAINS------
+
+	/*Time smoothing between current and past Gk (similar effect to ephraim and malah)
+		The best option here is to adaptively smooth 2D spectral components so it will require a biger buffer
+		as suggested by Lukin in Suppression of Musical Noise Artifacts in Audio Noise Reduction by Adaptive 2D Filtering
+	*/
+	if (time_smoothing > 0.f){ //Issue 33 TODO
+		spectrum_time_smoothing(fft_size_2,
+														Gk_prev,
+														Gk,
+														time_smoothing);
+
+		//Store previous power values for smoothing
+		memcpy(Gk_prev,Gk,sizeof(float)*(fft_size_2+1));
+	}
 
 	//Artifact control (applying wideband gating between pauses)
 	if(artifact_control > 0.f){
