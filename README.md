@@ -9,7 +9,7 @@ Installing instructions: sudo make install
 
 Warning!!! This plugin is meant to be used with Ardour. It will introduce latency. Don't expect it to be like commercial plugins, although it will do the job in most cases if configured well enough.
 
-Using it: First select a portion of noise in your track of at least one second and loop it. The longer the better. Turn on Capture noise print for a bit (at least one loop). Use the reduction slider to reduce the noise.
+Using it: First select a portion of noise in your track of at least one second and loop it. The longer the better. Turn on Capture noise print for a bit (at least one loop). Once that's done turn it off and tweak parameters as you like.
 
 Sliders explained:
 
