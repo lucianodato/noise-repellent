@@ -94,7 +94,7 @@ void spectral_gain_manual(float* fft_p2,
 		The best option here is to adaptively smooth 2D spectral components so it will require a biger buffer
 		as suggested by Lukin in Suppression of Musical Noise Artifacts in Audio Noise Reduction by Adaptive 2D Filtering
 	*/
-	if (time_smoothing == 1.f){ //Issue 33 TODO
+	if (time_smoothing > 0.f){ //Issue 33 TODO
 		spectrum_time_smoothing(fft_size_2,
 														fft_p2_prev_tsmooth,
 														fft_p2,
@@ -127,7 +127,7 @@ void spectral_gain_manual(float* fft_p2,
 	//------POSTPROCESSING GAINS------
 
 	//Artifact control (applying wideband gating between pauses)
-	if(artifact_control == 1.f){
+	if(artifact_control > 0.f){
 		wideband_gating(fft_size_2,
 										fft_p2,
 										noise_thresholds_scaled,
