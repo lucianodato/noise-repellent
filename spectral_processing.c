@@ -127,7 +127,7 @@ void spectral_gain_manual(float* fft_p2,
 		memcpy(Gk_prev,Gk,sizeof(float)*(fft_size_2+1));
 	}
 
-	//Artifact control (applying wideband gating between pauses)
+	//Artifact control (applying wideband gating in low SNR zones)
 	if(artifact_control > 0.f){
 		wideband_gating(fft_size_2,
 										fft_p2,
