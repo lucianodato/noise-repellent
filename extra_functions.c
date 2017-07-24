@@ -311,9 +311,6 @@ void apply_envelope(float* spectrum,
       //Release (when signal is incrementing in amplitude)
       spectrum[k] = release_coeff*spectrum_prev[k] + (1.f-release_coeff)*spectrum[k];
     }
-
-		//Update Previous
-		spectrum_prev[k] = spectrum[k];
 	}
 }
 

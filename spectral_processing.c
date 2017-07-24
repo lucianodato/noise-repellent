@@ -46,6 +46,9 @@ void spectral_gain_adaptive(float* fft_p2,
 								 fft_size_2,
 								 release_coeff);
 
+	memcpy(fft_p2_prev_env,fft_p2,sizeof(float)*(fft_size_2+1));
+
+
 	//OVERSUSTRACTION
 	//Scale noise profile (equals applying an oversustraction factor in spectral sustraction)
 	for (k = 0; k <= fft_size_2; k++) {
@@ -75,12 +78,21 @@ void spectral_gain_manual(float* fft_p2,
 	int k;
 	float noise_thresholds_scaled[fft_size_2+1];
 	float Gk_wideband_gate;
-	float original_spectrum[fft_size_2+1];
 	float non_linear_snr;
 
-	memcpy(original_spectrum,fft_p2,sizeof(float)*(fft_size_2+1));
-
 	//PREPROCESSING
+
+	//------OVERSUBTRACTION------
+
+	//Scale noise thresholds (equals applying an oversubtraction factor in spectral subtraction)
+	for (k = 0; k <= fft_size_2; k++) {
+		//Adapting scaling of thresholds using local SNR as in Non linear subtraction
+		//This could be adaptive using masking instead of local snr scaling TODO
+		non_linear_snr = SNR_INFLUENCE + sqrtf(fft_p2[k]/noise_thresholds_p2[k]);
+
+		//Application of every scaling factor to noise thresholds
+		noise_thresholds_scaled[k] = noise_thresholds_p2[k] * noise_thresholds_offset * non_linear_snr;
+	}
 
 	//------SMOOTHING DETECTOR------
 
@@ -89,6 +101,9 @@ void spectral_gain_manual(float* fft_p2,
 								 fft_p2_prev_env,
 								 fft_size_2,
 								 release_coeff);
+
+	memcpy(fft_p2_prev_env,fft_p2,sizeof(float)*(fft_size_2+1));
+
 
 	/*Time smoothing between current and past power spectrum (similar effect to ephraim and malah)
 		The best option here is to adaptively smooth 2D spectral components so it will require a biger buffer
@@ -102,18 +117,6 @@ void spectral_gain_manual(float* fft_p2,
 
 		//Store previous power values for smoothing
 		memcpy(fft_p2_prev_tsmooth,fft_p2,sizeof(float)*(fft_size_2+1));
-	}
-
-	//------OVERSUBTRACTION------
-
-	//Scale noise thresholds (equals applying an oversubtraction factor in spectral subtraction)
-	for (k = 0; k <= fft_size_2; k++) {
-		//Adapting scaling of thresholds using local SNR as in Non linear subtraction
-		//This could be adaptive using masking instead of local snr scaling TODO
-		non_linear_snr = SNR_INFLUENCE + sqrtf(original_spectrum[k]/noise_thresholds_p2[k]);
-
-		//Application of every scaling factor to noise thresholds
-		noise_thresholds_scaled[k] = noise_thresholds_p2[k] * noise_thresholds_offset * non_linear_snr;
 	}
 
 	//------GAIN CALCULATION------
@@ -175,7 +178,7 @@ void gain_application(int fft_size_2,
 	//POSTPROCESSING RESIDUAL
 	//Whitening (residual spectrum more similar to white noise)
 	//Tappering (preserves HF but reduces more lower ones)
-	if(whitening_factor == 1.f) {
+	if(whitening_factor > 0.f) {
 		whitening_and_tapering(residual_spectrum,whitening_factor,tapering,fft_size_2);
 	}
 
