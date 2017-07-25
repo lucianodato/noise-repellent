@@ -1,5 +1,4 @@
 # noise-repellent
-===============================
 
 An lv2 plugin for broadband noise reduction.
 
@@ -17,21 +16,6 @@ Features
 * Noise print saved with the session
 
 Warning!!! This plugin is meant to be used with Ardour. It will introduce latency. Don't expect it to be like commercial plugins, although it will do the job in most cases if configured well enough.
-
-Block diagram
--------
-Internals are roughly like this
-
-in        +-----+                                +------+      out
-+---------> FFT +--------------------------------+ iFFT +-------->
-          +-+---+                                +---^--+
-            |            +----------------+          |
-            +--+--------->Noise Estimation|          |
-               |         +--------+-------+          |
-               |                  |                  |
-        +------v-------+  +-------v---------+  +-----+---------+
-        |Pre-processing+--> Supression rule +-->Post-processing|
-        +--------------+  +-----------------+  +---------------+
 
 Install
 -------
