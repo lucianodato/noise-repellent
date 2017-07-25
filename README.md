@@ -35,6 +35,7 @@ Manual noise capture workflow:
 1) First select a portion of noise in your track of at least one second and loop it. The longer the better.
 2) Turn on Capture noise print for a bit (at least one loop).
 3) Once that's done turn it off and tweak parameters as you like.
+
 Adaptive noise capture workflow:
 1) Turn on Adpative mode and keep it on
 2) Tweak parameters (artifact control and smoothing won't work)
