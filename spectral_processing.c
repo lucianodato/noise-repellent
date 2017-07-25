@@ -23,7 +23,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include "estimate_noise_spectrum.c"
 #include "denoise_gain.c"
 
-#define SNR_INFLUENCE 1.0    //local SNR Influence for threshold scaing (from non linear subtraction)
+//#define SNR_INFLUENCE 1.0    //local SNR Influence for threshold scaing (from non linear subtraction)
 
 //------------GAIN AND THRESHOLD CALCULATION---------------
 
@@ -77,7 +77,7 @@ void spectral_gain_manual(float* fft_p2,
 	int k;
 	float noise_thresholds_scaled[fft_size_2+1];
 	float Gk_wideband_gate;
-	float non_linear_snr;
+	//float non_linear_snr;
 
 	//PREPROCESSING
 
@@ -87,10 +87,10 @@ void spectral_gain_manual(float* fft_p2,
 	for (k = 0; k <= fft_size_2; k++) {
 		//Adapting scaling of thresholds using local SNR as in Non linear subtraction
 		//This could be adaptive using masking instead of local snr scaling TODO
-		non_linear_snr = SNR_INFLUENCE + sqrtf(fft_p2[k]/noise_thresholds_p2[k]);
+		// non_linear_snr = SNR_INFLUENCE + sqrtf(fft_p2[k]/noise_thresholds_p2[k]);
 
 		//Application of every scaling factor to noise thresholds
-		noise_thresholds_scaled[k] = noise_thresholds_p2[k] * noise_thresholds_offset * non_linear_snr;
+		noise_thresholds_scaled[k] = noise_thresholds_p2[k] * noise_thresholds_offset;// * non_linear_snr;
 	}
 
 	//------SMOOTHING DETECTOR------
