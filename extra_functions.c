@@ -26,9 +26,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define HANN_WINDOW 0
 #define HAMMING_WINDOW 1
 #define BLACKMAN_WINDOW 2
-#define HANN_HANN_SCALING 0.375f       //This is for overlapadd scaling
-#define HAMMING_HANN_SCALING 0.385f    // 1/average(window[i]^2)
-#define BLACKMAN_HANN_SCALING 0.335f
 
 #define M_PI 3.14159265358979323846f
 
@@ -110,51 +107,23 @@ void fft_window(float* window, int N, int window_type) {
   }
 }
 
-inline float get_window_scale_factor(float* window_input,
-                             float* window_output,
-                             int fft_size){
+inline float get_window_scale_factor(float* window,int fft_size){
  	float sum=0.f;
  	for(int i=0; i<fft_size; i++)
- 			sum+= window_input[i] * window_output[i];
-
+ 			sum+= powf(window[i],2.f);
  	return (sum/(float)(fft_size));
 }
 
 //wrapper for pre and post processing windows
-void fft_pre_and_post_window(float* window_input,
-                             float* window_output,
+void fft_pre_and_post_window(float* window,
                              int fft_size,
-                             int input_window_option,
-                             int output_window_option,
+                             int window_option,
                              float* overlap_scale_factor) {
-  //Input window
-  switch(input_window_option){
-    case 0: // HANN-HANN
-      fft_window(window_input,fft_size,0); //STFT input window
-      break;
-    case 1: //HAMMING-HANN
-      fft_window(window_input,fft_size,1); //STFT input window
-      break;
-    case 2: //BLACKMAN-HANN
-      fft_window(window_input,fft_size,2); //STFT input window
-      break;
-  }
-
-  //Output window
-  switch(output_window_option){
-    case 0: // HANN-HANN
-      fft_window(window_output,fft_size,0); //STFT input window
-      break;
-    case 1: //HAMMING-HANN
-      fft_window(window_output,fft_size,1); //STFT input window
-      break;
-    case 2: //BLACKMAN-HANN
-      fft_window(window_output,fft_size,2); //STFT input window
-      break;
-  }
+  //Window values computing
+  fft_window(window,fft_size,window_option); //STFT window
 
   //Scaling necessary for perfect reconstruction using Overlapp Add
-  *(overlap_scale_factor) = get_window_scale_factor(window_input,window_output,fft_size);
+  *(overlap_scale_factor) = get_window_scale_factor(window,fft_size);
 }
 
 //---------SPECTRAL OPERATIONS-------------

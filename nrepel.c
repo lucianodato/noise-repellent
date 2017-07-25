@@ -32,11 +32,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 #define NREPEL_URI "https://github.com/lucianodato/noise-repellent"
 
-//STFT default values (These are standard values)
-#define FFT_SIZE 2048                 //max should be 8192 otherwise is too expensive
-#define INPUT_WINDOW 0          			//0 HANN 1 HAMMING 2 BLACKMAN Input windows for STFT algorithm
-#define OUTPUT_WINDOW 0          			//0 HANN 1 HAMMING 2 BLACKMAN Output windows for STFT algorithm
-#define OVERLAP_FACTOR 4              //4 is 75% overlap Values bigger than 4 will scale correctly
+//STFT default values
+#define FFT_SIZE 2048                 //this size should be power of 2
+#define WINDOW_TYPE 0          			//0 HANN 1 HAMMING 2 BLACKMAN Input and Output windows for STFT algorithm
+#define OVERLAP_FACTOR 4              //4 is 75% overlap Values bigger than 4 will rescale correctly
 
 ///---------------------------------------------------------------------
 
@@ -88,13 +87,12 @@ typedef struct {
 	//Parameters values and arrays for the STFT
 	int fft_size;                     //FFTW input size
 	int fft_size_2;                   //FFTW half input size
-	int input_window_option;          //Input Window for the STFT
+	int window_option;          //Input Window for the STFT
 	int output_window_option;         //Output Window for the STFT
 	float overlap_factor;             //oversampling factor for overlap calculations
 	float overlap_scale_factor;       //Scaling factor for conserving the final amplitude
 	int hop;                          //Hop size for the STFT
-	float* window_input;              //Input Window values
-	float* window_output;             //Input Window values
+	float* window;              			//Window values
 	float window_count;               //Count windows for mean computing
 	float tau;                        //time constant for soft bypass
 	float wet_dry_target;             //softbypass target for softbypass
@@ -186,8 +184,7 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->samp_rate = (float)rate;
 	nrepel->fft_size = FFT_SIZE;
 	nrepel->fft_size_2 = nrepel->fft_size/2;
-	nrepel->input_window_option = INPUT_WINDOW;
-	nrepel->output_window_option = OUTPUT_WINDOW;
+	nrepel->window_option = WINDOW_TYPE;
 	nrepel->overlap_factor = OVERLAP_FACTOR;
 	nrepel->hop = nrepel->fft_size/nrepel->overlap_factor;
 	nrepel->input_latency = nrepel->fft_size - nrepel->hop;
@@ -201,8 +198,7 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->out_fifo = (float*)calloc(nrepel->fft_size,sizeof(float));
 	nrepel->output_accum = (float*)calloc(nrepel->fft_size,sizeof(float));
 
-	nrepel->window_input = (float*)calloc(nrepel->fft_size,sizeof(float));
-	nrepel->window_output = (float*)calloc(nrepel->fft_size,sizeof(float));
+	nrepel->window = (float*)calloc(nrepel->fft_size,sizeof(float));
 
 	nrepel->input_fft_buffer = (float*)calloc(nrepel->fft_size,sizeof(float));
 	nrepel->output_fft_buffer = (float*)calloc(nrepel->fft_size,sizeof(float));
@@ -228,11 +224,9 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->prev_speech_p_p = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 
 	//Window combination initialization (pre processing window post processing window)
-	fft_pre_and_post_window(nrepel->window_input,
-				nrepel->window_output,
+	fft_pre_and_post_window(nrepel->window,
 				nrepel->fft_size,
-				nrepel->input_window_option,
-				nrepel->output_window_option,
+				nrepel->window_option,
 				&nrepel->overlap_scale_factor);
 
 	//Set initial gain as unity
@@ -385,7 +379,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 
 			//Apply windowing
 			for (k = 0; k < nrepel->fft_size; k++){
-				nrepel->input_fft_buffer[k] = nrepel->in_fifo[k] * nrepel->window_input[k];
+				nrepel->input_fft_buffer[k] = nrepel->in_fifo[k] * nrepel->window[k];
 			}
 
 			//----------FFT Analysis------------
@@ -498,22 +492,21 @@ run(LV2_Handle instance, uint32_t n_samples) {
 
 			///////////////////////////////////////////////////////////
 
-			//Normalize values to obtain correct values
-			for (k = 0; k < nrepel->fft_size; k++){
-				nrepel->output_fft_buffer[k] /= nrepel->fft_size;
-			}
-
-
 			//------------FFT Synthesis-------------
 
 			//Do inverse transform
 			fftwf_execute(nrepel->backward);
 
+			//Windowing and rescaling
+			for (k = 0; k < nrepel->fft_size; k++){
+				nrepel->input_fft_buffer[k] = (nrepel->window[k]*nrepel->input_fft_buffer[k]) / (nrepel->fft_size * nrepel->overlap_scale_factor * nrepel->overlap_factor);
+			}
+
 			//------------OVERLAPADD-------------
 
-			//Accumulate (Overlapadd) and rescale
+			//Accumulate
 			for(k = 0; k < nrepel->fft_size; k++){
-				nrepel->output_accum[k] += nrepel->window_output[k]*nrepel->input_fft_buffer[k]/(nrepel->overlap_scale_factor * nrepel->overlap_factor);
+				nrepel->output_accum[k] += nrepel->input_fft_buffer[k];
 			}
 
 			//Output samples up to the hop size
