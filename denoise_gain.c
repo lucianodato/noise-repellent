@@ -72,7 +72,7 @@ void spectral_gating(int fft_size_2,
 //This probably could be better (Postfilter) TODO
 float wideband_gating(int fft_size_2,
 	    float* spectrum,
-			float* Gk) {
+			float* Gk_spectral) {
 
 	int k;
 	float num = 0.f, den = 0.f;
@@ -81,12 +81,11 @@ float wideband_gating(int fft_size_2,
 
 	//Using low level SNR DETECTOR
 	for (k = 0; k <= fft_size_2 ; k++) {
-		num += spectrum[k]*Gk[k];
+		num += spectrum[k]*Gk_spectral[k];
 		den += spectrum[k];
 	}
 
 	indicator = num/den;
-
 
 	//Hard knee decition
 	if (indicator >= G_THRESH){
