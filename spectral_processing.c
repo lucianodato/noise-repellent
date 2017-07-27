@@ -115,15 +115,13 @@ void spectral_gain_manual(float* fft_p2,
 
 	//Artifact control (applying wideband gating in low SNR zones)
 	if(artifact_control > 0.f){
-		wideband_gating(fft_size_2,
-										fft_p2,
-										noise_thresholds_p2,
-										&Gk_wideband_gate);
+		Gk_wideband_gate = wideband_gating(fft_size_2,
+																				fft_p2,
+																				noise_thresholds_scaled,
+																				Gk);
 
 		for (k = 0; k <= fft_size_2; k++) {
-			//Only apply wideband gate when signal is below the threshold and scale is set by the user
-			//if (Gk_wideband_gate < 1.f)
-				Gk[k] = (1.f-artifact_control)*Gk[k] +  artifact_control*Gk_wideband_gate;
+			Gk[k] = (1.f-artifact_control)*Gk[k] +  artifact_control*Gk_wideband_gate;
 		}
 	}
 

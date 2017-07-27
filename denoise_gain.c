@@ -20,6 +20,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <float.h>
 #include <math.h>
 
+#define G_THRESH 0.5 //Fixed threshold to differenciate low and high SNR zones (this should be estimated automatically)
+
 //Power subtraction
 void power_subtraction(int fft_size_2,
 		       float* spectrum,
@@ -68,32 +70,33 @@ void spectral_gating(int fft_size_2,
 }
 
 //This probably could be better (Postfilter) TODO
-void wideband_gating(int fft_size_2,
+float wideband_gating(int fft_size_2,
 	    float* spectrum,
 	    float* noise_thresholds,
-	    float* Gk) {
+			float* Gk) {
 
-		int k;
-		float x_value = 0.f, n_value = 0.f;
+	int k;
+	float num = 0.f, den = 0.f;
+	float indicator;
+	float Gk_gate;
 
-		for (k = 0; k <= fft_size_2 ; k++) {
-			x_value +=  spectrum[k];
-			n_value += noise_thresholds[k];
-		}
-
-		if (n_value > FLT_MIN){
-
-			//Hard knee
-			if (x_value >= n_value){
-				//over the threshold
-				*Gk = 1.f;
-			}else{
-				//under the threshold
-				*Gk = 0.f;
-			}
-		} else {
-			//Otherwise we keep everything as is
-			*Gk = 1.f;
+	//Using low level SNR DETECTOR
+	for (k = 0; k <= fft_size_2 ; k++) {
+		num += spectrum[k]*Gk[k];
+		den += spectrum[k];
 	}
 
+	indicator = num/den;
+
+
+	//Hard knee decition
+	if (indicator >= G_THRESH){
+		//over the threshold
+		Gk_gate = 1.f;
+	}else{
+		//under the threshold
+		Gk_gate = 0.f;
+	}
+
+	return Gk_gate;
 }
