@@ -160,7 +160,7 @@ inline float min_spectral_value(float* spectrum, int N){
 }
 
 //Mean value of a spectrum
-inline float spectral_mean(int m, float* a) {
+inline float spectral_mean(float* a,int m) {
     float sum=0.f;
     for(int i=0; i<=m; i++)
         sum+=a[i];
@@ -168,7 +168,7 @@ inline float spectral_mean(int m, float* a) {
 }
 
 //Median value of a spectrum
-inline float spectral_median(int n, float* x) {
+inline float spectral_median(float* x,int n) {
     float temp;
     int i, j;
     // the following two loops sort the array x in ascending order
@@ -192,7 +192,7 @@ inline float spectral_median(int n, float* x) {
     }
 }
 
-inline float spectral_moda(int n, float* x) {
+inline float spectral_moda(float* x,int n) {
   float temp[n];
   int i,j,pos_max;
   float max;
@@ -324,7 +324,7 @@ void spectral_smoothing_MM(float* spectrum, int kernel_width, int N){
     for(int l = j0; l <= j1; ++l) {
       aux[l] = spectrum[l];
     }
-    smoothing_tmp[k] = spectral_median(j1-j0+1,aux);
+    smoothing_tmp[k] = spectral_median(aux,j1-j0+1);
   }
 
   for (k = 0; k <= N; ++k){

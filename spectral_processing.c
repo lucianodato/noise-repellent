@@ -77,7 +77,7 @@ void spectral_gain_manual(float* fft_p2,
 	int k;
 	float noise_thresholds_scaled[fft_size_2+1];
 	float Gk_wideband_gate;
-	//float non_linear_snr;
+	float non_linear_snr;
 
 	//PREPROCESSING
 
@@ -87,10 +87,10 @@ void spectral_gain_manual(float* fft_p2,
 	for (k = 0; k <= fft_size_2; k++) {
 		//Adapting scaling of thresholds using local SNR as in Non linear subtraction
 		//This could be adaptive using masking instead of local snr scaling TODO
-		// non_linear_snr = SNR_INFLUENCE + sqrtf(fft_p2[k]/noise_thresholds_p2[k]);
+		non_linear_snr = noise_thresholds_offset + sqrtf(noise_thresholds_p2[k]/fft_p2[k]);
 
 		//Application of every scaling factor to noise thresholds
-		noise_thresholds_scaled[k] = noise_thresholds_p2[k] * noise_thresholds_offset;// * non_linear_snr;
+		noise_thresholds_scaled[k] = noise_thresholds_p2[k] * non_linear_snr;
 	}
 
 	//------SMOOTHING DETECTOR------
@@ -113,6 +113,20 @@ void spectral_gain_manual(float* fft_p2,
 
 	//------POSTPROCESSING GAINS------
 
+	//Artifact control (applying wideband gating in low SNR zones)
+	if(artifact_control > 0.f){
+		wideband_gating(fft_size_2,
+										fft_p2,
+										noise_thresholds_p2,
+										&Gk_wideband_gate);
+
+		for (k = 0; k <= fft_size_2; k++) {
+			//Only apply wideband gate when signal is below the threshold and scale is set by the user
+			//if (Gk_wideband_gate < 1.f)
+				Gk[k] = (1.f-artifact_control)*Gk[k] +  artifact_control*Gk_wideband_gate;
+		}
+	}
+
 	/*Time smoothing between current and past Gk (similar effect to ephraim and malah)
 		The best option here is to adaptively smooth 2D spectral components so it will require a biger buffer
 		as suggested by Lukin in Suppression of Musical Noise Artifacts in Audio Noise Reduction by Adaptive 2D Filtering
@@ -125,20 +139,6 @@ void spectral_gain_manual(float* fft_p2,
 
 		//Store previous power values for smoothing
 		memcpy(Gk_prev,Gk,sizeof(float)*(fft_size_2+1));
-	}
-
-	//Artifact control (applying wideband gating in low SNR zones)
-	if(artifact_control > 0.f){
-		wideband_gating(fft_size_2,
-										fft_p2,
-										noise_thresholds_scaled,
-										&Gk_wideband_gate);
-
-		for (k = 0; k <= fft_size_2; k++) {
-			//Only apply wideband gate when signal is below the threshold and scale is set by the user
-			if (Gk_wideband_gate < 1.f)
-				Gk[k] = (1.f-artifact_control)*Gk[k] +  artifact_control*Gk_wideband_gate;
-		}
 	}
 }
 
