@@ -47,6 +47,7 @@ void power_subtraction(int fft_size_2,
 //Gating with envelope smoothing
 void spectral_gating(int fft_size_2,
 	    float* spectrum,
+	    float* noise_thresholds,
 	    float* Gk) {
 
 	int k;
@@ -71,7 +72,6 @@ void spectral_gating(int fft_size_2,
 //This probably could be better (Postfilter) TODO
 float wideband_gating(int fft_size_2,
 	    float* spectrum,
-	    float* noise_thresholds,
 			float* Gk) {
 
 	int k;
