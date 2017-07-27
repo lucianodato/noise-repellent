@@ -113,18 +113,6 @@ void spectral_gain_manual(float* fft_p2,
 
 	//------POSTPROCESSING GAINS------
 
-	//Artifact control (applying wideband gating in low SNR zones)
-	if(artifact_control > 0.f){
-		Gk_wideband_gate = wideband_gating(fft_size_2,
-																				fft_p2,
-																				noise_thresholds_scaled,
-																				Gk);
-
-		for (k = 0; k <= fft_size_2; k++) {
-			Gk[k] = (1.f-artifact_control)*Gk[k] +  artifact_control*Gk_wideband_gate;
-		}
-	}
-
 	/*Time smoothing between current and past Gk (similar effect to ephraim and malah)
 		The best option here is to adaptively smooth 2D spectral components so it will require a biger buffer
 		as suggested by Lukin in Suppression of Musical Noise Artifacts in Audio Noise Reduction by Adaptive 2D Filtering
@@ -137,6 +125,17 @@ void spectral_gain_manual(float* fft_p2,
 
 		//Store previous power values for smoothing
 		memcpy(Gk_prev,Gk,sizeof(float)*(fft_size_2+1));
+	}
+
+	//Artifact control (applying wideband gating in low SNR zones)
+	if(artifact_control > 0.f){
+		Gk_wideband_gate = wideband_gating(fft_size_2,
+																				fft_p2,
+																				Gk);
+
+		for (k = 0; k <= fft_size_2; k++) {
+			Gk[k] = (1.f-artifact_control)*Gk[k] +  artifact_control*Gk_wideband_gate;
+		}
 	}
 }
 

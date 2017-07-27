@@ -47,7 +47,6 @@ void power_subtraction(int fft_size_2,
 //Gating with envelope smoothing
 void spectral_gating(int fft_size_2,
 	    float* spectrum,
-	    float* noise_thresholds,
 	    float* Gk) {
 
 	int k;
