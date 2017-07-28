@@ -119,6 +119,16 @@ typedef struct {
 	fftwf_plan forward;
 	fftwf_plan backward;
 
+	//Postfilter related
+	float* input_fft_buffer_ps;
+	float* output_fft_buffer_ps;
+	fftwf_plan forward_ps;
+	fftwf_plan backward_ps;
+	float* input_fft_buffer_g;
+	float* output_fft_buffer_g;
+	fftwf_plan forward_g;
+	fftwf_plan backward_g;
+
 	//Arrays and variables for getting bins info
 	float real_p,imag_n,mag,p2;
 	float* fft_p2;                    //power spectrum
@@ -204,6 +214,16 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->output_fft_buffer = (float*)calloc(nrepel->fft_size,sizeof(float));
 	nrepel->forward = fftwf_plan_r2r_1d(nrepel->fft_size, nrepel->input_fft_buffer, nrepel->output_fft_buffer, FFTW_R2HC, FFTW_ESTIMATE);
 	nrepel->backward = fftwf_plan_r2r_1d(nrepel->fft_size, nrepel->output_fft_buffer, nrepel->input_fft_buffer, FFTW_HC2R, FFTW_ESTIMATE);
+
+	//Postfilter related
+	nrepel->input_fft_buffer_ps = (float*)calloc(nrepel->fft_size,sizeof(float));
+	nrepel->output_fft_buffer_ps = (float*)calloc(nrepel->fft_size,sizeof(float));
+	nrepel->forward_ps = fftwf_plan_r2r_1d(nrepel->fft_size, nrepel->input_fft_buffer_ps, nrepel->output_fft_buffer_ps, FFTW_R2HC, FFTW_ESTIMATE);
+	nrepel->backward_ps = fftwf_plan_r2r_1d(nrepel->fft_size, nrepel->input_fft_buffer_ps, nrepel->output_fft_buffer_ps, FFTW_HC2R, FFTW_ESTIMATE);
+	nrepel->input_fft_buffer_g = (float*)calloc(nrepel->fft_size,sizeof(float));
+	nrepel->output_fft_buffer_g = (float*)calloc(nrepel->fft_size,sizeof(float));
+	nrepel->forward_g = fftwf_plan_r2r_1d(nrepel->fft_size, nrepel->input_fft_buffer_g, nrepel->output_fft_buffer_g, FFTW_R2HC, FFTW_ESTIMATE);
+	nrepel->backward_g = fftwf_plan_r2r_1d(nrepel->fft_size, nrepel->output_fft_buffer_g, nrepel->input_fft_buffer_g, FFTW_HC2R, FFTW_ESTIMATE);
 
 	nrepel->fft_p2 = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->fft_p2_prev_env = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
@@ -479,6 +499,14 @@ run(LV2_Handle instance, uint32_t n_samples) {
 						gain_application(nrepel->fft_size_2,
 															nrepel->fft_size,
 															nrepel->output_fft_buffer,
+															nrepel->input_fft_buffer_ps,
+															nrepel->input_fft_buffer_g,
+															nrepel->output_fft_buffer_ps,
+															nrepel->output_fft_buffer_g,
+															&nrepel->forward_g,
+															&nrepel->backward_g,
+															&nrepel->forward_ps,
+															&nrepel->backward_ps,
 															nrepel->Gk,
 															nrepel->whitening_factor,
 															*(nrepel->tapering),

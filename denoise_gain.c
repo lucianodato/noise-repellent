@@ -22,7 +22,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 #define G_THRESH 0.5 //Fixed threshold to differenciate low and high SNR zones (this should be estimated automatically)
 
+<<<<<<< HEAD
 //Power subtraction
+=======
+#define G_THRESH 0.5    //wideband gate threshold for the detector
+
+//Power substraction
+>>>>>>> 1ca2b97... Implemented PostFilter. Not yet working but mostly there. Artifact control and smoothing are kind of a joke soundwise. Release should be delayed to include this functionality
 void power_subtraction(int fft_size_2,
 		       float* spectrum,
 		       float* noise_thresholds,
@@ -88,8 +94,7 @@ float wideband_gating(int fft_size_2,
 
 	indicator = num/den;
 
-
-	//Hard knee decition
+	//Hard knee decision (this has to be somewhat adaptive) TODO
 	if (indicator >= G_THRESH){
 		//over the threshold
 		Gk_gate = 1.f;
@@ -99,4 +104,61 @@ float wideband_gating(int fft_size_2,
 	}
 
 	return Gk_gate;
+}
+
+void compute_post_filter(int fft_size_2,
+									int fft_size,
+									float* spectrum,
+									float snr_threshold,
+									float amount_smoothing,
+									float* postfilter,
+									float* Gk_spectral) {
+
+	int k;
+	float num = 0.f, den = 0.f;
+	float indicator;
+	float ksi_lambda;
+	float n_lambda;
+
+	//Low SNR detector
+	for (k = 0; k <= fft_size_2 ; k++) {
+		num += spectrum[k] * Gk_spectral[k];
+		den += spectrum[k];
+		// if(k < fft_size_2){
+		// 	num += spectrum[fft_size - k] * Gk_spectral[fft_size - k];
+		// 	den += spectrum[fft_size - k];
+		// }
+	}
+
+	indicator = num/den;
+
+	//threshold decision
+	if(indicator >= snr_threshold){
+		ksi_lambda = 1.f;
+	}else{
+		ksi_lambda = indicator;
+	}
+
+	//soft decision
+	if(ksi_lambda == 1.f){
+		n_lambda = 1.f;
+	}else{
+		n_lambda = 2.f*roundf(amount_smoothing*(1.f - ksi_lambda/snr_threshold)) + 1.f;
+	}
+
+	//construct the filter window
+	for (k = 0; k <= fft_size_2 ; k++) {
+		if(k < n_lambda){
+			postfilter[k] = 1.f/n_lambda;
+		}else{
+			postfilter[k] = 0.f;
+		}
+		if(k < fft_size_2){
+			if(k < n_lambda){
+				postfilter[fft_size - k] = 1.f/n_lambda;
+			}else{
+				postfilter[fft_size - k] = 0.f;
+			}
+		}
+	}
 }
