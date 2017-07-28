@@ -148,17 +148,14 @@ void compute_post_filter(int fft_size_2,
 
 	//construct the filter window
 	for (k = 0; k <= fft_size_2 ; k++) {
-		if(k < n_lambda){
-			postfilter[k] = 1.f/n_lambda;
-		}else{
-			postfilter[k] = 0.f;
-		}
+		postfilter[k] = 1.f;
+		// if(k < n_lambda){
+		// 	postfilter[k] = 1.f/n_lambda;
+		// }else{
+		// 	postfilter[k] = 0.f;
+		// }
 		if(k < fft_size_2){
-			if(k < n_lambda){
-				postfilter[fft_size - k] = 1.f/n_lambda;
-			}else{
-				postfilter[fft_size - k] = 0.f;
-			}
+				postfilter[fft_size - k] = postfilter[k];//Mirrored value
 		}
 	}
 }
