@@ -408,7 +408,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 				nrepel->imag_n = nrepel->output_fft_buffer[nrepel->fft_size-k];
 
 				//Get the magnitude and power spectrum
-				if(k < nrepel->fft_size){
+				if(k < nrepel->fft_size_2){
 					nrepel->p2 = (nrepel->real_p*nrepel->real_p + nrepel->imag_n*nrepel->imag_n);
 					nrepel->mag = sqrtf(nrepel->p2);//sqrt(real^2+imag^2)
 				} else {
