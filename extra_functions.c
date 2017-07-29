@@ -252,36 +252,6 @@ void whitening_and_tapering(float* spectrum,float b,float tapering,int N){
   }
 }
 
-<<<<<<< HEAD
-=======
-//---------------TRANSIENTS--------------
-
-inline float spectral_flux(float* spectrum,
-                          float* spectrum_prev,
-                          float N){
-  int i;
-  float spectral_flux = 0.f;
-  float temp;
-
-  for(i = 0;i <= N; i++) {
-    temp = sqrtf(spectrum[i]) - sqrtf(spectrum_prev[i]); //Recieves power spectrum uses magnitude
-    spectral_flux += (temp + fabs(temp))/2.f;
-  }
-  return spectral_flux;
-}
-
-inline float transient_preservation(float* spectrum,
-                                    float* spectrum_prev,
-                                    float N){
-  float spectral_flux_value = spectral_flux(spectrum, spectrum_prev, N);
-
-  if (spectral_flux_value > ONSET_THRESH) //This is poor sounding maybe the best approch is multiresolution TODO
-    return 1.f/spectral_flux_value;
-  else
-    return 1.f;
-}
-
->>>>>>> 1ca2b97... Implemented PostFilter. Not yet working but mostly there. Artifact control and smoothing are kind of a joke soundwise. Release should be delayed to include this functionality
 //---------------TIME SMOOTHING--------------
 
 void spectrum_time_smoothing(int fft_size_2,

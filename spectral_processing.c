@@ -107,13 +107,13 @@ void spectral_gain_manual(float* fft_p2,
 									fft_p2,
 									noise_thresholds_scaled,
 									Gk);
-
 }
 
 
 //GAIN APPLICATION
 void gain_application(int fft_size_2,
 								      int fft_size,
+											float* fft_p2,
 								      float* output_fft_buffer,
 											float* input_fft_buffer_ps,
 											float* input_fft_buffer_g,
@@ -124,6 +124,8 @@ void gain_application(int fft_size_2,
 											fftwf_plan* forward_ps,
 											fftwf_plan* backward_ps,
 								      float* Gk,
+											float ps_smoothing,
+											float snr_threshold,
 											float whitening_factor,
 											float tapering,
 											float reduction_amount,
@@ -148,9 +150,9 @@ void gain_application(int fft_size_2,
 	//Compute the filter
 	compute_post_filter(fft_size_2,
 										fft_size,
-										output_fft_buffer,
-										0.4f,//snr_threshold,
-										2.f,//amount_smoothing,
+										fft_p2,
+										snr_threshold,
+										ps_smoothing,
 										postfilter,
 										Gk_mirrored);
 
