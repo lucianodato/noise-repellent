@@ -6,11 +6,10 @@ Features
 -------
 * Spectral gating and spectral sustraction supression rule
 * Adaptive and manual noise threshold estimation
-* Time smoothing and envelopes for musical noise reduction
 * Regulable noise floor
 * Regulable offset of thresholds to perform oversustraction
-* Wideband Post-gate for cleaning noise only zones
-* Whitening of the noise floor
+* Time smoothing and postfilter for musical noise reduction
+* Whitening of the noise floor to mask musical noise
 * Option to listen to the residual signal
 * Soft bypass
 * Noise print saved with the session
@@ -38,20 +37,22 @@ Manual noise capture workflow:
 
 Adaptive noise capture workflow:
 1) Turn on Adpative mode and keep it on
-2) Tweak parameters (artifact control and smoothing won't work)
+2) Tweak parameters (SNR threshold won't work)
 
 
 Control Ports explained
 -----
 * Amount of reduction: Determines how much the noise floor will be reduced.
 * Noise Offset: Scales the noise print captured. Greater values will reduce more noise at the expense of removing low level detail of the signal.
-* Release: Timing of spectral gate releases. Larger values will reduce artifacts but might blur nearby transients.
-* Smoothing: Reduces the variance of the reduction between frames to remove musical noise. Greater values may introduce echoes in the signal and will weaken transients.
-* Artifact control: Interpolate between spectral gating and wideband gating in low SNR (pauses) zones. Greater values might reduce artifacts in those zones.
+* Release: Timing of spectral gates releases. Larger values will reduce artifacts but might blur nearby transients.
+* SNR threshold: Threshold for the low SNR level detector for the postfilter. Higher thresholds will discriminate better between signal and noise but it might pump a bit.
 * Whitening: Modifies the residual noise to be more like white noise. This takes into account that our ears do well discriminating sounds in white noise versus colored noise.
 * Makeup Gain: Output gain if needed.
 * Capture noise print: To manually take the noise print.
-* Adaptive Noise: To change the noise profile dynamically in time. This enables the automatic estimation of noise thresholds. It needs a few seconds to learn it.
+* Adaptive Noise: To change the noise profile dynamically in time. Apply only to voice recordings. This enables the automatic estimation of noise thresholds. It needs a few seconds to learn it.
 * Reset noise print: Removes the noise print previously captured.
 * Noise listen: To hear only the residual noise.
-* Residual emphasis: When whitening is applied this will reduce lower frequencies but keep the boosted highs.
+
+Advice for better reduction
+-----
+TODO

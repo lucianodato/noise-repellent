@@ -20,6 +20,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <float.h>
 #include <math.h>
 
+#define PS_SMOOTHING 100.0
+
 //Power substraction
 void power_subtraction(int fft_size_2,
 		       float* spectrum,
@@ -71,7 +73,6 @@ void compute_post_filter(int fft_size_2,
 									int fft_size,
 									float* spectrum,
 									float snr_threshold,
-									float amount_smoothing,
 									float* postfilter,
 									float* Gk_spectral) {
 
@@ -96,11 +97,11 @@ void compute_post_filter(int fft_size_2,
 		ksi_lambda = indicator;
 	}
 
-	//soft decision
+	//window size
 	if(ksi_lambda == 1.f){
 		n_lambda = 1.f;
 	}else{
-		n_lambda = 2.f*roundf(amount_smoothing*(1.f - ksi_lambda/snr_threshold)) + 1.f;
+		n_lambda = 2.f*roundf(PS_SMOOTHING*(1.f - ksi_lambda/snr_threshold)) + 1.f;
 	}
 
 	//construct the filter window

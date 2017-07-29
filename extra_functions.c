@@ -167,6 +167,14 @@ inline float spectral_mean(float* a,int m) {
     return(sum/(float)(m+1));
 }
 
+//Sum of all values of a spectrum
+inline float spectral_addition(float* a,int m) {
+    float sum=0.f;
+    for(int i=0; i<=m; i++)
+        sum+=a[i];
+    return sum;
+}
+
 //Median value of a spectrum
 inline float spectral_median(float* x,int n) {
     float temp;
@@ -233,36 +241,17 @@ void get_normalized_spectum(float* spectrum,
 
 //---------------WHITENING--------------
 
-void whitening_and_tapering(float* spectrum,float b,float tapering,int N){
+void whitening(float* spectrum,float b,int N){
   for (int k = 0; k <= N; k++) {
     if(spectrum[k] > FLT_MIN  && spectrum[(2*N)-k] > FLT_MIN){
-      if (tapering > 0.f){
-        spectrum[k] = ((1.f - b)*spectrum[k] + b*(1.f - spectrum[k])) * hamming(N-k, N) ;//tapering
-      }else{
-        spectrum[k] = (1.f - b)*spectrum[k] + b*(1.f - spectrum[k]);
-      }
-      if(k < N){
-        if (tapering > 0.f){
-          spectrum[(2*N)-k] = ((1.f - b)*spectrum[(2*N)-k] + b*(1.f - spectrum[(2*N)-k])) * hamming(N-k, N);//tapering
-        }else{
-          spectrum[(2*N)-k] = (1.f - b)*spectrum[(2*N)-k] + b*(1.f - spectrum[(2*N)-k]);
-        }
-      }
+      spectrum[k] = (1.f - b)*spectrum[k] + b*(1.f - spectrum[k]);
+      if(k < N)
+        spectrum[(2*N)-k] = (1.f - b)*spectrum[(2*N)-k] + b*(1.f - spectrum[(2*N)-k]);
     }
   }
 }
 
 //---------------TIME SMOOTHING--------------
-
-void spectrum_time_smoothing(int fft_size_2,
-                                  float* prev_spectrum,
-                                  float* spectrum,
-                                  float coeff){
-  int k;
-  for (k = 0; k <= fft_size_2; k++) {
-    spectrum[k] = (1.f - coeff) * spectrum[k] + coeff * prev_spectrum[k];
-  }
-}
 
 void apply_envelope(float* spectrum,
                     float* spectrum_prev,
