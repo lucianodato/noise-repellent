@@ -179,24 +179,26 @@ inline float spectral_addition(float* a,int m) {
 inline float spectral_median(float* x,int n) {
     float temp;
     int i, j;
+    float tmp[n+1];
+    memcpy(tmp,x,sizeof(float)*(n+1));
     // the following two loops sort the array x in ascending order
-    for(i=0; i<n-1; i++) {
-        for(j=i+1; j<n; j++) {
-            if(x[j] < x[i]) {
+    for(i=0; i<n; i++) {
+        for(j=i+1; j<=n; j++) {
+            if(tmp[j] < tmp[i]) {
                 // swap elements
-                temp = x[i];
-                x[i] = x[j];
-                x[j] = temp;
+                temp = tmp[i];
+                tmp[i] = tmp[j];
+                tmp[j] = temp;
             }
         }
     }
 
     if(n%2==0) {
         // if there is an even number of elements, return mean of the two elements in the middle
-        return((x[n/2] + x[n/2 - 1]) / 2.f);
+        return((tmp[n/2] + tmp[n/2 - 1]) / 2.f);
     } else {
         // else return the element in the middle
-        return x[n/2];
+        return tmp[n/2];
     }
 }
 
@@ -296,6 +298,8 @@ void spectral_smoothing_MA(float* spectrum, int kernel_width,int N){
 
   for (k = 0; k <= N; ++k){
     spectrum[k] = expf(smoothing_tmp[k]);
+    if (k < N)
+      spectrum[(2*N)-k] = expf(smoothing_tmp[(2*N)- k]);
   }
 }
 //Spectral smoothing with median filter

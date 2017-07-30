@@ -23,6 +23,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include "estimate_noise_spectrum.c"
 #include "denoise_gain.c"
 
+#define MEAN_INTERP 0.5
+
 //------------GAIN AND THRESHOLD CALCULATION---------------
 
 void preprocessing(float noise_thresholds_offset,
@@ -103,14 +105,15 @@ void postprocessing(int fft_size_2,
 			Gk[fft_size-k] = Gk[k];
 	}
 
-		//GAIN SMOOTHING USING A POSTFILTER
-		//Compute the filter
-		compute_post_filter(fft_size_2,
-											fft_size,
-											fft_p2,
-											pf_threshold,
-											postfilter,
-											Gk);
+
+	//GAIN SMOOTHING USING A POSTFILTER
+	//Compute the filter
+	compute_post_filter(fft_size_2,
+										fft_size,
+										fft_p2,
+										pf_threshold,
+										postfilter,
+										Gk);
 
 	//Convolution using fft transform
 
@@ -139,6 +142,8 @@ void postprocessing(int fft_size_2,
 
 	//Copy to orginal arrays
 	memcpy(Gk,input_fft_buffer_g,fft_size*sizeof(float));
+
+	///////////////////
 }
 
 void denoised_calulation(int fft_size_2,

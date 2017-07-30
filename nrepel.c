@@ -47,7 +47,7 @@ typedef enum {
 	NREPEL_RELEASE = 2,
 	NREPEL_PF_THRESH = 3,
 	NREPEL_WHITENING = 4,
-	NREPEL_CAPTURE = 5,
+	NREPEL_N_LEARN = 5,
 	NREPEL_N_ADAPTIVE = 6,
 	NREPEL_RESET = 7,
 	NREPEL_NOISE_LISTEN = 8,
@@ -68,15 +68,15 @@ typedef struct {
 	float* pf_threshold;							//threshold for the postfilter detector
 	float* release;            	  		//Release time
 	float* whitening_factor_pc;				//Whitening amount of the reduction percentage
-	float* capture_state;             //Capture Noise state (Manual-Off-Auto)
+	float* noise_learn_state;         //Learn Noise state (Manual-Off-Auto)
 	float* adaptive_state;            //Autocapture switch
-	float* reset_print;               //Reset Noise switch
+	float* reset_profile;             //Reset Noise switch
 	float* noise_listen;              //For noise only listening
 	float* enable;                    //For soft bypass (click free bypass)
 	float* report_latency;            //Latency necessary
 
 	//Control variables
-	bool noise_thresholds_availables; //indicate whether a noise print is available or no
+	bool noise_thresholds_availables; //indicate whether a noise profile is available or no
 
 	//Parameters values and arrays for the STFT
 	int fft_size;                     //FFTW input size
@@ -126,8 +126,8 @@ typedef struct {
 	float* fft_magnitude;             //magnitude spectrum
 
 	//noise related
-	float* noise_thresholds_p2;       //captured noise print power spectrum
-	float* noise_thresholds_scaled;   //captured noise print power spectrum scaled by oversustraction
+	float* noise_thresholds_p2;       //captured noise profile power spectrum
+	float* noise_thresholds_scaled;   //captured noise profile power spectrum scaled by oversustraction
 
 	//smoothing related
 	float* smoothed_spectrum;             //power spectrum to be smoothed
@@ -287,8 +287,8 @@ connect_port(LV2_Handle instance,
 		case NREPEL_WHITENING:
 		nrepel->whitening_factor_pc = (float*)data;
 		break;
-		case NREPEL_CAPTURE:
-		nrepel->capture_state = (float*)data;
+		case NREPEL_N_LEARN:
+		nrepel->noise_learn_state = (float*)data;
 		break;
 		case NREPEL_N_ADAPTIVE:
 		nrepel->adaptive_state = (float*)data;
@@ -297,7 +297,7 @@ connect_port(LV2_Handle instance,
 		nrepel->noise_listen = (float*)data;
 		break;
 		case NREPEL_RESET:
-		nrepel->reset_print = (float*)data;
+		nrepel->reset_profile = (float*)data;
 		break;
 		case NREPEL_ENABLE:
 		nrepel->enable = (float*)data;
@@ -357,7 +357,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 	//printf("%f\n", nrepel->release_coeff );
 
 	//Reset button state (if on)
-	if (*(nrepel->reset_print) == 1.f) {
+	if (*(nrepel->reset_profile) == 1.f) {
 		memset(nrepel->noise_thresholds_p2, 0, (nrepel->fft_size_2+1)*sizeof(float));
 		memset(nrepel->Gk, 1, (nrepel->fft_size_2+1)*sizeof(float));
 		nrepel->window_count = 0.f;
@@ -452,7 +452,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 				/*If selected estimate noise spectrum is based on selected portion of signal
 				 *do not process the signal
 				 */
-				if(*(nrepel->capture_state) == 1.f) { //MANUAL
+				if(*(nrepel->noise_learn_state) == 1.f) { //MANUAL
 					get_noise_statistics(nrepel->fft_p2,
 								nrepel->fft_size_2,
 								nrepel->noise_thresholds_p2,
@@ -497,7 +497,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 													&nrepel->backward_g,
 													&nrepel->forward_ps,
 													&nrepel->backward_ps,
-											    nrepel->Gk,
+													nrepel->Gk,
 													nrepel->pf_threshold_linear);
 
 						//apply gains
@@ -597,7 +597,7 @@ cleanup(LV2_Handle instance)
 	free(instance);
 }
 
-//spectum struct for noise print saving
+//spectum struct for noise profile saving
 struct FFTVector {
 	uint32_t child_size;
 	uint32_t child_type;
