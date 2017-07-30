@@ -50,7 +50,7 @@ typedef enum {
 	NREPEL_N_LEARN = 5,
 	NREPEL_N_ADAPTIVE = 6,
 	NREPEL_RESET = 7,
-	NREPEL_NOISE_LISTEN = 8,
+	NREPEL_RESIDUAL_LISTEN = 8,
 	NREPEL_ENABLE = 9,
 	NREPEL_LATENCY = 10,
 	NREPEL_INPUT = 11,
@@ -71,7 +71,7 @@ typedef struct {
 	float* noise_learn_state;         //Learn Noise state (Manual-Off-Auto)
 	float* adaptive_state;            //Autocapture switch
 	float* reset_profile;             //Reset Noise switch
-	float* noise_listen;              //For noise only listening
+	float* residual_listen;              //For noise only listening
 	float* enable;                    //For soft bypass (click free bypass)
 	float* report_latency;            //Latency necessary
 
@@ -293,8 +293,8 @@ connect_port(LV2_Handle instance,
 		case NREPEL_N_ADAPTIVE:
 		nrepel->adaptive_state = (float*)data;
 		break;
-		case NREPEL_NOISE_LISTEN:
-		nrepel->noise_listen = (float*)data;
+		case NREPEL_RESIDUAL_LISTEN:
+		nrepel->residual_listen = (float*)data;
 		break;
 		case NREPEL_RESET:
 		nrepel->reset_profile = (float*)data;
@@ -524,7 +524,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 														      nrepel->denoised_spectrum,
 																	nrepel->amount_of_reduction_linear,
 														      nrepel->wet_dry,
-														      *(nrepel->noise_listen));
+														      *(nrepel->residual_listen));
 					}
 				}
 			}

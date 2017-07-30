@@ -50,7 +50,7 @@ Control Ports explained
 * Learn noise profile: To manually learn the noise profile.
 * Adaptive Noise: To change the noise profile dynamically in time. This enables the automatic estimation of noise thresholds.
 * Reset noise profile: Removes the noise profile previously learned.
-* Noise listen: To hear only the residual noise.
+* Residual listen: To hear only the residual noise.
 
 Advice for better reduction
 -----

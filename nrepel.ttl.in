@@ -130,10 +130,10 @@
     a lv2:InputPort,
     lv2:ControlPort ;
     lv2:index 8 ;
-    lv2:symbol "noise_listen" ;
-    lv2:name "Noise listen",
-      "Escuchar solo ruido"@es ,
-      "Écoute du bruit"@fr ;
+    lv2:symbol "Residual_listen" ;
+    lv2:name "Residual listen",
+      "Escuchar Residuo"@es ,
+      "Écoute résiduelle"@fr ;
     lv2:default 0 ;
     lv2:minimum 0 ;
     lv2:maximum 1 ;
