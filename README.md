@@ -45,7 +45,7 @@ Control Ports explained
 * Amount of reduction: Determines how much the noise floor will be reduced.
 * Noise Offset: Scales the noise print captured. Greater values will reduce more noise at the expense of removing low level detail of the signal.
 * Release: Timing of spectral gates releases. Larger values will reduce artifacts but might blur nearby transients.
-* SNR threshold: Threshold for the low SNR level detector of the postfilter. Lower thresholds will not apply the postfilter higher thresholds will start to discriminate between low and high SNR signals and apply filter smoothing to the lower ones.
+* PF threshold: Threshold for the low SNR level detector of the postfilter. Lower thresholds will not apply the postfilter higher thresholds will start to discriminate between low and high SNR signals and apply filter smoothing to the lower ones.
 * Whitening: Modifies the residual noise to be more like white noise. This takes into account that our ears do well discriminating sounds in white noise versus colored noise. Higher values will brighten the residual noise and will mask high frequency musical noise.
 * Makeup Gain: Output gain if needed.
 * Capture noise print: To manually take the noise print.
