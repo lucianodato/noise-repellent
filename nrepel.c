@@ -45,7 +45,7 @@ typedef enum {
 	NREPEL_AMOUNT = 0,
 	NREPEL_NOFFSET = 1,
 	NREPEL_RELEASE = 2,
-	NREPEL_SNR_THRESH = 3,
+	NREPEL_PF_THRESH = 3,
 	NREPEL_WHITENING = 4,
 	NREPEL_CAPTURE = 5,
 	NREPEL_N_ADAPTIVE = 6,
@@ -65,7 +65,7 @@ typedef struct {
 	//Parameters for the algorithm (user input)
 	float* amount_of_reduction;       //Amount of noise to reduce in dB
 	float* noise_thresholds_offset;   //This is to scale the noise profile (over subtraction factor)
-	float* snr_threshold;							//threshold for the postfilter detector
+	float* pf_threshold;							//threshold for the postfilter detector
 	float* release;            	  		//Release time
 	float* whitening_factor_pc;				//Whitening amount of the reduction percentage
 	float* capture_state;             //Capture Noise state (Manual-Off-Auto)
@@ -94,7 +94,7 @@ typedef struct {
 	float release_coeff;							//Release coefficient for Envelopes
 	float amount_of_reduction_linear;						//Reduction amount linear value
 	float thresholds_offset_linear;		//Threshold offset linear value
-	float snr_threshold_linear;				//linear value of the snr threshold
+	float pf_threshold_linear;				//linear value of the snr threshold
 	float whitening_factor;						//Whitening amount of the reduction
 
 	//Buffers for processing and outputting
@@ -278,8 +278,8 @@ connect_port(LV2_Handle instance,
 		case NREPEL_NOFFSET:
 		nrepel->noise_thresholds_offset = (float*)data;
 		break;
-		case NREPEL_SNR_THRESH:
-		nrepel->snr_threshold = (float*)data;
+		case NREPEL_PF_THRESH:
+		nrepel->pf_threshold = (float*)data;
 		break;
 		case NREPEL_RELEASE:
 		nrepel->release = (float*)data;
@@ -351,7 +351,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 	nrepel->release_coeff = expf(-1000.f/(((*(nrepel->release)) * nrepel->samp_rate)/ nrepel->hop) );
 	nrepel->amount_of_reduction_linear = from_dB(-1.f * *(nrepel->amount_of_reduction));
 	nrepel->thresholds_offset_linear = from_dB(*(nrepel->noise_thresholds_offset));
-	nrepel->snr_threshold_linear = from_dB(*(nrepel->snr_threshold));
+	nrepel->pf_threshold_linear = from_dB(*(nrepel->pf_threshold));
 	nrepel->whitening_factor = *(nrepel->whitening_factor_pc)/100.f;
 
 	//printf("%f\n", nrepel->release_coeff );
@@ -498,7 +498,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 													&nrepel->forward_ps,
 													&nrepel->backward_ps,
 											    nrepel->Gk,
-													nrepel->snr_threshold_linear);
+													nrepel->pf_threshold_linear);
 
 						//apply gains
 						denoised_calulation(nrepel->fft_size_2,

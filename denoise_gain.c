@@ -72,7 +72,7 @@ void spectral_gating(int fft_size_2,
 void compute_post_filter(int fft_size_2,
 									int fft_size,
 									float* spectrum,
-									float snr_threshold,
+									float pf_threshold,
 									float* postfilter,
 									float* Gk_spectral) {
 
@@ -91,7 +91,7 @@ void compute_post_filter(int fft_size_2,
 	indicator = num/den;
 
 	//threshold decision
-	if(indicator >= snr_threshold){
+	if(indicator >= pf_threshold){
 		ksi_lambda = 1.f;
 	}else{
 		ksi_lambda = indicator;
@@ -101,7 +101,7 @@ void compute_post_filter(int fft_size_2,
 	if(ksi_lambda == 1.f){
 		n_lambda = 1.f;
 	}else{
-		n_lambda = 2.f*roundf(PS_SMOOTHING*(1.f - ksi_lambda/snr_threshold)) + 1.f;
+		n_lambda = 2.f*roundf(PS_SMOOTHING*(1.f - ksi_lambda/pf_threshold)) + 1.f;
 	}
 
 	//construct the filter window

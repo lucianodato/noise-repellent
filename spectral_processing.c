@@ -92,7 +92,7 @@ void postprocessing(int fft_size_2,
 										fftwf_plan* forward_ps,
 										fftwf_plan* backward_ps,
 							      float* Gk,
-										float snr_threshold){
+										float pf_threshold){
 
   int k;
   float postfilter[fft_size];
@@ -108,7 +108,7 @@ void postprocessing(int fft_size_2,
 		compute_post_filter(fft_size_2,
 											fft_size,
 											fft_p2,
-											snr_threshold,
+											pf_threshold,
 											postfilter,
 											Gk);
 
