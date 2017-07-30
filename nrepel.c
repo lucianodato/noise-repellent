@@ -498,7 +498,6 @@ run(LV2_Handle instance, uint32_t n_samples) {
 													&nrepel->forward_ps,
 													&nrepel->backward_ps,
 											    nrepel->Gk,
-													*(nrepel->adaptive_state),
 													nrepel->snr_threshold_linear);
 
 						//apply gains

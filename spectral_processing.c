@@ -79,7 +79,6 @@ void spectral_gain(float* smoothed_spectrum,
 
 }
 
-
 void postprocessing(int fft_size_2,
 							      int fft_size,
 										float* fft_p2,
@@ -93,7 +92,6 @@ void postprocessing(int fft_size_2,
 										fftwf_plan* forward_ps,
 										fftwf_plan* backward_ps,
 							      float* Gk,
-										float adaptive,
 										float snr_threshold){
 
   int k;
@@ -105,8 +103,6 @@ void postprocessing(int fft_size_2,
 			Gk[fft_size-k] = Gk[k];
 	}
 
-	//Only apply postfilter when noise print was captured manually
-	if(adaptive != 1.f){
 		//GAIN SMOOTHING USING A POSTFILTER
 		//Compute the filter
 		compute_post_filter(fft_size_2,
@@ -116,34 +112,33 @@ void postprocessing(int fft_size_2,
 											postfilter,
 											Gk);
 
-		//Convolution using fft transform
+	//Convolution using fft transform
 
-		//Copy to fft buffers
-		memcpy(input_fft_buffer_ps,postfilter,fft_size*sizeof(float));
-		memcpy(input_fft_buffer_g,Gk,fft_size*sizeof(float));
+	//Copy to fft buffers
+	memcpy(input_fft_buffer_ps,postfilter,fft_size*sizeof(float));
+	memcpy(input_fft_buffer_g,Gk,fft_size*sizeof(float));
 
-		//FFT Analysis
-		fftwf_execute(*forward_ps);
-		fftwf_execute(*forward_g);
+	//FFT Analysis
+	fftwf_execute(*forward_ps);
+	fftwf_execute(*forward_g);
 
-		//Multiply with the filter computed
-		for (k = 0; k <= fft_size_2; k++) {
-	    output_fft_buffer_g[k] *= output_fft_buffer_ps[k];
-	    if(k < fft_size_2)
-	      output_fft_buffer_g[fft_size-k] *= output_fft_buffer_ps[fft_size-k];
-	  }
+	//Multiply with the filter computed
+	for (k = 0; k <= fft_size_2; k++) {
+    output_fft_buffer_g[k] *= output_fft_buffer_ps[k];
+    if(k < fft_size_2)
+      output_fft_buffer_g[fft_size-k] *= output_fft_buffer_ps[fft_size-k];
+  }
 
-		//FFT Synthesis (only gain needs to be synthetised)
-		fftwf_execute(*backward_g);
+	//FFT Synthesis (only gain needs to be synthetised)
+	fftwf_execute(*backward_g);
 
-		//Normalizing
-		for (k = 0; k < fft_size; k++){
-			input_fft_buffer_g[k] = input_fft_buffer_g[k] / fft_size;
-		}
-
-		//Copy to orginal arrays
-		memcpy(Gk,input_fft_buffer_g,fft_size*sizeof(float));
+	//Normalizing
+	for (k = 0; k < fft_size; k++){
+		input_fft_buffer_g[k] = input_fft_buffer_g[k] / fft_size;
 	}
+
+	//Copy to orginal arrays
+	memcpy(Gk,input_fft_buffer_g,fft_size*sizeof(float));
 }
 
 void denoised_calulation(int fft_size_2,
