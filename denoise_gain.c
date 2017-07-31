@@ -20,9 +20,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <float.h>
 #include <math.h>
 
-#define G_THRESH 0.5 //Fixed threshold to differenciate low and high SNR zones (this should be estimated automatically)
+#define PS_SMOOTHING 100.0
 
-//Power subtraction
+//Power substraction
 void power_subtraction(int fft_size_2,
 		       float* spectrum,
 		       float* noise_thresholds,
@@ -69,32 +69,47 @@ void spectral_gating(int fft_size_2,
 	}
 }
 
-//This probably could be better (Postfilter) TODO
-float wideband_gating(int fft_size_2,
-	    float* spectrum,
-			float* Gk_spectral) {
+void compute_post_filter(int fft_size_2,
+									int fft_size,
+									float* spectrum,
+									float pf_threshold,
+									float* postfilter,
+									float* Gk_spectral) {
 
 	int k;
 	float num = 0.f, den = 0.f;
 	float indicator;
-	float Gk_gate;
+	float ksi_lambda;
+	float n_lambda;
 
-	//Using low level SNR DETECTOR
+	//Low SNR detector
 	for (k = 0; k <= fft_size_2 ; k++) {
-		num += spectrum[k]*Gk_spectral[k];
+		num += spectrum[k] * Gk_spectral[k];
 		den += spectrum[k];
 	}
 
 	indicator = num/den;
 
-	//Hard knee decition
-	if (indicator >= G_THRESH){
-		//over the threshold
-		Gk_gate = 1.f;
+	//threshold decision
+	if(indicator >= pf_threshold){
+		ksi_lambda = 1.f;
 	}else{
-		//under the threshold
-		Gk_gate = 0.f;
+		ksi_lambda = indicator;
 	}
 
-	return Gk_gate;
+	//window size
+	if(ksi_lambda == 1.f){
+		n_lambda = 1.f;
+	}else{
+		n_lambda = 2.f*roundf(PS_SMOOTHING*(1.f - ksi_lambda/pf_threshold)) + 1.f;
+	}
+
+	//construct the filter window (zero phase)
+	for (k = 0; k < fft_size ; k++) {
+		if(k < n_lambda){
+			postfilter[k] = 1.f/n_lambda;
+		}else{
+			postfilter[k] = 0.f;
+		}
+	}
 }
