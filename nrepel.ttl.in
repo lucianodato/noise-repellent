@@ -49,7 +49,7 @@
     lv2:symbol "offset" ;
     lv2:name "Thresholds offset",
       "Compensacion de umbrales"@es ,
-      "Décalage de seuil"@fr ;
+      "Décalage des seuils"@fr ;
     lv2:minimum -6.0 ;
     lv2:maximum 6.0 ;
     lv2:default 0.0 ;
@@ -109,7 +109,7 @@
     lv2:symbol "adaptive_noise_learn" ;
     lv2:name "Adaptive noise learn",
           "Adaptar perfil de ruido"@es ,
-          "Bruit adaptatif apprend"@fr ;
+          "Apprentissage adaptatif du bruit"@fr ;
     lv2:minimum 0 ;
     lv2:maximum 1 ;
     lv2:default 0 ;
