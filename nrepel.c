@@ -402,10 +402,10 @@ run(LV2_Handle instance, uint32_t n_samples) {
 			//-----------GET INFO FROM BINS--------------
 
 			//Get the positive spectrum and compute the magnitude
-			for (k = 0; k <= nrepel->fft_size_2; k++){
+			for (k = 1; k <= nrepel->fft_size_2; k++){
 				//Get the half complex spectrum reals and complex
 				nrepel->real_p = nrepel->output_fft_buffer[k];
-				nrepel->imag_n = nrepel->output_fft_buffer[nrepel->fft_size - k - 1];
+				nrepel->imag_n = nrepel->output_fft_buffer[nrepel->fft_size - k];
 
 				//Get the magnitude and power spectrum
 				if(k < nrepel->fft_size_2){

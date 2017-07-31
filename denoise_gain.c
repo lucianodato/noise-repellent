@@ -104,15 +104,12 @@ void compute_post_filter(int fft_size_2,
 		n_lambda = 2.f*roundf(PS_SMOOTHING*(1.f - ksi_lambda/pf_threshold)) + 1.f;
 	}
 
-	//construct the filter window
-	for (k = 0; k <= fft_size_2 ; k++) {
+	//construct the filter window (zero phase)
+	for (k = 0; k <= fft_size ; k++) {
 		if(k < n_lambda){
 			postfilter[k] = 1.f/n_lambda;
 		}else{
 			postfilter[k] = 0.f;
-		}
-		if(k < fft_size_2){
-				postfilter[fft_size - k - 1] = postfilter[k];//Mirrored value
 		}
 	}
 }

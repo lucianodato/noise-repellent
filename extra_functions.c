@@ -244,11 +244,9 @@ void get_normalized_spectum(float* spectrum,
 //---------------WHITENING--------------
 
 void whitening(float* spectrum,float b,int N){
-  for (int k = 0; k <= N; k++) {
-    if(spectrum[k] > FLT_MIN  && spectrum[(2*N)-k] > FLT_MIN){
+  for (int k = 0; k < N; k++) {
+    if(spectrum[k] > FLT_MIN){
       spectrum[k] = (1.f - b)*spectrum[k] + b*(1.f - spectrum[k]);
-      if(k < N)
-        spectrum[(2*N)-k-1] = (1.f - b)*spectrum[(2*N)-k-1] + b*(1.f - spectrum[(2*N)-k-1]);
     }
   }
 }
