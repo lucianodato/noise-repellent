@@ -40,7 +40,7 @@ void preprocessing(float noise_thresholds_offset,
 	//------OVERSUBTRACTION------
 
 	//Scale noise thresholds (equals applying an oversubtraction factor in spectral subtraction)
-	for (k = 0; k <= fft_size_2; k++) {
+	for (k = 1; k <= fft_size_2; k++) {
 		noise_thresholds_scaled[k] *= noise_thresholds_offset;
 	}
 

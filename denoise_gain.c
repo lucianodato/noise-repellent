@@ -30,7 +30,7 @@ void power_subtraction(int fft_size_2,
 
 	int k;
 
-	for (k = 0; k <= fft_size_2 ; k++) {
+	for (k = 1; k <= fft_size_2 ; k++) {
 		if (noise_thresholds[k] > FLT_MIN){
 			if(spectrum[k] > noise_thresholds[k]){
 				Gk[k] = (spectrum[k]-noise_thresholds[k]) / spectrum[k];
@@ -52,7 +52,7 @@ void spectral_gating(int fft_size_2,
 
 	int k;
 
-	for (k = 0; k <= fft_size_2 ; k++) {
+	for (k = 1; k <= fft_size_2 ; k++) {
 		if (noise_thresholds[k] > FLT_MIN){
 			//Hard knee
 			if (spectrum[k] >= noise_thresholds[k]){
@@ -83,7 +83,7 @@ void compute_post_filter(int fft_size_2,
 	float n_lambda;
 
 	//Low SNR detector
-	for (k = 0; k <= fft_size_2 ; k++) {
+	for (k = 1; k <= fft_size_2 ; k++) {
 		num += spectrum[k] * Gk_spectral[k];
 		den += spectrum[k];
 	}

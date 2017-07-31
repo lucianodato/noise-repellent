@@ -259,7 +259,7 @@ void apply_envelope(float* spectrum,
                     float release_coeff){
   int k;
 
-  for (k = 0; k <= N ; k++) {
+  for (k = 1; k <= N ; k++) {
 
     //It doesn't make much sense to have an attack slider when there is time smoothing
     if (spectrum[k] > spectrum_prev[k]){

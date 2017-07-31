@@ -42,7 +42,7 @@ void compute_auto_thresholds(float* auto_thresholds,
   //This was experimentally obteined in louizou paper
 	int LF = Freq2Index(CROSSOVER_POINT1,samp_rate,fft_size);//1kHz
 	int MF = Freq2Index(CROSSOVER_POINT2,samp_rate,fft_size);//3kHz
-	for (int k = 0;k <= fft_size_2; k++){
+	for (int k = 1;k <= fft_size_2; k++){
 		if(k <= LF){
 			auto_thresholds[k] = BAND_1_GAIN;
 		}
@@ -73,7 +73,7 @@ static void estimate_noise_loizou(float* thresh,
   float freq_s[fft_size_2+1];
   float speech_p_d[fft_size_2+1];
 
-  for(k = 0 ; k <= fft_size_2 ; k++) {
+  for(k = 1 ; k <= fft_size_2 ; k++) {
     //1- Smooth between current and past noisy speech power spectrum
     s_pow_spec[k] = N_SMOOTH * prev_s_pow_spec[k] + (1.f-N_SMOOTH) * p2[k]; //interpolation between
 
@@ -150,7 +150,7 @@ void get_noise_statistics(float* fft_p2,
   *(window_count) += 1.f;
 
   //Get noise thresholds based on averageing the input noise signal between frames
-  for(k = 0 ; k <= fft_size_2 ; k++) {
+  for(k = 1 ; k <= fft_size_2 ; k++) {
     if(*(window_count) <= 1.f){
       noise_thresholds_p2[k] = fft_p2[k];
     } else {
