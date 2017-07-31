@@ -96,12 +96,6 @@ void postprocessing(int fft_size_2,
   int k;
   float postfilter[fft_size];
 
-	//mirrored gain array to use a power of 2 fft transform
-	for (k = 1; k < fft_size_2; k++) {
-			Gk[fft_size-k] = Gk[k];
-	}
-
-
 	//GAIN SMOOTHING USING A POSTFILTER
 	//Compute the filter
 	compute_post_filter(fft_size_2,
@@ -171,7 +165,7 @@ void residual_calulation(int fft_size_2,
 	////////////POSTPROCESSING RESIDUAL
 	//Whitening (residual spectrum more similar to white noise)
 	if(whitening_factor > 0.f) {
-		whitening(residual_spectrum,whitening_factor,fft_size_2);
+		whitening(residual_spectrum,whitening_factor,fft_size);
 	}
 	////////////
 }
@@ -190,12 +184,12 @@ void final_spectrum_ensemble(int fft_size_2,
 	//OUTPUT RESULTS using smooth bypass and parametric sustraction
 	if (noise_listen == 0.f){
 	//Mix residual and processed (Parametric way of noise reduction)
-		for (k = 0; k <= fft_size; k++) {
+		for (k = 0; k < fft_size; k++) {
 			output_fft_buffer[k] =  (1.f-wet_dry) * output_fft_buffer[k] + (denoised_spectrum[k] + residual_spectrum[k]*reduction_amount) * wet_dry;
 		}
 	} else {
 		//Output noise only
-		for (k = 0; k <= fft_size; k++) {
+		for (k = 0; k < fft_size; k++) {
 			output_fft_buffer[k] = (1.f-wet_dry) * output_fft_buffer[k] + residual_spectrum[k] * wet_dry;
 		}
 	}

@@ -42,6 +42,11 @@ void power_subtraction(int fft_size_2,
 			Gk[k] = 1.f;
 		}
 	}
+
+	//mirrored gain array
+	for (k = 1; k < fft_size_2; k++) {
+			Gk[(2*fft_size_2)-k] = Gk[k];
+	}
 }
 
 //Gating with envelope smoothing
@@ -66,6 +71,11 @@ void spectral_gating(int fft_size_2,
 			//Otherwise we keep everything as is
 			Gk[k] = 1.f;
 		}
+	}
+
+	//mirrored gain array
+	for (k = 1; k < fft_size_2; k++) {
+			Gk[(2*fft_size_2)-k] = Gk[k];
 	}
 }
 
@@ -111,5 +121,10 @@ void compute_post_filter(int fft_size_2,
 		}else{
 			postfilter[k] = 0.f;
 		}
+	}
+
+	//mirrored gain array
+	for (k = 1; k < fft_size_2; k++) {
+			postfilter[fft_size-k] = postfilter[k];
 	}
 }
