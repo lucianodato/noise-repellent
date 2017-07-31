@@ -112,7 +112,7 @@ void compute_post_filter(int fft_size_2,
 			postfilter[k] = 0.f;
 		}
 		if(k < fft_size_2){
-				postfilter[fft_size - k] = postfilter[k];//Mirrored value
+				postfilter[fft_size - k - 1] = postfilter[k];//Mirrored value
 		}
 	}
 }

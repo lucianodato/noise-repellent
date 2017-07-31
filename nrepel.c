@@ -206,7 +206,7 @@ instantiate(const LV2_Descriptor*     descriptor,
 
 	nrepel->in_fifo = (float*)calloc(nrepel->fft_size,sizeof(float));
 	nrepel->out_fifo = (float*)calloc(nrepel->fft_size,sizeof(float));
-	nrepel->output_accum = (float*)calloc(nrepel->fft_size,sizeof(float));
+	nrepel->output_accum = (float*)calloc(nrepel->fft_size+nrepel->hop,sizeof(float));
 
 	nrepel->window = (float*)calloc(nrepel->fft_size,sizeof(float));
 
@@ -254,7 +254,7 @@ instantiate(const LV2_Descriptor*     descriptor,
 				nrepel->window_option,
 				&nrepel->overlap_scale_factor);
 
-	//Set initial gain as unity
+	//Set initial gain as unity for the positive part
 	memset(nrepel->Gk, 1, (nrepel->fft_size_2+1)*sizeof(float));
 
 	//Compute auto mode initial thresholds
@@ -405,7 +405,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 			for (k = 0; k <= nrepel->fft_size_2; k++){
 				//Get the half complex spectrum reals and complex
 				nrepel->real_p = nrepel->output_fft_buffer[k];
-				nrepel->imag_n = nrepel->output_fft_buffer[nrepel->fft_size-k];
+				nrepel->imag_n = nrepel->output_fft_buffer[nrepel->fft_size - k - 1];
 
 				//Get the magnitude and power spectrum
 				if(k < nrepel->fft_size_2){

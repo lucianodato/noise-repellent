@@ -248,7 +248,7 @@ void whitening(float* spectrum,float b,int N){
     if(spectrum[k] > FLT_MIN  && spectrum[(2*N)-k] > FLT_MIN){
       spectrum[k] = (1.f - b)*spectrum[k] + b*(1.f - spectrum[k]);
       if(k < N)
-        spectrum[(2*N)-k] = (1.f - b)*spectrum[(2*N)-k] + b*(1.f - spectrum[(2*N)-k]);
+        spectrum[(2*N)-k-1] = (1.f - b)*spectrum[(2*N)-k-1] + b*(1.f - spectrum[(2*N)-k-1]);
     }
   }
 }

@@ -23,8 +23,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include "estimate_noise_spectrum.c"
 #include "denoise_gain.c"
 
-#define MEAN_INTERP 0.5
-
 //------------GAIN AND THRESHOLD CALCULATION---------------
 
 void preprocessing(float noise_thresholds_offset,
@@ -102,7 +100,7 @@ void postprocessing(int fft_size_2,
 	//mirrored gain array to use a power of 2 fft transform
 	for (k = 0; k <= fft_size_2; k++) {
 		if(k < fft_size_2)
-			Gk[fft_size-k] = Gk[k];
+			Gk[fft_size-k-1] = Gk[k];
 	}
 
 
@@ -129,15 +127,17 @@ void postprocessing(int fft_size_2,
 	for (k = 0; k <= fft_size_2; k++) {
     output_fft_buffer_g[k] *= output_fft_buffer_ps[k];
     if(k < fft_size_2)
-      output_fft_buffer_g[fft_size-k] *= output_fft_buffer_ps[fft_size-k];
+      output_fft_buffer_g[fft_size-k-1] *= output_fft_buffer_ps[fft_size-k-1];
   }
 
 	//FFT Synthesis (only gain needs to be synthetised)
 	fftwf_execute(*backward_g);
 
 	//Normalizing
-	for (k = 0; k < fft_size; k++){
+	for (k = 0; k <= fft_size_2; k++){
 		input_fft_buffer_g[k] = input_fft_buffer_g[k] / fft_size;
+		if(k < fft_size_2)
+			input_fft_buffer_g[fft_size-k-1] = input_fft_buffer_g[fft_size-k-1] / fft_size;
 	}
 
 	//Copy to orginal arrays
@@ -158,7 +158,7 @@ void denoised_calulation(int fft_size_2,
   for (k = 0; k <= fft_size_2; k++) {
     denoised_spectrum[k] = output_fft_buffer[k] * Gk[k];
     if(k < fft_size_2)
-      denoised_spectrum[fft_size-k] = output_fft_buffer[fft_size-k] * Gk[fft_size-k];
+      denoised_spectrum[fft_size-k-1] = output_fft_buffer[fft_size-k-1] * Gk[fft_size-k];
   }
 }
 
@@ -176,7 +176,7 @@ void residual_calulation(int fft_size_2,
   for (k = 0; k <= fft_size_2; k++) {
    residual_spectrum[k] = output_fft_buffer[k] - denoised_spectrum[k];
    if(k < fft_size_2)
-    residual_spectrum[fft_size-k] = output_fft_buffer[fft_size-k] - denoised_spectrum[fft_size-k];
+    residual_spectrum[fft_size-k-1] = output_fft_buffer[fft_size-k-1] - denoised_spectrum[fft_size-k-1];
   }
 
 	////////////POSTPROCESSING RESIDUAL
@@ -204,14 +204,14 @@ void final_spectrum_ensemble(int fft_size_2,
 		for (k = 0; k <= fft_size_2; k++) {
 			output_fft_buffer[k] =  (1.f-wet_dry) * output_fft_buffer[k] + (denoised_spectrum[k] + residual_spectrum[k]*reduction_amount) * wet_dry;
 			if(k < fft_size_2)
-				output_fft_buffer[fft_size-k] = (1.f-wet_dry) * output_fft_buffer[fft_size-k] + (denoised_spectrum[fft_size-k] + residual_spectrum[fft_size-k]*reduction_amount) * wet_dry;
+				output_fft_buffer[fft_size-k-1] = (1.f-wet_dry) * output_fft_buffer[fft_size-k-1] + (denoised_spectrum[fft_size-k-1] + residual_spectrum[fft_size-k-1]*reduction_amount) * wet_dry;
 		}
 	} else {
 		//Output noise only
 		for (k = 0; k <= fft_size_2; k++) {
 			output_fft_buffer[k] = (1.f-wet_dry) * output_fft_buffer[k] + residual_spectrum[k] * wet_dry;
 			if(k < fft_size_2)
-				output_fft_buffer[fft_size-k] = (1.f-wet_dry) * output_fft_buffer[fft_size-k] + residual_spectrum[fft_size-k] * wet_dry;
+				output_fft_buffer[fft_size-k-1] = (1.f-wet_dry) * output_fft_buffer[fft_size-k-1] + residual_spectrum[fft_size-k-1] * wet_dry;
 		}
 	}
 }
