@@ -95,8 +95,12 @@ void postprocessing(int fft_size_2,
 
   int k;
   float postfilter[fft_size];
-	float gains_magnitude[fft_size];
-	float real_p,imag_n,mag;
+
+	//mirrored gain array to use a power of 2 fft transform
+	for (k = 1; k < fft_size_2; k++) {
+			Gk[fft_size-k] = Gk[k];
+	}
+
 
 	//GAIN SMOOTHING USING A POSTFILTER
 	//Compute the filter
@@ -145,7 +149,7 @@ void denoised_calulation(int fft_size_2,
   int k;
 
   //Apply the computed gain to the signal and store it in denoised array
-  for (k = 0; k <= fft_size_2; k++) {
+  for (k = 0; k < fft_size; k++) {
     denoised_spectrum[k] = output_fft_buffer[k] * Gk[k];
   }
 }
@@ -160,7 +164,7 @@ void residual_calulation(int fft_size_2,
   int k;
 
   //Residual signal
-  for (k = 0; k <= fft_size_2; k++) {
+  for (k = 0; k < fft_size; k++) {
    residual_spectrum[k] = output_fft_buffer[k] - denoised_spectrum[k];
   }
 
