@@ -114,7 +114,6 @@ typedef struct {
 	float* input_fft_buffer_ps;
 	float* output_fft_buffer_ps;
 	fftwf_plan forward_ps;
-	fftwf_plan backward_ps;
 	float* input_fft_buffer_g;
 	float* output_fft_buffer_g;
 	fftwf_plan forward_g;
@@ -219,7 +218,6 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->input_fft_buffer_ps = (float*)calloc(nrepel->fft_size,sizeof(float));
 	nrepel->output_fft_buffer_ps = (float*)calloc(nrepel->fft_size,sizeof(float));
 	nrepel->forward_ps = fftwf_plan_r2r_1d(nrepel->fft_size, nrepel->input_fft_buffer_ps, nrepel->output_fft_buffer_ps, FFTW_R2HC, FFTW_ESTIMATE);
-	nrepel->backward_ps = fftwf_plan_r2r_1d(nrepel->fft_size, nrepel->input_fft_buffer_ps, nrepel->output_fft_buffer_ps, FFTW_HC2R, FFTW_ESTIMATE);
 	nrepel->input_fft_buffer_g = (float*)calloc(nrepel->fft_size,sizeof(float));
 	nrepel->output_fft_buffer_g = (float*)calloc(nrepel->fft_size,sizeof(float));
 	nrepel->forward_g = fftwf_plan_r2r_1d(nrepel->fft_size, nrepel->input_fft_buffer_g, nrepel->output_fft_buffer_g, FFTW_R2HC, FFTW_ESTIMATE);
@@ -401,7 +399,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 
 			//-----------GET INFO FROM BINS--------------
 
-			//Get the positive spectrum and compute the magnitude
+			//Get the positive spectrum and compute the magnitude without DC component fft[0]
 			for (k = 1; k <= nrepel->fft_size_2; k++){
 				//Get the half complex spectrum reals and complex
 				nrepel->real_p = nrepel->output_fft_buffer[k];
@@ -496,7 +494,6 @@ run(LV2_Handle instance, uint32_t n_samples) {
 													&nrepel->forward_g,
 													&nrepel->backward_g,
 													&nrepel->forward_ps,
-													&nrepel->backward_ps,
 													nrepel->Gk,
 													nrepel->pf_threshold_linear);
 

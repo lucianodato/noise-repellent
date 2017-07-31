@@ -105,7 +105,7 @@ void compute_post_filter(int fft_size_2,
 	}
 
 	//construct the filter window (zero phase)
-	for (k = 0; k <= fft_size ; k++) {
+	for (k = 0; k < fft_size ; k++) {
 		if(k < n_lambda){
 			postfilter[k] = 1.f/n_lambda;
 		}else{
