@@ -17,7 +17,6 @@ You should have received a copy of the GNU Lesser General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
-
 #include <stdlib.h>
 #include <string.h>
 #include <fftw3.h>
@@ -33,9 +32,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define NREPEL_URI "https://github.com/lucianodato/noise-repellent"
 
 //STFT default values
-#define FFT_SIZE 2048                 //this size should be power of 2
-#define WINDOW_TYPE 0          			//0 HANN 1 HAMMING 2 BLACKMAN Input and Output windows for STFT algorithm
-#define OVERLAP_FACTOR 4              //4 is 75% overlap Values bigger than 4 will rescale correctly
+#define FFT_SIZE 2048    //this size should be power of 2
+#define WINDOW_TYPE 0    //0 HANN 1 HAMMING 2 BLACKMAN Input and Output windows for STFT algorithm
+#define OVERLAP_FACTOR 4 //4 is 75% overlap Values bigger than 4 will rescale correctly
 
 ///---------------------------------------------------------------------
 
@@ -448,7 +447,6 @@ run(LV2_Handle instance, uint32_t n_samples) {
 			nrepel->fft_p2[0] = nrepel->real_p*nrepel->real_p;
 			nrepel->fft_magnitude[0] = nrepel->real_p;
 			nrepel->fft_phase[0] = atan2f(nrepel->real_p,0.f); //Phase is 0 for DC and nyquist
-
 
 			//Get the rest of positive spectrum and compute the magnitude
 			for (k = 1; k <= nrepel->fft_size_2; k++){

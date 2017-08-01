@@ -20,7 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <float.h>
 #include <math.h>
 
-#define PS_SMOOTHING 100.0
+#define PF_SMOOTHING 100.0 //Postfilter smoothing scaling
 
 //General spectral sustraction configuration
 #define GAMMA1 2.f
@@ -117,7 +117,7 @@ void compute_post_filter(int fft_size_2,
 	if(ksi_lambda == 1.f){
 		n_lambda = 1.f;
 	}else{
-		n_lambda = 2.f*roundf(PS_SMOOTHING*(1.f - ksi_lambda/pf_threshold)) + 1.f;
+		n_lambda = 2.f*roundf(PF_SMOOTHING*(1.f - ksi_lambda/pf_threshold)) + 1.f;
 	}
 
 	//construct the filter window (zero phase)

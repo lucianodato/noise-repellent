@@ -71,7 +71,7 @@ void preprocessing(float noise_thresholds_offset,
 		noise still appear. Other approach is to use a multiresolution STFT as
 		proposed by Lukin in Adaptive Time-Frequency Resolution for Analysis and
 		Processing of Audio but something like that would be a part of the STFT
-		transform in nrepel.c
+		transform in nrepel.c TODO
 	*/
 	// transient_preservation_coeff = transient_preservation(fft_p2,
 	// 																											fft_p2_prev_tpres,

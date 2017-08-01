@@ -17,7 +17,7 @@ Features
 Limitations
 -------
 * The plugin will introduce latency so it's not appropriate to be used while recording
-* It was developed to be used with Ardour however it is known to work with other host
+* It was developed to be used with Ardour however it is known to work with other hosts
 
 Install
 -------
