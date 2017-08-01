@@ -57,6 +57,13 @@ typedef enum {
 	NREPEL_OUTPUT = 12,
 } PortIndex;
 
+//spectum struct for noise profile saving
+typedef struct{
+	uint32_t child_size;
+	uint32_t child_type;
+	float    array[FFT_SIZE/2+1];
+} FFTVector;
+
 typedef struct {
 	const float* input;               //input of samples from host (changing size)
 	float* output;                    //output of samples to host (changing size)
@@ -363,7 +370,6 @@ run(LV2_Handle instance, uint32_t n_samples) {
 	nrepel->wet_dry += nrepel->tau * (nrepel->wet_dry_target - nrepel->wet_dry) + FLT_MIN;
 
 	//Parameters values
-
 	/*exponential decay coefficients for envelopes and adaptive noise profiling
 		These must take into account the hop size as explained in the following paper
 		FFT-BASED DYNAMIC RANGE COMPRESSION*/
@@ -372,8 +378,6 @@ run(LV2_Handle instance, uint32_t n_samples) {
 	nrepel->thresholds_offset_linear = from_dB(*(nrepel->noise_thresholds_offset));
 	nrepel->pf_threshold_linear = from_dB(*(nrepel->pf_threshold));
 	nrepel->whitening_factor = *(nrepel->whitening_factor_pc)/100.f;
-
-	//printf("%f\n", nrepel->release_coeff );
 
 	//Reset button state (if on)
 	if (*(nrepel->reset_profile) == 1.f) {
@@ -394,7 +398,6 @@ run(LV2_Handle instance, uint32_t n_samples) {
 
 		nrepel->noise_thresholds_availables = false;
 	}
-
 
 	//main loop for processing
 	for (pos = 0; pos < n_samples; pos++){
@@ -424,7 +427,6 @@ run(LV2_Handle instance, uint32_t n_samples) {
 			//-----------GET INFO FROM BINS--------------
 
 			//Look at http://www.fftw.org/fftw2_doc/fftw_2.html
-
 			//DC bin
 			nrepel->real_p = nrepel->output_fft_buffer[0];
 
@@ -631,13 +633,6 @@ cleanup(LV2_Handle instance)
 	free(instance);
 }
 
-//spectum struct for noise profile saving
-struct FFTVector {
-	uint32_t child_size;
-	uint32_t child_type;
-	float    array[FFT_SIZE/2+1];
-};
-
 static LV2_State_Status
 savestate(LV2_Handle     instance,
      LV2_State_Store_Function  store,
@@ -647,10 +642,10 @@ savestate(LV2_Handle     instance,
 {
 	Nrepel* nrepel = (Nrepel*)instance;
 
-	struct FFTVector vector;
+	FFTVector* vector = (FFTVector*)malloc(sizeof(FFTVector));
 
-	vector.child_type = nrepel->atom_Float;
-	vector.child_size = sizeof(float);
+	vector->child_type = nrepel->atom_Float;
+	vector->child_size = sizeof(float);
 
 	store(handle, nrepel->prop_fftsize,
 			&nrepel->fft_size_2, sizeof(int),
@@ -660,10 +655,10 @@ savestate(LV2_Handle     instance,
 			&nrepel->window_count, sizeof(float),
 			nrepel->atom_Float, LV2_STATE_IS_POD | LV2_STATE_IS_PORTABLE);
 
-	memcpy(vector.array, nrepel->noise_thresholds_p2, sizeof(vector.array));
+	memcpy(vector->array, nrepel->noise_thresholds_p2, sizeof(vector->array));
 
 	store(handle, nrepel->prop_nrepelFFTp2,
-			(void*) &vector, sizeof(struct FFTVector),
+			(void*) vector, sizeof(FFTVector),
 			nrepel->atom_Vector, LV2_STATE_IS_POD | LV2_STATE_IS_PORTABLE);
 
   return LV2_STATE_SUCCESS;
@@ -689,7 +684,7 @@ restorestate(LV2_Handle       instance,
 
 	//check if state is available
 	const void* vecFFTp2 = retrieve(handle, nrepel->prop_nrepelFFTp2, &size, &type, &valflags);
-	if ( !vecFFTp2 || size != sizeof(struct FFTVector) || type != nrepel->atom_Vector){
+	if ( !vecFFTp2 || size != sizeof(FFTVector) || type != nrepel->atom_Vector){
 		return LV2_STATE_ERR_NO_PROPERTY;
 	}
 

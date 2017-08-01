@@ -147,6 +147,7 @@ void get_noise_statistics(float* fft_p2,
 												  float* window_count) {
   int k;
 
+	//Count frames to be used in the rolling mean
   *(window_count) += 1.f;
 
   //Get noise thresholds based on averageing the input noise signal between frames
