@@ -171,7 +171,4 @@
     lv2:symbol "output" ;
     lv2:name "Output" ;
   ];
-  rdfs:comment "Instructions: select a section of noise only in your track and loop it. Turn on noise capture for one second or two to learn the noise profile and then turn it off. Then you can now adjust the reduction.",
-   "Instrucciones: seleccionar una seccion de la pista que solo contenga ruido y reproducirla ciclicamente. Encender la captura del perfil de ruido por unos segundos para capturar el perfil de ruido y luego apagarlo. Luego se puede ajustar la reduccion."@es ,
-   "Instructions : sélectionnez une portion de bruit seul dans votre piste et lisez-la en boucle. Activez la capture de l'empreinte pendant une seconde ou deux pour apprendre le profil du bruit, puis désactivez-la. Vous pouvez alors ajuster la réduction."@fr ;
 .

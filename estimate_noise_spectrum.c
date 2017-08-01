@@ -29,8 +29,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 //for auto_thresholds initialization
 #define CROSSOVER_POINT1 1000.f     //crossover point for loizou reference thresholds
 #define CROSSOVER_POINT2 3000.f     //crossover point for loizou reference thresholds
-#define BAND_1_GAIN 2.0f             //gain for the band
-#define BAND_2_GAIN 2.0f             //gain for the band
+#define BAND_1_GAIN 2.0f            //gain for the band
+#define BAND_2_GAIN 2.0f            //gain for the band
 #define BAND_3_GAIN 5.0f            //gain for the band
 
 //This thresholds will dictate how louizou algorithm recognizes noise
