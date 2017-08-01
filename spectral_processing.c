@@ -22,6 +22,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 #include "estimate_noise_spectrum.c"
 #include "denoise_gain.c"
+#include "masking.c"
 
 //------------GAIN AND THRESHOLD CALCULATION---------------
 
@@ -31,6 +32,12 @@ void preprocessing(float noise_thresholds_offset,
 									float* smoothed_spectrum_prev,
 							    int fft_size_2,
 							    float* Gk,
+									float* prev_beta,
+									float* bark_z,
+                  float* absolute_thresholds,
+                  float* SSF,
+                  float* max_masked,
+									float* min_masked,
 									float release_coeff){
 
 	int k;
@@ -39,9 +46,43 @@ void preprocessing(float noise_thresholds_offset,
 
 	//------OVERSUBTRACTION------
 
+	//CALCULATION OF ALPHA WITH MASKING THRESHOLDS USING VIRAGS METHOD
+	// float alpha[fft_size_2+1];
+	//
+	// compute_alpha_and_beta(fft_p2,
+	// 											 noise_thresholds_p2,
+	// 											 fft_size_2,
+	// 											 alpha,
+	// 											 bark_z,
+	// 											 absolute_thresholds,
+	// 											 SSF,
+	// 											 max_masked,
+	// 											 min_masked);
+	//
+	//Virag requires alphas to be smoothed over time and frequency? TODO
+
+	/*Transient preservation using onset detection should be done here
+		Essentially the idea is to scale down the noise profile when a transient
+		is present in the signal. it should be frequency dependent otherwise sounds
+		bad. This should be activated by default some hints of a better method are in
+		Adaptive Noise Reduction for Real-time Applications wich propose a onset
+		detection based on phase information. More info in Bello onset paper.
+		Spectral flux is essentially crap since it's not frequency dependant and
+		noise still appear. Other approach is to use a multiresolution STFT as
+		proposed by Lukin in Adaptive Time-Frequency Resolution for Analysis and
+		Processing of Audio but something like that would be a part of the STFT
+		transform in nrepel.c
+	*/
+	// transient_preservation_coeff = transient_preservation(fft_p2,
+	// 																											fft_p2_prev_tpres,
+	// 																											fft_size_2);
+	//
+	// memcpy(fft_p2_prev_tpres,fft_p2,sizeof(float)*(fft_size_2+1));
+
+
 	//Scale noise thresholds (equals applying an oversubtraction factor in spectral subtraction)
 	for (k = 0; k <= fft_size_2; k++) {
-		noise_thresholds_scaled[k] *= noise_thresholds_offset;
+		noise_thresholds_scaled[k] *= noise_thresholds_offset;//* alpha[k] * transient_preservation_coeff;
 	}
 
 	//------SMOOTHING DETECTOR------
@@ -55,6 +96,15 @@ void preprocessing(float noise_thresholds_offset,
 								 smoothed_spectrum_prev,
 								 fft_size_2,
 								 release_coeff);
+
+	// This adaptive method is based on SPECTRAL SUBTRACTION WITH ADAPTIVE AVERAGING OF THE GAIN FUNCTION
+	// Not working correctly yet
+	// spectrum_adaptive_time_smoothing(fft_size_2,
+	// 																smoothed_spectrum_prev,
+	// 																smoothed_spectrum,
+	// 																noise_thresholds_p2,
+	// 																prev_beta,
+	// 																release_coeff);
 
 	memcpy(smoothed_spectrum_prev,smoothed_spectrum,sizeof(float)*(fft_size_2+1));
 }

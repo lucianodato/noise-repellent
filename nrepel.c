@@ -71,7 +71,7 @@ typedef struct {
 	float* noise_learn_state;         //Learn Noise state (Manual-Off-Auto)
 	float* adaptive_state;            //Autocapture switch
 	float* reset_profile;             //Reset Noise switch
-	float* residual_listen;              //For noise only listening
+	float* residual_listen;           //For noise only listening
 	float* enable;                    //For soft bypass (click free bypass)
 	float* report_latency;            //Latency necessary
 
@@ -87,15 +87,18 @@ typedef struct {
 	int hop;                          //Hop size for the STFT
 	float* window;              			//Window values
 	float window_count;               //Count windows for mean computing
+
+	//Algorithm exta variables
 	float tau;                        //time constant for soft bypass
 	float wet_dry_target;             //softbypass target for softbypass
 	float wet_dry;                    //softbypass coeff
 	float reduction_coeff;            //Gain to apply to the residual noise
 	float release_coeff;							//Release coefficient for Envelopes
-	float amount_of_reduction_linear;						//Reduction amount linear value
+	float amount_of_reduction_linear;	//Reduction amount linear value
 	float thresholds_offset_linear;		//Threshold offset linear value
 	float pf_threshold_linear;				//linear value of the snr threshold
 	float whitening_factor;						//Whitening amount of the reduction
+	float prev_beta; 									//For the adaptive smoothing
 
 	//Buffers for processing and outputting
 	int input_latency;
@@ -148,6 +151,13 @@ typedef struct {
 	float* prev_p_min;
 	float* speech_p_p;
 	float* prev_speech_p_p;
+
+	//masking
+	float* bark_z;
+	float* absolute_thresholds; 			//absolute threshold of hearing
+	float* SSF;
+	float max_masked;
+	float min_masked;
 
 	// clock_t start, end;
 	// double cpu_time_used;
@@ -202,6 +212,7 @@ instantiate(const LV2_Descriptor*     descriptor,
 	nrepel->noise_thresholds_availables = false;
 	nrepel->tau = (1.f - expf(-2.f * M_PI * 25.f * 64.f  / nrepel->samp_rate));
 	nrepel->wet_dry = 0.f;
+	nrepel->prev_beta = 0.f;
 
 	nrepel->in_fifo = (float*)calloc(nrepel->fft_size,sizeof(float));
 	nrepel->out_fifo = (float*)calloc(nrepel->fft_size,sizeof(float));
@@ -257,6 +268,16 @@ instantiate(const LV2_Descriptor*     descriptor,
 
 	//Compute auto mode initial thresholds
 	compute_auto_thresholds(nrepel->auto_thresholds, nrepel->fft_size, nrepel->fft_size_2, nrepel->samp_rate);
+
+	//MASKING
+	nrepel->bark_z = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
+	nrepel->absolute_thresholds = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
+	nrepel->SSF = (float*)malloc(sizeof(float)*(N_BARK_BANDS*N_BARK_BANDS));
+	nrepel->max_masked = FLT_MIN;
+	nrepel->min_masked = FLT_MAX;
+	compute_bark_mapping(nrepel->bark_z,nrepel->fft_size_2,nrepel->samp_rate);
+	compute_absolute_thresholds(nrepel->absolute_thresholds,nrepel->fft_size_2,nrepel->samp_rate);
+	compute_SSF(nrepel->SSF);
 
 	return (LV2_Handle)nrepel;
 }
@@ -367,6 +388,9 @@ run(LV2_Handle instance, uint32_t n_samples) {
 		memset(nrepel->prev_p_min, 0, (nrepel->fft_size_2+1)*sizeof(float));
 		memset(nrepel->speech_p_p, 0, (nrepel->fft_size_2+1)*sizeof(float));
 		memset(nrepel->prev_speech_p_p, 0, (nrepel->fft_size_2+1)*sizeof(float));
+
+		nrepel->max_masked = FLT_MIN;
+		nrepel->min_masked = FLT_MAX;
 
 		nrepel->noise_thresholds_availables = false;
 	}
@@ -481,6 +505,12 @@ run(LV2_Handle instance, uint32_t n_samples) {
 													nrepel->smoothed_spectrum_prev,
 													nrepel->fft_size_2,
 													nrepel->Gk,
+													&nrepel->prev_beta,
+													nrepel->bark_z,
+													nrepel->absolute_thresholds,
+													nrepel->SSF,
+													&nrepel->max_masked,
+													&nrepel->min_masked,
 													nrepel->release_coeff);
 
 						//Supression rule
