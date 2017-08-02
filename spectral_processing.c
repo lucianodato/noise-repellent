@@ -32,6 +32,8 @@ float* smoothed_spectrum,
 float* smoothed_spectrum_prev,
 int fft_size_2,
 float* Gk,
+FFTPeak* noise_spectral_peaks,
+int peaks_count,
 float* prev_beta,
 float* bark_z,
 float* absolute_thresholds,
@@ -81,8 +83,17 @@ float release_coeff){
 
 
 	//Scale noise thresholds (equals applying an oversubtraction factor in spectral subtraction)
+	// for (k = 0; k <= fft_size_2; k++) {
+	// 	noise_thresholds_scaled[k] *= noise_thresholds_offset;//* alpha[k] * transient_preservation_coeff;
+	// }
+
+	//Take into account spectral peaks (just for testing)
 	for (k = 0; k <= fft_size_2; k++) {
-		noise_thresholds_scaled[k] *= noise_thresholds_offset;//* alpha[k] * transient_preservation_coeff;
+		for(int j = 0; j < peaks_count; j++){
+			if(noise_spectral_peaks[j].position == k)
+				noise_thresholds_scaled[k] *= noise_thresholds_offset;//* alpha[k] * transient_preservation_coeff;
+		}
+		//noise_thresholds_scaled[k] *= noise_thresholds_offset;
 	}
 
 	//------SMOOTHING DETECTOR------

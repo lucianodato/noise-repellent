@@ -31,9 +31,23 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 #define ONSET_THRESH 100.f //For onset detection
 
+#define SP_MAX_NUM 30 //Max number of spectral peaks to find
+#define SP_THRESH 0.001 //Threshold to discriminate peaks (high value to discard noise)
+#define SP_USE_P_INTER 0 //Use parabolic interpolation
+#define SP_MAX_FREQ 12000.f //Highest frequency to search for peaks
+#define SP_MIN_FREQ 40.f //Lowest frequency to search for peaks
+
 //AUXILIARY Functions
 #define MAX(a,b) (((a) > (b)) ? (a) : (b))
 #define MIN(a,b) (((a) < (b)) ? (a) : (b))
+
+//struct for spectral peaks array
+typedef struct{
+	float magnitude;
+	int position;
+} FFTPeak;
+
+
 
 //Force already-denormal float value to zero
 inline float sanitize_denormal(float value) {
@@ -338,11 +352,122 @@ float release_coeff){
 
 //---------------------SPECTRAL PEAK DETECTION--------------------------
 
-void spectral_peaks(float fft_size_2,
-float* fft_p2,
-float * spectral_peaks_position,
-float* spectral_peaks_magnitude){
+void parabolic_interpolation(float left_val,
+float middle_val,
+float right_val,
+int current_bin,
+float* result_val,
+int* result_bin){
+  int delta_x = 0.5 * ((left_val - right_val) / (left_val - 2.f*middle_val + right_val));
+  *result_bin = current_bin + delta_x;
+  *result_val = middle_val - 0.25 * (left_val - right_val) * delta_x;
+}
 
+//Peak detection based on parabolic curve interpolation as explained in https://ccrma.stanford.edu/~jos/parshl/Peak_Detection_Steps_3.html
+void spectral_peaks(int fft_size_2,
+float* fft_p2,
+FFTPeak* spectral_peaks,
+int* peaks_count,
+int samp_rate){
+  int k;
+  float fft_magnitude_dB[fft_size_2+1];
+  float peak_threshold_db = to_dB(SP_THRESH);
+  float max_bin = MIN(Freq2Index(SP_MAX_FREQ,samp_rate,fft_size_2),fft_size_2+1);
+  float min_bin = MAX(Freq2Index(SP_MIN_FREQ,samp_rate,fft_size_2),0);
+  int result_bin;
+  float result_val;
+
+  //Get the magnitude spectrum in dB scale (twise as precise than using linear scale)
+  for(k = 0; k<=fft_size_2;k++){
+    fft_magnitude_dB[k] = to_dB(sqrtf(fft_p2[k]));
+  }
+
+  //index for the magnitude array
+  int i = min_bin;
+
+  //Index for peak array
+  k = 0;
+
+  //The zero bin could be a peak
+  if (i+1 < fft_size_2+1 && fft_magnitude_dB[i] > fft_magnitude_dB[i+1]) {
+    if (fft_magnitude_dB[i] > peak_threshold_db) {
+      spectral_peaks[k].position = i;
+      spectral_peaks[k].magnitude = sqrtf(from_dB(fft_magnitude_dB[i]));
+      printf("%i\n",spectral_peaks[k].position );
+      k++;
+    }
+  }
+
+  //Peak finding loop
+  while(k < SP_MAX_NUM || i < max_bin) {
+    //descending a peak
+    while (i+1 < fft_size_2 && fft_magnitude_dB[i] >= fft_magnitude_dB[i+1]) {
+      i++;
+    }
+    //ascending a peak
+    while (i+1 < fft_size_2 && fft_magnitude_dB[i] < fft_magnitude_dB[i+1]) {
+      i++;
+    }
+
+    //when reaching a peak verify that is one value peak or multiple values peak
+    int j = i;
+    while (j+1 < fft_size_2 && (fft_magnitude_dB[j] == fft_magnitude_dB[j+1])) {
+      j++;
+    }
+
+    //end of the flat peak if the peak decreases is really a peak otherwise it is not
+    if (j+1 < fft_size_2 && fft_magnitude_dB[j+1] < fft_magnitude_dB[j] && fft_magnitude_dB[j] > peak_threshold_db) {
+      result_bin = 0.0;
+      result_val = 0.0;
+
+      if (j != i) { //peak between i and j
+        if (SP_USE_P_INTER) {
+          result_bin = (i + j) * 0.5;//center bin of the flat peak
+        }else{
+          result_bin = i;
+        }
+        result_val = fft_magnitude_dB[i];
+      }else{ //interpolate peak at i-1, i and i+1
+        if (SP_USE_P_INTER) {
+          parabolic_interpolation(fft_magnitude_dB[j-1], fft_magnitude_dB[j], fft_magnitude_dB[j+1], j, &result_val, &result_bin);
+        }else {
+          result_bin = j;
+          result_val = fft_magnitude_dB[j];
+        }
+      }
+
+      spectral_peaks[k].position = result_bin;
+      spectral_peaks[k].magnitude = sqrtf(from_dB(result_val));
+      printf("%i\n",spectral_peaks[k].position );
+      k++;
+    }
+
+    //if turned out not to be a peak advance i
+    i = j;
+
+    //If it's the last position of the array
+    if (i+1 >= fft_size_2) {
+      if (i == fft_size_2-1 && fft_magnitude_dB[i-1] < fft_magnitude_dB[i] &&
+        fft_magnitude_dB[i+1] < fft_magnitude_dB[i] &&
+        fft_magnitude_dB[i] > peak_threshold_db) {
+          result_bin = 0.0;
+          result_val = 0.0;
+          if (SP_USE_P_INTER) {
+            parabolic_interpolation(fft_magnitude_dB[i-1], fft_magnitude_dB[i], fft_magnitude_dB[i+1], j, &result_val, &result_bin);
+          }else{
+            result_bin = i;
+            result_val = fft_magnitude_dB[i];
+          }
+          spectral_peaks[k].position = result_bin;
+          spectral_peaks[k].magnitude = sqrtf(from_dB(result_val));
+          printf("%i\n",spectral_peaks[k].position );
+          k++;
+        }
+        break;
+    }
+  }
+  *peaks_count = k;
+  //printf("%i\n",k );
 }
 
 

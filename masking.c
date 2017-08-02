@@ -280,11 +280,13 @@ void compute_alpha_and_beta(float* fft_p2,
 float* noise_thresholds_p2,
 int fft_size_2,
 float* alpha,
+//float* beta,
 float* bark_z,
 float* absolute_thresholds,
 float* SSF,
 float* max_masked,
-float* min_masked) {
+float* min_masked,
+float masking) {
 
   int k;
   float masking_thresholds[fft_size_2+1];
@@ -319,21 +321,24 @@ float* min_masked) {
   *(max_masked) = MAX(max_spectral_value(masking_thresholds,fft_size_2),*(max_masked));
   *(min_masked) = MIN(min_spectral_value(masking_thresholds,fft_size_2),*(min_masked));
 
-  // printf("%f\n",*(max_masked) );
-  // printf("%f\n",*(min_masked) );
+  printf("%f\n",*(max_masked) );
+  printf("%f\n",*(min_masked) );
 
   for (k = 0; k <= fft_size_2; k++) {
-    //new alpha
+    //new alpha and beta vector
     if(masking_thresholds[k] == *(max_masked)){
        alpha[k] = ALPHA_MIN;
+       //beta[k] = BETA_MIN;
     }
     if(masking_thresholds[k] == *(min_masked)){
-       alpha[k] = MASKING;
+       alpha[k] = masking;
+       //beta[k] = BETA_MAX;
     }
     if(masking_thresholds[k] < *(max_masked) && masking_thresholds[k] > *(min_masked)){
        //Linear interpolation of the value between max and min masked threshold values
-       //alpha[k] = powf(1 - (masking_thresholds[k] - ALPHA_MIN)/(masking - ALPHA_MIN),EXPONENT) * (MASKING - ALPHA_MIN) + MASKING;
-       alpha[k] = ALPHA_MIN + (MASKING - ALPHA_MIN)/(*(min_masked) - *(max_masked)) * (masking_thresholds[k]- ALPHA_MIN);
+       //alpha[k] = powf(1 - (masking_thresholds[k] - ALPHA_MIN)/(masking - ALPHA_MIN),EXPONENT) * (masking - ALPHA_MIN) + masking;
+       alpha[k] = ALPHA_MIN + (masking - ALPHA_MIN)/(*(min_masked) - *(max_masked)) * (masking_thresholds[k]- ALPHA_MIN);
+       //beta[k] = (1 - (masking_thresholds[k] - BETA_MIN)/(masking - BETA_MIN)) * (masking - BETA_MIN) + masking;
     }
   }
 }

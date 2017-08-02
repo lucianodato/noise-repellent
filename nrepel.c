@@ -61,7 +61,7 @@ typedef enum {
 typedef struct{
 	uint32_t child_size;
 	uint32_t child_type;
-	float    array[FFT_SIZE/2+1];
+	float array[FFT_SIZE/2+1];
 } FFTVector;
 
 typedef struct {
@@ -140,6 +140,8 @@ typedef struct {
 	//noise related
 	float* noise_thresholds_p2;       //captured noise profile power spectrum
 	float* noise_thresholds_scaled;   //captured noise profile power spectrum scaled by oversustraction
+	FFTPeak* noise_spectral_peaks;		//Tonal noises of the noise profile
+	int peak_count;										//counts the amount of peaks found
 
 	//smoothing related
 	float* smoothed_spectrum;         //power spectrum to be smoothed
@@ -248,7 +250,9 @@ const LV2_Feature* const* features) {
 	//noise threshold related
 	nrepel->noise_thresholds_p2 = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->noise_thresholds_scaled = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
+	nrepel->noise_spectral_peaks = (FFTPeak*)calloc((SP_MAX_NUM),sizeof(FFTPeak));
 	nrepel->window_count = 0.f;
+	nrepel->peak_count = 0.f;
 	nrepel->noise_thresholds_availables = false;
 
 	//noise adaptive estimation related
@@ -297,6 +301,9 @@ const LV2_Feature* const* features) {
 
 	//Set initial gain as unity for the positive part
 	memset(nrepel->Gk, 1, (nrepel->fft_size_2+1)*sizeof(float));
+
+	//Find the tonal noises in the noise profile (only for saved profile for nows)
+	spectral_peaks(nrepel->fft_size_2,nrepel->noise_thresholds_p2,nrepel->noise_spectral_peaks,&nrepel->peak_count,nrepel->samp_rate);
 
 	//Compute adaptive initial thresholds
 	compute_auto_thresholds(nrepel->auto_thresholds, nrepel->fft_size, nrepel->fft_size_2, nrepel->samp_rate);
@@ -532,6 +539,8 @@ run(LV2_Handle instance, uint32_t n_samples) {
 													nrepel->smoothed_spectrum_prev,
 													nrepel->fft_size_2,
 													nrepel->Gk,
+													nrepel->noise_spectral_peaks,
+													nrepel->peak_count,
 													&nrepel->prev_beta,
 													nrepel->bark_z,
 													nrepel->absolute_thresholds,
