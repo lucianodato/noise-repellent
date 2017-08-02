@@ -103,8 +103,8 @@ void compute_SSF(float* SSF) {
 
 //Convolution by multiplication of a Toepliz matrix to a vector
 void convolve_with_SSF(float* SSF,//signal
-                       float* bark_spectrum,//kernel
-                       float* spreaded_spectrum){
+float* bark_spectrum,//kernel
+float* spreaded_spectrum){
 
   int i,j;
   for (i = 0; i < N_BARK_BANDS; i++){
@@ -117,10 +117,10 @@ void convolve_with_SSF(float* SSF,//signal
 
 //Computes the energy of each bark band
 void compute_bark_spectrum(float* bark_z,
-                           float* bark_spectrum,
-                           float* spectrum,
-                           int* intermediate_band_bins,
-                           int* n_bins_per_band){
+float* bark_spectrum,
+float* spectrum,
+int* intermediate_band_bins,
+int* n_bins_per_band){
   int j;
   int last_position = 0;
 
@@ -152,9 +152,9 @@ void compute_bark_spectrum(float* bark_z,
 
 //Computes the tonality factor using the spectral flatness
 float compute_tonality_factor(float* bark_spectrum,
-                             float* spectrum,
-                             float fft_size_2,
-                             int* n_bins_per_band){
+float* spectrum,
+float fft_size_2,
+int* n_bins_per_band){
 
   int j, k;
   float SFM, SFM_array[N_BARK_BANDS],Gm[N_BARK_BANDS],Am[N_BARK_BANDS],tonality_factor;
@@ -198,11 +198,11 @@ float compute_tonality_factor(float* bark_spectrum,
 
 //masking threshold calculation
 void compute_masking_thresholds(float* bark_z,
-                                float* absolute_thresholds,
-                                float* SSF,
-                                float* spectrum,
-                                int fft_size_2,
-                                float* masking_thresholds) {
+float* absolute_thresholds,
+float* SSF,
+float* spectrum,
+int fft_size_2,
+float* masking_thresholds) {
   int k, j, start, end;
   int intermediate_band_bins[N_BARK_BANDS];
   int n_bins_per_band[N_BARK_BANDS];
@@ -277,14 +277,14 @@ void compute_masking_thresholds(float* bark_z,
 
 //alpha and beta computation to be used in general spectral Sustraction
 void compute_alpha_and_beta(float* fft_p2,
-                            float* noise_thresholds_p2,
-                            int fft_size_2,
-                            float* alpha,
-                            float* bark_z,
-                            float* absolute_thresholds,
-                            float* SSF,
-                            float* max_masked,
-                            float* min_masked) {
+float* noise_thresholds_p2,
+int fft_size_2,
+float* alpha,
+float* bark_z,
+float* absolute_thresholds,
+float* SSF,
+float* max_masked,
+float* min_masked) {
 
   int k;
   float masking_thresholds[fft_size_2+1];

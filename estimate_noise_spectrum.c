@@ -35,9 +35,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 //This thresholds will dictate how louizou algorithm recognizes noise
 void compute_auto_thresholds(float* auto_thresholds,
-												     float fft_size,
-												     float fft_size_2,
-												     float samp_rate){
+float fft_size,
+float fft_size_2,
+float samp_rate){
 
   //This was experimentally obteined in louizou paper
 	int LF = Freq2Index(CROSSOVER_POINT1,samp_rate,fft_size);//1kHz
@@ -57,16 +57,16 @@ void compute_auto_thresholds(float* auto_thresholds,
 
 //Loizou noise-estimation algorithm for highly non-stationary environments
 static void estimate_noise_loizou(float* thresh,
-																  int fft_size_2,
-																  float* p2,
-																  float* s_pow_spec,
-																  float* prev_s_pow_spec,
-																  float* noise_thresholds_p2,
-																  float* prev_noise,
-																  float* p_min,
-																  float* prev_p_min,
-																  float* speech_p_p,
-																  float* prev_speech_p_p) {
+int fft_size_2,
+float* p2,
+float* s_pow_spec,
+float* prev_s_pow_spec,
+float* noise_thresholds_p2,
+float* prev_noise,
+float* p_min,
+float* prev_p_min,
+float* speech_p_p,
+float* prev_speech_p_p) {
 
   int k;
   float ratio_ns = 0.f;
@@ -108,16 +108,16 @@ static void estimate_noise_loizou(float* thresh,
 
 //Automatic noise threshold estimation
 void adapt_noise(float* p2,
-								int fft_size_2,
-								float* noise_thresholds_p2,
-								float* thresh,
-								float* prev_noise_thresholds,
-								float* s_pow_spec,
-								float* prev_s_pow_spec,
-								float* p_min,
-								float* prev_p_min,
-								float* speech_p_p,
-								float* prev_speech_p_p){
+int fft_size_2,
+float* noise_thresholds_p2,
+float* thresh,
+float* prev_noise_thresholds,
+float* s_pow_spec,
+float* prev_s_pow_spec,
+float* p_min,
+float* prev_p_min,
+float* speech_p_p,
+float* prev_speech_p_p){
 
   //Loizou noise-estimation algorithm for highly non-stationary environments
   estimate_noise_loizou(thresh,
@@ -142,9 +142,9 @@ void adapt_noise(float* p2,
 
 //Manual Capture threshold estimation
 void get_noise_statistics(float* fft_p2,
-												  int fft_size_2,
-												  float* noise_thresholds_p2,
-												  float* window_count) {
+int fft_size_2,
+float* noise_thresholds_p2,
+float* window_count) {
   int k;
 
 	//Count frames to be used in the rolling mean

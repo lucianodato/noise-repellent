@@ -27,18 +27,18 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 //------------GAIN AND THRESHOLD CALCULATION---------------
 
 void preprocessing(float noise_thresholds_offset,
-							    float* noise_thresholds_scaled,
-							    float* smoothed_spectrum,
-									float* smoothed_spectrum_prev,
-							    int fft_size_2,
-							    float* Gk,
-									float* prev_beta,
-									float* bark_z,
-                  float* absolute_thresholds,
-                  float* SSF,
-                  float* max_masked,
-									float* min_masked,
-									float release_coeff){
+float* noise_thresholds_scaled,
+float* smoothed_spectrum,
+float* smoothed_spectrum_prev,
+int fft_size_2,
+float* Gk,
+float* prev_beta,
+float* bark_z,
+float* absolute_thresholds,
+float* SSF,
+float* max_masked,
+float* min_masked,
+float release_coeff){
 
 	int k;
 
@@ -110,10 +110,10 @@ void preprocessing(float noise_thresholds_offset,
 }
 
 void spectral_gain(float* smoothed_spectrum,
-							    float* noise_thresholds_scaled,
-							    int fft_size_2,
-									float adaptive,
-							    float* Gk){
+float* noise_thresholds_scaled,
+int fft_size_2,
+float adaptive,
+float* Gk){
 
 	if(adaptive == 1.f){
 		power_subtraction(fft_size_2,
@@ -185,10 +185,10 @@ void postprocessing(int fft_size_2,
 }
 
 void denoised_calulation(int fft_size_2,
-								      int fft_size,
-								      float* output_fft_buffer,
-								      float* denoised_spectrum,
-								      float* Gk){
+int fft_size,
+float* output_fft_buffer,
+float* denoised_spectrum,
+float* Gk){
 
   int k;
 
@@ -199,11 +199,11 @@ void denoised_calulation(int fft_size_2,
 }
 
 void residual_calulation(int fft_size_2,
-								      int fft_size,
-								      float* output_fft_buffer,
-								      float* residual_spectrum,
-								      float* denoised_spectrum,
-											float whitening_factor){
+int fft_size,
+float* output_fft_buffer,
+float* residual_spectrum,
+float* denoised_spectrum,
+float whitening_factor){
 
   int k;
 
@@ -221,13 +221,13 @@ void residual_calulation(int fft_size_2,
 }
 
 void final_spectrum_ensemble(int fft_size_2,
-								      int fft_size,
-								      float* output_fft_buffer,
-								      float* residual_spectrum,
-								      float* denoised_spectrum,
-											float reduction_amount,
-								      float wet_dry,
-								      float noise_listen){
+int fft_size,
+float* output_fft_buffer,
+float* residual_spectrum,
+float* denoised_spectrum,
+float reduction_amount,
+float wet_dry,
+float noise_listen){
 
   int k;
 

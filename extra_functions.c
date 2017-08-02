@@ -118,9 +118,9 @@ inline float get_window_scale_factor(float* window,int fft_size){
 
 //wrapper for pre and post processing windows
 void fft_pre_and_post_window(float* window,
-                             int fft_size,
-                             int window_option,
-                             float* overlap_scale_factor) {
+int fft_size,
+int window_option,
+float* overlap_scale_factor) {
   //Window values computing
   fft_window(window,fft_size,window_option); //STFT window
 
@@ -230,8 +230,7 @@ inline float spectral_moda(float* x,int n) {
   return x[pos_max];
 }
 
-void get_normalized_spectum(float* spectrum,
-													 int N){
+void get_normalized_spectum(float* spectrum,int N){
 
 	int k;
 	float max_value = max_spectral_value(spectrum,N);
@@ -255,9 +254,7 @@ void whitening(float* spectrum,float b,int N){
 
 //---------------TRANSIENTS--------------
 
-inline float spectral_flux(float* spectrum,
-                          float* spectrum_prev,
-                          float N){
+inline float spectral_flux(float* spectrum,float* spectrum_prev,float N){
   int i;
   float spectral_flux = 0.f;
   float temp;
@@ -269,9 +266,7 @@ inline float spectral_flux(float* spectrum,
   return spectral_flux;
 }
 
-inline float transient_preservation(float* spectrum,
-                                    float* spectrum_prev,
-                                    float N){
+inline float transient_preservation(float* spectrum,float* spectrum_prev,float N){
   float spectral_flux_value = spectral_flux(spectrum, spectrum_prev, N);
 
   if (spectral_flux_value > ONSET_THRESH) //This is poor sounding maybe the best approch is multiresolution TODO
@@ -284,11 +279,11 @@ inline float transient_preservation(float* spectrum,
 
 //This was proposed in this work SPECTRAL SUBTRACTION WITH ADAPTIVE AVERAGING OF THE GAIN FUNCTION
 void spectrum_adaptive_time_smoothing(int fft_size_2,
-                                      float* spectrum_prev,
-                                      float* spectrum,
-                                      float* noise_thresholds,
-                                      float* prev_beta,
-                                      float coeff){
+float* spectrum_prev,
+float* spectrum,
+float* noise_thresholds,
+float* prev_beta,
+float coeff){
   int k;
   float discrepancy, numerator = 0.f, denominator = 0.f;
   float beta_ts;
@@ -327,9 +322,9 @@ void spectrum_adaptive_time_smoothing(int fft_size_2,
 }
 
 void apply_envelope(float* spectrum,
-                    float* spectrum_prev,
-                    float N,
-                    float release_coeff){
+float* spectrum_prev,
+float N,
+float release_coeff){
   int k;
 
   for (k = 0; k <= N ; k++) {
@@ -340,6 +335,17 @@ void apply_envelope(float* spectrum,
     }
 	}
 }
+
+//---------------------SPECTRAL PEAK DETECTION--------------------------
+
+void spectral_peaks(float fft_size_2,
+float* fft_p2,
+float * spectral_peaks_position,
+float* spectral_peaks_magnitude){
+
+}
+
+
 
 //---------------------SPECTRAL SMOOTHERS--------------------------
 

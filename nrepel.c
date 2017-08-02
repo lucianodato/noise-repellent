@@ -184,9 +184,9 @@ typedef struct {
 
 static LV2_Handle
 instantiate(const LV2_Descriptor*     descriptor,
-	    double                    rate,
-	    const char*               bundle_path,
-	    const LV2_Feature* const* features) {
+double                    rate,
+const char*               bundle_path,
+const LV2_Feature* const* features) {
 	//Actual struct declaration
 	Nrepel* nrepel = (Nrepel*)malloc(sizeof(Nrepel));
 
@@ -311,8 +311,8 @@ instantiate(const LV2_Descriptor*     descriptor,
 
 static void
 connect_port(LV2_Handle instance,
-	     uint32_t   port,
-	     void*      data) {
+uint32_t   port,
+void*      data) {
 	Nrepel* nrepel = (Nrepel*)instance;
 
 	switch ((PortIndex)port) {
@@ -655,10 +655,10 @@ cleanup(LV2_Handle instance)
 
 static LV2_State_Status
 savestate(LV2_Handle     instance,
-     LV2_State_Store_Function  store,
-     LV2_State_Handle          handle,
-     uint32_t                  flags,
-     const LV2_Feature* const* features)
+LV2_State_Store_Function  store,
+LV2_State_Handle          handle,
+uint32_t                  flags,
+const LV2_Feature* const* features)
 {
 	Nrepel* nrepel = (Nrepel*)instance;
 
@@ -686,10 +686,10 @@ savestate(LV2_Handle     instance,
 
 static LV2_State_Status
 restorestate(LV2_Handle       instance,
-        LV2_State_Retrieve_Function retrieve,
-        LV2_State_Handle            handle,
-        uint32_t                    flags,
-        const LV2_Feature* const*   features)
+LV2_State_Retrieve_Function retrieve,
+LV2_State_Handle            handle,
+uint32_t                    flags,
+const LV2_Feature* const*   features)
 {
 	Nrepel* nrepel = (Nrepel*)instance;
 	size_t   size;
