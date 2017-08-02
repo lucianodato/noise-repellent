@@ -32,9 +32,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define NREPEL_URI "https://github.com/lucianodato/noise-repellent"
 
 //STFT default values
-#define FFT_SIZE 2048    //this size should be power of 2
-#define WINDOW_TYPE 0    //0 HANN 1 HAMMING 2 BLACKMAN Input and Output windows for STFT algorithm
-#define OVERLAP_FACTOR 4 //4 is 75% overlap Values bigger than 4 will rescale correctly
+#define FFT_SIZE 2048               //this size should be power of 2
+#define WINDOW_TYPE 0          			//0 HANN 1 HAMMING 2 BLACKMAN Input and Output windows for STFT algorithm
+#define FRAME_SIZE 2048          		//Size of the analysis windows (Even number smaller than FFT_SIZE)
+#define OVERLAP_FACTOR 4            //4 is 75% overlap Values bigger than 4 will rescale correctly
 
 ///---------------------------------------------------------------------
 
@@ -92,6 +93,8 @@ typedef struct {
 	float overlap_scale_factor;       //Scaling factor for conserving the final amplitude
 	int hop;                          //Hop size for the STFT
 	float* window;              			//Window values
+	int frame_size;              			//Frame size
+	int frame_fft_diff;            		//Difference between the fft size and the window size
 	float window_count;               //Count windows for mean computing
 
 	//Algorithm exta variables
@@ -220,15 +223,17 @@ instantiate(const LV2_Descriptor*     descriptor,
 
 	//STFT window related
 	nrepel->window_option = WINDOW_TYPE;
-	nrepel->window = (float*)calloc(nrepel->fft_size,sizeof(float));
+	nrepel->frame_size = FRAME_SIZE;
+	nrepel->frame_fft_diff = nrepel->fft_size - nrepel->frame_size;
+	nrepel->window = (float*)calloc(nrepel->frame_size,sizeof(float));
 
 	//buffers for OLA
-	nrepel->in_fifo = (float*)calloc(nrepel->fft_size,sizeof(float));
-	nrepel->out_fifo = (float*)calloc(nrepel->fft_size,sizeof(float));
-	nrepel->output_accum = (float*)calloc(nrepel->fft_size*2,sizeof(float));
+	nrepel->in_fifo = (float*)calloc(nrepel->frame_size,sizeof(float));
+	nrepel->out_fifo = (float*)calloc(nrepel->frame_size,sizeof(float));
+	nrepel->output_accum = (float*)calloc(nrepel->frame_size*2,sizeof(float));
 	nrepel->overlap_factor = OVERLAP_FACTOR;
-	nrepel->hop = nrepel->fft_size/nrepel->overlap_factor;
-	nrepel->input_latency = nrepel->fft_size - nrepel->hop;
+	nrepel->hop = nrepel->frame_size/nrepel->overlap_factor;
+	nrepel->input_latency = nrepel->frame_size - nrepel->hop;
 	nrepel->read_ptr = nrepel->input_latency; //the initial position because we are that many samples ahead
 
 	//soft bypass
@@ -286,7 +291,7 @@ instantiate(const LV2_Descriptor*     descriptor,
 
 	//Window combination initialization (pre processing window post processing window)
 	fft_pre_and_post_window(nrepel->window,
-				nrepel->fft_size,
+				nrepel->frame_size,
 				nrepel->window_option,
 				&nrepel->overlap_scale_factor);
 
@@ -423,13 +428,19 @@ run(LV2_Handle instance, uint32_t n_samples) {
 		nrepel->read_ptr++;
 
 		//Once the buffer is full we can do stuff
-		if (nrepel->read_ptr >= nrepel->fft_size){
+		if (nrepel->read_ptr >= nrepel->frame_size){
 			//Reset the input buffer position
 			nrepel->read_ptr = nrepel->input_latency;
 
-			//Apply windowing
-			for (k = 0; k < nrepel->fft_size; k++){
-				nrepel->input_fft_buffer[k] = nrepel->in_fifo[k] * nrepel->window[k];
+			//Zeropadding the extremes of the fft input
+			for (k = 0; k < (nrepel->frame_fft_diff/2); k++){
+					nrepel->input_fft_buffer[k] = 0.f;
+					nrepel->input_fft_buffer[(nrepel->frame_fft_diff/2 + nrepel->fft_size) + k] = 0.f;
+			}
+
+			//Adding and windowing the frame input values in the center (zerophasing)
+			for (k = 0; k < nrepel->frame_size; k++){
+				nrepel->input_fft_buffer[nrepel->frame_fft_diff/2 + k] = nrepel->in_fifo[k] * nrepel->window[k];
 			}
 
 			//----------FFT Analysis------------
@@ -590,16 +601,16 @@ run(LV2_Handle instance, uint32_t n_samples) {
 			//Do inverse transform
 			fftwf_execute(nrepel->backward);
 
-			//Windowing and rescaling
+			//Normalizing value
 			for (k = 0; k < nrepel->fft_size; k++){
-				nrepel->input_fft_buffer[k] = (nrepel->window[k]*nrepel->input_fft_buffer[k]) / (nrepel->fft_size * nrepel->overlap_scale_factor * nrepel->overlap_factor);
+				nrepel->input_fft_buffer[k] = nrepel->input_fft_buffer[k]/nrepel->fft_size;
 			}
 
 			//------------OVERLAPADD-------------
 
-			//Accumulate
-			for(k = 0; k < nrepel->fft_size; k++){
-				nrepel->output_accum[k] += nrepel->input_fft_buffer[k];
+			//Windowing scaling and accumulation
+			for(k = 0; k < nrepel->frame_size; k++){
+				nrepel->output_accum[k] += (nrepel->window[k]*nrepel->input_fft_buffer[nrepel->frame_fft_diff/2 + k])/(nrepel->overlap_scale_factor * nrepel->overlap_factor);
 			}
 
 			//Output samples up to the hop size
@@ -608,7 +619,7 @@ run(LV2_Handle instance, uint32_t n_samples) {
 			}
 
 			//shift FFT accumulator the hop size
-			memmove(nrepel->output_accum, nrepel->output_accum + nrepel->hop, nrepel->fft_size*sizeof(float));
+			memmove(nrepel->output_accum, nrepel->output_accum + nrepel->hop, nrepel->frame_size*sizeof(float));
 
 			//move input FIFO
 			for (k = 0; k < nrepel->input_latency; k++){
