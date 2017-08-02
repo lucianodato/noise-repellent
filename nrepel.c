@@ -34,7 +34,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 //STFT default values
 #define FFT_SIZE 2048               //this size should be power of 2
 #define WINDOW_TYPE 0          			//0 HANN 1 HAMMING 2 BLACKMAN Input and Output windows for STFT algorithm
-#define FRAME_SIZE 2048          		//Size of the analysis windows (Even number smaller than FFT_SIZE)
+#define FRAME_SIZE 1650          		//Size of the analysis windows (Even number smaller than FFT_SIZE)
 #define OVERLAP_FACTOR 4            //4 is 75% overlap Values bigger than 4 will rescale correctly
 
 ///---------------------------------------------------------------------
@@ -432,13 +432,9 @@ run(LV2_Handle instance, uint32_t n_samples) {
 			//Reset the input buffer position
 			nrepel->read_ptr = nrepel->input_latency;
 
-			//Zeropadding the extremes of the fft input
-			for (k = 0; k < (nrepel->frame_fft_diff/2); k++){
-					nrepel->input_fft_buffer[k] = 0.f;
-					nrepel->input_fft_buffer[(nrepel->frame_fft_diff/2 + nrepel->fft_size) + k] = 0.f;
-			}
 
-			//Adding and windowing the frame input values in the center (zerophasing)
+			//Adding and windowing the frame input values in the center (zero-phasing)
+			//Extremes of the array won't get touched so it's not needed to set them to 0
 			for (k = 0; k < nrepel->frame_size; k++){
 				nrepel->input_fft_buffer[nrepel->frame_fft_diff/2 + k] = nrepel->in_fifo[k] * nrepel->window[k];
 			}
