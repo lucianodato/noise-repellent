@@ -35,8 +35,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define FFT_SIZE 2048               //this size should be power of 2
 #define INPUT_WINDOW 2          			//0 HANN 1 HAMMING 2 BLACKMAN Input windows for STFT algorithm
 #define OUTPUT_WINDOW 0          			//0 HANN 1 HAMMING 2 BLACKMAN Input windows for STFT algorithm
-#define FRAME_SIZE 2048          		//Size of the analysis windows (Even number smaller than FFT_SIZE)
-#define OVERLAP_FACTOR 4            //4 is 75% overlap Values bigger than 4 will rescale correctly
+#define FRAME_SIZE 1024          		//Size of the analysis windows (Even number smaller than FFT_SIZE)
+#define OVERLAP_FACTOR 16            //4 is 75% overlap Values bigger than 4 will rescale correctly
 
 ///---------------------------------------------------------------------
 
@@ -600,8 +600,6 @@ run(LV2_Handle instance, uint32_t n_samples) {
 						//residual signal
 						residual_calulation(nrepel->fft_size_2,
 							nrepel->fft_size,
-							nrepel->peak_pos,
-							nrepel->thresholds_offset_linear,
 							nrepel->output_fft_buffer,
 							nrepel->residual_spectrum,
 							nrepel->denoised_spectrum,
