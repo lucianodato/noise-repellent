@@ -31,10 +31,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 #define ONSET_THRESH 100.f //For onset detection
 
-#define SP_MAX_NUM 30 //Max number of spectral peaks to find
-#define SP_THRESH 0.001 //Threshold to discriminate peaks (high value to discard noise)
-#define SP_USE_P_INTER 0 //Use parabolic interpolation
-#define SP_MAX_FREQ 12000.f //Highest frequency to search for peaks
+#define SP_MAX_NUM 100 //Max number of spectral peaks to find
+#define SP_THRESH 0.1f //Threshold to discriminate peaks (high value to discard noise) Linear 0<>1
+#define SP_USE_P_INTER 1 //Use parabolic interpolation
+#define SP_MAX_FREQ 16000.f //Highest frequency to search for peaks
 #define SP_MIN_FREQ 40.f //Lowest frequency to search for peaks
 
 //AUXILIARY Functions
@@ -293,11 +293,12 @@ inline float transient_preservation(float* spectrum,float* spectrum_prev,float N
 
 //This was proposed in this work SPECTRAL SUBTRACTION WITH ADAPTIVE AVERAGING OF THE GAIN FUNCTION
 void spectrum_adaptive_time_smoothing(int fft_size_2,
-float* spectrum_prev,
-float* spectrum,
-float* noise_thresholds,
-float* prev_beta,
-float coeff){
+  float* spectrum_prev,
+  float* spectrum,
+  float* noise_thresholds,
+  float* prev_beta,
+  float coeff){
+
   int k;
   float discrepancy, numerator = 0.f, denominator = 0.f;
   float beta_ts;
@@ -336,9 +337,10 @@ float coeff){
 }
 
 void apply_envelope(float* spectrum,
-float* spectrum_prev,
-float N,
-float release_coeff){
+  float* spectrum_prev,
+  float N,
+  float release_coeff){
+
   int k;
 
   for (k = 0; k <= N ; k++) {
@@ -353,27 +355,30 @@ float release_coeff){
 //---------------------SPECTRAL PEAK DETECTION--------------------------
 
 void parabolic_interpolation(float left_val,
-float middle_val,
-float right_val,
-int current_bin,
-float* result_val,
-int* result_bin){
-  int delta_x = 0.5 * ((left_val - right_val) / (left_val - 2.f*middle_val + right_val));
-  *result_bin = current_bin + delta_x;
+  float middle_val,
+  float right_val,
+  int current_bin,
+  float* result_val,
+  int* result_bin){
+
+  float delta_x = 0.5 * ((left_val - right_val) / (left_val - 2.f*middle_val + right_val));
+  *result_bin = current_bin + (int)delta_x;
   *result_val = middle_val - 0.25 * (left_val - right_val) * delta_x;
 }
 
 //Peak detection based on parabolic curve interpolation as explained in https://ccrma.stanford.edu/~jos/parshl/Peak_Detection_Steps_3.html
 void spectral_peaks(int fft_size_2,
-float* fft_p2,
-FFTPeak* spectral_peaks,
-int* peaks_count,
-int samp_rate){
+  float* fft_p2,
+  FFTPeak* spectral_peaks,
+  int* peak_pos,
+  int* peaks_count,
+  int samp_rate){
+
   int k;
   float fft_magnitude_dB[fft_size_2+1];
   float peak_threshold_db = to_dB(SP_THRESH);
-  float max_bin = MIN(Freq2Index(SP_MAX_FREQ,samp_rate,fft_size_2),fft_size_2+1);
-  float min_bin = MAX(Freq2Index(SP_MIN_FREQ,samp_rate,fft_size_2),0);
+  int max_bin = MIN(Freq2Index(SP_MAX_FREQ,samp_rate,fft_size_2),fft_size_2+1);
+  int min_bin = MAX(Freq2Index(SP_MIN_FREQ,samp_rate,fft_size_2),0);
   int result_bin;
   float result_val;
 
@@ -393,7 +398,7 @@ int samp_rate){
     if (fft_magnitude_dB[i] > peak_threshold_db) {
       spectral_peaks[k].position = i;
       spectral_peaks[k].magnitude = sqrtf(from_dB(fft_magnitude_dB[i]));
-      printf("%i\n",spectral_peaks[k].position );
+      peak_pos[i] = 1;
       k++;
     }
   }
@@ -438,7 +443,7 @@ int samp_rate){
 
       spectral_peaks[k].position = result_bin;
       spectral_peaks[k].magnitude = sqrtf(from_dB(result_val));
-      printf("%i\n",spectral_peaks[k].position );
+      peak_pos[i] = 1;
       k++;
     }
 
@@ -460,7 +465,7 @@ int samp_rate){
           }
           spectral_peaks[k].position = result_bin;
           spectral_peaks[k].magnitude = sqrtf(from_dB(result_val));
-          printf("%i\n",spectral_peaks[k].position );
+          peak_pos[i] = 1;
           k++;
         }
         break;

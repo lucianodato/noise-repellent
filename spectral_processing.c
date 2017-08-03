@@ -27,20 +27,17 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 //------------GAIN AND THRESHOLD CALCULATION---------------
 
 void preprocessing(float noise_thresholds_offset,
-float* noise_thresholds_scaled,
-float* smoothed_spectrum,
-float* smoothed_spectrum_prev,
-int fft_size_2,
-float* Gk,
-FFTPeak* noise_spectral_peaks,
-int peaks_count,
-float* prev_beta,
-float* bark_z,
-float* absolute_thresholds,
-float* SSF,
-float* max_masked,
-float* min_masked,
-float release_coeff){
+	float* noise_thresholds_scaled,
+	float* smoothed_spectrum,
+	float* smoothed_spectrum_prev,
+	int fft_size_2,
+	float* prev_beta,
+	float* bark_z,
+	float* absolute_thresholds,
+	float* SSF,
+	float* max_masked,
+	float* min_masked,
+	float release_coeff){
 
 	int k;
 
@@ -83,17 +80,8 @@ float release_coeff){
 
 
 	//Scale noise thresholds (equals applying an oversubtraction factor in spectral subtraction)
-	// for (k = 0; k <= fft_size_2; k++) {
-	// 	noise_thresholds_scaled[k] *= noise_thresholds_offset;//* alpha[k] * transient_preservation_coeff;
-	// }
-
-	//Take into account spectral peaks (just for testing)
 	for (k = 0; k <= fft_size_2; k++) {
-		for(int j = 0; j < peaks_count; j++){
-			if(noise_spectral_peaks[j].position == k)
-				noise_thresholds_scaled[k] *= noise_thresholds_offset;//* alpha[k] * transient_preservation_coeff;
-		}
-		//noise_thresholds_scaled[k] *= noise_thresholds_offset;
+		noise_thresholds_scaled[k] *= noise_thresholds_offset;//* alpha[k] * transient_preservation_coeff;
 	}
 
 	//------SMOOTHING DETECTOR------
@@ -104,9 +92,9 @@ float release_coeff){
 		as suggested by Lukin in Suppression of Musical Noise Artifacts in Audio Noise Reduction by Adaptive 2D Filtering
 	*/
 	apply_envelope(smoothed_spectrum,
-								 smoothed_spectrum_prev,
-								 fft_size_2,
-								 release_coeff);
+		smoothed_spectrum_prev,
+		fft_size_2,
+		release_coeff);
 
 	// This adaptive method is based on SPECTRAL SUBTRACTION WITH ADAPTIVE AVERAGING OF THE GAIN FUNCTION
 	// Not working correctly yet
@@ -121,38 +109,37 @@ float release_coeff){
 }
 
 void spectral_gain(float* smoothed_spectrum,
-float* noise_thresholds_scaled,
-int fft_size_2,
-float adaptive,
-float* Gk){
+	float* noise_thresholds_scaled,
+	int fft_size_2,
+	float adaptive,
+	float* Gk){
 
 	if(adaptive == 1.f){
 		power_subtraction(fft_size_2,
-										smoothed_spectrum,
-										noise_thresholds_scaled,
-										Gk);
+			smoothed_spectrum,
+			noise_thresholds_scaled,
+			Gk);
 	}else{
 		spectral_gating(fft_size_2,
-										smoothed_spectrum,
-										noise_thresholds_scaled,
-										Gk);
+			smoothed_spectrum,
+			noise_thresholds_scaled,
+			Gk);
 	}
-
 }
 
 void postprocessing(int fft_size_2,
-							      int fft_size,
-										float* fft_p2,
-							      float* output_fft_buffer,
-										float* input_fft_buffer_ps,
-										float* input_fft_buffer_g,
-										float* output_fft_buffer_ps,
-										float* output_fft_buffer_g,
-										fftwf_plan* forward_g,
-										fftwf_plan* backward_g,
-										fftwf_plan* forward_ps,
-							      float* Gk,
-										float pf_threshold){
+	int fft_size,
+	float* fft_p2,
+	float* output_fft_buffer,
+	float* input_fft_buffer_ps,
+	float* input_fft_buffer_g,
+	float* output_fft_buffer_ps,
+	float* output_fft_buffer_g,
+	fftwf_plan* forward_g,
+	fftwf_plan* backward_g,
+	fftwf_plan* forward_ps,
+	float* Gk,
+	float pf_threshold){
 
   int k;
   float postfilter[fft_size];
@@ -160,11 +147,11 @@ void postprocessing(int fft_size_2,
 	//GAIN SMOOTHING USING A POSTFILTER
 	//Compute the filter
 	compute_post_filter(fft_size_2,
-										fft_size,
-										fft_p2,
-										pf_threshold,
-										postfilter,
-										Gk);
+		fft_size,
+		fft_p2,
+		pf_threshold,
+		postfilter,
+		Gk);
 
 	//Convolution using fft transform
 
@@ -196,10 +183,10 @@ void postprocessing(int fft_size_2,
 }
 
 void denoised_calulation(int fft_size_2,
-int fft_size,
-float* output_fft_buffer,
-float* denoised_spectrum,
-float* Gk){
+	int fft_size,
+	float* output_fft_buffer,
+	float* denoised_spectrum,
+	float* Gk){
 
   int k;
 
@@ -210,11 +197,11 @@ float* Gk){
 }
 
 void residual_calulation(int fft_size_2,
-int fft_size,
-float* output_fft_buffer,
-float* residual_spectrum,
-float* denoised_spectrum,
-float whitening_factor){
+	int fft_size,
+	float* output_fft_buffer,
+	float* residual_spectrum,
+	float* denoised_spectrum,
+	float whitening_factor){
 
   int k;
 
@@ -232,13 +219,13 @@ float whitening_factor){
 }
 
 void final_spectrum_ensemble(int fft_size_2,
-int fft_size,
-float* output_fft_buffer,
-float* residual_spectrum,
-float* denoised_spectrum,
-float reduction_amount,
-float wet_dry,
-float noise_listen){
+	int fft_size,
+	float* output_fft_buffer,
+	float* residual_spectrum,
+	float* denoised_spectrum,
+	float reduction_amount,
+	float wet_dry,
+	float noise_listen){
 
   int k;
 

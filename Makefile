@@ -1,7 +1,7 @@
 #!/usr/bin/make -f
 OPTIMIZATIONS ?= -msse -msse2 -mfpmath=sse -ffast-math -fomit-frame-pointer -O3 -fno-finite-math-only
 PREFIX ?= /usr/local
-CFLAGS ?= $(OPTIMIZATIONS) -Wall #-g3 -DDEBUG
+CFLAGS ?= $(OPTIMIZATIONS) -Wall -g3 -DDEBUG
 
 STRIP?=strip
 STRIPFLAGS?=-s
@@ -80,7 +80,7 @@ $(BUILDDIR)$(LV2NAME)$(LIB_EXT): $(LV2NAME).c
 	$(CC) $(CPPFLAGS) $(CFLAGS) \
 	  -o $(BUILDDIR)$(LV2NAME)$(LIB_EXT) $(LV2NAME).c \
 	  -shared $(LV2LDFLAGS) $(LDFLAGS) $(LOADLIBES)
-	$(STRIP) $(STRIPFLAGS) $(BUILDDIR)$(LV2NAME)$(LIB_EXT)
+	#$(STRIP) $(STRIPFLAGS) $(BUILDDIR)$(LV2NAME)$(LIB_EXT)
 
 # install/uninstall/clean target definitions
 

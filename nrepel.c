@@ -33,8 +33,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 //STFT default values
 #define FFT_SIZE 2048               //this size should be power of 2
-#define WINDOW_TYPE 0          			//0 HANN 1 HAMMING 2 BLACKMAN Input and Output windows for STFT algorithm
-#define FRAME_SIZE 1650          		//Size of the analysis windows (Even number smaller than FFT_SIZE)
+#define WINDOW_TYPE 2          			//0 HANN 1 HAMMING 2 BLACKMAN Input and Output windows for STFT algorithm
+#define FRAME_SIZE 2048          		//Size of the analysis windows (Even number smaller than FFT_SIZE)
 #define OVERLAP_FACTOR 4            //4 is 75% overlap Values bigger than 4 will rescale correctly
 
 ///---------------------------------------------------------------------
@@ -84,6 +84,7 @@ typedef struct {
 
 	//Control variables
 	bool noise_thresholds_availables; //indicate whether a noise profile is available or no
+	bool peak_detection;
 
 	//Parameters values and arrays for the STFT
 	int fft_size;                     //FFTW input size
@@ -141,7 +142,9 @@ typedef struct {
 	float* noise_thresholds_p2;       //captured noise profile power spectrum
 	float* noise_thresholds_scaled;   //captured noise profile power spectrum scaled by oversustraction
 	FFTPeak* noise_spectral_peaks;		//Tonal noises of the noise profile
+	int* peak_pos;										//Whether theres a peak or not in current postiion of the spectrum
 	int peak_count;										//counts the amount of peaks found
+	bool peaks_detected;							//flag to execute peak detection
 
 	//smoothing related
 	float* smoothed_spectrum;         //power spectrum to be smoothed
@@ -251,8 +254,10 @@ const LV2_Feature* const* features) {
 	nrepel->noise_thresholds_p2 = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->noise_thresholds_scaled = (float*)calloc((nrepel->fft_size_2+1),sizeof(float));
 	nrepel->noise_spectral_peaks = (FFTPeak*)calloc((SP_MAX_NUM),sizeof(FFTPeak));
+	nrepel->peak_pos = (int*)calloc((nrepel->fft_size_2+1),sizeof(int));
 	nrepel->window_count = 0.f;
 	nrepel->peak_count = 0.f;
+	nrepel->peak_detection = false;
 	nrepel->noise_thresholds_availables = false;
 
 	//noise adaptive estimation related
@@ -301,9 +306,6 @@ const LV2_Feature* const* features) {
 
 	//Set initial gain as unity for the positive part
 	memset(nrepel->Gk, 1, (nrepel->fft_size_2+1)*sizeof(float));
-
-	//Find the tonal noises in the noise profile (only for saved profile for nows)
-	spectral_peaks(nrepel->fft_size_2,nrepel->noise_thresholds_p2,nrepel->noise_spectral_peaks,&nrepel->peak_count,nrepel->samp_rate);
 
 	//Compute adaptive initial thresholds
 	compute_auto_thresholds(nrepel->auto_thresholds, nrepel->fft_size, nrepel->fft_size_2, nrepel->samp_rate);
@@ -499,16 +501,16 @@ run(LV2_Handle instance, uint32_t n_samples) {
 
 					//This has to be revised(issue 8 on github)
 					adapt_noise(nrepel->fft_p2,//this is supposed to be the power spectrum in Loizou method
-											nrepel->fft_size_2,
-											nrepel->noise_thresholds_p2,
-											nrepel->auto_thresholds,
-											nrepel->prev_noise_thresholds,
-											nrepel->s_pow_spec,
-											nrepel->prev_s_pow_spec,
-											nrepel->p_min,
-											nrepel->prev_p_min,
-											nrepel->speech_p_p,
-											nrepel->prev_speech_p_p);
+						nrepel->fft_size_2,
+						nrepel->noise_thresholds_p2,
+						nrepel->auto_thresholds,
+						nrepel->prev_noise_thresholds,
+						nrepel->s_pow_spec,
+						nrepel->prev_s_pow_spec,
+						nrepel->p_min,
+						nrepel->prev_p_min,
+						nrepel->speech_p_p,
+						nrepel->prev_speech_p_p);
 
 					nrepel->noise_thresholds_availables = true;
 				}
@@ -518,14 +520,27 @@ run(LV2_Handle instance, uint32_t n_samples) {
 				 */
 				if(*(nrepel->noise_learn_state) == 1.f) { //MANUAL
 					get_noise_statistics(nrepel->fft_p2,
-								nrepel->fft_size_2,
-								nrepel->noise_thresholds_p2,
-								&nrepel->window_count);
+						nrepel->fft_size_2,
+						nrepel->noise_thresholds_p2,
+						&nrepel->window_count);
 
 					nrepel->noise_thresholds_availables = true;
 				} else {
 					//If there is a noise profile reduce noise
 					if (nrepel->noise_thresholds_availables == true) {
+
+						//Perform peak detection of the noise thresholds
+						if(!nrepel->peak_detection){
+							//Find the tonal noises in the noise profile (only for saved profile for nows)
+							spectral_peaks(nrepel->fft_size_2,
+								nrepel->noise_thresholds_p2,
+								nrepel->noise_spectral_peaks,
+								nrepel->peak_pos,
+								&nrepel->peak_count,
+								nrepel->samp_rate);
+
+							nrepel->peak_detection = true;
+						}
 
 						//Copy the noise spectrum to the scaled one to be scaled by preprocessing
 						memcpy(nrepel->noise_thresholds_scaled,nrepel->noise_thresholds_p2,sizeof(float)*(nrepel->fft_size_2+1));
@@ -534,67 +549,64 @@ run(LV2_Handle instance, uint32_t n_samples) {
 
 						//Detector smoothing and oversustraction
 						preprocessing(nrepel->thresholds_offset_linear,
-													nrepel->noise_thresholds_scaled,
-													nrepel->smoothed_spectrum,
-													nrepel->smoothed_spectrum_prev,
-													nrepel->fft_size_2,
-													nrepel->Gk,
-													nrepel->noise_spectral_peaks,
-													nrepel->peak_count,
-													&nrepel->prev_beta,
-													nrepel->bark_z,
-													nrepel->absolute_thresholds,
-													nrepel->SSF,
-													&nrepel->max_masked,
-													&nrepel->min_masked,
-													nrepel->release_coeff);
+							nrepel->noise_thresholds_scaled,
+							nrepel->smoothed_spectrum,
+							nrepel->smoothed_spectrum_prev,
+							nrepel->fft_size_2,
+							&nrepel->prev_beta,
+							nrepel->bark_z,
+							nrepel->absolute_thresholds,
+							nrepel->SSF,
+							&nrepel->max_masked,
+							&nrepel->min_masked,
+							nrepel->release_coeff);
 
 						//Supression rule
 						spectral_gain(nrepel->smoothed_spectrum,
-													nrepel->noise_thresholds_scaled,
-													nrepel->fft_size_2,
-													*(nrepel->adaptive_state),
-													nrepel->Gk);
+							nrepel->noise_thresholds_scaled,
+							nrepel->fft_size_2,
+							*(nrepel->adaptive_state),
+							nrepel->Gk);
 
 						//postfilter
 						postprocessing(nrepel->fft_size_2,
-											    nrepel->fft_size,
-													nrepel->fft_p2,
-											    nrepel->output_fft_buffer,
-													nrepel->input_fft_buffer_ps,
-													nrepel->input_fft_buffer_g,
-													nrepel->output_fft_buffer_ps,
-													nrepel->output_fft_buffer_g,
-													&nrepel->forward_g,
-													&nrepel->backward_g,
-													&nrepel->forward_ps,
-													nrepel->Gk,
-													nrepel->pf_threshold_linear);
+							nrepel->fft_size,
+							nrepel->fft_p2,
+							nrepel->output_fft_buffer,
+							nrepel->input_fft_buffer_ps,
+							nrepel->input_fft_buffer_g,
+							nrepel->output_fft_buffer_ps,
+							nrepel->output_fft_buffer_g,
+							&nrepel->forward_g,
+							&nrepel->backward_g,
+							&nrepel->forward_ps,
+							nrepel->Gk,
+							nrepel->pf_threshold_linear);
 
 						//apply gains
 						denoised_calulation(nrepel->fft_size_2,
-														    nrepel->fft_size,
-														    nrepel->output_fft_buffer,
-														    nrepel->denoised_spectrum,
-														    nrepel->Gk);
+							nrepel->fft_size,
+							nrepel->output_fft_buffer,
+							nrepel->denoised_spectrum,
+							nrepel->Gk);
 
 						//residual signal
 						residual_calulation(nrepel->fft_size_2,
-														    nrepel->fft_size,
-														    nrepel->output_fft_buffer,
-														    nrepel->residual_spectrum,
-														    nrepel->denoised_spectrum,
-																nrepel->whitening_factor);
+							nrepel->fft_size,
+							nrepel->output_fft_buffer,
+							nrepel->residual_spectrum,
+							nrepel->denoised_spectrum,
+							nrepel->whitening_factor);
 
 						//Ensemble the final spectrum using residual and denoised
 						final_spectrum_ensemble(nrepel->fft_size_2,
-														      nrepel->fft_size,
-														      nrepel->output_fft_buffer,
-														      nrepel->residual_spectrum,
-														      nrepel->denoised_spectrum,
-																	nrepel->amount_of_reduction_linear,
-														      nrepel->wet_dry,
-														      *(nrepel->residual_listen));
+							nrepel->fft_size,
+							nrepel->output_fft_buffer,
+							nrepel->residual_spectrum,
+							nrepel->denoised_spectrum,
+							nrepel->amount_of_reduction_linear,
+							nrepel->wet_dry,
+							*(nrepel->residual_listen));
 					}
 				}
 			}
@@ -719,9 +731,22 @@ const LV2_Feature* const*   features)
 
 	//Deactivate any denoising before loading any noise profile
 	nrepel->noise_thresholds_availables = false;
+	nrepel->peak_detection = false;
 
 	//Copy to local variables
 	memcpy(nrepel->noise_thresholds_p2, (float*) LV2_ATOM_BODY(vecFFTp2), (nrepel->fft_size_2+1)*sizeof(float));
+
+	//Find the tonal noises in the noise profile (only for saved profile for nows)
+	spectral_peaks(nrepel->fft_size_2,
+		nrepel->noise_thresholds_p2,
+		nrepel->noise_spectral_peaks,
+		nrepel->peak_pos,
+		&nrepel->peak_count,
+		nrepel->samp_rate);
+
+	for (int k = 0; k <= nrepel->fft_size_2; k++) {
+		printf("%i\n", nrepel->peak_pos[k]);
+	}
 
 	const float* wincount = retrieve(handle, nrepel->prop_nwindow, &size, &type, &valflags);
 	if (fftsize && type == nrepel->atom_Float) {
@@ -730,6 +755,7 @@ const LV2_Feature* const*   features)
 
 	//Reactivate denoising with restored profile
 	nrepel->noise_thresholds_availables = true;
+	nrepel->peak_detection = true;
 
 	return LV2_STATE_SUCCESS;
 }

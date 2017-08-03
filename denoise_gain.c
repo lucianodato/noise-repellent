@@ -30,9 +30,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 //Power substraction
 void power_subtraction(int fft_size_2,
-float* spectrum,
-float* noise_thresholds,
-float* Gk) {
+	float* spectrum,
+	float* noise_thresholds,
+	float* Gk) {
 
 	int k;
 
@@ -57,9 +57,9 @@ float* Gk) {
 
 //Gating with envelope smoothing
 void spectral_gating(int fft_size_2,
-float* spectrum,
-float* noise_thresholds,
-float* Gk) {
+	float* spectrum,
+	float* noise_thresholds,
+	float* Gk) {
 
 	int k;
 
@@ -86,11 +86,11 @@ float* Gk) {
 }
 
 void compute_post_filter(int fft_size_2,
-int fft_size,
-float* spectrum,
-float pf_threshold,
-float* postfilter,
-float* Gk_spectral) {
+	int fft_size,
+	float* spectrum,
+	float pf_threshold,
+	float* postfilter,
+	float* Gk_spectral) {
 
 	int k;
 	float num = 0.f, den = 0.f;
@@ -148,12 +148,13 @@ float* Gk_spectral) {
 
 //This version uses fixed alpha and beta
 void denoise_gain_gss(float reduction_strenght,
-int fft_size_2,
-float alpha,
-float beta,
-float* spectrum,
-float* noise_thresholds,
-float* Gk) {
+	int fft_size_2,
+	float alpha,
+	float beta,
+	float* spectrum,
+	float* noise_thresholds,
+	float* Gk) {
+		
   int k;
   float gain, Fk;
 
