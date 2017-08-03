@@ -80,9 +80,9 @@ void preprocessing(float noise_thresholds_offset,
 
 
 	//Scale noise thresholds (equals applying an oversubtraction factor in spectral subtraction)
-	for (k = 0; k <= fft_size_2; k++) {
-		noise_thresholds_scaled[k] *= noise_thresholds_offset;//* alpha[k] * transient_preservation_coeff;
-	}
+	// for (k = 0; k <= fft_size_2; k++) {
+	// 	noise_thresholds_scaled[k] *= noise_thresholds_offset;//* alpha[k] * transient_preservation_coeff;
+	// }
 
 	//------SMOOTHING DETECTOR------
 
@@ -198,6 +198,8 @@ void denoised_calulation(int fft_size_2,
 
 void residual_calulation(int fft_size_2,
 	int fft_size,
+	int* peak_pos,
+	float noise_thresholds_offset,
 	float* output_fft_buffer,
 	float* residual_spectrum,
 	float* denoised_spectrum,
@@ -214,6 +216,11 @@ void residual_calulation(int fft_size_2,
 	//Whitening (residual spectrum more similar to white noise)
 	if(whitening_factor > 0.f) {
 		whitening(residual_spectrum,whitening_factor,fft_size);
+	}
+
+	for (k = 0; k <= fft_size_2; k++) {
+		if(peak_pos[k] == 1)
+			residual_spectrum[k] *= noise_thresholds_offset;
 	}
 	////////////
 }
