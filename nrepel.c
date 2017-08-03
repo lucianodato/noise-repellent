@@ -751,10 +751,6 @@ const LV2_Feature* const*   features)
 		&nrepel->peak_count,
 		nrepel->samp_rate);
 
-	for (int k = 0; k <= nrepel->fft_size_2; k++) {
-		printf("%i\n", nrepel->peak_pos[k]);
-	}
-
 	const float* wincount = retrieve(handle, nrepel->prop_nwindow, &size, &type, &valflags);
 	if (fftsize && type == nrepel->atom_Float) {
 		nrepel->window_count = *wincount;
