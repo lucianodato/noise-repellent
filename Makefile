@@ -1,10 +1,11 @@
 #!/usr/bin/make -f
-OPTIMIZATIONS ?= -msse -msse2 -mfpmath=sse -ffast-math -fomit-frame-pointer -O3 -fno-finite-math-only
+OPTIMIZATIONS ?= -msse -msse2 -mfpmath=sse -ffast-math -fomit-frame-pointer -fno-finite-math-only
 PREFIX ?= /usr/local
-CFLAGS ?= $(OPTIMIZATIONS) -Wall -g3 -DDEBUG
+CFLAGS ?= $(OPTIMIZATIONS) -Wall
 
 STRIP?=strip
 STRIPFLAGS?=-s
+DEBUG?=0
 
 nrepel_VERSION?=$(shell git describe --tags HEAD 2>/dev/null | sed 's/-g.*$$//;s/^v//' || echo "LV2")
 ###############################################################################
@@ -57,6 +58,13 @@ override CFLAGS += -fPIC -std=c99
 override CFLAGS += `pkg-config --cflags lv2`
 override LOADLIBES += `pkg-config --cflags --libs fftw3f`
 
+#for debug building
+ifeq ($(DEBUG), 1)
+  override CFLAGS += -g3 -DDEBUG
+else
+  override CFLAGS += -DNDEBUG -O3
+endif
+
 # build target definitions
 default: all
 
@@ -78,12 +86,14 @@ $(BUILDDIR)$(LV2NAME).ttl: $(LV2NAME).ttl.in
 $(BUILDDIR)$(LV2NAME)$(LIB_EXT): $(LV2NAME).c
 	@mkdir -p $(BUILDDIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) \
-	  -o $(BUILDDIR)$(LV2NAME)$(LIB_EXT) $(LV2NAME).c \
-	  -shared $(LV2LDFLAGS) $(LDFLAGS) $(LOADLIBES)
-	#$(STRIP) $(STRIPFLAGS) $(BUILDDIR)$(LV2NAME)$(LIB_EXT)
+		-o $(BUILDDIR)$(LV2NAME)$(LIB_EXT) $(LV2NAME).c \
+		-shared $(LV2LDFLAGS) $(LDFLAGS) $(LOADLIBES)
+
+ifeq ($(DEBUG), 0)
+	$(STRIP) $(STRIPFLAGS) $(BUILDDIR)$(LV2NAME)$(LIB_EXT)
+endif
 
 # install/uninstall/clean target definitions
-
 install: all
 	install -d $(DESTDIR)$(LV2DIR)/$(BUNDLE)
 	install -m644 $(BUILDDIR)$(LV2NAME)$(LIB_EXT) $(DESTDIR)$(LV2DIR)/$(BUNDLE)

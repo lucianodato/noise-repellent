@@ -35,8 +35,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define FFT_SIZE 2048 //this size should be power of 2
 #define INPUT_WINDOW 2 //0 HANN 1 HAMMING 2 BLACKMAN Input windows for STFT algorithm
 #define OUTPUT_WINDOW 0 //0 HANN 1 HAMMING 2 BLACKMAN Input windows for STFT algorithm
-#define FRAME_SIZE 1024 //Size of the analysis windows (Even number smaller than FFT_SIZE)
-#define OVERLAP_FACTOR 16 //4 is 75% overlap Values bigger than 4 will rescale correctly
+#define FRAME_SIZE 2048 //Size of the analysis windows (Even number smaller than FFT_SIZE)
+#define OVERLAP_FACTOR 4 //4 is 75% overlap Values bigger than 4 will rescale correctly
 
 ///---------------------------------------------------------------------
 
@@ -457,6 +457,8 @@ run(LV2_Handle instance, uint32_t n_samples)
 			//Reset the input buffer position
 			nrepel->read_ptr = nrepel->input_latency;
 
+			//----------STFT Analysis------------
+
 			//Adding and windowing the frame input values in the center (zero-phasing)
 			//Extremes of the array won't get touched so it's not needed to set them to 0
 			for (k = 0; k < nrepel->frame_size; k++)
@@ -603,6 +605,8 @@ run(LV2_Handle instance, uint32_t n_samples)
 			}
 
 			///////////////////////////////////////////////////////////
+
+			//----------STFT Analysis------------
 
 			//------------FFT Synthesis-------------
 
