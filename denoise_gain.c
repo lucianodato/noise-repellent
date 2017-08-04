@@ -29,69 +29,78 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define ALPHA_GSS 1.f
 
 //Power substraction
-void power_subtraction(int fft_size_2,
-	float* spectrum,
-	float* noise_thresholds,
-	float* Gk) {
-
+void
+power_subtraction(int fft_size_2, float* spectrum, float* noise_thresholds, float* Gk)
+{
 	int k;
 
-	for (k = 0; k <= fft_size_2 ; k++) {
-		if (noise_thresholds[k] > FLT_MIN){
-			if(spectrum[k] > noise_thresholds[k]){
+	for (k = 0; k <= fft_size_2 ; k++)
+	{
+		if (noise_thresholds[k] > FLT_MIN)
+		{
+			if(spectrum[k] > noise_thresholds[k])
+			{
 				Gk[k] = (spectrum[k]-noise_thresholds[k]) / spectrum[k];
-			} else {
+			}
+			else
+			{
 				Gk[k] = 0.f;
 			}
-		} else {
+		}
+		else
+		{
 			//Otherwise we keep everything as is
 			Gk[k] = 1.f;
 		}
 	}
 
 	//mirrored gain array
-	for (k = 1; k < fft_size_2; k++) {
+	for (k = 1; k < fft_size_2; k++)
+	{
 			Gk[(2*fft_size_2)-k] = Gk[k];
 	}
 }
 
 //Gating with envelope smoothing
-void spectral_gating(int fft_size_2,
-	float* spectrum,
-	float* noise_thresholds,
-	float* Gk) {
-
+void
+spectral_gating(int fft_size_2, float* spectrum, float* noise_thresholds, float* Gk)
+{
 	int k;
 
-	for (k = 0; k <= fft_size_2 ; k++) {
-		if (noise_thresholds[k] > FLT_MIN){
+	for (k = 0; k <= fft_size_2 ; k++)
+	{
+		if (noise_thresholds[k] > FLT_MIN)
+		{
 			//Hard knee
-			if (spectrum[k] >= noise_thresholds[k]){
+			if (spectrum[k] >= noise_thresholds[k])
+			{
 				//over the threshold
 				Gk[k] = 1.f;
-			}else{
+			}
+			else
+			{
 				//under the threshold
 				Gk[k] = 0.f;
 			}
-		} else {
+		}
+		else
+		{
 			//Otherwise we keep everything as is
 			Gk[k] = 1.f;
 		}
 	}
 
 	//mirrored gain array
-	for (k = 1; k < fft_size_2; k++) {
-			Gk[(2*fft_size_2)-k] = Gk[k];
+	for (k = 1; k < fft_size_2; k++)
+	{
+		Gk[(2*fft_size_2)-k] = Gk[k];
 	}
 }
 
-void compute_post_filter(int fft_size_2,
-	int fft_size,
-	float* spectrum,
-	float pf_threshold,
-	float* postfilter,
-	float* Gk_spectral) {
-
+void
+compute_post_filter(int fft_size_2, int fft_size, float* spectrum, float pf_threshold,
+										float* postfilter, float* Gk_spectral)
+{
 	int k;
 	float num = 0.f, den = 0.f;
 	float indicator;
@@ -99,7 +108,8 @@ void compute_post_filter(int fft_size_2,
 	float n_lambda;
 
 	//Low SNR detector
-	for (k = 0; k <= fft_size_2 ; k++) {
+	for (k = 0; k <= fft_size_2 ; k++)
+	{
 		num += spectrum[k] * Gk_spectral[k];
 		den += spectrum[k];
 	}
@@ -107,31 +117,42 @@ void compute_post_filter(int fft_size_2,
 	indicator = num/den;
 
 	//threshold decision
-	if(indicator >= pf_threshold){
+	if(indicator >= pf_threshold)
+	{
 		ksi_lambda = 1.f;
-	}else{
+	}
+	else
+	{
 		ksi_lambda = indicator;
 	}
 
 	//window size
-	if(ksi_lambda == 1.f){
+	if(ksi_lambda == 1.f)
+	{
 		n_lambda = 1.f;
-	}else{
+	}
+	else
+	{
 		n_lambda = 2.f*roundf(PF_SMOOTHING*(1.f - ksi_lambda/pf_threshold)) + 1.f;
 	}
 
 	//construct the filter window (zero phase)
-	for (k = 0; k < fft_size ; k++) {
-		if(k < n_lambda){
+	for (k = 0; k < fft_size ; k++)
+	{
+		if(k < n_lambda)
+		{
 			postfilter[k] = 1.f/n_lambda;
-		}else{
+		}
+		else
+		{
 			postfilter[k] = 0.f;
 		}
 	}
 
 	//mirrored gain array
-	for (k = 1; k < fft_size_2; k++) {
-			postfilter[fft_size-k] = postfilter[k];
+	for (k = 1; k < fft_size_2; k++)
+	{
+		postfilter[fft_size-k] = postfilter[k];
 	}
 }
 
@@ -147,22 +168,23 @@ void compute_post_filter(int fft_size_2,
 */
 
 //This version uses fixed alpha and beta
-void denoise_gain_gss(float reduction_strenght,
-	int fft_size_2,
-	float alpha,
-	float beta,
-	float* spectrum,
-	float* noise_thresholds,
-	float* Gk) {
-		
+void
+denoise_gain_gss(float reduction_strenght, int fft_size_2, float alpha, float beta,
+								 float* spectrum, float* noise_thresholds, float* Gk)
+{
   int k;
   float gain, Fk;
 
-  for (k = 0; k <= fft_size_2 ; k++) {
-    if (spectrum[k] > FLT_MIN){
-      if(powf((noise_thresholds[k]/spectrum[k]),GAMMA1) < (1.f/(alpha+beta))){
+  for (k = 0; k <= fft_size_2 ; k++)
+	{
+    if (spectrum[k] > FLT_MIN)
+		{
+      if(powf((noise_thresholds[k]/spectrum[k]),GAMMA1) < (1.f/(alpha+beta)))
+			{
         gain = MAX(powf(1.f-(alpha*powf((noise_thresholds[k]/spectrum[k]),GAMMA1)),GAMMA2),0.f);
-      } else {
+      }
+			else
+			{
         gain = MAX(powf(beta*powf((noise_thresholds[k]/spectrum[k]),GAMMA1),GAMMA2),0.f);
       }
       //Use reduction_strenght
@@ -173,7 +195,9 @@ void denoise_gain_gss(float reduction_strenght,
 
       Gk[k] =  1.f - Fk;
 
-    } else {
+    }
+		else
+		{
       //Otherwise we keep everything as is
       Gk[k] = 1.f;
     }
