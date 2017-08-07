@@ -137,7 +137,7 @@ compute_post_filter(int fft_size_2, int fft_size, float* spectrum, float pf_thre
 	}
 
 	//construct the filter window (zero phase)
-	for (k = 0; k < fft_size ; k++)
+	for (k = 0; k < fft_size_2 ; k++)
 	{
 		if(k < n_lambda)
 		{

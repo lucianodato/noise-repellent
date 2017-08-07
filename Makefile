@@ -1,5 +1,5 @@
 #!/usr/bin/make -f
-OPTIMIZATIONS ?= -msse -msse2 -mfpmath=sse -ffast-math -fomit-frame-pointer -fno-finite-math-only
+OPTIMIZATIONS ?= -msse -msse2 -mfpmath=sse -ffast-math -fomit-frame-pointer -O3 -fno-finite-math-only
 PREFIX ?= /usr/local
 CFLAGS ?= $(OPTIMIZATIONS) -Wall
 
@@ -62,7 +62,7 @@ override LOADLIBES += `pkg-config --cflags --libs fftw3f`
 ifeq ($(DEBUG), 1)
   override CFLAGS += -g3 -DDEBUG
 else
-  override CFLAGS += -DNDEBUG -O3
+  override CFLAGS += -DNDEBUG
 endif
 
 # build target definitions
