@@ -32,9 +32,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define NREPEL_URI "https://github.com/lucianodato/noise-repellent"
 
 //STFT default values
+#define FFT_SIZE 2048 //Size of the fft transform
 #define INPUT_WINDOW 2 //0 HANN 1 HAMMING 2 BLACKMAN Input windows for STFT algorithm
 #define OUTPUT_WINDOW 0 //0 HANN 1 HAMMING 2 BLACKMAN Input windows for STFT algorithm
-#define FRAME_SIZE 40.f //Size of the analysis windows in ms
+#define FRAME_SIZE 2048 //Size of the analysis windows
 #define OVERLAP_FACTOR 4 //4 is 75% overlap Values bigger than 4 will rescale correctly
 #define NOISE_ARRAY_STATE_MAX_SIZE 8192 //max alloc size of the noise_thresholds to save with the session. This will consider upto fs of 192 kHz fs
 
@@ -232,7 +233,8 @@ instantiate(const LV2_Descriptor* descriptor, double rate, const char* bundle_pa
 	nrepel->samp_rate = (float)rate;
 
 	//FFT related
-	nrepel->fft_size = next_pow_two(FRAME_SIZE/1000.f * nrepel->samp_rate);
+	//nrepel->fft_size = next_pow_two(FRAME_SIZE/1000.f * nrepel->samp_rate);
+	nrepel->fft_size = FFT_SIZE;
 	nrepel->fft_size_2 = nrepel->fft_size/2;
 	nrepel->input_fft_buffer = (float*)calloc(nrepel->fft_size, sizeof(float));
 	nrepel->output_fft_buffer = (float*)calloc(nrepel->fft_size, sizeof(float));
@@ -242,7 +244,8 @@ instantiate(const LV2_Descriptor* descriptor, double rate, const char* bundle_pa
 	//STFT window related
 	nrepel->window_option_input = INPUT_WINDOW;
 	nrepel->window_option_output = OUTPUT_WINDOW;
-	nrepel->frame_size = nearest_odd(FRAME_SIZE/1000.f * nrepel->samp_rate);//correct phase response
+	//nrepel->frame_size = nearest_odd(FRAME_SIZE/1000.f * nrepel->samp_rate);//correct phase response
+	nrepel->frame_size = FRAME_SIZE;
 	nrepel->frame_fft_diff = nrepel->fft_size - nrepel->frame_size;
 	nrepel->input_window = (float*)calloc(nrepel->frame_size, sizeof(float));
 	nrepel->output_window = (float*)calloc(nrepel->frame_size, sizeof(float));
@@ -252,7 +255,7 @@ instantiate(const LV2_Descriptor* descriptor, double rate, const char* bundle_pa
 	nrepel->out_fifo = (float*)calloc(nrepel->frame_size, sizeof(float));
 	nrepel->output_accum = (float*)calloc(nrepel->frame_size*2, sizeof(float));
 	nrepel->overlap_factor = OVERLAP_FACTOR;
-	nrepel->hop = floorf(nrepel->frame_size/nrepel->overlap_factor);
+	nrepel->hop = nrepel->frame_size/nrepel->overlap_factor;
 	nrepel->input_latency = nrepel->frame_size - nrepel->hop;
 	nrepel->read_ptr = nrepel->input_latency; //the initial position because we are that many samples ahead
 
@@ -404,7 +407,6 @@ run(LV2_Handle instance, uint32_t n_samples)
 	//handy variables
 	int k;
 	unsigned int pos;
-	int start_pos = nrepel->frame_fft_diff/2 + 1;
 
 	//Inform latency at run call
 	*(nrepel->report_latency) = (float) nrepel->input_latency;
@@ -476,6 +478,7 @@ run(LV2_Handle instance, uint32_t n_samples)
 			//Adding and windowing the frame input values in the center (zero-phasing)
 			//Clear fft input buffer
 			memset(nrepel->input_fft_buffer,0,sizeof(float)*(nrepel->fft_size));
+			int start_pos = nrepel->frame_fft_diff/2;
 			for (k = 0; k < nrepel->frame_size; k++)
 			{
 				nrepel->input_fft_buffer[k] = nrepel->in_fifo[start_pos + k] * nrepel->input_window[k];
@@ -561,16 +564,16 @@ run(LV2_Handle instance, uint32_t n_samples)
 					//If there is a noise profile reduce noise
 					if (nrepel->noise_thresholds_availables == true)
 					{
-						//Perform peak detection of the noise thresholds
-						if(nrepel->peak_detection == false)
-						{
-							//Find the tonal noises in the noise profile (only for saved profile for nows)
-							spectral_peaks(nrepel->fft_size_2, nrepel->noise_thresholds_p2,
-														 nrepel->noise_spectral_peaks, nrepel->peak_pos,
-														 &nrepel->peak_count, nrepel->samp_rate);
-
-							nrepel->peak_detection = true;
-						}
+						// //Perform peak detection of the noise thresholds
+						// if(nrepel->peak_detection == false)
+						// {
+						// 	//Find the tonal noises in the noise profile (only for saved profile for nows)
+						// 	spectral_peaks(nrepel->fft_size_2, nrepel->noise_thresholds_p2,
+						// 								 nrepel->noise_spectral_peaks, nrepel->peak_pos,
+						// 								 &nrepel->peak_count, nrepel->samp_rate);
+						//
+						// 	nrepel->peak_detection = true;
+						// }
 
 						//Copy the noise spectrum to the scaled one to be scaled by preprocessing
 						memcpy(nrepel->noise_thresholds_scaled, nrepel->noise_thresholds_p2,

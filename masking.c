@@ -156,31 +156,30 @@ compute_tonality_factor(float* bark_spectrum, float* spectrum, float fft_size_2,
     //spectral flatness measure using Geometric and Arithmetic means of the spectrum cleaned previously
     //Using log propieties and definition of spectral flatness https://en.wikipedia.org/wiki/Spectral_flatness
     //Robinson thesis explains this reexpresion in detail
-    SFM = 10.f*(sum_log_p/(float)fft_size_2 - log10f(sum_p/(float)fft_size_2));//this value is in db scale
+    SFM = 10.f*(sum_log_p/(float)(fft_size_2+1) - log10f(sum_p/(float)(fft_size_2+1)));//this value is in db scale
 
     //Tonality factor in db scale
     tonality_factor = MIN(SFM/-60.f, 1.f);
-
   }
-  else
-  {
-    //Using bark spectrum to compute tonality factor
-    for (j = 0; j < N_BARK_BANDS; j++)
-    {
-      //For spectral flatness measures (Geometric and Arithmetic mean)
-      Gm[j] = powf(bark_spectrum[j],1.f/(float)(n_bins_per_band[j]+1));
-      Am[j] = 1.f/(float)(n_bins_per_band[j]+1)*bark_spectrum[j];
-
-      //spectral flatness measure using Geometric and Arithmetic means
-      SFM_array[j] = 10.f*log10f(Gm[j]/Am[j]);//this value is in db scale
-
-      //taking into account max db SPL
-      SFM_array[j] /= -60.f;
-    }
-
-    //Tonality factor in db scale
-    tonality_factor = MIN(min_spectral_value(SFM_array,N_BARK_BANDS), 1.f);
-  }
+  // else
+  // {
+  //   //Using bark spectrum to compute tonality factor
+  //   for (j = 0; j < N_BARK_BANDS; j++)
+  //   {
+  //     //For spectral flatness measures (Geometric and Arithmetic mean)
+  //     Gm[j] = powf(bark_spectrum[j],1.f/(float)(n_bins_per_band[j]+1));
+  //     Am[j] = 1.f/(float)(n_bins_per_band[j]+1)*bark_spectrum[j];
+  //
+  //     //spectral flatness measure using Geometric and Arithmetic means
+  //     SFM_array[j] = 10.f*log10f(Gm[j]/Am[j]);//this value is in db scale
+  //
+  //     //taking into account max db SPL
+  //     SFM_array[j] /= -60.f;
+  //   }
+  //
+  //   //Tonality factor in db scale
+  //   tonality_factor = MIN(min_spectral_value(SFM_array,N_BARK_BANDS), 1.f);
+  // }
 
   return tonality_factor;
 }
@@ -213,7 +212,8 @@ compute_masking_thresholds(float* bark_z, float* absolute_thresholds, float* SSF
   //Convolve unitary energy bark spectrum with SSF
   convolve_with_SSF(SSF,unity_gain_bark_spectrum,spreaded_unity_gain_bark_spectrum);
 
-  //Then we compute the tonality_factor for each band
+  //Then we compute the tonality_factor for each band (1 tonee like 0 noise like)
+  //When there is hum or tonal noises in you noise floor this will be 1
   tonality_factor = compute_tonality_factor(bark_spectrum, spectrum, fft_size_2,
                                             n_bins_per_band);
 
@@ -301,8 +301,8 @@ compute_alpha_and_beta(float* fft_p2, float* noise_thresholds_p2, int fft_size_2
   float max_masked_tmp = max_spectral_value(masking_thresholds,fft_size_2);
   float min_masked_tmp = min_spectral_value(masking_thresholds,fft_size_2);
 
-  printf("%f\n",max_masked_tmp);
-  printf("%f\n",min_masked_tmp);
+  //printf("%f\n",max_masked_tmp);
+  //printf("%f\n",min_masked_tmp);
 
   for (k = 0; k <= fft_size_2; k++)
   {
