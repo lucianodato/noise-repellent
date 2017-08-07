@@ -28,7 +28,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 //extra values
 #define N_BARK_BANDS 25
-#define USE_POWER_SPECTRUM_FOR_TONALITY true
 #define EXPONENT 10
 #define HIGH_FREQ_BIAS 7.f
 
@@ -63,7 +62,7 @@ compute_absolute_thresholds(float* absolute_thresholds,int fft_size_2, int srate
   for(k = 1 ; k <= fft_size_2 ; k++)
   {
     freq = bin_to_freq(k,srate,fft_size_2); //bin to freq
-    absolute_thresholds[k] = 3.64*powf((freq/1000),-0.8) - 6.5*exp(-0.6*powf((freq/1000 - 3.3),2)) + powf(10,-3)*powf((freq /1000),4);//dB scale
+    absolute_thresholds[k] = 3.64*powf((freq/1000),-0.8) - 6.5*exp(-0.6*powf((freq/1000 - 3.3),2)) + powf(10,-3)*powf((freq /1000),4);//dBSPL scale
   }
 }
 
@@ -137,49 +136,26 @@ compute_bark_spectrum(float* bark_z, float* bark_spectrum, float* spectrum,
 
 //Computes the tonality factor using the spectral flatness
 float
-compute_tonality_factor(float* bark_spectrum, float* spectrum, float fft_size_2,
-                        int* n_bins_per_band)
+compute_tonality_factor(float* spectrum, float fft_size_2)
 {
-  int j, k;
-  float SFM, SFM_array[N_BARK_BANDS],Gm[N_BARK_BANDS],Am[N_BARK_BANDS],tonality_factor;
+  int k;
+  float SFM, tonality_factor;
   float sum_p = 0.f,sum_log_p = 0.f;
 
-  if(USE_POWER_SPECTRUM_FOR_TONALITY)
+  //Using power spectrum to compute the tonality factor
+  for (k = 0; k <= fft_size_2; k++)
   {
-    //Using power spectrum to compute the tonality factor
-    for (k = 0; k <= fft_size_2; k++)
-    {
-      //For spectral flatness measures
-      sum_p += spectrum[k];
-      sum_log_p += log10f(spectrum[k]);
-    }
-    //spectral flatness measure using Geometric and Arithmetic means of the spectrum cleaned previously
-    //Using log propieties and definition of spectral flatness https://en.wikipedia.org/wiki/Spectral_flatness
-    //Robinson thesis explains this reexpresion in detail
-    SFM = 10.f*(sum_log_p/(float)(fft_size_2+1) - log10f(sum_p/(float)(fft_size_2+1)));//this value is in db scale
-
-    //Tonality factor in db scale
-    tonality_factor = MIN(SFM/-60.f, 1.f);
+    //For spectral flatness measures
+    sum_p += spectrum[k];
+    sum_log_p += log10f(spectrum[k]);
   }
-  // else
-  // {
-  //   //Using bark spectrum to compute tonality factor
-  //   for (j = 0; j < N_BARK_BANDS; j++)
-  //   {
-  //     //For spectral flatness measures (Geometric and Arithmetic mean)
-  //     Gm[j] = powf(bark_spectrum[j],1.f/(float)(n_bins_per_band[j]+1));
-  //     Am[j] = 1.f/(float)(n_bins_per_band[j]+1)*bark_spectrum[j];
-  //
-  //     //spectral flatness measure using Geometric and Arithmetic means
-  //     SFM_array[j] = 10.f*log10f(Gm[j]/Am[j]);//this value is in db scale
-  //
-  //     //taking into account max db SPL
-  //     SFM_array[j] /= -60.f;
-  //   }
-  //
-  //   //Tonality factor in db scale
-  //   tonality_factor = MIN(min_spectral_value(SFM_array,N_BARK_BANDS), 1.f);
-  // }
+  //spectral flatness measure using Geometric and Arithmetic means of the spectrum cleaned previously
+  //Using log propieties and definition of spectral flatness https://en.wikipedia.org/wiki/Spectral_flatness
+  //Robinson thesis explains this reexpresion in detail
+  SFM = 10.f*(sum_log_p/(float)(fft_size_2+1) - log10f(sum_p/(float)(fft_size_2+1)));//this value is in db scale
+
+  //Tonality factor in db scale
+  tonality_factor = MIN(SFM/-60.f, 1.f);
 
   return tonality_factor;
 }
@@ -196,8 +172,7 @@ compute_masking_thresholds(float* bark_z, float* absolute_thresholds, float* SSF
   float threshold_j[N_BARK_BANDS];
   float masking_offset[N_BARK_BANDS];
   float spreaded_spectrum[N_BARK_BANDS];
-  float unity_gain_bark_spectrum[N_BARK_BANDS];
-  memset(unity_gain_bark_spectrum, 1.f,N_BARK_BANDS); //initialization
+  float unity_gain_bark_spectrum[N_BARK_BANDS] = {1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f};
   float spreaded_unity_gain_bark_spectrum[N_BARK_BANDS];
   float tonality_factor;
 
@@ -214,8 +189,7 @@ compute_masking_thresholds(float* bark_z, float* absolute_thresholds, float* SSF
 
   //Then we compute the tonality_factor for each band (1 tonee like 0 noise like)
   //When there is hum or tonal noises in you noise floor this will be 1
-  tonality_factor = compute_tonality_factor(bark_spectrum, spectrum, fft_size_2,
-                                            n_bins_per_band);
+  tonality_factor = compute_tonality_factor(spectrum, fft_size_2);
 
   for (j = 0; j < N_BARK_BANDS; j++)
   {
@@ -232,13 +206,12 @@ compute_masking_thresholds(float* bark_z, float* absolute_thresholds, float* SSF
     threshold_j[j] = powf(10.f,log10f(spreaded_spectrum[j]) -  masking_offset[j]/10.f);
     //threshold_j[j] = 10.f*log10f(spreaded_spectrum[j]) +  masking_offset[j];
 
+
     //Renormalization
     threshold_j[j] -= 10.f*log10f(spreaded_unity_gain_bark_spectrum[j]);
     //threshold_j[j] *= (1.f/(10*log10f(spreaded_unity_gain_bark_spectrum[j])));
-    //printf("%f\n",threshold_j[j]);
 
     //Relating the spread masking threshold to the critical band masking thresholds
-
     //Border case
     if(j == 0)
     {
@@ -250,14 +223,12 @@ compute_masking_thresholds(float* bark_z, float* absolute_thresholds, float* SSF
     }
     end = intermediate_band_bins[j];
 
-    //printf("%f\n",spreaded_spectrum[j]);
-
     for(k = start; k < end; k++)
     {
-      //Taking into account the absolute hearing thresholds (90 dbfs of reference level)
+      //Taking into account the absolute hearing thresholds
       //masking_thresholds[k] = MAX(threshold_j[j],absolute_thresholds[k]);
-      masking_thresholds[k] = threshold_j[j] + (90.f - absolute_thresholds[k]);
-      //masking_thresholds[k] = threshold_j[j];
+      //masking_thresholds[k] = threshold_j[j] + (absolute_thresholds[k]-90.f);
+      masking_thresholds[k] = threshold_j[j];
     }
   }
 }
@@ -324,5 +295,7 @@ compute_alpha_and_beta(float* fft_p2, float* noise_thresholds_p2, int fft_size_2
        alpha[k] = ALPHA_MIN + (masking - ALPHA_MIN)/(min_masked_tmp - max_masked_tmp) * (masking_thresholds[k]- ALPHA_MIN);
        //beta[k] = (1 - (masking_thresholds[k] - BETA_MIN)/(masking - BETA_MIN)) * (masking - BETA_MIN) + masking;
     }
+
+    printf("%f\n",alpha[k]);
   }
 }
