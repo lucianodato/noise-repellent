@@ -28,7 +28,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 //extra values
 #define N_BARK_BANDS 25
-#define USE_POWER_SPECTRUM_FOR_TONALITY false
+#define USE_POWER_SPECTRUM_FOR_TONALITY true
 #define EXPONENT 10
 #define HIGH_FREQ_BIAS 7.f
 
@@ -208,14 +208,14 @@ compute_masking_thresholds(float* bark_z, float* absolute_thresholds, float* SSF
 
   //Now that we have the bark spectrum
 
-  //Then we compute the tonality_factor for each band
-  tonality_factor = compute_tonality_factor(bark_spectrum, spectrum, fft_size_2,
-                                            n_bins_per_band);
-
   //Convolution bewtween the bark spectrum and SSF (Toepliz matrix multiplication)
   convolve_with_SSF(SSF,bark_spectrum,spreaded_spectrum);
   //Convolve unitary energy bark spectrum with SSF
   convolve_with_SSF(SSF,unity_gain_bark_spectrum,spreaded_unity_gain_bark_spectrum);
+
+  //Then we compute the tonality_factor for each band
+  tonality_factor = compute_tonality_factor(bark_spectrum, spectrum, fft_size_2,
+                                            n_bins_per_band);
 
   for (j = 0; j < N_BARK_BANDS; j++)
   {
@@ -255,14 +255,14 @@ compute_masking_thresholds(float* bark_z, float* absolute_thresholds, float* SSF
     for(k = start; k < end; k++)
     {
       //Taking into account the absolute hearing thresholds (90 dbfs of reference level)
-      masking_thresholds[k] = MAX(threshold_j[j],absolute_thresholds[k]);
-      //masking_thresholds[k] = threshold_j[j] + (90.f - absolute_thresholds[k]);
+      //masking_thresholds[k] = MAX(threshold_j[j],absolute_thresholds[k]);
+      masking_thresholds[k] = threshold_j[j] + (90.f - absolute_thresholds[k]);
       //masking_thresholds[k] = threshold_j[j];
     }
   }
 }
 
-//alpha and beta computation to be used in general spectral Sustraction
+//alpha and beta computation according to Virag
 void
 compute_alpha_and_beta(float* fft_p2, float* noise_thresholds_p2, int fft_size_2,
                        float* alpha, float* beta, float* bark_z,
@@ -296,30 +296,32 @@ compute_alpha_and_beta(float* fft_p2, float* noise_thresholds_p2, int fft_size_2
   */
 
   //First we need the maximun and the minimun value of the masking threshold
-  *(max_masked) = MAX(max_spectral_value(masking_thresholds,fft_size_2),*(max_masked));
-  *(min_masked) = MIN(min_spectral_value(masking_thresholds,fft_size_2),*(min_masked));
+  // *(max_masked) = MAX(max_spectral_value(masking_thresholds,fft_size_2),*(max_masked));
+  // *(min_masked) = MIN(min_spectral_value(masking_thresholds,fft_size_2),*(min_masked));
+  float max_masked_tmp = max_spectral_value(masking_thresholds,fft_size_2);
+  float min_masked_tmp = min_spectral_value(masking_thresholds,fft_size_2);
 
-  printf("%f\n",*(max_masked) );
-  printf("%f\n",*(min_masked) );
+  printf("%f\n",max_masked_tmp);
+  printf("%f\n",min_masked_tmp);
 
   for (k = 0; k <= fft_size_2; k++)
   {
     //new alpha and beta vector
-    if(masking_thresholds[k] == *(max_masked))
+    if(masking_thresholds[k] == max_masked_tmp)
     {
        alpha[k] = ALPHA_MIN;
        //beta[k] = BETA_MIN;
     }
-    if(masking_thresholds[k] == *(min_masked))
+    if(masking_thresholds[k] == min_masked_tmp)
     {
        alpha[k] = masking;
        //beta[k] = BETA_MAX;
     }
-    if(masking_thresholds[k] < *(max_masked) && masking_thresholds[k] > *(min_masked))
+    if(masking_thresholds[k] < max_masked_tmp && masking_thresholds[k] > min_masked_tmp)
     {
        //Linear interpolation of the value between max and min masked threshold values
        //alpha[k] = powf(1 - (masking_thresholds[k] - ALPHA_MIN)/(masking - ALPHA_MIN),EXPONENT) * (masking - ALPHA_MIN) + masking;
-       alpha[k] = ALPHA_MIN + (masking - ALPHA_MIN)/(*(min_masked) - *(max_masked)) * (masking_thresholds[k]- ALPHA_MIN);
+       alpha[k] = ALPHA_MIN + (masking - ALPHA_MIN)/(min_masked_tmp - max_masked_tmp) * (masking_thresholds[k]- ALPHA_MIN);
        //beta[k] = (1 - (masking_thresholds[k] - BETA_MIN)/(masking - BETA_MIN)) * (masking - BETA_MIN) + masking;
     }
   }

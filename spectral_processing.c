@@ -24,11 +24,16 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include "denoise_gain.c"
 #include "masking.c"
 
+#define ALPHA_SMOOTH_COEFF 0.5
+
 //------------GAIN AND THRESHOLD CALCULATION---------------
 
 void
 preprocessing(float noise_thresholds_offset, float* noise_thresholds_scaled,
-							float* smoothed_spectrum,	float* smoothed_spectrum_prev, int fft_size_2,	float* prev_beta, float* bark_z, float* absolute_thresholds, float* SSF,	float* max_masked, float* min_masked, float release_coeff)
+							float* smoothed_spectrum,	float* smoothed_spectrum_prev, int fft_size_2,
+							float* prev_beta, float masking, float* alpha_prev, float* bark_z,
+							float* absolute_thresholds, float* SSF,	float* max_masked,
+							float* min_masked, float release_coeff)
 {
 	int k;
 
@@ -37,11 +42,18 @@ preprocessing(float noise_thresholds_offset, float* noise_thresholds_scaled,
 	//------OVERSUBTRACTION------
 
 	//CALCULATION OF ALPHA WITH MASKING THRESHOLDS USING VIRAGS METHOD
-	// float alpha[fft_size_2+1];
-	//
-	// compute_alpha_and_beta(fft_p2, noise_thresholds_p2, fft_size_2, alpha, bark_z,
-	// 											 absolute_thresholds, SSF, max_masked, min_masked);
-	//Virag requires alphas to be smoothed over time and frequency? TODO
+	float alpha[fft_size_2+1];
+	float beta[fft_size_2+1];
+
+	compute_alpha_and_beta(smoothed_spectrum, noise_thresholds_scaled, fft_size_2, alpha,
+		 										 beta, bark_z, absolute_thresholds, SSF, max_masked, min_masked,
+												 masking);
+	//Virag requires alphas to be smoothed over time
+	for (k = 0; k <= fft_size_2; k++)
+	{
+		alpha[k] = (1.f-ALPHA_SMOOTH_COEFF)*alpha_prev[k]+ALPHA_SMOOTH_COEFF*alpha[k];
+	}
+	memcpy(alpha_prev,alpha,sizeof(float)*(fft_size_2+1));
 
 
 	//TODO
@@ -53,7 +65,7 @@ preprocessing(float noise_thresholds_offset, float* noise_thresholds_scaled,
 	//Scale noise thresholds (equals applying an oversubtraction factor in spectral subtraction)
 	for (k = 0; k <= fft_size_2; k++)
 	{
-		noise_thresholds_scaled[k] *= noise_thresholds_offset;//* alpha[k] * transient_preservation_coeff;
+		noise_thresholds_scaled[k] *= noise_thresholds_offset;// * alpha[k];// * transient_preservation_coeff;
 	}
 
 	//------SMOOTHING DETECTOR------

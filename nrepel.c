@@ -48,16 +48,17 @@ typedef enum
 	NREPEL_AMOUNT = 0,
 	NREPEL_NOFFSET = 1,
 	NREPEL_RELEASE = 2,
-	NREPEL_PF_THRESH = 3,
-	NREPEL_WHITENING = 4,
-	NREPEL_N_LEARN = 5,
-	NREPEL_N_ADAPTIVE = 6,
-	NREPEL_RESET = 7,
-	NREPEL_RESIDUAL_LISTEN = 8,
-	NREPEL_ENABLE = 9,
-	NREPEL_LATENCY = 10,
-	NREPEL_INPUT = 11,
-	NREPEL_OUTPUT = 12,
+	NREPEL_MASKING = 3,
+	NREPEL_PF_THRESH = 4,
+	NREPEL_WHITENING = 5,
+	NREPEL_N_LEARN = 6,
+	NREPEL_N_ADAPTIVE = 7,
+	NREPEL_RESET = 8,
+	NREPEL_RESIDUAL_LISTEN = 9,
+	NREPEL_ENABLE = 10,
+	NREPEL_LATENCY = 11,
+	NREPEL_INPUT = 12,
+	NREPEL_OUTPUT = 13,
 } PortIndex;
 
 //spectum struct for noise profile saving
@@ -79,6 +80,7 @@ typedef struct
 	float* noise_thresholds_offset; //This is to scale the noise profile (over subtraction factor)
 	float* pf_threshold; //threshold for the postfilter detector
 	float* release; //Release time
+	float* masking; //Masking scaling
 	float* whitening_factor_pc;	//Whitening amount of the reduction percentage
 	float* noise_learn_state; //Learn Noise state (Manual-Off-Auto)
 	float* adaptive_state; //Autocapture switch
@@ -179,6 +181,7 @@ typedef struct
 	float* bark_z;
 	float* absolute_thresholds; //absolute threshold of hearing
 	float* SSF;
+	float* alpha_prev;
 	float max_masked;
 	float min_masked;
 
@@ -290,6 +293,7 @@ instantiate(const LV2_Descriptor* descriptor, double rate, const char* bundle_pa
 	//masking related
 	nrepel->bark_z = (float*)calloc((nrepel->fft_size_2+1), sizeof(float));
 	nrepel->absolute_thresholds = (float*)calloc((nrepel->fft_size_2+1), sizeof(float));
+	nrepel->alpha_prev = (float*)calloc((nrepel->fft_size_2+1), sizeof(float));
 	nrepel->SSF = (float*)calloc((N_BARK_BANDS*N_BARK_BANDS), sizeof(float));
 	nrepel->max_masked = FLT_MIN;
 	nrepel->min_masked = FLT_MAX;
@@ -349,6 +353,9 @@ connect_port(LV2_Handle instance, uint32_t port, void* data)
 		break;
 		case NREPEL_RELEASE:
 		nrepel->release = (float*)data;
+		break;
+		case NREPEL_MASKING:
+		nrepel->masking = (float*)data;
 		break;
 		case NREPEL_WHITENING:
 		nrepel->whitening_factor_pc = (float*)data;
@@ -576,9 +583,10 @@ run(LV2_Handle instance, uint32_t n_samples)
 						preprocessing(nrepel->thresholds_offset_linear,
 													nrepel->noise_thresholds_scaled, nrepel->smoothed_spectrum,
 													nrepel->smoothed_spectrum_prev, nrepel->fft_size_2,
-													&nrepel->prev_beta, nrepel->bark_z,
-													nrepel->absolute_thresholds, nrepel->SSF,&nrepel->max_masked,
-													&nrepel->min_masked, nrepel->release_coeff);
+													&nrepel->prev_beta, *(nrepel->masking), nrepel->alpha_prev,
+													nrepel->bark_z, nrepel->absolute_thresholds,
+													nrepel->SSF,&nrepel->max_masked, &nrepel->min_masked,
+													nrepel->release_coeff);
 
 						//Supression rule
 						spectral_gain(nrepel->smoothed_spectrum, nrepel->noise_thresholds_scaled,
