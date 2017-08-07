@@ -226,9 +226,9 @@ compute_masking_thresholds(float* bark_z, float* absolute_thresholds, float* SSF
     for(k = start; k < end; k++)
     {
       //Taking into account the absolute hearing thresholds
-      //masking_thresholds[k] = MAX(threshold_j[j],absolute_thresholds[k]);
+      masking_thresholds[k] = MAX(threshold_j[j],absolute_thresholds[k]);
       //masking_thresholds[k] = threshold_j[j] + (absolute_thresholds[k]-90.f);
-      masking_thresholds[k] = threshold_j[j];
+      //masking_thresholds[k] = threshold_j[j];
     }
   }
 }
