@@ -152,7 +152,7 @@ compute_absolute_thresholds(float* absolute_thresholds,int fft_size_2, int srate
   fftwf_execute(*forward_at);
 
   //Get the magnitude
-  get_info_from_bins(fft_p2, fft_magnitude, fft_phase, fft_size_2, fft_size,
+  get_info_from_bins(fft_p2, fft_magnitude, fft_phase, fft_size_2, 2*fft_size_2,
                      output_fft_buffer_at);
 
   memcpy(fft_p2,absolute_thresholds,sizeof(float)*(fft_size_2+1));
