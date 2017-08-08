@@ -183,8 +183,6 @@ typedef struct
 	float* absolute_thresholds; //absolute threshold of hearing
 	float* SSF;
 	float* alpha_prev;
-	float max_masked;
-	float min_masked;
 
 	// clock_t start, end;
 	// double cpu_time_used;
@@ -298,8 +296,6 @@ instantiate(const LV2_Descriptor* descriptor, double rate, const char* bundle_pa
 	nrepel->absolute_thresholds = (float*)calloc((nrepel->fft_size_2+1), sizeof(float));
 	nrepel->alpha_prev = (float*)calloc((nrepel->fft_size_2+1), sizeof(float));
 	nrepel->SSF = (float*)calloc((N_BARK_BANDS*N_BARK_BANDS), sizeof(float));
-	nrepel->max_masked = FLT_MIN;
-	nrepel->min_masked = FLT_MAX;
 
 	//reduction gains related
 	nrepel->Gk = (float*)calloc((nrepel->fft_size), sizeof(float));
@@ -320,10 +316,12 @@ instantiate(const LV2_Descriptor* descriptor, double rate, const char* bundle_pa
 
 	//Window combination initialization (pre processing window post processing window)
 	fft_pre_and_post_window(nrepel->input_window, nrepel->output_window,
-													nrepel->frame_size, nrepel->window_option_input, nrepel->window_option_output,	&nrepel->overlap_scale_factor);
+													nrepel->frame_size, nrepel->window_option_input,
+													nrepel->window_option_output,	&nrepel->overlap_scale_factor);
 
 	//Set initial gain as unity for the positive part
 	memset(nrepel->Gk, 1, (nrepel->fft_size_2+1)*sizeof(float));
+	memset(nrepel->alpha_prev, 1, (nrepel->fft_size_2+1)*sizeof(float));
 
 	//Compute adaptive initial thresholds
 	compute_auto_thresholds(nrepel->auto_thresholds, nrepel->fft_size, nrepel->fft_size_2,
@@ -452,9 +450,6 @@ run(LV2_Handle instance, uint32_t n_samples)
 		memset(nrepel->prev_p_min, 0, (nrepel->fft_size_2+1)*sizeof(float));
 		memset(nrepel->speech_p_p, 0, (nrepel->fft_size_2+1)*sizeof(float));
 		memset(nrepel->prev_speech_p_p, 0, (nrepel->fft_size_2+1)*sizeof(float));
-
-		nrepel->max_masked = FLT_MIN;
-		nrepel->min_masked = FLT_MAX;
 	}
 
 	//main loop for processing
@@ -475,10 +470,9 @@ run(LV2_Handle instance, uint32_t n_samples)
 
 			//----------STFT Analysis------------
 
-			//Adding and windowing the frame input values in the center (zero-phasing)
-			//Clear fft input buffer
-			memset(nrepel->input_fft_buffer,0,sizeof(float)*(nrepel->fft_size));
 			int start_pos = nrepel->frame_fft_diff/2;
+
+			//Adding and windowing the frame input values in the center (zero-phasing)
 			for (k = 0; k < nrepel->frame_size; k++)
 			{
 				nrepel->input_fft_buffer[k] = nrepel->in_fifo[start_pos + k] * nrepel->input_window[k];
@@ -564,17 +558,6 @@ run(LV2_Handle instance, uint32_t n_samples)
 					//If there is a noise profile reduce noise
 					if (nrepel->noise_thresholds_availables == true)
 					{
-						// //Perform peak detection of the noise thresholds
-						// if(nrepel->peak_detection == false)
-						// {
-						// 	//Find the tonal noises in the noise profile (only for saved profile for nows)
-						// 	spectral_peaks(nrepel->fft_size_2, nrepel->noise_thresholds_p2,
-						// 								 nrepel->noise_spectral_peaks, nrepel->peak_pos,
-						// 								 &nrepel->peak_count, nrepel->samp_rate);
-						//
-						// 	nrepel->peak_detection = true;
-						// }
-
 						//Copy the noise spectrum to the scaled one to be scaled by preprocessing
 						memcpy(nrepel->noise_thresholds_scaled, nrepel->noise_thresholds_p2,
 									 sizeof(float)*(nrepel->fft_size_2+1));
@@ -583,13 +566,12 @@ run(LV2_Handle instance, uint32_t n_samples)
 									 sizeof(float)*(nrepel->fft_size_2+1));
 
 						//Detector smoothing and oversustraction
-						preprocessing(nrepel->thresholds_offset_linear,
+						preprocessing(nrepel->thresholds_offset_linear, nrepel->fft_p2,
 													nrepel->noise_thresholds_scaled, nrepel->smoothed_spectrum,
 													nrepel->smoothed_spectrum_prev, nrepel->fft_size_2,
 													&nrepel->prev_beta, *(nrepel->masking), nrepel->alpha_prev,
 													nrepel->bark_z, nrepel->absolute_thresholds,
-													nrepel->SSF,&nrepel->max_masked, &nrepel->min_masked,
-													nrepel->release_coeff);
+													nrepel->SSF, nrepel->release_coeff);
 
 						//Supression rule
 						spectral_gain(nrepel->smoothed_spectrum, nrepel->noise_thresholds_scaled,

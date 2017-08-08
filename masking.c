@@ -226,9 +226,9 @@ compute_masking_thresholds(float* bark_z, float* absolute_thresholds, float* SSF
     for(k = start; k < end; k++)
     {
       //Taking into account the absolute hearing thresholds
-      masking_thresholds[k] = MAX(threshold_j[j],absolute_thresholds[k]);
+      //masking_thresholds[k] = MAX(threshold_j[j],absolute_thresholds[k]);
       //masking_thresholds[k] = threshold_j[j] + (absolute_thresholds[k]-90.f);
-      //masking_thresholds[k] = threshold_j[j];
+      masking_thresholds[k] = threshold_j[j];
     }
   }
 }
@@ -236,13 +236,13 @@ compute_masking_thresholds(float* bark_z, float* absolute_thresholds, float* SSF
 //alpha and beta computation according to Virag
 void
 compute_alpha_and_beta(float* fft_p2, float* noise_thresholds_p2, int fft_size_2,
-                       float* alpha, float* beta, float* bark_z,
-                       float* absolute_thresholds, float* SSF, float* max_masked,
-                       float* min_masked, float masking)
+                       float* alpha_masking, float* beta_masking, float* bark_z,
+                       float* absolute_thresholds, float* SSF, float masking)
 {
   int k;
   float masking_thresholds[fft_size_2+1];
   float estimated_clean[fft_size_2+1];
+  float normalized_value;
 
 
   //Noise masking threshold must be computed from a clean signal
@@ -267,35 +267,28 @@ compute_alpha_and_beta(float* fft_p2, float* noise_thresholds_p2, int fft_size_2
   */
 
   //First we need the maximun and the minimun value of the masking threshold
-  // *(max_masked) = MAX(max_spectral_value(masking_thresholds,fft_size_2),*(max_masked));
-  // *(min_masked) = MIN(min_spectral_value(masking_thresholds,fft_size_2),*(min_masked));
   float max_masked_tmp = max_spectral_value(masking_thresholds,fft_size_2);
   float min_masked_tmp = min_spectral_value(masking_thresholds,fft_size_2);
-
-  //printf("%f\n",max_masked_tmp);
-  //printf("%f\n",min_masked_tmp);
 
   for (k = 0; k <= fft_size_2; k++)
   {
     //new alpha and beta vector
     if(masking_thresholds[k] == max_masked_tmp)
     {
-       alpha[k] = ALPHA_MIN;
-       //beta[k] = BETA_MIN;
+       alpha_masking[k] = ALPHA_MIN;
+       //beta_masking[k] = BETA_MIN;
     }
     if(masking_thresholds[k] == min_masked_tmp)
     {
-       alpha[k] = masking;
-       //beta[k] = BETA_MAX;
+       alpha_masking[k] = masking;
+       //beta_masking[k] = BETA_MAX;
     }
     if(masking_thresholds[k] < max_masked_tmp && masking_thresholds[k] > min_masked_tmp)
     {
-       //Linear interpolation of the value between max and min masked threshold values
-       //alpha[k] = powf(1 - (masking_thresholds[k] - ALPHA_MIN)/(masking - ALPHA_MIN),EXPONENT) * (masking - ALPHA_MIN) + masking;
-       alpha[k] = ALPHA_MIN + (masking - ALPHA_MIN)/(min_masked_tmp - max_masked_tmp) * (masking_thresholds[k]- ALPHA_MIN);
-       //beta[k] = (1 - (masking_thresholds[k] - BETA_MIN)/(masking - BETA_MIN)) * (masking - BETA_MIN) + masking;
-    }
+      //Linear interpolation of the value between max and min masked threshold values
+      normalized_value = (masking_thresholds[k]-min_masked_tmp)/(max_masked_tmp-min_masked_tmp);
 
-    printf("%f\n",alpha[k]);
+      alpha_masking[k] = (1.f - normalized_value)*ALPHA_MIN + normalized_value*masking;
+    }
   }
 }

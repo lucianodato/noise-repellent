@@ -24,16 +24,15 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include "denoise_gain.c"
 #include "masking.c"
 
-#define ALPHA_SMOOTH_COEFF 0.5
+#define ALPHA_SMOOTH_COEFF 0.8f
 
 //------------GAIN AND THRESHOLD CALCULATION---------------
 
 void
-preprocessing(float noise_thresholds_offset, float* noise_thresholds_scaled,
+preprocessing(float noise_thresholds_offset, float* fft_p2, float* noise_thresholds_scaled,
 							float* smoothed_spectrum,	float* smoothed_spectrum_prev, int fft_size_2,
 							float* prev_beta, float masking, float* alpha_prev, float* bark_z,
-							float* absolute_thresholds, float* SSF,	float* max_masked,
-							float* min_masked, float release_coeff)
+							float* absolute_thresholds, float* SSF,	float release_coeff)
 {
 	int k;
 
@@ -42,18 +41,17 @@ preprocessing(float noise_thresholds_offset, float* noise_thresholds_scaled,
 	//------OVERSUBTRACTION------
 
 	//CALCULATION OF ALPHA WITH MASKING THRESHOLDS USING VIRAGS METHOD
-	float alpha[fft_size_2+1];
-	float beta[fft_size_2+1];
+	float alpha_masking[fft_size_2+1];
+	float beta_masking[fft_size_2+1];
 
-	compute_alpha_and_beta(smoothed_spectrum, noise_thresholds_scaled, fft_size_2, alpha,
-		 										 beta, bark_z, absolute_thresholds, SSF, max_masked, min_masked,
-												 masking);
+	compute_alpha_and_beta(fft_p2, noise_thresholds_scaled, fft_size_2, alpha_masking,
+		 										 beta_masking, bark_z, absolute_thresholds, SSF, masking);
 	//Virag requires alphas to be smoothed over time
 	for (k = 0; k <= fft_size_2; k++)
 	{
-		alpha[k] = (1.f-ALPHA_SMOOTH_COEFF)*alpha_prev[k]+ALPHA_SMOOTH_COEFF*alpha[k];
+		alpha_masking[k] = (1.f-ALPHA_SMOOTH_COEFF)*alpha_prev[k] + ALPHA_SMOOTH_COEFF*alpha_masking[k];
 	}
-	memcpy(alpha_prev,alpha,sizeof(float)*(fft_size_2+1));
+	memcpy(alpha_prev,alpha_masking,sizeof(float)*(fft_size_2+1));
 
 
 	//TODO
@@ -65,7 +63,7 @@ preprocessing(float noise_thresholds_offset, float* noise_thresholds_scaled,
 	//Scale noise thresholds (equals applying an oversubtraction factor in spectral subtraction)
 	for (k = 0; k <= fft_size_2; k++)
 	{
-		noise_thresholds_scaled[k] *= noise_thresholds_offset;// * alpha[k];// * transient_preservation_coeff;
+		noise_thresholds_scaled[k] *= noise_thresholds_offset;// * alpha_masking[k];// * transient_preservation_coeff;
 	}
 
 	//------SMOOTHING DETECTOR------
@@ -76,11 +74,11 @@ preprocessing(float noise_thresholds_offset, float* noise_thresholds_scaled,
 		as suggested by Lukin in Suppression of Musical Noise Artifacts in Audio Noise Reduction by Adaptive 2D Filtering
 	*/
 
-	apply_time_envelope(smoothed_spectrum, smoothed_spectrum_prev, fft_size_2, release_coeff);
-
 	// This adaptive method is based on SPECTRAL SUBTRACTION WITH ADAPTIVE AVERAGING OF THE GAIN FUNCTION
 	// spectrum_adaptive_time_smoothing(fft_size_2, smoothed_spectrum_prev, smoothed_spectrum,
 	// 																 noise_thresholds_scaled, prev_beta, 1.f-release_coeff);
+
+	apply_time_envelope(smoothed_spectrum, smoothed_spectrum_prev, fft_size_2, release_coeff);
 
 	memcpy(smoothed_spectrum_prev,smoothed_spectrum,sizeof(float)*(fft_size_2+1));
 }
@@ -95,7 +93,6 @@ spectral_gain(float* smoothed_spectrum, float* noise_thresholds_scaled, int fft_
 	}
 	else
 	{
-		//power_subtraction(fft_size_2,	smoothed_spectrum, noise_thresholds_scaled, Gk);
 		spectral_gating(fft_size_2, smoothed_spectrum, noise_thresholds_scaled, Gk);
 	}
 }
