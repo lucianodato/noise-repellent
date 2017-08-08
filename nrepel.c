@@ -143,7 +143,6 @@ typedef struct
 	fftwf_plan backward_g;
 
 	//Arrays and variables for getting bins info
-	float real_p,imag_n,mag,p2,phase;
 	float* fft_p2; //power spectrum
 	float* fft_magnitude; //magnitude spectrum
 	float* fft_phase; //phase spectrum
@@ -185,6 +184,9 @@ typedef struct
 	float* alpha_prev;
 	float* unity_gain_bark_spectrum;
 	float* spreaded_unity_gain_bark_spectrum;
+	float* input_fft_buffer_at;
+	float* output_fft_buffer_at;
+	fftwf_plan forward_at;
 
 	// clock_t start, end;
 	// double cpu_time_used;
@@ -300,6 +302,9 @@ instantiate(const LV2_Descriptor* descriptor, double rate, const char* bundle_pa
 	nrepel->spreaded_unity_gain_bark_spectrum = (float*)calloc(N_BARK_BANDS, sizeof(float));
 	nrepel->alpha_prev = (float*)calloc((nrepel->fft_size_2+1), sizeof(float));
 	nrepel->SSF = (float*)calloc((N_BARK_BANDS*N_BARK_BANDS), sizeof(float));
+	nrepel->input_fft_buffer_at = (float*)calloc(nrepel->fft_size, sizeof(float));
+	nrepel->output_fft_buffer_at = (float*)calloc(nrepel->fft_size, sizeof(float));
+	nrepel->forward_at = fftwf_plan_r2r_1d(nrepel->fft_size, nrepel->input_fft_buffer_at, nrepel->output_fft_buffer_at, FFTW_R2HC, FFTW_ESTIMATE);
 
 	//reduction gains related
 	nrepel->Gk = (float*)calloc((nrepel->fft_size), sizeof(float));
@@ -324,22 +329,23 @@ instantiate(const LV2_Descriptor* descriptor, double rate, const char* bundle_pa
 													nrepel->window_option_output,	&nrepel->overlap_scale_factor);
 
 	//Set initial gain as unity for the positive part
-	memset(nrepel->Gk, 1, (nrepel->fft_size_2+1)*sizeof(float));
-
+	initialize_array(nrepel->Gk,1.f,nrepel->fft_size_2+1);
 
 	//Compute adaptive initial thresholds
 	compute_auto_thresholds(nrepel->auto_thresholds, nrepel->fft_size, nrepel->fft_size_2,
 													nrepel->samp_rate);
 
 	//MASKING initializations
-	memset(nrepel->alpha_prev, 1, (nrepel->fft_size_2+1)*sizeof(float));
+	initialize_array(nrepel->alpha_prev,1.f,nrepel->fft_size_2+1);
 
 	compute_bark_mapping(nrepel->bark_z, nrepel->fft_size_2, nrepel->samp_rate);
 	compute_absolute_thresholds(nrepel->absolute_thresholds, nrepel->fft_size_2,
-															nrepel->samp_rate);
+															nrepel->samp_rate, nrepel->input_fft_buffer_at,
+															nrepel->output_fft_buffer_at, &nrepel->forward_at);
 	compute_SSF(nrepel->SSF);
 
-	memset(nrepel->unity_gain_bark_spectrum, 1, N_BARK_BANDS*sizeof(float));
+	//Initializing unity gain values
+	initialize_array(nrepel->unity_gain_bark_spectrum,1.f,N_BARK_BANDS);
 	//Convolve unitary energy bark spectrum with SSF
   convolve_with_SSF(nrepel->SSF, nrepel->unity_gain_bark_spectrum,
 										nrepel->spreaded_unity_gain_bark_spectrum);
@@ -445,22 +451,22 @@ run(LV2_Handle instance, uint32_t n_samples)
 	//Reset button state (if on)
 	if (*(nrepel->reset_profile) == 1.f)
 	{
-		memset(nrepel->noise_thresholds_p2, 0, (nrepel->fft_size_2+1)*sizeof(float));
-		memset(nrepel->noise_thresholds_scaled, 0, (nrepel->fft_size_2+1)*sizeof(float));
+		initialize_array(nrepel->noise_thresholds_p2,1.f,nrepel->fft_size_2+1);
+		initialize_array(nrepel->noise_thresholds_scaled,1.f,nrepel->fft_size_2+1);
 		nrepel->window_count = 0.f;
 		nrepel->peak_count = 0.f;
 		nrepel->noise_thresholds_availables = false;
 		nrepel->peak_detection = false;
 
-		memset(nrepel->Gk, 1, (nrepel->fft_size_2+1)*sizeof(float));
+		initialize_array(nrepel->Gk,1.f,nrepel->fft_size_2+1);
 
-		memset(nrepel->prev_noise_thresholds, 0, (nrepel->fft_size_2+1)*sizeof(float));
-		memset(nrepel->s_pow_spec, 0, (nrepel->fft_size_2+1)*sizeof(float));
-		memset(nrepel->prev_s_pow_spec, 0, (nrepel->fft_size_2+1)*sizeof(float));
-		memset(nrepel->p_min, 0, (nrepel->fft_size_2+1)*sizeof(float));
-		memset(nrepel->prev_p_min, 0, (nrepel->fft_size_2+1)*sizeof(float));
-		memset(nrepel->speech_p_p, 0, (nrepel->fft_size_2+1)*sizeof(float));
-		memset(nrepel->prev_speech_p_p, 0, (nrepel->fft_size_2+1)*sizeof(float));
+		initialize_array(nrepel->prev_noise_thresholds,1.f,nrepel->fft_size_2+1);
+		initialize_array(nrepel->s_pow_spec,1.f,nrepel->fft_size_2+1);
+		initialize_array(nrepel->prev_s_pow_spec,1.f,nrepel->fft_size_2+1);
+		initialize_array(nrepel->p_min,1.f,nrepel->fft_size_2+1);
+		initialize_array(nrepel->prev_p_min,1.f,nrepel->fft_size_2+1);
+		initialize_array(nrepel->speech_p_p,1.f,nrepel->fft_size_2+1);
+		initialize_array(nrepel->prev_speech_p_p,1.f,nrepel->fft_size_2+1);
 	}
 
 	//main loop for processing
@@ -496,41 +502,9 @@ run(LV2_Handle instance, uint32_t n_samples)
 
 			//-----------GET INFO FROM BINS--------------
 
-			//Look at http://www.fftw.org/fftw2_doc/fftw_2.html
-			//DC bin
-			nrepel->real_p = nrepel->output_fft_buffer[0];
-			nrepel->imag_n = 0.f;
-
-			nrepel->fft_p2[0] = nrepel->real_p*nrepel->real_p;
-			nrepel->fft_magnitude[0] = nrepel->real_p;
-			nrepel->fft_phase[0] = atan2f(nrepel->real_p, 0.f); //Phase is 0 for DC and nyquist
-
-			//Get the rest of positive spectrum and compute the magnitude
-			for (k = 1; k <= nrepel->fft_size_2; k++)
-			{
-				//Get the half complex spectrum reals and complex
-				nrepel->real_p = nrepel->output_fft_buffer[k];
-				nrepel->imag_n = nrepel->output_fft_buffer[nrepel->fft_size - k];
-
-				//Get the magnitude, phase and power spectrum
-				if(k < nrepel->fft_size_2)
-				{
-					nrepel->p2 = (nrepel->real_p*nrepel->real_p + nrepel->imag_n*nrepel->imag_n);
-					nrepel->mag = sqrtf(nrepel->p2);//sqrt(real^2+imag^2)
-					nrepel->phase = atan2f(nrepel->real_p, nrepel->imag_n);
-				}
-				else
-				{
-					//Nyquist - this is due to half complex transform look at http://www.fftw.org/doc/The-Halfcomplex_002dformat-DFT.html
-					nrepel->p2 = nrepel->real_p*nrepel->real_p;
-					nrepel->mag = nrepel->real_p;
-					nrepel->phase = atan2f(nrepel->real_p, 0.f); //Phase is 0 for DC and nyquist
-				}
-				//Store values in magnitude and power arrays (this stores the positive spectrum only)
-				nrepel->fft_p2[k] = nrepel->p2;
-				nrepel->fft_magnitude[k] = nrepel->mag; //This is not used but part of the STFT transform for generic use
-				nrepel->fft_phase[k] = nrepel->phase; //This is not used but part of the STFT transform for generic use
-			}
+			get_info_from_bins(nrepel->fft_p2, nrepel->fft_magnitude, nrepel->fft_phase,
+												 nrepel->fft_size_2, nrepel->fft_size,
+												 nrepel->output_fft_buffer);
 
 			/////////////////////SPECTRAL PROCESSING//////////////////////////
 

@@ -30,6 +30,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define N_BARK_BANDS 25
 #define EXPONENT 10
 #define HIGH_FREQ_BIAS 7.f
+#define AT_SINE_WAVE_FREQ 1000.f
 
 #define MASKING 6.0
 #define GAIN_SMOOTH 0.5f //smoothing of gain proposed in virag method
@@ -51,18 +52,6 @@ compute_bark_mapping(float* bark_z,int fft_size_2, int srate)
     freq = (float)srate / 2.f /(float)(fft_size_2)*(float)k ; //bin to freq
     //bark_z[k] = 7.f*logf(freq/650.f + sqrtf(1.f + (freq/650.f)*(freq/650.f))) ;
     bark_z[k] = 1.f + 13.f*atanf(0.00076f*freq) + 3.5f*atanf(powf(freq/7500,2)) ;
-  }
-}
-
-void
-compute_absolute_thresholds(float* absolute_thresholds,int fft_size_2, int srate)
-{
-  int k;
-  float freq;
-  for(k = 1 ; k <= fft_size_2 ; k++)
-  {
-    freq = bin_to_freq(k,srate,fft_size_2); //bin to freq
-    absolute_thresholds[k] = 3.64*powf((freq/1000),-0.8) - 6.5*exp(-0.6*powf((freq/1000 - 3.3),2)) + powf(10,-3)*powf((freq /1000),4);//dBSPL scale
   }
 }
 
@@ -134,6 +123,47 @@ compute_bark_spectrum(float* bark_z, float* bark_spectrum, float* spectrum,
   }
 }
 
+void
+compute_absolute_thresholds(float* absolute_thresholds,int fft_size_2, int srate,
+                            float* input_fft_buffer_at, float* output_fft_buffer_at,
+                            fftwf_plan* forward_at)
+{
+  int k;
+  float sinewave[2*fft_size_2];
+  float window[2*fft_size_2];
+  float fft_p2[fft_size_2+1];
+  float fft_magnitude[fft_size_2+1];
+  float fft_phase[fft_size_2+1];
+
+  //Generate a fullscale sine wave of 1 kHz
+  for(k = 0 ; k < 2*fft_size_2 ; k++)
+  {
+    sinewave[k] = sinf((2.f * M_PI * k * AT_SINE_WAVE_FREQ) / srate);
+  }
+
+  //Windowing the sinewave
+  fft_window(window, 2*fft_size_2,0);//von-Hann window
+  for(k = 0 ; k < 2*fft_size_2 ; k++)
+  {
+    input_fft_buffer_at[k] = sinewave[k] * window[k];
+  }
+
+  //Do FFT
+  fftwf_execute(*forward_at);
+
+  //Get the magnitude
+  get_info_from_bins(fft_p2, fft_magnitude, fft_phase, fft_size_2, fft_size,
+                     output_fft_buffer_at);
+
+  memcpy(fft_p2,absolute_thresholds,sizeof(float)*(fft_size_2+1));
+
+  // for(k = 1 ; k <= fft_size_2 ; k++)
+  // {//As explained by thiemann
+  //   freq = bin_to_freq(k,srate,fft_size_2); //bin to freq
+  //   absolute_thresholds[k] = 3.64*powf((freq/1000),-0.8) - 6.5*exp(-0.6*powf((freq/1000 - 3.3),2)) + powf(10,-3)*powf((freq /1000),4);//dBSPL scale
+  // }
+}
+
 //Computes the tonality factor using the spectral flatness
 float
 compute_tonality_factor(float* spectrum, float fft_size_2)
@@ -180,7 +210,6 @@ compute_masking_thresholds(float* bark_z, float* absolute_thresholds, float* SSF
                         n_bins_per_band);
 
   //Now that we have the bark spectrum
-
   //Convolution bewtween the bark spectrum and SSF (Toepliz matrix multiplication)
   convolve_with_SSF(SSF,bark_spectrum,spreaded_spectrum);
 
@@ -201,12 +230,9 @@ compute_masking_thresholds(float* bark_z, float* absolute_thresholds, float* SSF
 
     //spread Masking threshold
     threshold_j[j] = powf(10.f,log10f(spreaded_spectrum[j]) -  masking_offset[j]/10.f);
-    //threshold_j[j] = 10.f*log10f(spreaded_spectrum[j]) +  masking_offset[j];
-
 
     //Renormalization
     threshold_j[j] -= 10.f*log10f(spreaded_unity_gain_bark_spectrum[j]);
-    //threshold_j[j] *= (1.f/(10*log10f(spreaded_unity_gain_bark_spectrum[j])));
 
     //Relating the spread masking threshold to the critical band masking thresholds
     //Border case
@@ -225,7 +251,7 @@ compute_masking_thresholds(float* bark_z, float* absolute_thresholds, float* SSF
       //Taking into account the absolute hearing thresholds
       //masking_thresholds[k] = MAX(threshold_j[j],absolute_thresholds[k]);
       //masking_thresholds[k] = threshold_j[j] + (absolute_thresholds[k]-90.f);
-      masking_thresholds[k] = threshold_j[j];
+      //masking_thresholds[k] = threshold_j[j];
     }
   }
 }

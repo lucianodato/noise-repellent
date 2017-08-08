@@ -85,6 +85,15 @@ nearest_odd(int x)
 		return x;
 }
 
+void
+initialize_array(float* array, float value,int size)
+{
+	for(int k=0; k<size;k++)
+	{
+		array[k] = value;
+	}
+}
+
 //Parabolic interpolation as explained in  https://ccrma.stanford.edu/~jos/parshl/Peak_Detection_Steps_3.html
 void
 parabolic_interpolation(float left_val, float middle_val, float right_val,
@@ -593,4 +602,48 @@ fft_pre_and_post_window(float* input_window, float* output_window, int frame_siz
 
   //Scaling necessary for perfect reconstruction using Overlapp Add
   *(overlap_scale_factor) = get_window_scale_factor(input_window,output_window,frame_size);
+}
+
+void
+get_info_from_bins(float* fft_p2, float* fft_magnitude, float* fft_phase,
+									 int fft_size_2, int fft_size, float* fft_buffer)
+{
+	int k;
+	float real_p,imag_n,mag,p2,phase;
+
+	//Look at http://www.fftw.org/fftw2_doc/fftw_2.html
+	//DC bin
+	real_p = fft_buffer[0];
+	imag_n = 0.f;
+
+	fft_p2[0] = real_p*real_p;
+	fft_magnitude[0] = real_p;
+	fft_phase[0] = atan2f(real_p, 0.f); //Phase is 0 for DC and nyquist
+
+	//Get the rest of positive spectrum and compute the magnitude
+	for (k = 1; k <= fft_size_2; k++)
+	{
+		//Get the half complex spectrum reals and complex
+		real_p = fft_buffer[k];
+		imag_n = fft_buffer[fft_size - k];
+
+		//Get the magnitude, phase and power spectrum
+		if(k < fft_size_2)
+		{
+			p2 = (real_p*real_p + imag_n*imag_n);
+			mag = sqrtf(p2);//sqrt(real^2+imag^2)
+			phase = atan2f(real_p, imag_n);
+		}
+		else
+		{
+			//Nyquist - this is due to half complex transform look at http://www.fftw.org/doc/The-Halfcomplex_002dformat-DFT.html
+			p2 = real_p*real_p;
+			mag = real_p;
+			phase = atan2f(real_p, 0.f); //Phase is 0 for DC and nyquist
+		}
+		//Store values in magnitude and power arrays (this stores the positive spectrum only)
+		fft_p2[k] = p2;
+		fft_magnitude[k] = mag; //This is not used but part of the STFT transform for generic use
+		fft_phase[k] = phase; //This is not used but part of the STFT transform for generic use
+	}
 }
