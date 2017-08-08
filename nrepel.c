@@ -333,13 +333,13 @@ instantiate(const LV2_Descriptor* descriptor, double rate, const char* bundle_pa
 
 	//MASKING initializations
 	memset(nrepel->alpha_prev, 1, (nrepel->fft_size_2+1)*sizeof(float));
-	memset(nrepel->unity_gain_bark_spectrum, 1, (nrepel->fft_size_2+1)*sizeof(float));
 
 	compute_bark_mapping(nrepel->bark_z, nrepel->fft_size_2, nrepel->samp_rate);
 	compute_absolute_thresholds(nrepel->absolute_thresholds, nrepel->fft_size_2,
 															nrepel->samp_rate);
 	compute_SSF(nrepel->SSF);
 
+	memset(nrepel->unity_gain_bark_spectrum, 1, N_BARK_BANDS*sizeof(float));
 	//Convolve unitary energy bark spectrum with SSF
   convolve_with_SSF(nrepel->SSF, nrepel->unity_gain_bark_spectrum,
 										nrepel->spreaded_unity_gain_bark_spectrum);

@@ -186,7 +186,7 @@ compute_masking_thresholds(float* bark_z, float* absolute_thresholds, float* SSF
 
   //Then we compute the tonality_factor for each band (1 tonee like 0 noise like)
   //When there is hum or tonal noises in you noise floor this will be 1
-  tonality_factor = compute_tonality_factor(spectrum, fft_size_2);
+  tonality_factor = compute_tonality_factor(spectrum, fft_size_2);//Uses power spectrum
 
   for (j = 0; j < N_BARK_BANDS; j++)
   {
