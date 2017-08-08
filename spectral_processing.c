@@ -32,7 +32,8 @@ void
 preprocessing(float noise_thresholds_offset, float* fft_p2, float* noise_thresholds_scaled,
 							float* smoothed_spectrum,	float* smoothed_spectrum_prev, int fft_size_2,
 							float* prev_beta, float masking, float* alpha_prev, float* bark_z,
-							float* absolute_thresholds, float* SSF,	float release_coeff)
+							float* absolute_thresholds, float* SSF,	float release_coeff,
+							float* spreaded_unity_gain_bark_spectrum)
 {
 	int k;
 
@@ -45,7 +46,8 @@ preprocessing(float noise_thresholds_offset, float* fft_p2, float* noise_thresho
 	float beta_masking[fft_size_2+1];
 
 	compute_alpha_and_beta(fft_p2, noise_thresholds_scaled, fft_size_2, alpha_masking,
-		 										 beta_masking, bark_z, absolute_thresholds, SSF, masking);
+		 										 beta_masking, bark_z, absolute_thresholds, SSF, masking,
+												 spreaded_unity_gain_bark_spectrum);
 	//Virag requires alphas to be smoothed over time
 	for (k = 0; k <= fft_size_2; k++)
 	{

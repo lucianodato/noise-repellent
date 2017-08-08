@@ -163,7 +163,8 @@ compute_tonality_factor(float* spectrum, float fft_size_2)
 //masking threshold calculation
 void
 compute_masking_thresholds(float* bark_z, float* absolute_thresholds, float* SSF,
-                           float* spectrum, int fft_size_2, float* masking_thresholds)
+                           float* spectrum, int fft_size_2, float* masking_thresholds,
+                           float* spreaded_unity_gain_bark_spectrum)
 {
   int k, j, start, end;
   int intermediate_band_bins[N_BARK_BANDS];
@@ -172,8 +173,6 @@ compute_masking_thresholds(float* bark_z, float* absolute_thresholds, float* SSF
   float threshold_j[N_BARK_BANDS];
   float masking_offset[N_BARK_BANDS];
   float spreaded_spectrum[N_BARK_BANDS];
-  float unity_gain_bark_spectrum[N_BARK_BANDS] = {1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f, 1.f};
-  float spreaded_unity_gain_bark_spectrum[N_BARK_BANDS];
   float tonality_factor;
 
   //First we get the energy in each bark band
@@ -184,8 +183,6 @@ compute_masking_thresholds(float* bark_z, float* absolute_thresholds, float* SSF
 
   //Convolution bewtween the bark spectrum and SSF (Toepliz matrix multiplication)
   convolve_with_SSF(SSF,bark_spectrum,spreaded_spectrum);
-  //Convolve unitary energy bark spectrum with SSF
-  convolve_with_SSF(SSF,unity_gain_bark_spectrum,spreaded_unity_gain_bark_spectrum);
 
   //Then we compute the tonality_factor for each band (1 tonee like 0 noise like)
   //When there is hum or tonal noises in you noise floor this will be 1
@@ -237,7 +234,8 @@ compute_masking_thresholds(float* bark_z, float* absolute_thresholds, float* SSF
 void
 compute_alpha_and_beta(float* fft_p2, float* noise_thresholds_p2, int fft_size_2,
                        float* alpha_masking, float* beta_masking, float* bark_z,
-                       float* absolute_thresholds, float* SSF, float masking)
+                       float* absolute_thresholds, float* SSF, float masking,
+                       float* spreaded_unity_gain_bark_spectrum)
 {
   int k;
   float masking_thresholds[fft_size_2+1];
@@ -257,7 +255,8 @@ compute_alpha_and_beta(float* fft_p2, float* noise_thresholds_p2, int fft_size_2
 
   //Now we can compute noise masking threshold from this clean signal
   compute_masking_thresholds(bark_z, absolute_thresholds, SSF, estimated_clean,
-                             fft_size_2, masking_thresholds);
+                             fft_size_2, masking_thresholds,
+                             spreaded_unity_gain_bark_spectrum);
 
   /*Get alpha and beta based on masking thresholds
   *beta and alpha values would adapt based on masking thresholds
