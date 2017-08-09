@@ -181,7 +181,7 @@ typedef struct
 	float* bark_z;
 	float* absolute_thresholds; //absolute threshold of hearing
 	float* SSF;
-	float* alpha_prev;
+	float* spl_reference_values;
 	float* unity_gain_bark_spectrum;
 	float* spreaded_unity_gain_bark_spectrum;
 	float* input_fft_buffer_at;
@@ -300,7 +300,7 @@ instantiate(const LV2_Descriptor* descriptor, double rate, const char* bundle_pa
 	nrepel->absolute_thresholds = (float*)calloc((nrepel->fft_size_2+1), sizeof(float));
 	nrepel->unity_gain_bark_spectrum = (float*)calloc(N_BARK_BANDS, sizeof(float));
 	nrepel->spreaded_unity_gain_bark_spectrum = (float*)calloc(N_BARK_BANDS, sizeof(float));
-	nrepel->alpha_prev = (float*)calloc((nrepel->fft_size_2+1), sizeof(float));
+	nrepel->spl_reference_values = (float*)calloc((nrepel->fft_size_2+1), sizeof(float));
 	nrepel->SSF = (float*)calloc((N_BARK_BANDS*N_BARK_BANDS), sizeof(float));
 	nrepel->input_fft_buffer_at = (float*)calloc(nrepel->fft_size, sizeof(float));
 	nrepel->output_fft_buffer_at = (float*)calloc(nrepel->fft_size, sizeof(float));
@@ -336,12 +336,12 @@ instantiate(const LV2_Descriptor* descriptor, double rate, const char* bundle_pa
 													nrepel->samp_rate);
 
 	//MASKING initializations
-	initialize_array(nrepel->alpha_prev,1.f,nrepel->fft_size_2+1);
-
 	compute_bark_mapping(nrepel->bark_z, nrepel->fft_size_2, nrepel->samp_rate);
 	compute_absolute_thresholds(nrepel->absolute_thresholds, nrepel->fft_size_2,
-															nrepel->samp_rate, nrepel->input_fft_buffer_at,
-															nrepel->output_fft_buffer_at, &nrepel->forward_at);
+															nrepel->samp_rate);
+	spl_reference(nrepel->spl_reference_values, nrepel->fft_size_2, nrepel->samp_rate,
+								nrepel->input_fft_buffer_at, nrepel->output_fft_buffer_at,
+								&nrepel->forward_at);
 	compute_SSF(nrepel->SSF);
 
 	//Initializing unity gain values
@@ -554,10 +554,11 @@ run(LV2_Handle instance, uint32_t n_samples)
 						preprocessing(nrepel->thresholds_offset_linear, nrepel->fft_p2,
 													nrepel->noise_thresholds_scaled, nrepel->smoothed_spectrum,
 													nrepel->smoothed_spectrum_prev, nrepel->fft_size_2,
-													&nrepel->prev_beta, *(nrepel->masking), nrepel->alpha_prev,
-													nrepel->bark_z, nrepel->absolute_thresholds,
-													nrepel->SSF, nrepel->release_coeff,
-													nrepel->spreaded_unity_gain_bark_spectrum);
+													&nrepel->prev_beta, *(nrepel->masking),	nrepel->bark_z,
+													nrepel->absolute_thresholds, nrepel->SSF,
+													nrepel->release_coeff,
+													nrepel->spreaded_unity_gain_bark_spectrum,
+													nrepel->spl_reference_values);
 
 						//Supression rule
 						spectral_gain(nrepel->smoothed_spectrum, nrepel->noise_thresholds_scaled,

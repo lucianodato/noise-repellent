@@ -24,16 +24,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include "denoise_gain.c"
 #include "masking.c"
 
-#define ALPHA_SMOOTH_COEFF 0.8f
-
 //------------GAIN AND THRESHOLD CALCULATION---------------
 
 void
 preprocessing(float noise_thresholds_offset, float* fft_p2, float* noise_thresholds_scaled,
 							float* smoothed_spectrum,	float* smoothed_spectrum_prev, int fft_size_2,
-							float* prev_beta, float masking, float* alpha_prev, float* bark_z,
+							float* prev_beta, float masking, float* bark_z,
 							float* absolute_thresholds, float* SSF,	float release_coeff,
-							float* spreaded_unity_gain_bark_spectrum)
+							float* spreaded_unity_gain_bark_spectrum, float* spl_reference_values)
 {
 	int k;
 
@@ -47,14 +45,9 @@ preprocessing(float noise_thresholds_offset, float* fft_p2, float* noise_thresho
 
 	compute_alpha_and_beta(fft_p2, noise_thresholds_scaled, fft_size_2, alpha_masking,
 		 										 beta_masking, bark_z, absolute_thresholds, SSF, masking,
-												 spreaded_unity_gain_bark_spectrum);
-	//Virag requires alphas to be smoothed over time
-	for (k = 0; k <= fft_size_2; k++)
-	{
-		alpha_masking[k] = (1.f-ALPHA_SMOOTH_COEFF)*alpha_prev[k] + ALPHA_SMOOTH_COEFF*alpha_masking[k];
-	}
-	memcpy(alpha_prev,alpha_masking,sizeof(float)*(fft_size_2+1));
-
+												 spreaded_unity_gain_bark_spectrum, spl_reference_values);
+	//Virag requires to smooth the alfas and avoid discontinuities in the gain function
+	//But release and pf can handle that
 
 	//TODO
 	// transient_preservation_coeff = transient_preservation(fft_p2, fft_p2_prev_tpres,
@@ -65,15 +58,18 @@ preprocessing(float noise_thresholds_offset, float* fft_p2, float* noise_thresho
 	//Scale noise thresholds (equals applying an oversubtraction factor in spectral subtraction)
 	for (k = 0; k <= fft_size_2; k++)
 	{
-		noise_thresholds_scaled[k] *= noise_thresholds_offset;// * alpha_masking[k];// * transient_preservation_coeff;
+		noise_thresholds_scaled[k] *= noise_thresholds_offset * alpha_masking[k];// * transient_preservation_coeff;
 	}
 
 	//------SMOOTHING DETECTOR------
 
 	/*Time smoothing between current and past Gk (similar effect to ephraim and malah)
 		Here is done by applying a release envelope to signal power spectrum
-		The best option here is to adaptively smooth 2D spectral components so it will require a biger buffer
-		as suggested by Lukin in Suppression of Musical Noise Artifacts in Audio Noise Reduction by Adaptive 2D Filtering
+		The best option here is to adaptively smooth 2D spectral components so it will
+		require a bigger buffer as suggested by Lukin in Suppression of Musical Noise
+		Artifacts in Audio Noise Reduction by Adaptive 2D Filtering. Bilateral filter or non
+		local means + DFT (This is the best improvement but it will need a big rehauling of
+		the stft)
 	*/
 
 	// This adaptive method is based on SPECTRAL SUBTRACTION WITH ADAPTIVE AVERAGING OF THE GAIN FUNCTION
