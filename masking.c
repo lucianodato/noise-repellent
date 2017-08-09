@@ -29,7 +29,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 //extra values
 #define N_BARK_BANDS 25
 #define EXPONENT 10
-#define HIGH_FREQ_BIAS 13.f
+#define HIGH_FREQ_BIAS 20.f
 #define AT_SINE_WAVE_FREQ 1000.f
 
 #define MASKING 6.0
@@ -250,7 +250,7 @@ compute_masking_thresholds(float* bark_z, float* absolute_thresholds, float* SSF
     masking_offset[j] = relative_thresholds[j];
 
     //Consider tonal noise in upper bands (j>15) due to musical noise of the power Sustraction that was used at First
-    //if(j>15) masking_offset[j] -= HIGH_FREQ_BIAS;
+    if(j>15) masking_offset[j] -= HIGH_FREQ_BIAS;
 
     //spread Masking threshold
     threshold_j[j] = powf(10.f,log10f(spreaded_spectrum[j]) -  masking_offset[j]/10.f);
@@ -278,10 +278,10 @@ compute_masking_thresholds(float* bark_z, float* absolute_thresholds, float* SSF
     convert_to_dbspl(spl_reference_values,masking_thresholds,fft_size_2);
 
     //Take into account the absolute_thresholds of hearing
-    // for(k = 0; k <= fft_size_2; k++)
-    // {
-    //   masking_thresholds[k] = MAX(masking_thresholds[k],absolute_thresholds[k]);
-    // }
+    for(k = 0; k <= fft_size_2; k++)
+    {
+      masking_thresholds[k] = MAX(masking_thresholds[k],absolute_thresholds[k]);
+    }
   }
 }
 
@@ -324,9 +324,6 @@ compute_alpha_and_beta(float* fft_p2, float* noise_thresholds_p2, int fft_size_2
   //First we need the maximun and the minimun value of the masking threshold
   float max_masked_tmp = max_spectral_value(masking_thresholds,fft_size_2);
   float min_masked_tmp = min_spectral_value(masking_thresholds,fft_size_2);
-
-  printf("%f\n", max_masked_tmp);
-  printf("%f\n", min_masked_tmp);
 
   for (k = 0; k <= fft_size_2; k++)
   {
