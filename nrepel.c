@@ -184,6 +184,8 @@ typedef struct
 	float* spl_reference_values;
 	float* unity_gain_bark_spectrum;
 	float* spreaded_unity_gain_bark_spectrum;
+	float* alpha_masking;
+	float* beta_masking;
 	float* input_fft_buffer_at;
 	float* output_fft_buffer_at;
 	fftwf_plan forward_at;
@@ -301,6 +303,8 @@ instantiate(const LV2_Descriptor* descriptor, double rate, const char* bundle_pa
 	nrepel->unity_gain_bark_spectrum = (float*)calloc(N_BARK_BANDS, sizeof(float));
 	nrepel->spreaded_unity_gain_bark_spectrum = (float*)calloc(N_BARK_BANDS, sizeof(float));
 	nrepel->spl_reference_values = (float*)calloc((nrepel->fft_size_2+1), sizeof(float));
+	nrepel->alpha_masking = (float*)calloc((nrepel->fft_size_2+1), sizeof(float));
+	nrepel->beta_masking = (float*)calloc((nrepel->fft_size_2+1), sizeof(float));
 	nrepel->SSF = (float*)calloc((N_BARK_BANDS*N_BARK_BANDS), sizeof(float));
 	nrepel->input_fft_buffer_at = (float*)calloc(nrepel->fft_size, sizeof(float));
 	nrepel->output_fft_buffer_at = (float*)calloc(nrepel->fft_size, sizeof(float));
@@ -331,11 +335,10 @@ instantiate(const LV2_Descriptor* descriptor, double rate, const char* bundle_pa
 	//Set initial gain as unity for the positive part
 	initialize_array(nrepel->Gk,1.f,nrepel->fft_size_2+1);
 
+	//MASKING initializations
 	//Compute adaptive initial thresholds
 	compute_auto_thresholds(nrepel->auto_thresholds, nrepel->fft_size, nrepel->fft_size_2,
 													nrepel->samp_rate);
-
-	//MASKING initializations
 	compute_bark_mapping(nrepel->bark_z, nrepel->fft_size_2, nrepel->samp_rate);
 	compute_absolute_thresholds(nrepel->absolute_thresholds, nrepel->fft_size_2,
 															nrepel->samp_rate);
@@ -343,6 +346,9 @@ instantiate(const LV2_Descriptor* descriptor, double rate, const char* bundle_pa
 								nrepel->input_fft_buffer_at, nrepel->output_fft_buffer_at,
 								&nrepel->forward_at);
 	compute_SSF(nrepel->SSF);
+
+	initialize_array(nrepel->alpha_masking,1.f,nrepel->fft_size_2+1);
+	initialize_array(nrepel->beta_masking,0.f,nrepel->fft_size_2+1);
 
 	//Initializing unity gain values
 	initialize_array(nrepel->unity_gain_bark_spectrum,1.f,N_BARK_BANDS);
@@ -467,6 +473,9 @@ run(LV2_Handle instance, uint32_t n_samples)
 		initialize_array(nrepel->prev_p_min,1.f,nrepel->fft_size_2+1);
 		initialize_array(nrepel->speech_p_p,1.f,nrepel->fft_size_2+1);
 		initialize_array(nrepel->prev_speech_p_p,1.f,nrepel->fft_size_2+1);
+
+		initialize_array(nrepel->alpha_masking,1.f,nrepel->fft_size_2+1);
+		initialize_array(nrepel->beta_masking,0.f,nrepel->fft_size_2+1);
 	}
 
 	//main loop for processing
@@ -543,26 +552,21 @@ run(LV2_Handle instance, uint32_t n_samples)
 					//If there is a noise profile reduce noise
 					if (nrepel->noise_thresholds_availables == true)
 					{
-						//Copy the noise spectrum to the scaled one to be scaled by preprocessing
-						memcpy(nrepel->noise_thresholds_scaled, nrepel->noise_thresholds_p2,
-									 sizeof(float)*(nrepel->fft_size_2+1));
-						//Copy the power spectrum to be smoothed by preprocessing
-						memcpy(nrepel->smoothed_spectrum, nrepel->fft_p2,
-									 sizeof(float)*(nrepel->fft_size_2+1));
-
 						//Detector smoothing and oversustraction
 						preprocessing(nrepel->thresholds_offset_linear, nrepel->fft_p2,
-													nrepel->noise_thresholds_scaled, nrepel->smoothed_spectrum,
-													nrepel->smoothed_spectrum_prev, nrepel->fft_size_2,
-													&nrepel->prev_beta, *(nrepel->masking),	nrepel->bark_z,
+													nrepel->noise_thresholds_p2, nrepel->noise_thresholds_scaled,
+													nrepel->smoothed_spectrum, nrepel->smoothed_spectrum_prev,
+													nrepel->fft_size_2, &nrepel->prev_beta, nrepel->bark_z,
 													nrepel->absolute_thresholds, nrepel->SSF,
 													nrepel->release_coeff,
 													nrepel->spreaded_unity_gain_bark_spectrum,
-													nrepel->spl_reference_values);
+													nrepel->spl_reference_values, nrepel->alpha_masking,
+													nrepel->beta_masking);
 
 						//Supression rule
 						spectral_gain(nrepel->smoothed_spectrum, nrepel->noise_thresholds_scaled,
-													nrepel->fft_size_2, *(nrepel->adaptive_state), nrepel->Gk);
+													nrepel->fft_size_2, *(nrepel->adaptive_state), nrepel->Gk,
+													nrepel->alpha_masking, nrepel->beta_masking);
 
 						//postfilter
 						postprocessing(nrepel->fft_size_2, nrepel->fft_size, nrepel->fft_p2,

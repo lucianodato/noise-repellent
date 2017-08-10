@@ -28,12 +28,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 //extra values
 #define N_BARK_BANDS 25
-#define EXPONENT 10
-#define HIGH_FREQ_BIAS 20.f
+#define HIGH_FREQ_BIAS 7.f
+#define S_AMP 1.f
 #define AT_SINE_WAVE_FREQ 1000.f
-
-#define MASKING 6.0
-#define GAIN_SMOOTH 0.5f //smoothing of gain proposed in virag method
+#define REFERENCE_LEVEL 90.f //dbSPL level of reproduction
 
 #define ARRAYACCESS(a, i, j) ((a)[(i) * N_BARK_BANDS + (j)]) //This is for SSF Matrix recall
 
@@ -51,7 +49,7 @@ compute_bark_mapping(float* bark_z,int fft_size_2, int srate)
   {
     freq = (float)srate / 2.f /(float)(fft_size_2)*(float)k ; //bin to freq
     //bark_z[k] = 7.f*logf(freq/650.f + sqrtf(1.f + (freq/650.f)*(freq/650.f))) ;
-    bark_z[k] = 1.f + 13.f*atanf(0.00076f*freq) + 3.5f*atanf(powf(freq/7500,2)) ;
+    bark_z[k] = 1.f + 13.f*atanf(0.00076f*freq) + 3.5f*atanf(powf(freq/7500.f,2.f)) ;
   }
 }
 
@@ -139,7 +137,7 @@ spl_reference(float* spl_reference_values, int fft_size_2, int srate,
   //Generate a fullscale sine wave of 1 kHz
   for(k = 0 ; k < 2*fft_size_2 ; k++)
   {
-    sinewave[k] = sinf((2.f * M_PI * k * AT_SINE_WAVE_FREQ) / srate);
+    sinewave[k] = S_AMP * sinf((2.f * M_PI * k * AT_SINE_WAVE_FREQ) / srate);
   }
 
   //Windowing the sinewave
@@ -159,7 +157,7 @@ spl_reference(float* spl_reference_values, int fft_size_2, int srate,
   //Convert to db and taking into account 90dbfs of reproduction loudness
   for(k = 0 ; k <= fft_size_2 ; k++)
   {
-    fft_p2_dbspl[k] = 90.f - to_dB(fft_p2[k]);
+    fft_p2_dbspl[k] = REFERENCE_LEVEL - to_dB(fft_p2[k]);
   }
 
   memcpy(spl_reference_values,fft_p2_dbspl,sizeof(float)*(fft_size_2+1));
@@ -190,14 +188,28 @@ compute_absolute_thresholds(float* absolute_thresholds,int fft_size_2, int srate
 
 //Computes the tonality factor using the spectral flatness
 float
-compute_tonality_factor(float* spectrum, float fft_size_2)
+compute_tonality_factor(float* spectrum, int* intermediate_band_bins,
+                        int* n_bins_per_band, int band)
 {
   int k;
   float SFM, tonality_factor;
   float sum_p = 0.f,sum_log_p = 0.f;
+  int start_pos, end_pos = 0;
+
+  //Mapping to bark bands
+  if(band == 0)
+  {
+    start_pos = band;
+    end_pos = n_bins_per_band[band];
+  }
+  else
+  {
+    start_pos = intermediate_band_bins[band-1];
+    end_pos = intermediate_band_bins[band-1] + n_bins_per_band[band];
+  }
 
   //Using power spectrum to compute the tonality factor
-  for (k = 0; k <= fft_size_2; k++)
+  for (k = start_pos; k < end_pos; k++)
   {
     //For spectral flatness measures
     sum_p += spectrum[k];
@@ -206,7 +218,7 @@ compute_tonality_factor(float* spectrum, float fft_size_2)
   //spectral flatness measure using Geometric and Arithmetic means of the spectrum cleaned previously
   //Using log propieties and definition of spectral flatness https://en.wikipedia.org/wiki/Spectral_flatness
   //Robinson thesis explains this reexpresion in detail
-  SFM = 10.f*(sum_log_p/(float)(fft_size_2+1) - log10f(sum_p/(float)(fft_size_2+1)));//this value is in db scale
+  SFM = 10.f*(sum_log_p/(float)(n_bins_per_band[band]) - log10f(sum_p/(float)(n_bins_per_band[band])));//this value is in db scale
 
   //Tonality factor in db scale
   tonality_factor = MIN(SFM/-60.f, 1.f);
@@ -221,7 +233,7 @@ compute_masking_thresholds(float* bark_z, float* absolute_thresholds, float* SSF
                            float* spreaded_unity_gain_bark_spectrum,
                            float* spl_reference_values)
 {
-  int k, j, start, end;
+  int k, j, start_pos, end_pos;
   int intermediate_band_bins[N_BARK_BANDS];
   int n_bins_per_band[N_BARK_BANDS];
   float bark_spectrum[N_BARK_BANDS];
@@ -236,24 +248,24 @@ compute_masking_thresholds(float* bark_z, float* absolute_thresholds, float* SSF
 
   //Now that we have the bark spectrum
   //Convolution bewtween the bark spectrum and SSF (Toepliz matrix multiplication)
-  convolve_with_SSF(SSF,bark_spectrum,spreaded_spectrum);
-
-  //Then we compute the tonality_factor for each band (1 tonee like 0 noise like)
-  //When there is hum or tonal noises in you noise floor this will be 1
-  //tonality_factor = compute_tonality_factor(spectrum, fft_size_2);//Uses power spectrum
+  convolve_with_SSF(SSF, bark_spectrum, spreaded_spectrum);
 
   for (j = 0; j < N_BARK_BANDS; j++)
   {
+    //Then we compute the tonality_factor for each band (1 tone like 0 noise like)
+    //tonality_factor = compute_tonality_factor(spectrum, intermediate_band_bins,  n_bins_per_band, j);//Uses power spectrum
 
     //Masking offset
-    //masking_offset[j] = (tonality_factor*(14.5+(j+1))+5.5*(1.f - tonality_factor));
+    //masking_offset[j] = (tonality_factor*(14.5+(j+1)) + 5.5*(1.f - tonality_factor));
+
+    //Using offset proposed by Virag
     masking_offset[j] = relative_thresholds[j];
 
     //Consider tonal noise in upper bands (j>15) due to musical noise of the power Sustraction that was used at First
     if(j>15) masking_offset[j] -= HIGH_FREQ_BIAS;
 
     //spread Masking threshold
-    threshold_j[j] = powf(10.f,log10f(spreaded_spectrum[j]) -  masking_offset[j]/10.f);
+    threshold_j[j] = powf(10.f,log10f(spreaded_spectrum[j]) - (masking_offset[j]/10.f));
 
     //Renormalization
     threshold_j[j] -= 10.f*log10f(spreaded_unity_gain_bark_spectrum[j]);
@@ -262,26 +274,28 @@ compute_masking_thresholds(float* bark_z, float* absolute_thresholds, float* SSF
     //Border case
     if(j == 0)
     {
-      start = 0;
+      start_pos = 0;
     }
     else
     {
-      start = intermediate_band_bins[j-1];
+      start_pos = intermediate_band_bins[j-1];
     }
-    end = intermediate_band_bins[j];
+    end_pos = intermediate_band_bins[j];
 
-    for(k = start; k < end; k++)
+    for(k = start_pos; k < end_pos; k++)
     {
       masking_thresholds[k] = threshold_j[j];
     }
+  }
 
-    convert_to_dbspl(spl_reference_values,masking_thresholds,fft_size_2);
+  //Masking thresholds need to be converted to db spl scale in order to be compared with
+  //absolute threshold of hearing
+  convert_to_dbspl(spl_reference_values,masking_thresholds,fft_size_2);
 
-    //Take into account the absolute_thresholds of hearing
-    for(k = 0; k <= fft_size_2; k++)
-    {
-      masking_thresholds[k] = MAX(masking_thresholds[k],absolute_thresholds[k]);
-    }
+  //Take into account the absolute_thresholds of hearing
+  for(k = 0; k <= fft_size_2; k++)
+  {
+    masking_thresholds[k] = MAX(masking_thresholds[k],absolute_thresholds[k]);
   }
 }
 
@@ -289,7 +303,7 @@ compute_masking_thresholds(float* bark_z, float* absolute_thresholds, float* SSF
 void
 compute_alpha_and_beta(float* fft_p2, float* noise_thresholds_p2, int fft_size_2,
                        float* alpha_masking, float* beta_masking, float* bark_z,
-                       float* absolute_thresholds, float* SSF, float masking,
+                       float* absolute_thresholds, float* SSF,
                        float* spreaded_unity_gain_bark_spectrum,
                        float* spl_reference_values)
 {
@@ -306,7 +320,7 @@ compute_alpha_and_beta(float* fft_p2, float* noise_thresholds_p2, int fft_size_2
   //basic Power Sustraction to estimate clean signal
   for (k = 0; k <= fft_size_2; k++)
   {
-    estimated_clean[k] =  MAX(fft_p2[k]-noise_thresholds_p2[k],FLT_MIN);
+    estimated_clean[k] =  MAX(fft_p2[k] - noise_thresholds_p2[k],FLT_MIN);
   }
 
   //Now we can compute noise masking threshold from this clean signal
@@ -335,7 +349,7 @@ compute_alpha_and_beta(float* fft_p2, float* noise_thresholds_p2, int fft_size_2
     }
     if(masking_thresholds[k] == min_masked_tmp)
     {
-       alpha_masking[k] = masking;
+       alpha_masking[k] = ALPHA_MAX;
        //beta_masking[k] = BETA_MAX;
     }
     if(masking_thresholds[k] < max_masked_tmp && masking_thresholds[k] > min_masked_tmp)
@@ -343,7 +357,8 @@ compute_alpha_and_beta(float* fft_p2, float* noise_thresholds_p2, int fft_size_2
       //Linear interpolation of the value between max and min masked threshold values
       normalized_value = (masking_thresholds[k]-min_masked_tmp)/(max_masked_tmp-min_masked_tmp);
 
-      alpha_masking[k] = (1.f - normalized_value)*ALPHA_MIN + normalized_value*masking;
+      alpha_masking[k] = (1.f - normalized_value)*ALPHA_MIN + normalized_value*ALPHA_MAX;
+      //beta_masking[k] = (1.f - normalized_value)*BETA_MIN + normalized_value*BETA_MAX;
     }
   }
 }

@@ -25,8 +25,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 //General spectral sustraction configuration
 #define GAMMA1 2.f
 #define GAMMA2 0.5f
-#define BETA_GSS 0.f
-#define ALPHA_GSS 1.f
 
 //Power substraction
 void
@@ -169,32 +167,23 @@ compute_post_filter(int fft_size_2, int fft_size, float* spectrum, float pf_thre
 
 //This version uses fixed alpha and beta
 void
-denoise_gain_gss(float reduction_strenght, int fft_size_2, float alpha, float beta,
-								 float* spectrum, float* noise_thresholds, float* Gk)
+denoise_gain_gss(int fft_size_2, float* alpha, float* beta, float* spectrum,
+								 float* noise_thresholds, float* Gk)
 {
   int k;
-  float gain, Fk;
 
   for (k = 0; k <= fft_size_2 ; k++)
 	{
     if (spectrum[k] > FLT_MIN)
 		{
-      if(powf((noise_thresholds[k]/spectrum[k]),GAMMA1) < (1.f/(alpha+beta)))
+      if(powf((noise_thresholds[k]/spectrum[k]),GAMMA1) < (1.f/(alpha[k]+beta[k])))
 			{
-        gain = MAX(powf(1.f-(alpha*powf((noise_thresholds[k]/spectrum[k]),GAMMA1)),GAMMA2),0.f);
+        Gk[k] = MAX(powf(1.f-(alpha[k]*powf((noise_thresholds[k]/spectrum[k]),GAMMA1)),GAMMA2),0.f);
       }
 			else
 			{
-        gain = MAX(powf(beta*powf((noise_thresholds[k]/spectrum[k]),GAMMA1),GAMMA2),0.f);
+        Gk[k] = MAX(powf(beta[k]*powf((noise_thresholds[k]/spectrum[k]),GAMMA1),GAMMA2),0.f);
       }
-      //Use reduction_strenght
-      Fk = reduction_strenght*(1.f-gain);
-
-      if(Fk < 0.f) Fk = 0.f;
-      if(Fk > 1.f) Fk = 1.f;
-
-      Gk[k] =  1.f - Fk;
-
     }
 		else
 		{
@@ -202,4 +191,10 @@ denoise_gain_gss(float reduction_strenght, int fft_size_2, float alpha, float be
       Gk[k] = 1.f;
     }
   }
+
+	//mirrored gain array
+	for (k = 1; k < fft_size_2; k++)
+	{
+		Gk[(2*fft_size_2)-k] = Gk[k];
+	}
 }
