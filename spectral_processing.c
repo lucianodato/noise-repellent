@@ -41,9 +41,9 @@ preprocessing(float noise_thresholds_offset, float* fft_p2,
 
 	//CALCULATION OF ALPHA WITH MASKING THRESHOLDS USING VIRAGS METHOD
 
-	// compute_alpha_and_beta(fft_p2, noise_thresholds_p2, fft_size_2,
-	// 											 alpha_masking, beta_masking, bark_z, absolute_thresholds,
-	// 											 SSF, spreaded_unity_gain_bark_spectrum, spl_reference_values);
+	compute_alpha_and_beta(fft_p2, noise_thresholds_p2, fft_size_2,
+												 alpha_masking, beta_masking, bark_z, absolute_thresholds,
+												 SSF, spreaded_unity_gain_bark_spectrum, spl_reference_values);
 	//Virag requires to smooth the alfas and avoid discontinuities in the gain function
 	//But release and pf can handle that
 
@@ -58,7 +58,7 @@ preprocessing(float noise_thresholds_offset, float* fft_p2,
 	//Scale noise thresholds (equals applying an oversubtraction factor in spectral subtraction)
 	for (k = 0; k <= fft_size_2; k++)
 	{
-		noise_thresholds_scaled[k] = noise_thresholds_p2[k] * noise_thresholds_offset;// * alpha[k];// transient_preservation_coeff;
+		noise_thresholds_scaled[k] = noise_thresholds_p2[k] * noise_thresholds_offset * alpha_masking[k];// transient_preservation_coeff;
 	}
 
 	//------SMOOTHING DETECTOR------

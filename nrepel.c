@@ -432,6 +432,30 @@ run(LV2_Handle instance, uint32_t n_samples)
 	//Inform latency at run call
 	*(nrepel->report_latency) = (float) nrepel->input_latency;
 
+	//Reset button state (if on)
+	if (*(nrepel->reset_profile) == 1.f)
+	{
+		initialize_array(nrepel->noise_thresholds_p2,0.f,nrepel->fft_size_2+1);
+		initialize_array(nrepel->noise_thresholds_scaled,0.f,nrepel->fft_size_2+1);
+		nrepel->window_count = 0.f;
+		nrepel->peak_count = 0.f;
+		nrepel->noise_thresholds_availables = false;
+		nrepel->peak_detection = false;
+
+		initialize_array(nrepel->Gk,1.f,nrepel->fft_size_2+1);
+
+		initialize_array(nrepel->prev_noise_thresholds,0.f,nrepel->fft_size_2+1);
+		initialize_array(nrepel->s_pow_spec,0.f,nrepel->fft_size_2+1);
+		initialize_array(nrepel->prev_s_pow_spec,0.f,nrepel->fft_size_2+1);
+		initialize_array(nrepel->p_min,0.f,nrepel->fft_size_2+1);
+		initialize_array(nrepel->prev_p_min,0.f,nrepel->fft_size_2+1);
+		initialize_array(nrepel->speech_p_p,0.f,nrepel->fft_size_2+1);
+		initialize_array(nrepel->prev_speech_p_p,0.f,nrepel->fft_size_2+1);
+
+		initialize_array(nrepel->alpha_masking,1.f,nrepel->fft_size_2+1);
+		initialize_array(nrepel->beta_masking,0.f,nrepel->fft_size_2+1);
+	}
+
 	//Softbypass targets in case of disabled or enabled
 	if(*(nrepel->enable) == 0.f)
 	{ //if disabled
@@ -453,30 +477,6 @@ run(LV2_Handle instance, uint32_t n_samples)
 	nrepel->thresholds_offset_linear = from_dB(*(nrepel->noise_thresholds_offset));
 	nrepel->pf_threshold_linear = from_dB(*(nrepel->pf_threshold));
 	nrepel->whitening_factor = *(nrepel->whitening_factor_pc)/100.f;
-
-	//Reset button state (if on)
-	if (*(nrepel->reset_profile) == 1.f)
-	{
-		initialize_array(nrepel->noise_thresholds_p2,1.f,nrepel->fft_size_2+1);
-		initialize_array(nrepel->noise_thresholds_scaled,1.f,nrepel->fft_size_2+1);
-		nrepel->window_count = 0.f;
-		nrepel->peak_count = 0.f;
-		nrepel->noise_thresholds_availables = false;
-		nrepel->peak_detection = false;
-
-		initialize_array(nrepel->Gk,1.f,nrepel->fft_size_2+1);
-
-		initialize_array(nrepel->prev_noise_thresholds,1.f,nrepel->fft_size_2+1);
-		initialize_array(nrepel->s_pow_spec,1.f,nrepel->fft_size_2+1);
-		initialize_array(nrepel->prev_s_pow_spec,1.f,nrepel->fft_size_2+1);
-		initialize_array(nrepel->p_min,1.f,nrepel->fft_size_2+1);
-		initialize_array(nrepel->prev_p_min,1.f,nrepel->fft_size_2+1);
-		initialize_array(nrepel->speech_p_p,1.f,nrepel->fft_size_2+1);
-		initialize_array(nrepel->prev_speech_p_p,1.f,nrepel->fft_size_2+1);
-
-		initialize_array(nrepel->alpha_masking,1.f,nrepel->fft_size_2+1);
-		initialize_array(nrepel->beta_masking,0.f,nrepel->fft_size_2+1);
-	}
 
 	//main loop for processing
 	for (pos = 0; pos < n_samples; pos++)

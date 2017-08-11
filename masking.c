@@ -88,7 +88,7 @@ void convolve_with_SSF(float* SSF, float* bark_spectrum, float* spreaded_spectru
 //Computes the energy of each bark band
 void
 compute_bark_spectrum(float* bark_z, float* bark_spectrum, float* spectrum,
-                      int* intermediate_band_bins, int* n_bins_per_band)
+                      float* intermediate_band_bins, float* n_bins_per_band)
 {
   int j;
   int last_position = 0;
@@ -129,10 +129,10 @@ spl_reference(float* spl_reference_values, int fft_size_2, int srate,
   int k;
   float sinewave[2*fft_size_2];
   float window[2*fft_size_2];
-  float fft_p2[fft_size_2+1];
-  float fft_magnitude[fft_size_2+1];
-  float fft_phase[fft_size_2+1];
-  float fft_p2_dbspl[fft_size_2+1];
+  float fft_p2_at[fft_size_2+1];
+  float fft_magnitude_at[fft_size_2+1];
+  float fft_phase_at[fft_size_2+1];
+  float fft_p2_at_dbspl[fft_size_2+1];
 
   //Generate a fullscale sine wave of 1 kHz
   for(k = 0 ; k < 2*fft_size_2 ; k++)
@@ -151,16 +151,16 @@ spl_reference(float* spl_reference_values, int fft_size_2, int srate,
   fftwf_execute(*forward_at);
 
   //Get the magnitude
-  get_info_from_bins(fft_p2, fft_magnitude, fft_phase, fft_size_2, 2*fft_size_2,
+  get_info_from_bins(fft_p2_at, fft_magnitude_at, fft_phase_at, fft_size_2, 2*fft_size_2,
                      output_fft_buffer_at);
 
   //Convert to db and taking into account 90dbfs of reproduction loudness
   for(k = 0 ; k <= fft_size_2 ; k++)
   {
-    fft_p2_dbspl[k] = REFERENCE_LEVEL - to_dB(fft_p2[k]);
+    fft_p2_at_dbspl[k] = REFERENCE_LEVEL - 10.f*log10f(fft_p2_at[k]);
   }
 
-  memcpy(spl_reference_values,fft_p2_dbspl,sizeof(float)*(fft_size_2+1));
+  memcpy(spl_reference_values,fft_p2_at_dbspl,sizeof(float)*(fft_size_2+1));
 
 }
 
@@ -188,8 +188,8 @@ compute_absolute_thresholds(float* absolute_thresholds,int fft_size_2, int srate
 
 //Computes the tonality factor using the spectral flatness
 float
-compute_tonality_factor(float* spectrum, int* intermediate_band_bins,
-                        int* n_bins_per_band, int band)
+compute_tonality_factor(float* spectrum, float* intermediate_band_bins,
+                        float* n_bins_per_band, int band)
 {
   int k;
   float SFM, tonality_factor;
@@ -229,13 +229,13 @@ compute_tonality_factor(float* spectrum, int* intermediate_band_bins,
 //masking threshold calculation
 void
 compute_masking_thresholds(float* bark_z, float* absolute_thresholds, float* SSF,
-                           float* spectrum, int fft_size_2, float* masking_thresholds,
+                           float* spectrum, float fft_size_2, float* masking_thresholds,
                            float* spreaded_unity_gain_bark_spectrum,
                            float* spl_reference_values)
 {
   int k, j, start_pos, end_pos;
-  int intermediate_band_bins[N_BARK_BANDS];
-  int n_bins_per_band[N_BARK_BANDS];
+  float intermediate_band_bins[N_BARK_BANDS];
+  float n_bins_per_band[N_BARK_BANDS];
   float bark_spectrum[N_BARK_BANDS];
   float threshold_j[N_BARK_BANDS];
   float masking_offset[N_BARK_BANDS];
@@ -339,18 +339,21 @@ compute_alpha_and_beta(float* fft_p2, float* noise_thresholds_p2, int fft_size_2
   float max_masked_tmp = max_spectral_value(masking_thresholds,fft_size_2);
   float min_masked_tmp = min_spectral_value(masking_thresholds,fft_size_2);
 
+  // printf("%f\n",max_masked_tmp );
+  // printf("%f\n",min_masked_tmp );
+
   for (k = 0; k <= fft_size_2; k++)
   {
     //new alpha and beta vector
     if(masking_thresholds[k] == max_masked_tmp)
     {
        alpha_masking[k] = ALPHA_MIN;
-       //beta_masking[k] = BETA_MIN;
+       beta_masking[k] = BETA_MIN;
     }
     if(masking_thresholds[k] == min_masked_tmp)
     {
        alpha_masking[k] = ALPHA_MAX;
-       //beta_masking[k] = BETA_MAX;
+       beta_masking[k] = BETA_MAX;
     }
     if(masking_thresholds[k] < max_masked_tmp && masking_thresholds[k] > min_masked_tmp)
     {
@@ -358,7 +361,7 @@ compute_alpha_and_beta(float* fft_p2, float* noise_thresholds_p2, int fft_size_2
       normalized_value = (masking_thresholds[k]-min_masked_tmp)/(max_masked_tmp-min_masked_tmp);
 
       alpha_masking[k] = (1.f - normalized_value)*ALPHA_MIN + normalized_value*ALPHA_MAX;
-      //beta_masking[k] = (1.f - normalized_value)*BETA_MIN + normalized_value*BETA_MAX;
+      beta_masking[k] = (1.f - normalized_value)*BETA_MIN + normalized_value*BETA_MAX;
     }
   }
 }
