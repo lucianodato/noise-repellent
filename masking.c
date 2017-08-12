@@ -262,7 +262,7 @@ compute_masking_thresholds(float* bark_z, float* absolute_thresholds, float* SSF
     //masking_offset[j] = relative_thresholds[j];
 
     //Consider tonal noise in upper bands (j>15) due to musical noise of the power Sustraction that was used at First
-    //if(j>15) masking_offset[j] -= HIGH_FREQ_BIAS;
+    if(j>15) masking_offset[j] += HIGH_FREQ_BIAS;
 
     //spread Masking threshold
     threshold_j[j] = powf(10.f,log10f(spreaded_spectrum[j]) - (masking_offset[j]/10.f));
