@@ -26,6 +26,39 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define GAMMA1 2.f
 #define GAMMA2 0.5f
 
+//Wiener substraction
+void
+wiener_subtraction(int fft_size_2, float* spectrum, float* noise_thresholds, float* Gk)
+{
+	int k;
+
+	for (k = 0; k <= fft_size_2 ; k++)
+	{
+		if (noise_thresholds[k] > FLT_MIN)
+		{
+			if(spectrum[k] > noise_thresholds[k])
+			{
+				Gk[k] = (spectrum[k]-noise_thresholds[k]) / spectrum[k];
+			}
+			else
+			{
+				Gk[k] = 0.f;
+			}
+		}
+		else
+		{
+			//Otherwise we keep everything as is
+			Gk[k] = 1.f;
+		}
+	}
+
+	//mirrored gain array
+	for (k = 1; k < fft_size_2; k++)
+	{
+			Gk[(2*fft_size_2)-k] = Gk[k];
+	}
+}
+
 //Power substraction
 void
 power_subtraction(int fft_size_2, float* spectrum, float* noise_thresholds, float* Gk)
@@ -38,7 +71,40 @@ power_subtraction(int fft_size_2, float* spectrum, float* noise_thresholds, floa
 		{
 			if(spectrum[k] > noise_thresholds[k])
 			{
-				Gk[k] = (spectrum[k]-noise_thresholds[k]) / spectrum[k];
+				Gk[k] = sqrtf((spectrum[k]-noise_thresholds[k]) / spectrum[k]);
+			}
+			else
+			{
+				Gk[k] = 0.f;
+			}
+		}
+		else
+		{
+			//Otherwise we keep everything as is
+			Gk[k] = 1.f;
+		}
+	}
+
+	//mirrored gain array
+	for (k = 1; k < fft_size_2; k++)
+	{
+			Gk[(2*fft_size_2)-k] = Gk[k];
+	}
+}
+
+//Magnitude substraction
+void
+magnitude_subtraction(int fft_size_2, float* spectrum, float* noise_thresholds, float* Gk)
+{
+	int k;
+
+	for (k = 0; k <= fft_size_2 ; k++)
+	{
+		if (noise_thresholds[k] > FLT_MIN)
+		{
+			if(spectrum[k] > noise_thresholds[k])
+			{
+				Gk[k] = (sqrtf(spectrum[k])-sqrtf(noise_thresholds[k])) / sqrtf(spectrum[k]);
 			}
 			else
 			{

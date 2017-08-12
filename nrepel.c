@@ -51,15 +51,16 @@ typedef enum
 	NREPEL_RELEASE = 2,
 	NREPEL_MASKING = 3,
 	NREPEL_PF_THRESH = 4,
-	NREPEL_WHITENING = 5,
-	NREPEL_N_LEARN = 6,
-	NREPEL_N_ADAPTIVE = 7,
-	NREPEL_RESET = 8,
-	NREPEL_RESIDUAL_LISTEN = 9,
-	NREPEL_ENABLE = 10,
-	NREPEL_LATENCY = 11,
-	NREPEL_INPUT = 12,
-	NREPEL_OUTPUT = 13,
+	NREPEL_A_CONTROL = 5,
+	NREPEL_WHITENING = 6,
+	NREPEL_N_LEARN = 7,
+	NREPEL_N_ADAPTIVE = 8,
+	NREPEL_RESET = 9,
+	NREPEL_RESIDUAL_LISTEN = 10,
+	NREPEL_ENABLE = 11,
+	NREPEL_LATENCY = 12,
+	NREPEL_INPUT = 13,
+	NREPEL_OUTPUT = 14,
 } PortIndex;
 
 //spectum struct for noise profile saving
@@ -79,9 +80,10 @@ typedef struct
 	//Parameters for the algorithm (user input)
 	float* amount_of_reduction; //Amount of noise to reduce in dB
 	float* noise_thresholds_offset; //This is to scale the noise profile (over subtraction factor)
-	float* pf_threshold; //threshold for the postfilter detector
 	float* release; //Release time
 	float* masking; //Masking scaling
+	float* artifact_control; //Mixing between spectral gates and spectral subtraction
+	float* pf_threshold; //threshold for the postfilter detector
 	float* whitening_factor_pc;	//Whitening amount of the reduction percentage
 	float* noise_learn_state; //Learn Noise state (Manual-Off-Auto)
 	float* adaptive_state; //Autocapture switch
@@ -160,6 +162,8 @@ typedef struct
 	float* smoothed_spectrum_prev; //previous frame smoothed power spectrum for envelopes
 
 	//Reduction gains
+	float* Gk_spectral_subtaction; //gain to be applied
+	float* Gk_spectral_gates; //gain to be applied
 	float* Gk; //definitive gain
 
 	//Ensemble related
@@ -311,6 +315,8 @@ instantiate(const LV2_Descriptor* descriptor, double rate, const char* bundle_pa
 	nrepel->forward_at = fftwf_plan_r2r_1d(nrepel->fft_size, nrepel->input_fft_buffer_at, nrepel->output_fft_buffer_at, FFTW_R2HC, FFTW_ESTIMATE);
 
 	//reduction gains related
+	nrepel->Gk_spectral_subtaction = (float*)calloc((nrepel->fft_size), sizeof(float));
+	nrepel->Gk_spectral_gates = (float*)calloc((nrepel->fft_size), sizeof(float));
 	nrepel->Gk = (float*)calloc((nrepel->fft_size), sizeof(float));
 
 	//Postfilter related
@@ -333,7 +339,9 @@ instantiate(const LV2_Descriptor* descriptor, double rate, const char* bundle_pa
 													nrepel->window_option_output,	&nrepel->overlap_scale_factor);
 
 	//Set initial gain as unity for the positive part
-	initialize_array(nrepel->Gk,1.f,nrepel->fft_size_2+1);
+	initialize_array(nrepel->Gk_spectral_subtaction,1.f,nrepel->fft_size);
+	initialize_array(nrepel->Gk_spectral_gates,1.f,nrepel->fft_size);
+	initialize_array(nrepel->Gk,1.f,nrepel->fft_size);
 
 	//Compute adaptive initial thresholds
 	compute_auto_thresholds(nrepel->auto_thresholds, nrepel->fft_size, nrepel->fft_size_2,
@@ -381,6 +389,9 @@ connect_port(LV2_Handle instance, uint32_t port, void* data)
 		break;
 		case NREPEL_MASKING:
 		nrepel->masking = (float*)data;
+		break;
+		case NREPEL_A_CONTROL:
+		nrepel->artifact_control = (float*)data;
 		break;
 		case NREPEL_WHITENING:
 		nrepel->whitening_factor_pc = (float*)data;
@@ -443,7 +454,9 @@ run(LV2_Handle instance, uint32_t n_samples)
 		nrepel->noise_thresholds_availables = false;
 		nrepel->peak_detection = false;
 
-		initialize_array(nrepel->Gk,1.f,nrepel->fft_size_2+1);
+		initialize_array(nrepel->Gk_spectral_subtaction,1.f,nrepel->fft_size);
+		initialize_array(nrepel->Gk_spectral_gates,1.f,nrepel->fft_size);
+		initialize_array(nrepel->Gk,1.f,nrepel->fft_size);
 
 		initialize_array(nrepel->prev_noise_thresholds,0.f,nrepel->fft_size_2+1);
 		initialize_array(nrepel->s_pow_spec,0.f,nrepel->fft_size_2+1);
@@ -562,12 +575,12 @@ run(LV2_Handle instance, uint32_t n_samples)
 													nrepel->release_coeff,
 													nrepel->spreaded_unity_gain_bark_spectrum,
 													nrepel->spl_reference_values, nrepel->alpha_masking,
-													nrepel->beta_masking);
+													nrepel->beta_masking, *(nrepel->masking));
 
 						//Supression rule
-						spectral_gain(nrepel->fft_p2, nrepel->noise_thresholds_scaled, nrepel->smoothed_spectrum,
-													nrepel->fft_size_2, *(nrepel->adaptive_state), nrepel->Gk,
-													nrepel->alpha_masking, nrepel->beta_masking);
+						spectral_gain(nrepel->fft_p2, nrepel->noise_thresholds_p2, nrepel->noise_thresholds_scaled, nrepel->smoothed_spectrum,
+													nrepel->fft_size_2, *(nrepel->adaptive_state), nrepel->Gk, nrepel->Gk_spectral_subtaction, nrepel->Gk_spectral_gates,
+													*(nrepel->artifact_control));
 
 						//postfilter
 						// postprocessing(nrepel->fft_size_2, nrepel->fft_size, nrepel->fft_p2,

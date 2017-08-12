@@ -34,7 +34,8 @@ preprocessing(float noise_thresholds_offset, float* fft_p2,
 							float* smoothed_spectrum_prev, int fft_size_2,
 							float* prev_beta, float* bark_z, float* absolute_thresholds, float* SSF,
 							float release_coeff, float* spreaded_unity_gain_bark_spectrum,
-							float* spl_reference_values, float* alpha_masking, float* beta_masking)
+							float* spl_reference_values, float* alpha_masking, float* beta_masking,
+							float masking_value)
 {
 	int k;
 
@@ -42,11 +43,11 @@ preprocessing(float noise_thresholds_offset, float* fft_p2,
 
 	//CALCULATION OF ALPHA WITH MASKING THRESHOLDS USING VIRAGS METHOD
 
-	compute_alpha_and_beta(fft_p2, noise_thresholds_p2, fft_size_2,
-												 alpha_masking, beta_masking, bark_z, absolute_thresholds,
-												 SSF, spreaded_unity_gain_bark_spectrum, spl_reference_values);
-	//Virag requires to smooth the alfas and avoid discontinuities in the gain function
-	//But release and pf can handle that
+	if(masking_value > 1.f){
+		compute_alpha_and_beta(fft_p2, noise_thresholds_p2, fft_size_2,
+													 alpha_masking, beta_masking, bark_z, absolute_thresholds,
+													 SSF, spreaded_unity_gain_bark_spectrum, spl_reference_values);
+	}
 
 	//------OVERSUBTRACTION------
 
@@ -85,17 +86,22 @@ preprocessing(float noise_thresholds_offset, float* fft_p2,
 }
 
 void
-spectral_gain(float* fft_p2, float* noise_thresholds_scaled, float* smoothed_spectrum, int fft_size_2,
-							float adaptive, float* Gk, float* alpha_masking, float* beta_masking)
+spectral_gain(float* fft_p2, float* noise_thresholds_p2, float* noise_thresholds_scaled, float* smoothed_spectrum, int fft_size_2,
+							float adaptive, float* Gk, float* Gk_spectral_subtaction, float* Gk_spectral_gates, float artifact_control)
 {
 	if(adaptive == 1.f)
 	{
-		power_subtraction(fft_size_2,	smoothed_spectrum, noise_thresholds_scaled, Gk);//Maybe Wiener is better here TODO
+		power_subtraction(fft_size_2, smoothed_spectrum, noise_thresholds_scaled, Gk);
 	}
 	else
 	{
-		power_subtraction(fft_size_2,	fft_p2, noise_thresholds_scaled, Gk);
-		//spectral_gating(fft_size_2, smoothed_spectrum, noise_thresholds_scaled, Gk);
+		wiener_subtraction(fft_size_2,	fft_p2, noise_thresholds_scaled, Gk_spectral_subtaction);
+		spectral_gating(fft_size_2, smoothed_spectrum, noise_thresholds_p2, Gk_spectral_gates);
+
+		for(int k = 0; k < 2*fft_size_2; k++)
+		{
+			Gk[k] = (1.f-artifact_control)*Gk_spectral_subtaction[k] + artifact_control*Gk_spectral_gates[k];
+		}
 	}
 }
 

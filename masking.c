@@ -339,9 +339,6 @@ compute_alpha_and_beta(float* fft_p2, float* noise_thresholds_p2, int fft_size_2
   float max_masked_tmp = max_spectral_value(masking_thresholds,fft_size_2);
   float min_masked_tmp = min_spectral_value(masking_thresholds,fft_size_2);
 
-  // printf("%f\n",max_masked_tmp );
-  // printf("%f\n",min_masked_tmp );
-
   for (k = 0; k <= fft_size_2; k++)
   {
     //new alpha and beta vector

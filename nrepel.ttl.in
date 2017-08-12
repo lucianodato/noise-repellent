@@ -64,7 +64,7 @@
       "Relâchement"@fr ;
     lv2:minimum 1.0 ;
     lv2:maximum 1000.0 ;
-    lv2:default 100.0 ;
+    lv2:default 300.0 ;
     units:unit units:ms ;
   ], [
     a lv2:ControlPort,
@@ -75,7 +75,7 @@
       "Enmascaramiento"@es ;
     lv2:minimum 1.0 ;
     lv2:maximum 6.0 ;
-    lv2:default 1.0 ;
+    lv2:default 6.0 ;
   ], [
     a lv2:ControlPort,
       lv2:InputPort ;
@@ -92,6 +92,17 @@
     a lv2:ControlPort,
       lv2:InputPort ;
     lv2:index 5 ;
+    lv2:symbol "a_control" ;
+    lv2:name "Artifact Control",
+      "Control de Artefactos"@es ,
+      ""@fr ;
+    lv2:minimum 0.0 ;
+    lv2:maximum 1.0 ;
+    lv2:default 0.5 ;
+  ], [
+    a lv2:ControlPort,
+      lv2:InputPort ;
+    lv2:index 6 ;
     lv2:symbol "whitening" ;
     lv2:name "Residual whitening",
       "Blanqueo de residuo"@es ,
@@ -103,7 +114,7 @@
   ], [
     a lv2:ControlPort,
       lv2:InputPort ;
-    lv2:index 6 ;
+    lv2:index 7 ;
     lv2:symbol "noise_learn" ;
     lv2:name "Learn noise profile",
       "Aprender perfil de ruido"@es ,
@@ -115,7 +126,7 @@
   ], [
     a lv2:ControlPort,
       lv2:InputPort ;
-    lv2:index 7 ;
+    lv2:index 8 ;
     lv2:symbol "adaptive_noise_learn" ;
     lv2:name "Adaptive noise learn",
           "Adaptar perfil de ruido"@es ,
@@ -127,7 +138,7 @@
   ], [
     a lv2:InputPort,
     lv2:ControlPort ;
-    lv2:index 8 ;
+    lv2:index 9 ;
     lv2:symbol "reset_noise_profile" ;
     lv2:name "Reset noise profile",
       "Reiniciar perfil de ruido"@es ,
@@ -139,7 +150,7 @@
   ], [
     a lv2:InputPort,
     lv2:ControlPort ;
-    lv2:index 9 ;
+    lv2:index 10 ;
     lv2:symbol "Residual_listen" ;
     lv2:name "Residual listen",
       "Escuchar Residuo"@es ,
@@ -150,7 +161,7 @@
     lv2:portProperty lv2:toggled, lv2:integer ;
   ], [
     a lv2:InputPort, lv2:ControlPort ;
-    lv2:index 10 ;
+    lv2:index 11 ;
     lv2:name "Enable" ;
     lv2:symbol "enable" ;
     lv2:default 1.0 ;
@@ -162,7 +173,7 @@
     a lv2:OutputPort,
       lv2:ControlPort ;
     lv2:name "latency" ;
-    lv2:index 11 ;
+    lv2:index 12 ;
     lv2:symbol "latency" ;
     lv2:minimum 0 ;
     lv2:maximum 8192 ;
@@ -171,13 +182,13 @@
   ], [
     a lv2:AudioPort,
       lv2:InputPort ;
-    lv2:index 12 ;
+    lv2:index 13 ;
     lv2:symbol "input" ;
     lv2:name "Input" ;
   ], [
     a lv2:AudioPort,
       lv2:OutputPort ;
-    lv2:index 13 ;
+    lv2:index 14 ;
     lv2:symbol "output" ;
     lv2:name "Output" ;
   ];
