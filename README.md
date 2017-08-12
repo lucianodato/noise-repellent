@@ -28,6 +28,8 @@ To compile and install this plugin you will need the LV2 SDK, gnu-make, a c-comp
   make
   sudo make install
 ```
+There is now an AUR package at https://aur.archlinux.org/packages/noise-repellent for Arch Users (Kindly done by CrocoDuck).
+
 Usage
 -----
 Manual noise learn workflow:
