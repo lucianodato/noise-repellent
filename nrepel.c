@@ -50,17 +50,16 @@ typedef enum
 	NREPEL_NOFFSET = 1,
 	NREPEL_RELEASE = 2,
 	NREPEL_MASKING = 3,
-	NREPEL_PF_THRESH = 4,
-	NREPEL_A_CONTROL = 5,
-	NREPEL_WHITENING = 6,
-	NREPEL_N_LEARN = 7,
-	NREPEL_N_ADAPTIVE = 8,
-	NREPEL_RESET = 9,
-	NREPEL_RESIDUAL_LISTEN = 10,
-	NREPEL_ENABLE = 11,
-	NREPEL_LATENCY = 12,
-	NREPEL_INPUT = 13,
-	NREPEL_OUTPUT = 14,
+	NREPEL_A_CONTROL = 4,
+	NREPEL_WHITENING = 5,
+	NREPEL_N_LEARN = 6,
+	NREPEL_N_ADAPTIVE = 7,
+	NREPEL_RESET = 8,
+	NREPEL_RESIDUAL_LISTEN = 9,
+	NREPEL_ENABLE = 10,
+	NREPEL_LATENCY = 11,
+	NREPEL_INPUT = 12,
+	NREPEL_OUTPUT = 13,
 } PortIndex;
 
 //spectum struct for noise profile saving
@@ -83,7 +82,6 @@ typedef struct
 	float* release; //Release time
 	float* masking; //Masking scaling
 	float* artifact_control; //Mixing between spectral gates and spectral subtraction
-	float* pf_threshold; //threshold for the postfilter detector
 	float* whitening_factor_pc;	//Whitening amount of the reduction percentage
 	float* noise_learn_state; //Learn Noise state (Manual-Off-Auto)
 	float* adaptive_state; //Autocapture switch
@@ -118,7 +116,6 @@ typedef struct
 	float release_coeff; //Release coefficient for Envelopes
 	float amount_of_reduction_linear;	//Reduction amount linear value
 	float thresholds_offset_linear;	//Threshold offset linear value
-	float pf_threshold_linear; //linear value of the snr threshold
 	float whitening_factor; //Whitening amount of the reduction
 	float prev_beta; //For the adaptive smoothing
 
@@ -160,6 +157,9 @@ typedef struct
 	//smoothing related
 	float* smoothed_spectrum; //power spectrum to be smoothed
 	float* smoothed_spectrum_prev; //previous frame smoothed power spectrum for envelopes
+
+	//Transient preservation related
+	float* transient_preserv_prev; //previous frame smoothed power spectrum for envelopes
 
 	//Reduction gains
 	float* Gk_spectral_subtaction; //gain to be applied
@@ -301,6 +301,10 @@ instantiate(const LV2_Descriptor* descriptor, double rate, const char* bundle_pa
 	nrepel->smoothed_spectrum_prev = (float*)calloc((nrepel->fft_size_2+1), sizeof(float));
 	nrepel->prev_beta = 0.f;
 
+	//transient preservation
+	nrepel->transient_preserv_prev = (float*)calloc((nrepel->fft_size_2+1), sizeof(float));
+
+
 	//masking related
 	nrepel->bark_z = (float*)calloc((nrepel->fft_size_2+1), sizeof(float));
 	nrepel->absolute_thresholds = (float*)calloc((nrepel->fft_size_2+1), sizeof(float));
@@ -380,9 +384,6 @@ connect_port(LV2_Handle instance, uint32_t port, void* data)
 		break;
 		case NREPEL_NOFFSET:
 		nrepel->noise_thresholds_offset = (float*)data;
-		break;
-		case NREPEL_PF_THRESH:
-		nrepel->pf_threshold = (float*)data;
 		break;
 		case NREPEL_RELEASE:
 		nrepel->release = (float*)data;
@@ -489,7 +490,6 @@ run(LV2_Handle instance, uint32_t n_samples)
 	nrepel->release_coeff = expf(-1000.f/(((*(nrepel->release)) * nrepel->samp_rate)/ nrepel->hop) );
 	nrepel->amount_of_reduction_linear = from_dB(-1.f * *(nrepel->amount_of_reduction));
 	nrepel->thresholds_offset_linear = from_dB(*(nrepel->noise_thresholds_offset));
-	nrepel->pf_threshold_linear = from_dB(*(nrepel->pf_threshold));
 	nrepel->whitening_factor = *(nrepel->whitening_factor_pc)/100.f;
 
 	//main loop for processing
@@ -580,14 +580,7 @@ run(LV2_Handle instance, uint32_t n_samples)
 						//Supression rule
 						spectral_gain(nrepel->fft_p2, nrepel->noise_thresholds_p2, nrepel->noise_thresholds_scaled, nrepel->smoothed_spectrum,
 													nrepel->fft_size_2, *(nrepel->adaptive_state), nrepel->Gk, nrepel->Gk_spectral_subtaction, nrepel->Gk_spectral_gates,
-													*(nrepel->artifact_control));
-
-						//postfilter
-						// postprocessing(nrepel->fft_size_2, nrepel->fft_size, nrepel->fft_p2,
-						// 							 nrepel->input_fft_buffer_ps, nrepel->input_fft_buffer_g,
-						// 							 nrepel->output_fft_buffer_ps, nrepel->output_fft_buffer_g,
-						// 							 &nrepel->forward_g, &nrepel->backward_g, &nrepel->forward_ps,
-						// 							 nrepel->Gk, nrepel->pf_threshold_linear);
+													*(nrepel->artifact_control), nrepel->transient_preserv_prev);
 
 						//apply gains
 						denoised_calulation(nrepel->fft_size, nrepel->output_fft_buffer,

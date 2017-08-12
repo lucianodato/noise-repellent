@@ -28,7 +28,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 //extra values
 #define N_BARK_BANDS 25
-#define HIGH_FREQ_BIAS 7.f
+#define HIGH_FREQ_BIAS 20.f
 #define S_AMP 1.f
 #define AT_SINE_WAVE_FREQ 1000.f
 #define REFERENCE_LEVEL 90.f //dbSPL level of reproduction
@@ -305,7 +305,7 @@ compute_alpha_and_beta(float* fft_p2, float* noise_thresholds_p2, int fft_size_2
                        float* alpha_masking, float* beta_masking, float* bark_z,
                        float* absolute_thresholds, float* SSF,
                        float* spreaded_unity_gain_bark_spectrum,
-                       float* spl_reference_values)
+                       float* spl_reference_values, float masking_value)
 {
   int k;
   float masking_thresholds[fft_size_2+1];
@@ -349,7 +349,7 @@ compute_alpha_and_beta(float* fft_p2, float* noise_thresholds_p2, int fft_size_2
     }
     if(masking_thresholds[k] == min_masked_tmp)
     {
-       alpha_masking[k] = ALPHA_MAX;
+       alpha_masking[k] = masking_value;
        beta_masking[k] = BETA_MAX;
     }
     if(masking_thresholds[k] < max_masked_tmp && masking_thresholds[k] > min_masked_tmp)
@@ -357,7 +357,7 @@ compute_alpha_and_beta(float* fft_p2, float* noise_thresholds_p2, int fft_size_2
       //Linear interpolation of the value between max and min masked threshold values
       normalized_value = (masking_thresholds[k]-min_masked_tmp)/(max_masked_tmp-min_masked_tmp);
 
-      alpha_masking[k] = (1.f - normalized_value)*ALPHA_MIN + normalized_value*ALPHA_MAX;
+      alpha_masking[k] = (1.f - normalized_value)*ALPHA_MIN + normalized_value*masking_value;
       beta_masking[k] = (1.f - normalized_value)*BETA_MIN + normalized_value*BETA_MAX;
     }
   }

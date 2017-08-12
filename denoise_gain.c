@@ -26,7 +26,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define GAMMA1 2.f
 #define GAMMA2 0.5f
 
-//Wiener substraction
+//Wiener substraction (Inbetween magnitude and power subtraction)
 void
 wiener_subtraction(int fft_size_2, float* spectrum, float* noise_thresholds, float* Gk)
 {
@@ -59,7 +59,7 @@ wiener_subtraction(int fft_size_2, float* spectrum, float* noise_thresholds, flo
 	}
 }
 
-//Power substraction
+//Power substraction (the softest one)
 void
 power_subtraction(int fft_size_2, float* spectrum, float* noise_thresholds, float* Gk)
 {
@@ -92,7 +92,7 @@ power_subtraction(int fft_size_2, float* spectrum, float* noise_thresholds, floa
 	}
 }
 
-//Magnitude substraction
+//Magnitude substraction (the harder one)
 void
 magnitude_subtraction(int fft_size_2, float* spectrum, float* noise_thresholds, float* Gk)
 {

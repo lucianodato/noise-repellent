@@ -31,8 +31,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 #define M_PI 3.14159265358979323846f
 
-#define ONSET_THRESH 100.f //For onset detection
-
 #define SP_MAX_NUM 100 //Max number of spectral peaks to find
 #define SP_THRESH 0.1f //Threshold to discriminate peaks (high value to discard noise) Linear 0<>1
 #define SP_USE_P_INTER true //Use parabolic interpolation
@@ -429,19 +427,6 @@ spectral_peaks(int fft_size_2, float* fft_p2, FFTPeak* spectral_peaks, int* peak
   }
   *peaks_count = k;
   //printf("%i\n",k );
-}
-
-//---------------TRANSIENTS--------------
-
-float
-transient_preservation(float* spectrum,float* spectrum_prev,float N)
-{
-  float spectral_flux_value = spectral_flux(spectrum, spectrum_prev, N);
-
-  if (spectral_flux_value > ONSET_THRESH) //This is poor sounding maybe the best approch is multiresolution TODO
-    return 1.f/spectral_flux_value;
-  else
-    return 1.f;
 }
 
 //---------------TIME SMOOTHING--------------

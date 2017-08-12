@@ -24,6 +24,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include "denoise_gain.c"
 #include "masking.c"
 
+#define ONSET_THRESH 100.f //For onset detection
 
 //------------GAIN AND THRESHOLD CALCULATION---------------
 
@@ -46,16 +47,11 @@ preprocessing(float noise_thresholds_offset, float* fft_p2,
 	if(masking_value > 1.f){
 		compute_alpha_and_beta(fft_p2, noise_thresholds_p2, fft_size_2,
 													 alpha_masking, beta_masking, bark_z, absolute_thresholds,
-													 SSF, spreaded_unity_gain_bark_spectrum, spl_reference_values);
+													 SSF, spreaded_unity_gain_bark_spectrum, spl_reference_values,
+												 	 masking_value);
 	}
 
 	//------OVERSUBTRACTION------
-
-	//TODO
-	// transient_preservation_coeff = transient_preservation(fft_p2, fft_p2_prev_tpres,
-	// 																											fft_size_2);
-	// memcpy(fft_p2_prev_tpres,fft_p2,sizeof(float)*(fft_size_2+1));
-
 
 	//Scale noise thresholds (equals applying an oversubtraction factor in spectral subtraction)
 	for (k = 0; k <= fft_size_2; k++)
@@ -86,69 +82,35 @@ preprocessing(float noise_thresholds_offset, float* fft_p2,
 }
 
 void
-spectral_gain(float* fft_p2, float* noise_thresholds_p2, float* noise_thresholds_scaled, float* smoothed_spectrum, int fft_size_2,
-							float adaptive, float* Gk, float* Gk_spectral_subtaction, float* Gk_spectral_gates, float artifact_control)
+spectral_gain(float* fft_p2, float* noise_thresholds_p2, float* noise_thresholds_scaled,
+							float* smoothed_spectrum, int fft_size_2, float adaptive, float* Gk,
+							float* Gk_spectral_subtaction, float* Gk_spectral_gates,
+							float artifact_control, float* transient_preserv_prev)
 {
+	//Transient protection by forcing wiener filtering when an onset is detected
+	float spectral_flux_value = spectral_flux(fft_p2, transient_preserv_prev, fft_size_2);
+
+	if (spectral_flux_value > ONSET_THRESH) //Experimental value
+	{
+		artifact_control = 0.f;
+	}
+
+	memcpy(transient_preserv_prev,fft_p2,sizeof(float)*(fft_size_2+1));
+
 	if(adaptive == 1.f)
 	{
 		power_subtraction(fft_size_2, smoothed_spectrum, noise_thresholds_scaled, Gk);
 	}
 	else
 	{
-		wiener_subtraction(fft_size_2,	fft_p2, noise_thresholds_scaled, Gk_spectral_subtaction);
-		spectral_gating(fft_size_2, smoothed_spectrum, noise_thresholds_p2, Gk_spectral_gates);
+		wiener_subtraction(fft_size_2, fft_p2, noise_thresholds_scaled, Gk_spectral_subtaction);
+		spectral_gating(fft_size_2, smoothed_spectrum, noise_thresholds_scaled, Gk_spectral_gates);
 
 		for(int k = 0; k < 2*fft_size_2; k++)
 		{
 			Gk[k] = (1.f-artifact_control)*Gk_spectral_subtaction[k] + artifact_control*Gk_spectral_gates[k];
 		}
 	}
-}
-
-void
-postprocessing(int fft_size_2, int fft_size, float* fft_p2, float* input_fft_buffer_ps,
-               float* input_fft_buffer_g, float* output_fft_buffer_ps,
-               float* output_fft_buffer_g, fftwf_plan* forward_g,
-               fftwf_plan* backward_g, fftwf_plan* forward_ps, 	float* Gk,
-               float pf_threshold)
-{
-
-  int k;
-  float postfilter[fft_size];
-
-	//GAIN SMOOTHING USING A POSTFILTER
-	//Compute the filter
-	compute_post_filter(fft_size_2, fft_size, fft_p2, pf_threshold, postfilter, Gk);
-
-	//Convolution using fft transform
-
-	//Copy to fft buffers
-	memcpy(input_fft_buffer_ps,postfilter,fft_size*sizeof(float));
-	memcpy(input_fft_buffer_g,Gk,fft_size*sizeof(float));
-
-	//FFT Analysis
-	fftwf_execute(*forward_ps);
-	fftwf_execute(*forward_g);
-
-	//Multiply with the filter computed
-	for (k = 0; k < fft_size; k++)
-	{
-    output_fft_buffer_g[k] *= output_fft_buffer_ps[k];
-  }
-
-	//FFT Synthesis (only gain needs to be synthetised)
-	fftwf_execute(*backward_g);
-
-	//Normalizing
-	for (k = 0; k < fft_size; k++)
-	{
-		input_fft_buffer_g[k] = input_fft_buffer_g[k] / fft_size;
-	}
-
-	//Copy to orginal arrays
-	memcpy(Gk,input_fft_buffer_g,fft_size*sizeof(float));
-
-	///////////////////
 }
 
 void
