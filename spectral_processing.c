@@ -89,6 +89,7 @@ spectral_gain(float* fft_p2, float* noise_thresholds_p2, float* noise_thresholds
 {
 	//Transient protection by forcing wiener filtering when an onset is detected
 	float spectral_flux_value = spectral_flux(fft_p2, transient_preserv_prev, fft_size_2);
+	//A more robust detector could improve this and maybe get rid of ONSET_THRESH
 
 	if (spectral_flux_value > ONSET_THRESH) //Experimental value
 	{
@@ -99,7 +100,7 @@ spectral_gain(float* fft_p2, float* noise_thresholds_p2, float* noise_thresholds
 
 	if(adaptive == 1.f)
 	{
-		power_subtraction(fft_size_2, smoothed_spectrum, noise_thresholds_scaled, Gk);
+		power_subtraction(fft_size_2, smoothed_spectrum, noise_thresholds_p2, Gk);
 	}
 	else
 	{
