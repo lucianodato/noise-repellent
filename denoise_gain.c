@@ -22,7 +22,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 #define PF_SMOOTHING 100.0 //Postfilter smoothing scaling
 
-//General spectral sustraction configuration
+//General spectral subtraction configuration
 #define GAMMA1 2.f
 #define GAMMA2 0.5f
 
@@ -165,7 +165,7 @@ compute_post_filter(int fft_size_2, int fft_size, float* spectrum, float pf_thre
  *so there are 2 oversustraction factors
 */
 
-//This version uses fixed alpha and beta
+//This version uses an array of alphas and betas
 void
 denoise_gain_gss(int fft_size_2, float* alpha, float* beta, float* spectrum,
 								 float* noise_thresholds, float* Gk)

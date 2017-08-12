@@ -335,10 +335,11 @@ instantiate(const LV2_Descriptor* descriptor, double rate, const char* bundle_pa
 	//Set initial gain as unity for the positive part
 	initialize_array(nrepel->Gk,1.f,nrepel->fft_size_2+1);
 
-	//MASKING initializations
 	//Compute adaptive initial thresholds
 	compute_auto_thresholds(nrepel->auto_thresholds, nrepel->fft_size, nrepel->fft_size_2,
 													nrepel->samp_rate);
+
+	//MASKING initializations
 	compute_bark_mapping(nrepel->bark_z, nrepel->fft_size_2, nrepel->samp_rate);
 	compute_absolute_thresholds(nrepel->absolute_thresholds, nrepel->fft_size_2,
 															nrepel->samp_rate);
@@ -347,14 +348,14 @@ instantiate(const LV2_Descriptor* descriptor, double rate, const char* bundle_pa
 								&nrepel->forward_at);
 	compute_SSF(nrepel->SSF);
 
-	initialize_array(nrepel->alpha_masking,1.f,nrepel->fft_size_2+1);
-	initialize_array(nrepel->beta_masking,0.f,nrepel->fft_size_2+1);
-
-	//Initializing unity gain values
+	//Initializing unity gain values for offset normalization
 	initialize_array(nrepel->unity_gain_bark_spectrum,1.f,N_BARK_BANDS);
 	//Convolve unitary energy bark spectrum with SSF
   convolve_with_SSF(nrepel->SSF, nrepel->unity_gain_bark_spectrum,
 										nrepel->spreaded_unity_gain_bark_spectrum);
+
+	initialize_array(nrepel->alpha_masking,1.f,nrepel->fft_size_2+1);
+	initialize_array(nrepel->beta_masking,0.f,nrepel->fft_size_2+1);
 
 	return (LV2_Handle)nrepel;
 }
@@ -564,16 +565,16 @@ run(LV2_Handle instance, uint32_t n_samples)
 													nrepel->beta_masking);
 
 						//Supression rule
-						spectral_gain(nrepel->smoothed_spectrum, nrepel->noise_thresholds_scaled,
+						spectral_gain(nrepel->fft_p2, nrepel->noise_thresholds_scaled, nrepel->smoothed_spectrum,
 													nrepel->fft_size_2, *(nrepel->adaptive_state), nrepel->Gk,
 													nrepel->alpha_masking, nrepel->beta_masking);
 
 						//postfilter
-						postprocessing(nrepel->fft_size_2, nrepel->fft_size, nrepel->fft_p2,
-													 nrepel->input_fft_buffer_ps, nrepel->input_fft_buffer_g,
-													 nrepel->output_fft_buffer_ps, nrepel->output_fft_buffer_g,
-													 &nrepel->forward_g, &nrepel->backward_g, &nrepel->forward_ps,
-													 nrepel->Gk, nrepel->pf_threshold_linear);
+						// postprocessing(nrepel->fft_size_2, nrepel->fft_size, nrepel->fft_p2,
+						// 							 nrepel->input_fft_buffer_ps, nrepel->input_fft_buffer_g,
+						// 							 nrepel->output_fft_buffer_ps, nrepel->output_fft_buffer_g,
+						// 							 &nrepel->forward_g, &nrepel->backward_g, &nrepel->forward_ps,
+						// 							 nrepel->Gk, nrepel->pf_threshold_linear);
 
 						//apply gains
 						denoised_calulation(nrepel->fft_size, nrepel->output_fft_buffer,

@@ -137,7 +137,7 @@ spl_reference(float* spl_reference_values, int fft_size_2, int srate,
   //Generate a fullscale sine wave of 1 kHz
   for(k = 0 ; k < 2*fft_size_2 ; k++)
   {
-    sinewave[k] = S_AMP * sinf((2.f * M_PI * k * AT_SINE_WAVE_FREQ) / srate);
+    sinewave[k] = S_AMP * sinf((2.f * M_PI * k * AT_SINE_WAVE_FREQ) / (float)srate);
   }
 
   //Windowing the sinewave
@@ -229,7 +229,7 @@ compute_tonality_factor(float* spectrum, float* intermediate_band_bins,
 //masking threshold calculation
 void
 compute_masking_thresholds(float* bark_z, float* absolute_thresholds, float* SSF,
-                           float* spectrum, float fft_size_2, float* masking_thresholds,
+                           float* spectrum, int fft_size_2, float* masking_thresholds,
                            float* spreaded_unity_gain_bark_spectrum,
                            float* spl_reference_values)
 {
@@ -240,7 +240,7 @@ compute_masking_thresholds(float* bark_z, float* absolute_thresholds, float* SSF
   float threshold_j[N_BARK_BANDS];
   float masking_offset[N_BARK_BANDS];
   float spreaded_spectrum[N_BARK_BANDS];
-  //float tonality_factor;
+  float tonality_factor;
 
   //First we get the energy in each bark band
   compute_bark_spectrum(bark_z, bark_spectrum, spectrum, intermediate_band_bins,
@@ -253,16 +253,16 @@ compute_masking_thresholds(float* bark_z, float* absolute_thresholds, float* SSF
   for (j = 0; j < N_BARK_BANDS; j++)
   {
     //Then we compute the tonality_factor for each band (1 tone like 0 noise like)
-    //tonality_factor = compute_tonality_factor(spectrum, intermediate_band_bins,  n_bins_per_band, j);//Uses power spectrum
+    tonality_factor = compute_tonality_factor(spectrum, intermediate_band_bins,  n_bins_per_band, j);//Uses power spectrum
 
     //Masking offset
-    //masking_offset[j] = (tonality_factor*(14.5+(j+1)) + 5.5*(1.f - tonality_factor));
+    masking_offset[j] = (tonality_factor*(14.5+(j+1)) + 5.5*(1.f - tonality_factor));
 
     //Using offset proposed by Virag
-    masking_offset[j] = relative_thresholds[j];
+    //masking_offset[j] = relative_thresholds[j];
 
     //Consider tonal noise in upper bands (j>15) due to musical noise of the power Sustraction that was used at First
-    if(j>15) masking_offset[j] -= HIGH_FREQ_BIAS;
+    //if(j>15) masking_offset[j] -= HIGH_FREQ_BIAS;
 
     //spread Masking threshold
     threshold_j[j] = powf(10.f,log10f(spreaded_spectrum[j]) - (masking_offset[j]/10.f));

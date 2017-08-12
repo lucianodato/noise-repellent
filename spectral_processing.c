@@ -24,6 +24,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include "denoise_gain.c"
 #include "masking.c"
 
+
 //------------GAIN AND THRESHOLD CALCULATION---------------
 
 void
@@ -84,18 +85,17 @@ preprocessing(float noise_thresholds_offset, float* fft_p2,
 }
 
 void
-spectral_gain(float* smoothed_spectrum, float* noise_thresholds_scaled, int fft_size_2,
+spectral_gain(float* fft_p2, float* noise_thresholds_scaled, float* smoothed_spectrum, int fft_size_2,
 							float adaptive, float* Gk, float* alpha_masking, float* beta_masking)
 {
 	if(adaptive == 1.f)
 	{
-		power_subtraction(fft_size_2,	smoothed_spectrum, noise_thresholds_scaled, Gk);
+		power_subtraction(fft_size_2,	smoothed_spectrum, noise_thresholds_scaled, Gk);//Maybe Wiener is better here TODO
 	}
 	else
 	{
-		spectral_gating(fft_size_2, smoothed_spectrum, noise_thresholds_scaled, Gk);
-		// denoise_gain_gss(fft_size_2, alpha_masking, beta_masking, smoothed_spectrum,
-		// 								 noise_thresholds_scaled, Gk);
+		power_subtraction(fft_size_2,	fft_p2, noise_thresholds_scaled, Gk);
+		//spectral_gating(fft_size_2, smoothed_spectrum, noise_thresholds_scaled, Gk);
 	}
 }
 
