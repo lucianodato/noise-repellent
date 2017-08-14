@@ -36,7 +36,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define INPUT_WINDOW 2 //0 HANN 1 HAMMING 2 BLACKMAN Input windows for STFT algorithm
 #define OUTPUT_WINDOW 0 //0 HANN 1 HAMMING 2 BLACKMAN Input windows for STFT algorithm
 #define FRAME_SIZE 2048 //Size of the analysis windows
-#define OVERLAP_FACTOR 4 //4 is 75% overlap Values bigger than 4 will rescale correctly
+#define OVERLAP_FACTOR 4 //4 is 75% overlap Values bigger than 4 will rescale correctly (2 won't work as is using windowing for analysis and Synthesis)
 #define NOISE_ARRAY_STATE_MAX_SIZE 8192 //max alloc size of the noise_thresholds to save with the session. This will consider upto fs of 192 kHz fs
 
 
@@ -149,6 +149,7 @@ typedef struct
 	//noise related
 	float* noise_thresholds_p2; //captured noise profile power spectrum
 	float* noise_thresholds_scaled; //captured noise profile power spectrum scaled by oversustraction
+	float* spectral_envelope_values; //spectral envelope
 	FFTPeak* noise_spectral_peaks; //Tonal noises of the noise profile
 	int* peak_pos; //Whether theres a peak or not in current postiion of the spectrum
 	int peak_count;	//counts the amount of peaks found
@@ -279,6 +280,7 @@ instantiate(const LV2_Descriptor* descriptor, double rate, const char* bundle_pa
 	//noise threshold related
 	nrepel->noise_thresholds_p2 = (float*)calloc((nrepel->fft_size_2+1), sizeof(float));
 	nrepel->noise_thresholds_scaled = (float*)calloc((nrepel->fft_size_2+1), sizeof(float));
+	nrepel->spectral_envelope_values = (float*)calloc((nrepel->fft_size_2+1), sizeof(float));
 	nrepel->noise_spectral_peaks = (FFTPeak*)calloc((SP_MAX_NUM), sizeof(FFTPeak));
 	nrepel->peak_pos = (int*)calloc((nrepel->fft_size_2+1), sizeof(int));
 	nrepel->window_count = 0.f;

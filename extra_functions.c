@@ -37,6 +37,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define SP_MAX_FREQ 16000.f //Highest frequency to search for peaks
 #define SP_MIN_FREQ 40.f //Lowest frequency to search for peaks
 
+#define SE_RESOLUTION 100.f //Spectral envelope resolution
+
 //struct for spectral peaks array
 typedef struct
 {
@@ -294,6 +296,17 @@ spectral_flux(float* spectrum,float* spectrum_prev,float N)
 void
 spectral_whitening(float* spectrum,float b,int N)
 {
+	// float peaks_magnitude[peaks_count];
+	// float peaks_frequencies[peak_count];
+	//
+	// //Convert input linear magnitudes to dB scale
+	// for (k = 0; k < peaks_count; k++) {
+	// 	peaks_magnitude[k] = 2.f*to_dB(spectral_peaks->magnitudes[k]);
+	// }
+	//
+	// //get max peak
+	// float max_value = max_spectral_value(peaks_magnitude, peaks_count);
+
   for (int k = 0; k < N; k++)
   {
     if(spectrum[k] > FLT_MIN)
@@ -304,14 +317,60 @@ spectral_whitening(float* spectrum,float b,int N)
 }
 
 void
+spectral_envelope(int fft_size_2, float* fft_p2, int samp_rate, float* spectral_envelope_values)
+{
+	int k;
+
+	//compute envelope
+	int spec_size = fft_size_2+1;
+	float spectral_range = bin_to_freq(spec_size,samp_rate,fft_size_2*2);
+	int hop = (int)freq_to_bin(SE_RESOLUTION,samp_rate,fft_size_2*2);//Experimental
+
+	for (k = 0; k <= fft_size_2; k+=hop)
+	{
+		float freq = bin_to_freq(k,samp_rate,fft_size_2*2);
+
+		float bf = freq - MAX(50.0, freq * 0.34); // 0.66
+		float ef = freq + MAX(50.0, freq * 0.58); // 1.58
+		int b = (int)(bf / spectral_range * (spec_size - 1.0) + 0.5);
+		int e = (int)(ef / spectral_range * (spec_size - 1.0) + 0.5);
+		b = MAX(b, 0);
+		b = MIN(spec_size - 1, b);
+		e = MAX(e, b + 1);
+		e = MIN(spec_size, e);
+		float c = b/2.0 + e/2.0;
+		float half_window_length = e - c;
+
+		float n = 0.0;
+		float wavg = 0.0;
+
+		for (int i = b; i < e; ++i)
+		{
+			float weight = 1.0 - fabs((float)(i)-c) / half_window_length;
+			weight *= weight;
+			weight *= weight;
+			float spectrum_energy_val = fft_p2[i];// * fft_p2[i];
+			weight *= spectrum_energy_val;
+			wavg += spectrum_energy_val * weight;
+			n += weight;
+		}
+		if (n != 0.0)
+			wavg /= n;
+
+		//final value
+		spectral_envelope_values[k] = wavg;//sqrtf(wavg);
+	}
+}
+
+void
 spectral_peaks(int fft_size_2, float* fft_p2, FFTPeak* spectral_peaks, int* peak_pos,
                int* peaks_count, int samp_rate)
 {
   int k;
   float fft_magnitude_db[fft_size_2+1];
   float peak_threshold_db = to_dB(SP_THRESH);
-  int max_bin = MIN(freq_to_bin(SP_MAX_FREQ,samp_rate,fft_size_2),fft_size_2+1);
-  int min_bin = MAX(freq_to_bin(SP_MIN_FREQ,samp_rate,fft_size_2),0);
+  int max_bin = MIN(freq_to_bin(SP_MAX_FREQ,samp_rate,fft_size_2*2),fft_size_2+1);
+  int min_bin = MAX(freq_to_bin(SP_MIN_FREQ,samp_rate,fft_size_2*2),0);
   int result_bin;
   float result_val;
 

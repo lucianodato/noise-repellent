@@ -135,7 +135,7 @@ spectral_gating(int fft_size_2, float* spectrum, float* noise_thresholds, float*
 	{
 		if (noise_thresholds[k] > FLT_MIN)
 		{
-			//Hard knee
+			// //Without knee
 			if (spectrum[k] >= noise_thresholds[k])
 			{
 				//over the threshold

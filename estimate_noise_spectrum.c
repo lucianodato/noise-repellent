@@ -130,7 +130,7 @@ adapt_noise(float* p2, int fft_size_2, float* noise_thresholds_p2, float* thresh
 
 }
 
-//Manual Capture threshold estimation
+//Manual Capture threshold estimation (using moving average)
 void
 get_noise_statistics(float* fft_p2, int fft_size_2, float* noise_thresholds_p2,
 										 float* window_count)
