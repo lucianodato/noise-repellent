@@ -130,7 +130,9 @@ adapt_noise(float* p2, int fft_size_2, float* noise_thresholds_p2, float* thresh
 
 }
 
-//Manual Capture threshold estimation (using moving average)
+//Manual Capture threshold estimation (using moving average). This could use a 2 band approach
+//where it get the max for 4khz and up and the rolling mean for lower frequencies
+//with the caution of smoothing transition TODO try
 void
 get_noise_statistics(float* fft_p2, int fft_size_2, float* noise_thresholds_p2,
 										 float* window_count)
