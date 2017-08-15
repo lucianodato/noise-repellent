@@ -1,22 +1,20 @@
 @prefix doap: <http://usefulinc.com/ns/doap#> .
 @prefix foaf: <http://xmlns.com/foaf/0.1/> .
-@prefix lv2:  <http://lv2plug.in/ns/lv2core#> .
-@prefix pprop: <http://lv2plug.in/ns/ext/port-props#> .
+@prefix lv2: <http://lv2plug.in/ns/lv2core#> .
+@prefix param: <http://lv2plug.in/ns/ext/parameters#> .
 @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
-@prefix param: <http://lv2plug.in/ns/ext/parameters#> .
 @prefix pg: <http://lv2plug.in/ns/ext/port-groups#> .
+@prefix pprop: <http://lv2plug.in/ns/ext/port-props#> .
 @prefix units: <http://lv2plug.in/ns/extensions/units#> .
 @prefix state: <http://lv2plug.in/ns/ext/state#> .
 @prefix urid: <http://lv2plug.in/ns/ext/urid#> .
-
 
 <http://example.com/lucianodato#me>
   a foaf:Person ;
   foaf:name "Luciano Dato" ;
   foaf:homepage <https://github.com/lucianodato> ;
   foaf:mbox <mailto:lucianodato@gmail.com> .
-
 
 <https://github.com/lucianodato/noise-repellent>
   a lv2:Plugin, lv2:SpectralPlugin, lv2:UtilityPlugin, doap:Project ;
@@ -181,4 +179,7 @@
     lv2:symbol "output" ;
     lv2:name "Output" ;
   ];
+  rdfs:comment "An LV2 plugin for broadband noise reduction",
+               "Un plugin LV2 para la reduccion de ruido"@es,
+               ""@fr ;
 .
