@@ -24,7 +24,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include "denoise_gain.c"
 #include "masking.c"
 
-#define ONSET_THRESH 100.f //For onset detection
+#define ONSET_THRESH 120.f //For onset detection
 
 //------------GAIN AND THRESHOLD CALCULATION---------------
 
@@ -36,7 +36,7 @@ preprocessing(float noise_thresholds_offset, float* fft_p2,
 							float* prev_beta, float* bark_z, float* absolute_thresholds, float* SSF,
 							float release_coeff, float* spreaded_unity_gain_bark_spectrum,
 							float* spl_reference_values, float* alpha_masking, float* beta_masking,
-							float masking_value)
+							float masking_value, float reduction_value)
 {
 	int k;
 
@@ -48,7 +48,7 @@ preprocessing(float noise_thresholds_offset, float* fft_p2,
 		compute_alpha_and_beta(fft_p2, noise_thresholds_p2, fft_size_2,
 													 alpha_masking, beta_masking, bark_z, absolute_thresholds,
 													 SSF, spreaded_unity_gain_bark_spectrum, spl_reference_values,
-												 	 masking_value);
+												 	 masking_value, reduction_value);
 	}
 
 	//------OVERSUBTRACTION------
@@ -61,7 +61,7 @@ preprocessing(float noise_thresholds_offset, float* fft_p2,
 
 	//------SMOOTHING DETECTOR------
 
-	/*Time smoothing between current and past Gk (similar effect to ephraim and malah)
+	/*Time smoothing between current and past fft_p2 (similar effect to ephraim and malah)
 		Here is done by applying a release envelope to signal power spectrum
 		The best option here is to adaptively smooth 2D spectral components so it will
 		require a bigger buffer as suggested by Lukin in Suppression of Musical Noise

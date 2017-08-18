@@ -262,7 +262,7 @@ compute_masking_thresholds(float* bark_z, float* absolute_thresholds, float* SSF
     //masking_offset[j] = relative_thresholds[j];
 
     //Consider tonal noise in upper bands (j>15) due to musical noise of the power Sustraction that was used at First
-    if(j>15) masking_offset[j] += HIGH_FREQ_BIAS;
+    //if(j>15) masking_offset[j] += HIGH_FREQ_BIAS;
 
     //spread Masking threshold
     threshold_j[j] = powf(10.f,log10f(spreaded_spectrum[j]) - (masking_offset[j]/10.f));
@@ -305,7 +305,8 @@ compute_alpha_and_beta(float* fft_p2, float* noise_thresholds_p2, int fft_size_2
                        float* alpha_masking, float* beta_masking, float* bark_z,
                        float* absolute_thresholds, float* SSF,
                        float* spreaded_unity_gain_bark_spectrum,
-                       float* spl_reference_values, float masking_value)
+                       float* spl_reference_values, float masking_value,
+                       float reduction_value)
 {
   int k;
   float masking_thresholds[fft_size_2+1];
@@ -350,7 +351,7 @@ compute_alpha_and_beta(float* fft_p2, float* noise_thresholds_p2, int fft_size_2
     if(masking_thresholds[k] == min_masked_tmp)
     {
        alpha_masking[k] = masking_value;
-       beta_masking[k] = BETA_MAX;
+       beta_masking[k] = reduction_value;
     }
     if(masking_thresholds[k] < max_masked_tmp && masking_thresholds[k] > min_masked_tmp)
     {
@@ -358,7 +359,7 @@ compute_alpha_and_beta(float* fft_p2, float* noise_thresholds_p2, int fft_size_2
       normalized_value = (masking_thresholds[k]-min_masked_tmp)/(max_masked_tmp-min_masked_tmp);
 
       alpha_masking[k] = (1.f - normalized_value)*ALPHA_MIN + normalized_value*masking_value;
-      beta_masking[k] = (1.f - normalized_value)*BETA_MIN + normalized_value*BETA_MAX;
+      beta_masking[k] = (1.f - normalized_value)*BETA_MIN + normalized_value*reduction_value;
     }
   }
 }

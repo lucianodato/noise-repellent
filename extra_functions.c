@@ -85,6 +85,15 @@ nearest_odd(int x)
 		return x;
 }
 
+int
+nearest_even(int x)
+{
+	if(x%2 == 0)
+		return x;
+	else
+		return x-1;
+}
+
 void
 initialize_array(float* array, float value,int size)
 {
@@ -307,7 +316,7 @@ spectral_whitening(float* spectrum,float b,int N)
 	// //get max peak
 	// float max_value = max_spectral_value(peaks_magnitude, peaks_count);
 
-  for (int k = 0; k < N; k++)
+  for (int k = 0; k <= N; k++)
   {
     if(spectrum[k] > FLT_MIN)
     {
