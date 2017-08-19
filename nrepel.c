@@ -161,6 +161,9 @@ typedef struct
 
 	//Transient preservation related
 	float* transient_preserv_prev; //previous frame smoothed power spectrum for envelopes
+	float spectral_flux_value_prev;
+	float tp_window_count;
+	float tp_r_mean;
 
 	//Reduction gains
 	float* Gk_spectral_subtaction; //gain to be applied
@@ -305,7 +308,9 @@ instantiate(const LV2_Descriptor* descriptor, double rate, const char* bundle_pa
 
 	//transient preservation
 	self->transient_preserv_prev = (float*)calloc((self->fft_size_2+1), sizeof(float));
-
+	self->spectral_flux_value_prev = 0.f;
+	self->tp_window_count = 0.f;
+	self->tp_r_mean = 0.f;
 
 	//masking related
 	self->bark_z = (float*)calloc((self->fft_size_2+1), sizeof(float));
@@ -450,6 +455,10 @@ reset_noise_profile(Nrepel* self)
 
 	initialize_array(self->alpha_masking,1.f,self->fft_size_2+1);
 	initialize_array(self->beta_masking,0.f,self->fft_size_2+1);
+
+	self->spectral_flux_value_prev = 0.f;
+	self->tp_window_count = 0.f;
+	self->tp_r_mean = 0.f;
 }
 
 static void
@@ -596,9 +605,13 @@ run(LV2_Handle instance, uint32_t n_samples)
 													self->amount_of_reduction_linear);
 
 						//Supression rule
-						spectral_gain(self->fft_p2, self->noise_thresholds_p2, self->noise_thresholds_scaled, self->smoothed_spectrum,
-													self->fft_size_2, *(self->adaptive_state), self->Gk, self->Gk_spectral_subtaction, self->Gk_spectral_gates,
-													*(self->artifact_control), self->transient_preserv_prev);
+						spectral_gain(self->fft_p2, self->noise_thresholds_p2,
+													self->noise_thresholds_scaled, self->smoothed_spectrum,
+													self->fft_size_2, *(self->adaptive_state), self->Gk,
+													self->Gk_spectral_subtaction, self->Gk_spectral_gates,
+													*(self->artifact_control), self->transient_preserv_prev,
+													&self->spectral_flux_value_prev, &self->tp_window_count,
+													&self->tp_r_mean);
 
 						//apply gains
 						denoised_calulation(self->fft_size, self->output_fft_buffer,

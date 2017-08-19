@@ -61,22 +61,13 @@ preprocessing(float noise_thresholds_offset, float* fft_p2,
 
 	//------SMOOTHING DETECTOR------
 
-	/*Time smoothing between current and past fft_p2 (similar effect to ephraim and malah)
-		Here is done by applying a release envelope to signal power spectrum
-		The best option here is to adaptively smooth 2D spectral components so it will
-		require a bigger buffer as suggested by Lukin in Suppression of Musical Noise
-		Artifacts in Audio Noise Reduction by Adaptive 2D Filtering. Bilateral filter or non
-		local means + DFT (This is the best improvement but it will need a big rehauling of
-		the stft)
-	*/
+	memcpy(smoothed_spectrum,fft_p2,sizeof(float)*(fft_size_2+1));
+
+	apply_time_envelope(smoothed_spectrum, smoothed_spectrum_prev, fft_size_2, release_coeff);
 
 	// This adaptive method is based on SPECTRAL SUBTRACTION WITH ADAPTIVE AVERAGING OF THE GAIN FUNCTION
 	// spectrum_adaptive_time_smoothing(fft_size_2, smoothed_spectrum_prev, smoothed_spectrum,
 	// 																 noise_thresholds_scaled, prev_beta, 1.f-release_coeff);
-
-	memcpy(smoothed_spectrum,fft_p2,sizeof(float)*(fft_size_2+1));
-
-	apply_time_envelope(smoothed_spectrum, smoothed_spectrum_prev, fft_size_2, release_coeff);
 
 	memcpy(smoothed_spectrum_prev,smoothed_spectrum,sizeof(float)*(fft_size_2+1));
 }
@@ -85,17 +76,42 @@ void
 spectral_gain(float* fft_p2, float* noise_thresholds_p2, float* noise_thresholds_scaled,
 							float* smoothed_spectrum, int fft_size_2, float adaptive, float* Gk,
 							float* Gk_spectral_subtaction, float* Gk_spectral_gates,
-							float artifact_control, float* transient_preserv_prev)
+							float artifact_control, float* transient_preserv_prev,
+							float* spectral_flux_value_prev, float* tp_window_count,
+							float* tp_r_mean)
 {
 	//Transient protection by forcing wiener filtering when an onset is detected
 	float spectral_flux_value = spectral_flux(fft_p2, transient_preserv_prev, fft_size_2);
-	//A more robust detector could improve this and maybe get rid of ONSET_THRESH
 
-	if (spectral_flux_value > ONSET_THRESH) //Experimental value
+	//adaptive thresholding (using rolling mean)
+	float adapted_threshold;
+
+	*(tp_window_count) += 1.f;
+
+	if(*(tp_window_count) > 1.f)
 	{
-		artifact_control = 0.f;
+		*(tp_r_mean) += ((spectral_flux_value - *(spectral_flux_value_prev))/ *(tp_window_count));
+	}
+	else
+	{
+		*(tp_r_mean) = spectral_flux_value;
 	}
 
+	adapted_threshold = ONSET_THRESH + *(tp_r_mean);
+
+	if (spectral_flux_value > adapted_threshold) //Experimental value
+	{
+		artifact_control = 0.f;
+
+		printf("%f", spectral_flux_value);
+		printf("%s", "   ");
+		printf("%f", adapted_threshold);
+		printf("%s", "   ");
+		printf("%f\n", *(tp_r_mean));
+	}
+
+
+	*(spectral_flux_value_prev) = spectral_flux_value;
 	memcpy(transient_preserv_prev,fft_p2,sizeof(float)*(fft_size_2+1));
 
 	if(adaptive == 1.f)
