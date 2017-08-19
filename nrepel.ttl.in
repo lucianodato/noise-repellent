@@ -71,7 +71,7 @@
     lv2:symbol "masking" ;
     lv2:name "Masking",
       "Enmascaramiento"@es,
-      ""@fr;
+      "Masquage"@fr;
     lv2:minimum 1.0 ;
     lv2:maximum 10.0 ;
     lv2:default 5.0 ;
@@ -82,7 +82,7 @@
     lv2:symbol "a_control" ;
     lv2:name "Artifact Control",
       "Control de Artefactos"@es ,
-      ""@fr ;
+      "Contrôle des artéfacts"@fr ;
     lv2:minimum 0.0 ;
     lv2:maximum 1.0 ;
     lv2:default 0.5 ;
