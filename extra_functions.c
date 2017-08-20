@@ -39,6 +39,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 #define SE_RESOLUTION 100.f //Spectral envelope resolution
 
+#define ONSET_THRESH 80.f //For onset detection
+
 //struct for spectral peaks array
 typedef struct
 {
@@ -575,6 +577,53 @@ apply_time_envelope(float* spectrum, float* spectrum_prev, float N, float releas
       spectrum[k] = release_coeff*spectrum_prev[k] + (1.f-release_coeff)*spectrum[k];
     }
 	}
+}
+
+//------TRANSIENT PROTECTION------
+
+bool
+transient_detection(float* fft_p2, float* transient_preserv_prev, float fft_size_2,
+										float* tp_window_count, float* tp_r_mean,
+										float* reduction_function_prev)
+{
+	float adapted_threshold, reduction_function;
+
+	//Transient protection by forcing wiener filtering when an onset is detected
+	reduction_function = spectral_flux(fft_p2, transient_preserv_prev, fft_size_2);
+	//reduction_function = high_frequency_content(fft_p2, fft_size_2);
+
+	//adaptive thresholding (using rolling mean)
+	*(tp_window_count) += 1.f;
+
+	if(*(tp_window_count) > 1.f)
+	{
+		*(tp_r_mean) += ((reduction_function - *(reduction_function_prev))/ *(tp_window_count));
+	}
+	else
+	{
+		*(tp_r_mean) = reduction_function;
+	}
+
+	adapted_threshold = ONSET_THRESH + *(tp_r_mean);
+
+	*(reduction_function_prev) = *(tp_r_mean);
+	memcpy(transient_preserv_prev,fft_p2,sizeof(float)*(fft_size_2+1));
+
+	if (reduction_function > adapted_threshold)
+	{
+		return true;
+
+		// printf("%f", reduction_function);
+		// printf("%s", "   ");
+		// printf("%f", adapted_threshold);
+		// printf("%s", "   ");
+		// printf("%f\n", *(tp_r_mean));
+	}
+	else
+	{
+		return false;
+	}
+
 }
 
 //-----------WINDOW---------------

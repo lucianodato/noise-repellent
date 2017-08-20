@@ -160,6 +160,7 @@ typedef struct
 	float reduction_function_prev;
 	float tp_window_count;
 	float tp_r_mean;
+	bool transient_present;
 
 	//Reduction gains
 	float* Gk; //definitive gain
@@ -305,6 +306,7 @@ instantiate(const LV2_Descriptor* descriptor, double rate, const char* bundle_pa
 	self->reduction_function_prev = 0.f;
 	self->tp_window_count = 0.f;
 	self->tp_r_mean = 0.f;
+	self->transient_present = false;
 
 	//masking related
 	self->bark_z = (float*)calloc((self->fft_size_2+1), sizeof(float));
@@ -452,6 +454,7 @@ reset_noise_profile(Nrepel* self)
 	self->reduction_function_prev = 0.f;
 	self->tp_window_count = 0.f;
 	self->tp_r_mean = 0.f;
+	self->transient_present = false;
 }
 
 static void
@@ -579,15 +582,15 @@ run(LV2_Handle instance, uint32_t n_samples)
 													self->spreaded_unity_gain_bark_spectrum,
 													self->spl_reference_values, self->alpha_masking,
 													self->beta_masking, *(self->masking), *(self->adaptive_state),
-													self->amount_of_reduction_linear);
+													self->amount_of_reduction_linear, self->transient_preserv_prev,
+													&self->reduction_function_prev, &self->tp_window_count,
+													&self->tp_r_mean, &self->transient_present);
 
 						//Supression rule
 						spectral_gain(self->fft_p2, self->noise_thresholds_p2,
 													self->noise_thresholds_scaled, self->smoothed_spectrum,
 													self->fft_size_2, *(self->adaptive_state), self->Gk,
-													self->transient_preserv_prev, &self->reduction_function_prev,
-													&self->tp_window_count, &self->tp_r_mean,
-													*(self->transient_protection));
+													*(self->transient_protection), self->transient_present);
 
 						//apply gains
 						denoised_calulation(self->fft_size, self->output_fft_buffer,

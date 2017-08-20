@@ -24,8 +24,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include "denoise_gain.c"
 #include "masking.c"
 
-#define ONSET_THRESH 80.f //For onset detection
-
 //------------GAIN AND THRESHOLD CALCULATION---------------
 
 void
@@ -36,7 +34,9 @@ preprocessing(float noise_thresholds_offset, float* fft_p2,
 							float* prev_beta, float* bark_z, float* absolute_thresholds, float* SSF,
 							float release_coeff, float* spreaded_unity_gain_bark_spectrum,
 							float* spl_reference_values, float* alpha_masking, float* beta_masking,
-							float masking_value, float adaptive_state, float reduction_value)
+							float masking_value, float adaptive_state, float reduction_value,
+							float* transient_preserv_prev, float* reduction_function_prev,
+							float* tp_window_count, float* tp_r_mean, bool* transient_present)
 {
 	int k;
 
@@ -80,38 +80,19 @@ preprocessing(float noise_thresholds_offset, float* fft_p2,
 
 		memcpy(smoothed_spectrum_prev,smoothed_spectrum,sizeof(float)*(fft_size_2+1));
 	}
+
+	//------TRANSIENT PROTECTION------
+
+	*(transient_present) = transient_detection(fft_p2, transient_preserv_prev, fft_size_2,
+																					tp_window_count, tp_r_mean,
+																					reduction_function_prev);
 }
 
 void
 spectral_gain(float* fft_p2, float* noise_thresholds_p2, float* noise_thresholds_scaled,
 							float* smoothed_spectrum, int fft_size_2, float adaptive, float* Gk,
-							float* transient_preserv_prev, float* reduction_function_prev,
-							float* tp_window_count, float* tp_r_mean, float transient_protection)
+							float transient_protection, bool transient_present)
 {
-	//------TRANSIENT PROTECTION------
-	float adapted_threshold, reduction_function;
-
-	//Transient protection by forcing wiener filtering when an onset is detected
-	reduction_function = spectral_flux(fft_p2, transient_preserv_prev, fft_size_2);
-	//reduction_function = high_frequency_content(fft_p2, fft_size_2);
-
-	//adaptive thresholding (using rolling mean)
-	*(tp_window_count) += 1.f;
-
-	if(*(tp_window_count) > 1.f)
-	{
-		*(tp_r_mean) += ((reduction_function - *(reduction_function_prev))/ *(tp_window_count));
-	}
-	else
-	{
-		*(tp_r_mean) = reduction_function;
-	}
-
-	adapted_threshold = ONSET_THRESH + *(tp_r_mean);
-
-	*(reduction_function_prev) = *(tp_r_mean);
-	memcpy(transient_preserv_prev,fft_p2,sizeof(float)*(fft_size_2+1));
-
 	//------REDUCTION GAINS------
 
 	//Get reduction to apply
@@ -122,15 +103,9 @@ spectral_gain(float* fft_p2, float* noise_thresholds_p2, float* noise_thresholds
 	else
 	{
 		//Protect transient by avoiding smoothing if present
-		if (reduction_function > adapted_threshold && transient_protection == 1.f)
+		if (transient_present && transient_protection == 1.f)
 		{
 			spectral_gating(fft_size_2, fft_p2, noise_thresholds_scaled, Gk);
-
-			// printf("%f", reduction_function);
-			// printf("%s", "   ");
-			// printf("%f", adapted_threshold);
-			// printf("%s", "   ");
-			// printf("%f\n", *(tp_r_mean));
 		}
 		else
 		{
