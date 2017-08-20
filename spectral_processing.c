@@ -127,11 +127,11 @@ spectral_gain(float* fft_p2, float* noise_thresholds_p2, float* noise_thresholds
 		{
 			spectral_gating(fft_size_2, fft_p2, noise_thresholds_scaled, Gk);
 
-			printf("%f", reduction_function);
-			printf("%s", "   ");
-			printf("%f", adapted_threshold);
-			printf("%s", "   ");
-			printf("%f\n", *(tp_r_mean));
+			// printf("%f", reduction_function);
+			// printf("%s", "   ");
+			// printf("%f", adapted_threshold);
+			// printf("%s", "   ");
+			// printf("%f\n", *(tp_r_mean));
 		}
 		else
 		{
