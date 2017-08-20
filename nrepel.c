@@ -32,9 +32,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define NREPEL_URI "https://github.com/lucianodato/noise-repellent"
 
 //STFT default values
-//#define FRAME_SIZE 2048 //Size of the analysis windows
-//#define FFT_SIZE 2048 //Size of the fft transform
-#define FRAME_SIZE 40.f //size of the processing window in ms
+#define FFT_SIZE 2048 //Size of the fft transform and frame
 #define INPUT_WINDOW 2 //0 HANN 1 HAMMING 2 BLACKMAN Input windows for STFT algorithm
 #define OUTPUT_WINDOW 0 //0 HANN 1 HAMMING 2 BLACKMAN Input windows for STFT algorithm
 #define OVERLAP_FACTOR 4 //4 is 75% overlap Values bigger than 4 will rescale correctly
@@ -101,8 +99,6 @@ typedef struct
 	int hop; //Hop size for the STFT
 	float* input_window; //Input Window values
 	float* output_window; //Output Window values
-	int frame_size; //Frame size
-	int frame_fft_diff;	//Difference between the fft size and the window size
 
 	//Algorithm exta variables
 	float tau; //time constant for soft bypass
@@ -243,7 +239,7 @@ instantiate(const LV2_Descriptor* descriptor, double rate, const char* bundle_pa
 	self->samp_rate = (float)rate;
 
 	//FFT related
-	self->fft_size = next_pow_two(FRAME_SIZE/1000.f * self->samp_rate);
+	self->fft_size = FFT_SIZE;
 	self->fft_size_2 = self->fft_size/2;
 	self->input_fft_buffer = (float*)calloc(self->fft_size, sizeof(float));
 	self->output_fft_buffer = (float*)calloc(self->fft_size, sizeof(float));
@@ -253,19 +249,16 @@ instantiate(const LV2_Descriptor* descriptor, double rate, const char* bundle_pa
 	//STFT window related
 	self->window_option_input = INPUT_WINDOW;
 	self->window_option_output = OUTPUT_WINDOW;
-	self->frame_size = nearest_odd(roundf(FRAME_SIZE/1000.f * self->samp_rate));//correct phase response
-	//self->frame_size = next_pow_two(FRAME_SIZE/1000.f * self->samp_rate);
-	self->frame_fft_diff = self->fft_size - self->frame_size;
-	self->input_window = (float*)calloc(self->frame_size, sizeof(float));
-	self->output_window = (float*)calloc(self->frame_size, sizeof(float));
+	self->input_window = (float*)calloc(self->fft_size, sizeof(float));
+	self->output_window = (float*)calloc(self->fft_size, sizeof(float));
 
 	//buffers for OLA
-	self->in_fifo = (float*)calloc(self->frame_size, sizeof(float));
-	self->out_fifo = (float*)calloc(self->frame_size, sizeof(float));
-	self->output_accum = (float*)calloc(self->frame_size*2, sizeof(float));
+	self->in_fifo = (float*)calloc(self->fft_size, sizeof(float));
+	self->out_fifo = (float*)calloc(self->fft_size, sizeof(float));
+	self->output_accum = (float*)calloc(self->fft_size*2, sizeof(float));
 	self->overlap_factor = OVERLAP_FACTOR;
-	self->hop = self->frame_size/self->overlap_factor;
-	self->input_latency = self->frame_size - self->hop;
+	self->hop = self->fft_size/self->overlap_factor;
+	self->input_latency = self->fft_size - self->hop;
 	self->read_ptr = self->input_latency; //the initial position because we are that many samples ahead
 
 	//soft bypass
@@ -342,7 +335,7 @@ instantiate(const LV2_Descriptor* descriptor, double rate, const char* bundle_pa
 
 	//Window combination initialization (pre processing window post processing window)
 	fft_pre_and_post_window(self->input_window, self->output_window,
-													self->frame_size, self->window_option_input,
+													self->fft_size, self->window_option_input,
 													self->window_option_output,	&self->overlap_scale_factor);
 
 	//Set initial gain as unity for the positive part
@@ -469,19 +462,6 @@ run(LV2_Handle instance, uint32_t n_samples)
 	//Inform latency at run call
 	*(self->report_latency) = (float) self->input_latency;
 
-	//Window start position in fft input vector
-	int start_pos;
-
-	if (self->frame_fft_diff == 0)//Frame size is less than fft size
-	{
-		start_pos = 0;
-	}
-	else
-	{
-		start_pos = (int)(floorf((float)self->frame_fft_diff/2.f)) + 1;
-	}
-
-
 	//Reset button state (if on)
 	if (*(self->reset_profile) == 1.f)
 	{
@@ -520,20 +500,17 @@ run(LV2_Handle instance, uint32_t n_samples)
 		self->read_ptr++;
 
 		//Once the buffer is full we can do stuff
-		if (self->read_ptr >= self->frame_size)
+		if (self->read_ptr >= self->fft_size)
 		{
 			//Reset the input buffer position
 			self->read_ptr = self->input_latency;
 
 			//----------STFT Analysis------------
 
-			//Reinitialize fft input buffer
-			initialize_array(self->input_fft_buffer,0.f,self->fft_size);
-
 			//Adding and windowing the frame input values in the center (zero-phasing)
-			for (k = 0; k < self->frame_size; k++)
+			for (k = 0; k < self->fft_size; k++)
 			{
-				self->input_fft_buffer[start_pos + k] = self->in_fifo[k] * self->input_window[k];
+				self->input_fft_buffer[k] = self->in_fifo[k] * self->input_window[k];
 			}
 
 			//----------FFT Analysis------------
@@ -644,9 +621,9 @@ run(LV2_Handle instance, uint32_t n_samples)
 			//------------OVERLAPADD-------------
 
 			//Windowing scaling and accumulation
-			for(k = 0; k < self->frame_size; k++)
+			for(k = 0; k < self->fft_size; k++)
 			{
-				self->output_accum[k] += (self->output_window[k]*self->input_fft_buffer[start_pos + k])/(self->overlap_scale_factor * self->overlap_factor);
+				self->output_accum[k] += (self->output_window[k]*self->input_fft_buffer[k])/(self->overlap_scale_factor * self->overlap_factor);
 			}
 
 			//Output samples up to the hop size
@@ -657,7 +634,7 @@ run(LV2_Handle instance, uint32_t n_samples)
 
 			//shift FFT accumulator the hop size
 			memmove(self->output_accum, self->output_accum + self->hop,
-							self->frame_size*sizeof(float));
+							self->fft_size*sizeof(float));
 
 			//move input FIFO
 			for (k = 0; k < self->input_latency; k++)

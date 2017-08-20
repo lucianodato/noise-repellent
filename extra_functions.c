@@ -304,7 +304,7 @@ spectral_flux(float* spectrum,float* spectrum_prev,float N)
 }
 
 float
-high_frequency_content(float* spectrum,float* spectrum_prev,float N)
+high_frequency_content(float* spectrum,float N)
 {
   int i;
   float sum = 0.f;

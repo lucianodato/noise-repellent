@@ -93,7 +93,7 @@ spectral_gain(float* fft_p2, float* noise_thresholds_p2, float* noise_thresholds
 
 	//Transient protection by forcing wiener filtering when an onset is detected
 	reduction_function = spectral_flux(fft_p2, transient_preserv_prev, fft_size_2);
-	//float reduction_function = high_frequency_content(fft_p2, transient_preserv_prev, fft_size_2);
+	//reduction_function = high_frequency_content(fft_p2, fft_size_2);
 
 	//adaptive thresholding (using rolling mean)
 	*(tp_window_count) += 1.f;
@@ -109,7 +109,7 @@ spectral_gain(float* fft_p2, float* noise_thresholds_p2, float* noise_thresholds
 
 	adapted_threshold = ONSET_THRESH + *(tp_r_mean);
 
-	*(reduction_function_prev) = reduction_function;
+	*(reduction_function_prev) = *(tp_r_mean);
 	memcpy(transient_preserv_prev,fft_p2,sizeof(float)*(fft_size_2+1));
 
 	//------REDUCTION GAINS------
