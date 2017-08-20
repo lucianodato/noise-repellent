@@ -86,17 +86,16 @@ void
 spectral_gain(float* fft_p2, float* noise_thresholds_p2, float* noise_thresholds_scaled,
 							float* smoothed_spectrum, int fft_size_2, float adaptive, float* Gk,
 							float* transient_preserv_prev, float* reduction_function_prev,
-							float* tp_window_count, float* tp_r_mean)
+							float* tp_window_count, float* tp_r_mean, float transient_protection)
 {
-
 	//------TRANSIENT PROTECTION------
+	float adapted_threshold, reduction_function;
+
 	//Transient protection by forcing wiener filtering when an onset is detected
-	float reduction_function = spectral_flux(fft_p2, transient_preserv_prev, fft_size_2);
+	reduction_function = spectral_flux(fft_p2, transient_preserv_prev, fft_size_2);
 	//float reduction_function = high_frequency_content(fft_p2, transient_preserv_prev, fft_size_2);
 
 	//adaptive thresholding (using rolling mean)
-	float adapted_threshold;
-
 	*(tp_window_count) += 1.f;
 
 	if(*(tp_window_count) > 1.f)
@@ -123,15 +122,15 @@ spectral_gain(float* fft_p2, float* noise_thresholds_p2, float* noise_thresholds
 	else
 	{
 		//Protect transient by avoiding smoothing if present
-		if (reduction_function > adapted_threshold)
+		if (reduction_function > adapted_threshold && transient_protection == 1.f)
 		{
 			spectral_gating(fft_size_2, fft_p2, noise_thresholds_scaled, Gk);
 
-			// printf("%f", reduction_function);
-			// printf("%s", "   ");
-			// printf("%f", adapted_threshold);
-			// printf("%s", "   ");
-			// printf("%f\n", *(tp_r_mean));
+			printf("%f", reduction_function);
+			printf("%s", "   ");
+			printf("%f", adapted_threshold);
+			printf("%s", "   ");
+			printf("%f\n", *(tp_r_mean));
 		}
 		else
 		{

@@ -56,10 +56,11 @@ typedef enum
 	NREPEL_N_ADAPTIVE = 6,
 	NREPEL_RESET = 7,
 	NREPEL_RESIDUAL_LISTEN = 8,
-	NREPEL_ENABLE = 9,
-	NREPEL_LATENCY = 10,
-	NREPEL_INPUT = 11,
-	NREPEL_OUTPUT = 12,
+	NREPEL_T_PROTECT = 9,
+	NREPEL_ENABLE = 10,
+	NREPEL_LATENCY = 11,
+	NREPEL_INPUT = 12,
+	NREPEL_OUTPUT = 13,
 } PortIndex;
 
 //spectum struct for noise profile saving
@@ -86,6 +87,7 @@ typedef struct
 	float* adaptive_state; //Autocapture switch
 	float* reset_profile; //Reset Noise switch
 	float* residual_listen; //For noise only listening
+	float* transient_protection; //To activate transient protection
 	float* enable; //For soft bypass (click free bypass)
 	float* report_latency; //Latency necessary
 
@@ -402,6 +404,9 @@ connect_port(LV2_Handle instance, uint32_t port, void* data)
 		case NREPEL_RESIDUAL_LISTEN:
 		self->residual_listen = (float*)data;
 		break;
+		case NREPEL_T_PROTECT:
+		self->transient_protection = (float*)data;
+		break;
 		case NREPEL_RESET:
 		self->reset_profile = (float*)data;
 		break;
@@ -596,7 +601,8 @@ run(LV2_Handle instance, uint32_t n_samples)
 													self->noise_thresholds_scaled, self->smoothed_spectrum,
 													self->fft_size_2, *(self->adaptive_state), self->Gk,
 													self->transient_preserv_prev, &self->reduction_function_prev,
-													&self->tp_window_count, &self->tp_r_mean);
+													&self->tp_window_count, &self->tp_r_mean,
+													*(self->transient_protection));
 
 						//apply gains
 						denoised_calulation(self->fft_size, self->output_fft_buffer,
