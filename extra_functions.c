@@ -297,9 +297,23 @@ spectral_flux(float* spectrum,float* spectrum_prev,float N)
   for(i = 0;i <= N; i++)
   {
     temp = sqrtf(spectrum[i]) - sqrtf(spectrum_prev[i]); //Recieves power spectrum uses magnitude
-    spectral_flux += (temp + fabs(temp))/2.f;
+		if(temp > 0.f)
+			spectral_flux += (temp + fabs(temp))/2.f;
   }
   return spectral_flux;
+}
+
+float
+high_frequency_content(float* spectrum,float* spectrum_prev,float N)
+{
+  int i;
+  float sum = 0.f;
+
+  for(i = 0;i <= N; i++)
+  {
+    sum += i*spectrum[i];
+  }
+  return sum/(float)(N+1);
 }
 
 void

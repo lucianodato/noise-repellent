@@ -51,16 +51,15 @@ typedef enum
 	NREPEL_NOFFSET = 1,
 	NREPEL_RELEASE = 2,
 	NREPEL_MASKING = 3,
-	NREPEL_A_CONTROL = 4,
-	NREPEL_WHITENING = 5,
-	NREPEL_N_LEARN = 6,
-	NREPEL_N_ADAPTIVE = 7,
-	NREPEL_RESET = 8,
-	NREPEL_RESIDUAL_LISTEN = 9,
-	NREPEL_ENABLE = 10,
-	NREPEL_LATENCY = 11,
-	NREPEL_INPUT = 12,
-	NREPEL_OUTPUT = 13,
+	NREPEL_WHITENING = 4,
+	NREPEL_N_LEARN = 5,
+	NREPEL_N_ADAPTIVE = 6,
+	NREPEL_RESET = 7,
+	NREPEL_RESIDUAL_LISTEN = 8,
+	NREPEL_ENABLE = 9,
+	NREPEL_LATENCY = 10,
+	NREPEL_INPUT = 11,
+	NREPEL_OUTPUT = 12,
 } PortIndex;
 
 //spectum struct for noise profile saving
@@ -82,7 +81,6 @@ typedef struct
 	float* noise_thresholds_offset; //This is to scale the noise profile (over subtraction factor)
 	float* release; //Release time
 	float* masking; //Masking scaling
-	float* artifact_control; //Mixing between spectral gates and spectral subtraction
 	float* whitening_factor_pc;	//Whitening amount of the reduction percentage
 	float* noise_learn_state; //Learn Noise state (Manual-Off-Auto)
 	float* adaptive_state; //Autocapture switch
@@ -161,13 +159,11 @@ typedef struct
 
 	//Transient preservation related
 	float* transient_preserv_prev; //previous frame smoothed power spectrum for envelopes
-	float spectral_flux_value_prev;
+	float reduction_function_prev;
 	float tp_window_count;
 	float tp_r_mean;
 
 	//Reduction gains
-	float* Gk_spectral_subtaction; //gain to be applied
-	float* Gk_spectral_gates; //gain to be applied
 	float* Gk; //definitive gain
 
 	//Ensemble related
@@ -308,7 +304,7 @@ instantiate(const LV2_Descriptor* descriptor, double rate, const char* bundle_pa
 
 	//transient preservation
 	self->transient_preserv_prev = (float*)calloc((self->fft_size_2+1), sizeof(float));
-	self->spectral_flux_value_prev = 0.f;
+	self->reduction_function_prev = 0.f;
 	self->tp_window_count = 0.f;
 	self->tp_r_mean = 0.f;
 
@@ -326,8 +322,6 @@ instantiate(const LV2_Descriptor* descriptor, double rate, const char* bundle_pa
 	self->forward_at = fftwf_plan_r2r_1d(self->fft_size, self->input_fft_buffer_at, self->output_fft_buffer_at, FFTW_R2HC, FFTW_ESTIMATE);
 
 	//reduction gains related
-	self->Gk_spectral_subtaction = (float*)calloc((self->fft_size), sizeof(float));
-	self->Gk_spectral_gates = (float*)calloc((self->fft_size), sizeof(float));
 	self->Gk = (float*)calloc((self->fft_size), sizeof(float));
 
 	//Postfilter related
@@ -350,8 +344,6 @@ instantiate(const LV2_Descriptor* descriptor, double rate, const char* bundle_pa
 													self->window_option_output,	&self->overlap_scale_factor);
 
 	//Set initial gain as unity for the positive part
-	initialize_array(self->Gk_spectral_subtaction,1.f,self->fft_size);
-	initialize_array(self->Gk_spectral_gates,1.f,self->fft_size);
 	initialize_array(self->Gk,1.f,self->fft_size);
 
 	//Compute adaptive initial thresholds
@@ -398,9 +390,6 @@ connect_port(LV2_Handle instance, uint32_t port, void* data)
 		case NREPEL_MASKING:
 		self->masking = (float*)data;
 		break;
-		case NREPEL_A_CONTROL:
-		self->artifact_control = (float*)data;
-		break;
 		case NREPEL_WHITENING:
 		self->whitening_factor_pc = (float*)data;
 		break;
@@ -441,8 +430,6 @@ reset_noise_profile(Nrepel* self)
 	self->noise_thresholds_availables = false;
 	self->peaks_detected = false;
 
-	initialize_array(self->Gk_spectral_subtaction,1.f,self->fft_size);
-	initialize_array(self->Gk_spectral_gates,1.f,self->fft_size);
 	initialize_array(self->Gk,1.f,self->fft_size);
 
 	initialize_array(self->prev_noise_thresholds,0.f,self->fft_size_2+1);
@@ -456,7 +443,7 @@ reset_noise_profile(Nrepel* self)
 	initialize_array(self->alpha_masking,1.f,self->fft_size_2+1);
 	initialize_array(self->beta_masking,0.f,self->fft_size_2+1);
 
-	self->spectral_flux_value_prev = 0.f;
+	self->reduction_function_prev = 0.f;
 	self->tp_window_count = 0.f;
 	self->tp_r_mean = 0.f;
 }
@@ -601,17 +588,15 @@ run(LV2_Handle instance, uint32_t n_samples)
 													self->release_coeff,
 													self->spreaded_unity_gain_bark_spectrum,
 													self->spl_reference_values, self->alpha_masking,
-													self->beta_masking, *(self->masking),
+													self->beta_masking, *(self->masking), *(self->adaptive_state),
 													self->amount_of_reduction_linear);
 
 						//Supression rule
 						spectral_gain(self->fft_p2, self->noise_thresholds_p2,
 													self->noise_thresholds_scaled, self->smoothed_spectrum,
 													self->fft_size_2, *(self->adaptive_state), self->Gk,
-													self->Gk_spectral_subtaction, self->Gk_spectral_gates,
-													*(self->artifact_control), self->transient_preserv_prev,
-													&self->spectral_flux_value_prev, &self->tp_window_count,
-													&self->tp_r_mean);
+													self->transient_preserv_prev, &self->reduction_function_prev,
+													&self->tp_window_count, &self->tp_r_mean);
 
 						//apply gains
 						denoised_calulation(self->fft_size, self->output_fft_buffer,
