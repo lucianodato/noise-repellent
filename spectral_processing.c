@@ -156,7 +156,7 @@ denoised_calulation(int fft_size,	float* output_fft_buffer,
 void
 residual_calulation(int fft_size, float* output_fft_buffer,
 										float* residual_spectrum, float* denoised_spectrum,
-										float whitening_factor)
+										float whitening_factor, float* residual_max_global_value)
 {
 
   int k;
@@ -171,7 +171,7 @@ residual_calulation(int fft_size, float* output_fft_buffer,
 	//Whitening (residual spectrum more similar to white noise)
 	if(whitening_factor > 0.f)
 	{
-		spectral_whitening(residual_spectrum,whitening_factor,fft_size);
+		spectral_whitening(residual_spectrum,whitening_factor,fft_size, residual_max_global_value);
 	}
 	////////////
 }

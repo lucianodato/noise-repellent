@@ -317,24 +317,25 @@ high_frequency_content(float* spectrum,float N)
 }
 
 void
-spectral_whitening(float* spectrum,float b,int N)
+spectral_whitening(float* spectrum,float b,int N, float* max_spectrum)
 {
-	// float peaks_magnitude[peaks_count];
-	// float peaks_frequencies[peak_count];
-	//
-	// //Convert input linear magnitudes to dB scale
-	// for (k = 0; k < peaks_count; k++) {
-	// 	peaks_magnitude[k] = 2.f*to_dB(spectral_peaks->magnitudes[k]);
-	// }
-	//
-	// //get max peak
-	// float max_value = max_spectral_value(peaks_magnitude, peaks_count);
+	float whitened_spectrum[N];
 
-  for (int k = 0; k <= N; k++)
+	//First get maximun values in each bin
+	for (int k = 0; k < N; k++)
+	{
+		max_spectrum[k] = MAX(max_spectrum[k], spectrum[k]);
+	}
+
+  for (int k = 0; k < N; k++)
   {
     if(spectrum[k] > FLT_MIN)
     {
-      spectrum[k] = (1.f - b)*spectrum[k] + b*(1.f - spectrum[k]);
+			//Get whitened spectrum
+			whitened_spectrum[k] = spectrum[k]/max_spectrum[k];
+
+			//Interpolate between whitened and non whitened residual
+      spectrum[k] = (1.f - b)*spectrum[k] + b*whitened_spectrum[k];
     }
   }
 }

@@ -169,6 +169,9 @@ typedef struct
 	float* denoised_spectrum;
 	float* final_spectrum;
 
+	//whitening related
+	float* residual_max_global_value;
+
 	//Loizou algorithm
 	float* auto_thresholds; //Reference threshold for louizou algorithm
 	float* prev_noise_thresholds;
@@ -328,6 +331,9 @@ instantiate(const LV2_Descriptor* descriptor, double rate, const char* bundle_pa
 	self->forward_g = fftwf_plan_r2r_1d(self->fft_size, self->input_fft_buffer_g, self->output_fft_buffer_g, FFTW_R2HC, FFTW_ESTIMATE);
 	self->backward_g = fftwf_plan_r2r_1d(self->fft_size, self->output_fft_buffer_g, self->input_fft_buffer_g, FFTW_HC2R, FFTW_ESTIMATE);
 
+	//whitening related
+	self->residual_max_global_value = (float*)calloc((self->fft_size), sizeof(float));
+
 	//final ensemble related
 	self->residual_spectrum = (float*)calloc((self->fft_size), sizeof(float));
 	self->denoised_spectrum = (float*)calloc((self->fft_size), sizeof(float));
@@ -429,6 +435,8 @@ reset_noise_profile(Nrepel* self)
 	self->peaks_detected = false;
 
 	initialize_array(self->Gk,1.f,self->fft_size);
+
+	initialize_array(self->residual_max_global_value,0.f,self->fft_size);
 
 	initialize_array(self->prev_noise_thresholds,0.f,self->fft_size_2+1);
 	initialize_array(self->s_pow_spec,0.f,self->fft_size_2+1);
@@ -588,7 +596,7 @@ run(LV2_Handle instance, uint32_t n_samples)
 						//residual signal
 						residual_calulation(self->fft_size, self->output_fft_buffer,
 																self->residual_spectrum, self->denoised_spectrum,
-																self->whitening_factor);
+																self->whitening_factor, self->residual_max_global_value);
 
 						//Ensemble the final spectrum using residual and denoised
 						final_spectrum_ensemble(self->fft_size,self->final_spectrum,
