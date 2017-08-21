@@ -41,6 +41,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 #define ONSET_THRESH 80.f //For onset detection
 
+#define WHITENING_DECAY_RATE 10.f //Deacay for max spectrum for whitening
+#define WHITENING_FLOOR 0.5f //Minumum max value posible
+
 //struct for spectral peaks array
 typedef struct
 {
@@ -318,26 +321,47 @@ high_frequency_content(float* spectrum,float N)
   return sum/(float)(N+1);
 }
 
+float
+spectrum_p_norm(float* spectrum, float N, float p)
+{
+	float sum = 0.f;
+
+	for (int k = 0; k < N; k++)
+	{
+		sum += powf(spectrum[k], p);
+	}
+
+	return powf(sum, 1.f/p);
+}
+
 void
-spectral_whitening(float* spectrum,float b,int N, float* max_spectrum)
+spectral_whitening(float* spectrum,float b,int N, float* max_spectrum,
+									 float window_count, float max_decay_rate)
 {
 	float whitened_spectrum[N];
 
-	//First get maximun values in each bin
+	//Adaptive whitening like in ADAPTIVE WHITENING FOR IMPROVED REAL-TIME AUDIO ONSET DETECTION
 	for (int k = 0; k < N; k++)
 	{
-		max_spectrum[k] = MAX(max_spectrum[k], spectrum[k]);
+		if(window_count > 1.f)
+		{
+			max_spectrum[k] = MAX(MAX(spectrum[k], WHITENING_FLOOR), max_spectrum[k]*max_decay_rate);
+		}
+		else
+		{
+			max_spectrum[k] = MAX(spectrum[k], WHITENING_FLOOR);
+		}
 	}
 
   for (int k = 0; k < N; k++)
   {
-    if(spectrum[k] > FLT_MIN)
+    if(max_spectrum[k] > -FLT_MAX)
     {
 			//Get whitened spectrum
 			whitened_spectrum[k] = spectrum[k]/max_spectrum[k];
 
 			//Interpolate between whitened and non whitened residual
-      spectrum[k] = (1.f - b)*spectrum[k] + b*whitened_spectrum[k];
+	    spectrum[k] = (1.f - b)*spectrum[k] + b*whitened_spectrum[k];
     }
   }
 }
@@ -583,7 +607,7 @@ apply_time_envelope(float* spectrum, float* spectrum_prev, float N, float releas
 
 bool
 transient_detection(float* fft_p2, float* transient_preserv_prev, float fft_size_2,
-										float* tp_window_count, float* tp_r_mean,
+										float window_count, float* tp_r_mean,
 										float* reduction_function_prev)
 {
 	float adapted_threshold, reduction_function;
@@ -592,12 +616,9 @@ transient_detection(float* fft_p2, float* transient_preserv_prev, float fft_size
 	reduction_function = spectral_flux(fft_p2, transient_preserv_prev, fft_size_2);
 	//reduction_function = high_frequency_content(fft_p2, fft_size_2);
 
-	//adaptive thresholding (using rolling mean)
-	*(tp_window_count) += 1.f;
-
-	if(*(tp_window_count) > 1.f)
+	if(window_count > 1.f)
 	{
-		*(tp_r_mean) += ((reduction_function - *(reduction_function_prev))/ *(tp_window_count));
+		*(tp_r_mean) += ((reduction_function - *(reduction_function_prev))/ window_count);
 	}
 	else
 	{

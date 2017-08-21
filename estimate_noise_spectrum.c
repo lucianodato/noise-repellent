@@ -135,23 +135,20 @@ adapt_noise(float* p2, int fft_size_2, float* noise_thresholds_p2, float* thresh
 //with the caution of smoothing transition TODO try
 void
 get_noise_statistics(float* fft_p2, int fft_size_2, float* noise_thresholds_p2,
-										 float* window_count)
+										 float window_count)
 {
   int k;
-
-	//Count frames to be used in the rolling mean
-  *(window_count) += 1.f;
 
   //Get noise thresholds based on averageing the input noise signal between frames
   for(k = 0 ; k <= fft_size_2 ; k++)
 	{
-    if(*(window_count) <= 1.f)
+    if(window_count <= 1.f)
 		{
       noise_thresholds_p2[k] = fft_p2[k];
     }
 		else
 		{
-      noise_thresholds_p2[k] += ((fft_p2[k] - noise_thresholds_p2[k])/ *(window_count)); //rolling mean
+      noise_thresholds_p2[k] += ((fft_p2[k] - noise_thresholds_p2[k])/ window_count); //rolling mean
     }
   }
 }
