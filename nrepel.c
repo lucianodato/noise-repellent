@@ -17,11 +17,7 @@ You should have received a copy of the GNU Lesser General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
-#include <stdlib.h>
-#include <string.h>
 #include <fftw3.h>
-#include <time.h>
-#include <stdio.h>
 
 #include "spectral_processing.c"
 #include "lv2/lv2plug.in/ns/lv2core/lv2.h"
@@ -50,11 +46,11 @@ typedef enum
 	NREPEL_RELEASE = 2,
 	NREPEL_MASKING = 3,
 	NREPEL_WHITENING = 4,
-	NREPEL_N_LEARN = 5,
-	NREPEL_N_ADAPTIVE = 6,
-	NREPEL_RESET = 7,
-	NREPEL_RESIDUAL_LISTEN = 8,
-	NREPEL_T_PROTECT = 9,
+	NREPEL_T_PROTECT = 5,
+	NREPEL_N_LEARN = 6,
+	NREPEL_N_ADAPTIVE = 7,
+	NREPEL_RESET = 8,
+	NREPEL_RESIDUAL_LISTEN = 9,
 	NREPEL_ENABLE = 10,
 	NREPEL_LATENCY = 11,
 	NREPEL_INPUT = 12,
@@ -85,7 +81,7 @@ typedef struct
 	float* adaptive_state; //Autocapture switch
 	float* reset_profile; //Reset Noise switch
 	float* residual_listen; //For noise only listening
-	float* transient_protection; //To activate transient protection
+	float* transient_protection; //Multiplier for thresholding onsets with rolling mean
 	float* enable; //For soft bypass (click free bypass)
 	float* report_latency; //Latency necessary
 
@@ -99,7 +95,6 @@ typedef struct
 	int hop; //Hop size for the STFT
 	float* input_window; //Input Window values
 	float* output_window; //Output Window values
-	float stft_window_count;
 
 	//Algorithm exta variables
 	float tau; //time constant for soft bypass
@@ -158,9 +153,9 @@ typedef struct
 
 	//Transient preservation related
 	float* transient_preserv_prev; //previous frame smoothed power spectrum for envelopes
-	float reduction_function_prev;
 	float tp_r_mean;
 	bool transient_present;
+	float tp_window_count;
 
 	//Reduction gains
 	float* Gk; //definitive gain
@@ -173,6 +168,7 @@ typedef struct
 	//whitening related
 	float* residual_max_spectrum;
 	float max_decay_rate;
+	float whitening_window_count;
 
 	//Loizou algorithm
 	float* auto_thresholds; //Reference threshold for louizou algorithm
@@ -304,8 +300,7 @@ instantiate(const LV2_Descriptor* descriptor, double rate, const char* bundle_pa
 
 	//transient preservation
 	self->transient_preserv_prev = (float*)calloc((self->fft_size_2+1), sizeof(float));
-	self->reduction_function_prev = 0.f;
-	self->stft_window_count = 0.f;
+	self->tp_window_count = 0.f;
 	self->tp_r_mean = 0.f;
 	self->transient_present = false;
 
@@ -337,6 +332,7 @@ instantiate(const LV2_Descriptor* descriptor, double rate, const char* bundle_pa
 	//whitening related
 	self->residual_max_spectrum = (float*)calloc((self->fft_size), sizeof(float));
 	self->max_decay_rate = expf(-1000.f/(((WHITENING_DECAY_RATE) * self->samp_rate)/ self->hop));
+	self->whitening_window_count = 0.f;
 
 	//final ensemble related
 	self->residual_spectrum = (float*)calloc((self->fft_size), sizeof(float));
@@ -441,6 +437,7 @@ reset_noise_profile(Nrepel* self)
 	initialize_array(self->Gk,1.f,self->fft_size);
 
 	initialize_array(self->residual_max_spectrum,0.f,self->fft_size);
+	self->whitening_window_count = 0.f;
 
 	initialize_array(self->prev_noise_thresholds,0.f,self->fft_size_2+1);
 	initialize_array(self->s_pow_spec,0.f,self->fft_size_2+1);
@@ -453,8 +450,7 @@ reset_noise_profile(Nrepel* self)
 	initialize_array(self->alpha_masking,1.f,self->fft_size_2+1);
 	initialize_array(self->beta_masking,0.f,self->fft_size_2+1);
 
-	self->reduction_function_prev = 0.f;
-	self->stft_window_count = 0.f;
+	self->tp_window_count = 0.f;
 	self->tp_r_mean = 0.f;
 	self->transient_present = false;
 }
@@ -517,9 +513,6 @@ run(LV2_Handle instance, uint32_t n_samples)
 		{
 			//Reset the input buffer position
 			self->read_ptr = self->input_latency;
-
-			//Increase the window counter for rolling means
-			self->stft_window_count++;
 
 			//----------STFT Analysis------------
 
@@ -592,8 +585,8 @@ run(LV2_Handle instance, uint32_t n_samples)
 													self->spl_reference_values, self->alpha_masking,
 													self->beta_masking, *(self->masking), *(self->adaptive_state),
 													self->amount_of_reduction_linear, self->transient_preserv_prev,
-													&self->reduction_function_prev, self->stft_window_count,
-													&self->tp_r_mean, &self->transient_present);
+													&self->tp_window_count, &self->tp_r_mean,
+													&self->transient_present, *(self->transient_protection));
 
 						//Supression rule
 						spectral_gain(self->fft_p2, self->noise_thresholds_p2,
@@ -609,7 +602,7 @@ run(LV2_Handle instance, uint32_t n_samples)
 						residual_calulation(self->fft_size, self->output_fft_buffer,
 																self->residual_spectrum, self->denoised_spectrum,
 																self->whitening_factor, self->residual_max_spectrum,
-																self->stft_window_count, self->max_decay_rate);
+																&self->whitening_window_count, self->max_decay_rate);
 
 						//Ensemble the final spectrum using residual and denoised
 						final_spectrum_ensemble(self->fft_size,self->final_spectrum,

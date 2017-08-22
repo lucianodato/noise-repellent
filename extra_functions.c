@@ -20,6 +20,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <math.h>
 #include <float.h>
 #include <stdbool.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+#include <stdio.h>
+
 
 #define MAX(a,b) (((a) > (b)) ? (a) : (b))
 #define MIN(a,b) (((a) < (b)) ? (a) : (b))
@@ -39,10 +44,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 #define SE_RESOLUTION 100.f //Spectral envelope resolution
 
-#define ONSET_THRESH 80.f //For onset detection
-
-#define WHITENING_DECAY_RATE 10.f //Deacay for max spectrum for whitening
-#define WHITENING_FLOOR 0.5f //Minumum max value posible
+#define WHITENING_DECAY_RATE 1000.f //Deacay in ms for max spectrum for whitening
+#define WHITENING_FLOOR 0.02f //Minumum max value posible
 
 //struct for spectral peaks array
 typedef struct
@@ -302,8 +305,7 @@ spectral_flux(float* spectrum,float* spectrum_prev,float N)
   for(i = 0;i <= N; i++)
   {
     temp = sqrtf(spectrum[i]) - sqrtf(spectrum_prev[i]); //Recieves power spectrum uses magnitude
-		if(temp > 0.f)
-			spectral_flux += (temp + fabs(temp))/2.f;
+		spectral_flux += (temp + fabs(temp))/2.f;
   }
   return spectral_flux;
 }
@@ -319,51 +321,6 @@ high_frequency_content(float* spectrum,float N)
     sum += i*spectrum[i];
   }
   return sum/(float)(N+1);
-}
-
-float
-spectrum_p_norm(float* spectrum, float N, float p)
-{
-	float sum = 0.f;
-
-	for (int k = 0; k < N; k++)
-	{
-		sum += powf(spectrum[k], p);
-	}
-
-	return powf(sum, 1.f/p);
-}
-
-void
-spectral_whitening(float* spectrum,float b,int N, float* max_spectrum,
-									 float window_count, float max_decay_rate)
-{
-	float whitened_spectrum[N];
-
-	//Adaptive whitening like in ADAPTIVE WHITENING FOR IMPROVED REAL-TIME AUDIO ONSET DETECTION
-	for (int k = 0; k < N; k++)
-	{
-		if(window_count > 1.f)
-		{
-			max_spectrum[k] = MAX(MAX(spectrum[k], WHITENING_FLOOR), max_spectrum[k]*max_decay_rate);
-		}
-		else
-		{
-			max_spectrum[k] = MAX(spectrum[k], WHITENING_FLOOR);
-		}
-	}
-
-  for (int k = 0; k < N; k++)
-  {
-    if(max_spectrum[k] > -FLT_MAX)
-    {
-			//Get whitened spectrum
-			whitened_spectrum[k] = spectrum[k]/max_spectrum[k];
-
-			//Interpolate between whitened and non whitened residual
-	    spectrum[k] = (1.f - b)*spectrum[k] + b*whitened_spectrum[k];
-    }
-  }
 }
 
 void
@@ -538,6 +495,55 @@ spectral_peaks(int fft_size_2, float* fft_p2, FFTPeak* spectral_peaks, int* peak
   //printf("%i\n",k );
 }
 
+float
+spectrum_p_norm(float* spectrum, float N, float p)
+{
+	float sum = 0.f;
+
+	for (int k = 0; k < N; k++)
+	{
+		sum += powf(spectrum[k], p);
+	}
+
+	return powf(sum, 1.f/p);
+}
+
+//---------------WHITENING--------------
+
+void
+spectral_whitening(float* spectrum,float b,int N, float* max_spectrum,
+									 float* whitening_window_count, float max_decay_rate)
+{
+	float whitened_spectrum[N];
+
+	*(whitening_window_count) += 1.f;
+
+	//Adaptive whitening like in ADAPTIVE WHITENING FOR IMPROVED REAL-TIME AUDIO ONSET DETECTION
+	for (int k = 0; k < N; k++)
+	{
+		if(*(whitening_window_count) > 1.f)
+		{
+			max_spectrum[k] = MAX(MAX(spectrum[k], WHITENING_FLOOR), max_spectrum[k]*max_decay_rate);
+		}
+		else
+		{
+			max_spectrum[k] = MAX(spectrum[k], WHITENING_FLOOR);
+		}
+	}
+
+  for (int k = 0; k < N; k++)
+  {
+    if(spectrum[k] > FLT_MIN)
+    {
+			//Get whitened spectrum
+			whitened_spectrum[k] = spectrum[k]/max_spectrum[k];
+
+			//Interpolate between whitened and non whitened residual
+	    spectrum[k] = (1.f - b)*spectrum[k] + b*whitened_spectrum[k];
+    }
+  }
+}
+
 //---------------TIME SMOOTHING--------------
 
 //This was proposed in this work SPECTRAL SUBTRACTION WITH ADAPTIVE AVERAGING OF THE GAIN FUNCTION
@@ -607,8 +613,7 @@ apply_time_envelope(float* spectrum, float* spectrum_prev, float N, float releas
 
 bool
 transient_detection(float* fft_p2, float* transient_preserv_prev, float fft_size_2,
-										float window_count, float* tp_r_mean,
-										float* reduction_function_prev)
+										float* tp_window_count, float* tp_r_mean, float transient_protection)
 {
 	float adapted_threshold, reduction_function;
 
@@ -616,29 +621,30 @@ transient_detection(float* fft_p2, float* transient_preserv_prev, float fft_size
 	reduction_function = spectral_flux(fft_p2, transient_preserv_prev, fft_size_2);
 	//reduction_function = high_frequency_content(fft_p2, fft_size_2);
 
-	if(window_count > 1.f)
+	*(tp_window_count) += 1.f;
+
+	if(*(tp_window_count) > 1.f)
 	{
-		*(tp_r_mean) += ((reduction_function - *(reduction_function_prev))/ window_count);
+		*(tp_r_mean) += ((reduction_function - *(tp_r_mean))/ *(tp_window_count));
 	}
 	else
 	{
 		*(tp_r_mean) = reduction_function;
 	}
 
-	adapted_threshold = ONSET_THRESH + *(tp_r_mean);
+	adapted_threshold = transient_protection * *(tp_r_mean);
 
-	*(reduction_function_prev) = *(tp_r_mean);
 	memcpy(transient_preserv_prev,fft_p2,sizeof(float)*(fft_size_2+1));
 
 	if (reduction_function > adapted_threshold)
 	{
-		return true;
-
 		// printf("%f", reduction_function);
 		// printf("%s", "   ");
 		// printf("%f", adapted_threshold);
 		// printf("%s", "   ");
 		// printf("%f\n", *(tp_r_mean));
+
+		return true;
 	}
 	else
 	{

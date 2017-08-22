@@ -35,8 +35,8 @@ preprocessing(float noise_thresholds_offset, float* fft_p2,
 							float release_coeff, float* spreaded_unity_gain_bark_spectrum,
 							float* spl_reference_values, float* alpha_masking, float* beta_masking,
 							float masking_value, float adaptive_state, float reduction_value,
-							float* transient_preserv_prev, float* reduction_function_prev,
-							float window_count, float* tp_r_mean, bool* transient_present)
+							float* transient_preserv_prev, float* tp_window_count, float* tp_r_mean,
+							bool* transient_present, float transient_protection)
 {
 	int k;
 
@@ -83,9 +83,12 @@ preprocessing(float noise_thresholds_offset, float* fft_p2,
 
 	//------TRANSIENT PROTECTION------
 
-	*(transient_present) = transient_detection(fft_p2, transient_preserv_prev, fft_size_2,
-																					window_count, tp_r_mean,
-																					reduction_function_prev);
+	if (transient_protection > 1.f)
+	{
+		*(transient_present) = transient_detection(fft_p2, transient_preserv_prev,
+																							 fft_size_2, tp_window_count, tp_r_mean,
+																						 	 transient_protection);
+	}
 }
 
 void
@@ -103,11 +106,9 @@ spectral_gain(float* fft_p2, float* noise_thresholds_p2, float* noise_thresholds
 	else
 	{
 		//Protect transient by avoiding smoothing if present
-		if (transient_present && transient_protection == 1.f)
+		if (transient_present && transient_protection > 1.f)
 		{
-			//Maybe with better onset detection this could be a little stronger reduction
-			//such as power or wiener subtraction
-			spectral_gating(fft_size_2, fft_p2, noise_thresholds_scaled, Gk);
+			wiener_subtraction(fft_size_2, fft_p2, noise_thresholds_scaled, Gk);
 		}
 		else
 		{
@@ -134,7 +135,7 @@ void
 residual_calulation(int fft_size, float* output_fft_buffer,
 										float* residual_spectrum, float* denoised_spectrum,
 										float whitening_factor, float* residual_max_spectrum,
-										float window_count, float max_decay_rate)
+										float* whitening_window_count, float max_decay_rate)
 {
 
   int k;
@@ -149,8 +150,8 @@ residual_calulation(int fft_size, float* output_fft_buffer,
 	//Whitening (residual spectrum more similar to white noise)
 	if(whitening_factor > 0.f)
 	{
-		spectral_whitening(residual_spectrum,whitening_factor,fft_size, residual_max_spectrum,
-											 window_count, max_decay_rate);
+		spectral_whitening(residual_spectrum,whitening_factor,fft_size,
+											 residual_max_spectrum, whitening_window_count, max_decay_rate);
 	}
 	////////////
 }
