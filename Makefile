@@ -16,6 +16,7 @@ LOADLIBES=-lm
 LV2NAME=nrepel
 BUNDLE=nrepel.lv2
 BUILDDIR=build/
+SRCDIR=src/
 targets=
 
 UNAME=$(shell uname)
@@ -83,10 +84,10 @@ $(BUILDDIR)$(LV2NAME).ttl: $(LV2NAME).ttl.in
 	sed "s/@VERSION@/lv2:microVersion $(LV2MIC) ;lv2:minorVersion $(LV2MIN) ;/g" \
 		$(LV2NAME).ttl.in > $(BUILDDIR)$(LV2NAME).ttl
 
-$(BUILDDIR)$(LV2NAME)$(LIB_EXT): $(LV2NAME).c
+$(BUILDDIR)$(LV2NAME)$(LIB_EXT): $(SRCDIR)$(LV2NAME).c
 	@mkdir -p $(BUILDDIR)
 	$(CC) $(CPPFLAGS) $(CFLAGS) \
-		-o $(BUILDDIR)$(LV2NAME)$(LIB_EXT) $(LV2NAME).c \
+		-o $(BUILDDIR)$(LV2NAME)$(LIB_EXT) $(SRCDIR)$(LV2NAME).c \
 		-shared $(LV2LDFLAGS) $(LDFLAGS) $(LOADLIBES)
 
 ifeq ($(DEBUG), 0)
