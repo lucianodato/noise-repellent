@@ -47,6 +47,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define WHITENING_DECAY_RATE 1000.f //Deacay in ms for max spectrum for whitening
 #define WHITENING_FLOOR 0.02f //Minumum max value posible
 
+#define TP_UPPER_LIMIT 5.f //This correspond to the upper limit of the adaptive threshold multiplier. Should be the same as the ttl configured one
+
 //struct for spectral peaks array
 typedef struct
 {
@@ -632,7 +634,7 @@ transient_detection(float* fft_p2, float* transient_preserv_prev, float fft_size
 		*(tp_r_mean) = reduction_function;
 	}
 
-	adapted_threshold = transient_protection * *(tp_r_mean);
+	adapted_threshold = (TP_UPPER_LIMIT - transient_protection) * *(tp_r_mean);
 
 	memcpy(transient_preserv_prev,fft_p2,sizeof(float)*(fft_size_2+1));
 
