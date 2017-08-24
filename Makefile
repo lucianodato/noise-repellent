@@ -17,6 +17,7 @@ LV2NAME=nrepel
 BUNDLE=nrepel.lv2
 BUILDDIR=build/
 SRCDIR=src/
+TTLDIR=lv2ttl/
 targets=
 
 UNAME=$(shell uname)
@@ -74,15 +75,15 @@ all: $(BUILDDIR)manifest.ttl $(BUILDDIR)$(LV2NAME).ttl $(targets)
 lv2syms:
 	echo "_lv2_descriptor" > lv2syms
 
-$(BUILDDIR)manifest.ttl: manifest.ttl.in
+$(BUILDDIR)manifest.ttl: $(TTLDIR)manifest.ttl.in
 	@mkdir -p $(BUILDDIR)
 	sed "s/@LV2NAME@/$(LV2NAME)/;s/@LIB_EXT@/$(LIB_EXT)/" \
-	  manifest.ttl.in > $(BUILDDIR)manifest.ttl
+	  $(TTLDIR)manifest.ttl.in > $(BUILDDIR)manifest.ttl
 
-$(BUILDDIR)$(LV2NAME).ttl: $(LV2NAME).ttl.in
+$(BUILDDIR)$(LV2NAME).ttl: $(TTLDIR)$(LV2NAME).ttl.in
 	@mkdir -p $(BUILDDIR)
 	sed "s/@VERSION@/lv2:microVersion $(LV2MIC) ;lv2:minorVersion $(LV2MIN) ;/g" \
-		$(LV2NAME).ttl.in > $(BUILDDIR)$(LV2NAME).ttl
+		$(TTLDIR)$(LV2NAME).ttl.in > $(BUILDDIR)$(LV2NAME).ttl
 
 $(BUILDDIR)$(LV2NAME)$(LIB_EXT): $(SRCDIR)$(LV2NAME).c
 	@mkdir -p $(BUILDDIR)
