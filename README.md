@@ -8,7 +8,7 @@ Features
 * Adaptive and manual noise thresholds estimation
 * Regulable noise floor
 * Regulable offset of thresholds to perform oversubtraction
-* Time smoothing and a masking psico-acoustic model for artifacts reduction
+* Time smoothing and a masking psycho-acoustic model for artifacts reduction
 * Basic Onset detector to avoid transients softening
 * Whitening of the noise floor to mask artifacts and to recover higher frequencies
 * Option to listen to the residual signal
