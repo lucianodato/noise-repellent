@@ -17,6 +17,12 @@ You should have received a copy of the GNU Lesser General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
+/**
+* \file denoise_gain.c
+* \author Luciano Dato
+* \brief All supression rules
+*/
+
 #include <float.h>
 #include <math.h>
 
@@ -26,7 +32,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define GAMMA1 2.f
 #define GAMMA2 0.5f
 
-//Wiener substraction (Inbetween magnitude and power subtraction)
+/**
+* Wiener substraction supression rule. Outputs the filter mirrored around nyquist
+*/
 void
 wiener_subtraction(int fft_size_2, float* spectrum, float* noise_thresholds, float* Gk)
 {
@@ -59,7 +67,9 @@ wiener_subtraction(int fft_size_2, float* spectrum, float* noise_thresholds, flo
 	}
 }
 
-//Power substraction (the softest one)
+/**
+* Power substraction supression rule. Outputs the filter mirrored around nyquist
+*/
 void
 power_subtraction(int fft_size_2, float* spectrum, float* noise_thresholds, float* Gk)
 {
@@ -92,7 +102,9 @@ power_subtraction(int fft_size_2, float* spectrum, float* noise_thresholds, floa
 	}
 }
 
-//Magnitude substraction (the harder one)
+/**
+* Magnitude substraction supression rule. Outputs the filter mirrored around nyquist
+*/
 void
 magnitude_subtraction(int fft_size_2, float* spectrum, float* noise_thresholds, float* Gk)
 {
@@ -125,7 +137,9 @@ magnitude_subtraction(int fft_size_2, float* spectrum, float* noise_thresholds, 
 	}
 }
 
-//Gating with envelope smoothing
+/**
+* Gating with hard knee supression rule. Outputs the filter mirrored around nyquist
+*/
 void
 spectral_gating(int fft_size_2, float* spectrum, float* noise_thresholds, float* Gk)
 {
@@ -161,6 +175,53 @@ spectral_gating(int fft_size_2, float* spectrum, float* noise_thresholds, float*
 	}
 }
 
+/**
+* Generalized spectral subtraction supression rule.
+* \param gamma defines what type of spectral Subtraction is used
+* gamma1=gamma2=1 is magnitude substaction
+* gamma1=2 gamma2=0.5 is power Subtraction
+* gamma1=2 gamma2=1 is wiener filtering
+* \param alpha is the oversustraction factor
+* \param beta is the spectral flooring factor
+* This version uses an array of alphas and betas.
+* Outputs the filter mirrored around nyquist
+*/
+void
+denoise_gain_gss(int fft_size_2, float* alpha, float* beta, float* spectrum,
+								 float* noise_thresholds, float* Gk)
+{
+  int k;
+
+  for (k = 0; k <= fft_size_2 ; k++)
+	{
+    if (spectrum[k] > FLT_MIN)
+		{
+      if(powf((noise_thresholds[k]/spectrum[k]),GAMMA1) < (1.f/(alpha[k]+beta[k])))
+			{
+        Gk[k] = MAX(powf(1.f-(alpha[k]*powf((noise_thresholds[k]/spectrum[k]),GAMMA1)),GAMMA2),0.f);
+      }
+			else
+			{
+        Gk[k] = MAX(powf(beta[k]*powf((noise_thresholds[k]/spectrum[k]),GAMMA1),GAMMA2),0.f);
+      }
+    }
+		else
+		{
+      //Otherwise we keep everything as is
+      Gk[k] = 1.f;
+    }
+  }
+
+	//mirrored gain array
+	for (k = 1; k < fft_size_2; k++)
+	{
+		Gk[(2*fft_size_2)-k] = Gk[k];
+	}
+}
+
+/**
+* Gets the postfilter for the current filter computed by the supression rule used.
+*/
 void
 compute_post_filter(int fft_size_2, int fft_size, float* spectrum, float pf_threshold,
 										float* postfilter, float* Gk_spectral)
@@ -217,50 +278,5 @@ compute_post_filter(int fft_size_2, int fft_size, float* spectrum, float pf_thre
 	for (k = 1; k < fft_size_2; k++)
 	{
 		postfilter[fft_size-k] = postfilter[k];
-	}
-}
-
-/*Generalized Spectral Subtraction
- *gamma defines what type of spectral Subtraction is used
- *gamma1=gamma2=1 is magnitude substaction
- *gamma1=2 gamma2=0.5 is power Subtraction
- *gamma1=2 gamma2=1 is wiener filtering
- *alpha is the oversustraction factor
- *beta is the spectral flooring factor
- *reduction_strenght is the other oversustraction designed by the user
- *so there are 2 oversustraction factors
-*/
-
-//This version uses an array of alphas and betas
-void
-denoise_gain_gss(int fft_size_2, float* alpha, float* beta, float* spectrum,
-								 float* noise_thresholds, float* Gk)
-{
-  int k;
-
-  for (k = 0; k <= fft_size_2 ; k++)
-	{
-    if (spectrum[k] > FLT_MIN)
-		{
-      if(powf((noise_thresholds[k]/spectrum[k]),GAMMA1) < (1.f/(alpha[k]+beta[k])))
-			{
-        Gk[k] = MAX(powf(1.f-(alpha[k]*powf((noise_thresholds[k]/spectrum[k]),GAMMA1)),GAMMA2),0.f);
-      }
-			else
-			{
-        Gk[k] = MAX(powf(beta[k]*powf((noise_thresholds[k]/spectrum[k]),GAMMA1),GAMMA2),0.f);
-      }
-    }
-		else
-		{
-      //Otherwise we keep everything as is
-      Gk[k] = 1.f;
-    }
-  }
-
-	//mirrored gain array
-	for (k = 1; k < fft_size_2; k++)
-	{
-		Gk[(2*fft_size_2)-k] = Gk[k];
 	}
 }

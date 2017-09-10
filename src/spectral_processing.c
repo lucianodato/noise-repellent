@@ -17,6 +17,12 @@ You should have received a copy of the GNU Lesser General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
+/**
+* \file spectral_processing.c
+* \author Luciano Dato
+* \brief All methods related to spectral processing the spectrum
+*/
+
 #include <float.h>
 #include <math.h>
 
@@ -26,6 +32,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 //------------GAIN AND THRESHOLD CALCULATION---------------
 
+/**
+* Includes every preprocessing or precomputing before the supression rule.
+*/
 void
 preprocessing(float noise_thresholds_offset, float* fft_p2,
 							float* noise_thresholds_p2,
@@ -91,6 +100,9 @@ preprocessing(float noise_thresholds_offset, float* fft_p2,
 	}
 }
 
+/**
+* Computes the supression filter based on pre-processing data.
+*/
 void
 spectral_gain(float* fft_p2, float* noise_thresholds_p2, float* noise_thresholds_scaled,
 							float* smoothed_spectrum, int fft_size_2, float adaptive, float* Gk,
@@ -117,6 +129,9 @@ spectral_gain(float* fft_p2, float* noise_thresholds_p2, float* noise_thresholds
 	}
 }
 
+/**
+* Applies the filter to the spectrum and gets the clean signal.
+*/
 void
 denoised_calulation(int fft_size,	float* output_fft_buffer,
 										float* denoised_spectrum, float* Gk)
@@ -131,6 +146,9 @@ denoised_calulation(int fft_size,	float* output_fft_buffer,
   }
 }
 
+/**
+* Gets the residual signal of the reduction.
+*/
 void
 residual_calulation(int fft_size, float* output_fft_buffer,
 										float* residual_spectrum, float* denoised_spectrum,
@@ -156,6 +174,10 @@ residual_calulation(int fft_size, float* output_fft_buffer,
 	////////////
 }
 
+/**
+* Mixes the cleaned signal with the residual taking into account the reduction setted by
+* by the user. Outputs the final signal or the residual only.
+*/
 void
 final_spectrum_ensemble(int fft_size, float* final_spectrum,
 												float* residual_spectrum, float* denoised_spectrum,
@@ -182,6 +204,9 @@ final_spectrum_ensemble(int fft_size, float* final_spectrum,
 	}
 }
 
+/**
+* Mixes unprocessed and processed signal to bypass softly
+*/
 void
 soft_bypass(float* final_spectrum, float* output_fft_buffer, float wet_dry,
                  int fft_size)

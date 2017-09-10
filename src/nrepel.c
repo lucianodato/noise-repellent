@@ -17,13 +17,19 @@ You should have received a copy of the GNU Lesser General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
-#include <fftw3.h>
+/**
+* \file nrepel.c
+* \author Luciano Dato
+* \brief The main file for host interaction
+*/
 
-#include "spectral_processing.c"
+#include <fftw3.h>
 #include "lv2/lv2plug.in/ns/lv2core/lv2.h"
 #include "lv2/lv2plug.in/ns/ext/urid/urid.h"
 #include "lv2/lv2plug.in/ns/ext/atom/atom.h"
 #include "lv2/lv2plug.in/ns/ext/state/state.h"
+
+#include "spectral_processing.c"
 
 #define NREPEL_URI "https://github.com/lucianodato/noise-repellent"
 
@@ -32,13 +38,15 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define INPUT_WINDOW 0 //0 HANN 1 HAMMING 2 BLACKMAN Input windows for STFT algorithm
 #define OUTPUT_WINDOW 0 //0 HANN 1 HAMMING 2 BLACKMAN Input windows for STFT algorithm
 #define OVERLAP_FACTOR 4 //4 is 75% overlap Values bigger than 4 will rescale correctly
+
 #define NOISE_ARRAY_STATE_MAX_SIZE 8192 //max alloc size of the noise_thresholds to save with the session. This will consider upto fs of 192 kHz with aprox 23hz resolution
 
 
 ///---------------------------------------------------------------------
 
-//LV2 CODE
-
+/**
+* Enumeration of LV2 ports.
+*/
 typedef enum
 {
 	NREPEL_AMOUNT = 0,
@@ -57,7 +65,9 @@ typedef enum
 	NREPEL_OUTPUT = 13,
 } PortIndex;
 
-//spectum struct for noise profile saving
+/**
+* Noise Profile state.
+*/
 typedef struct
 {
 	uint32_t child_size;
@@ -65,6 +75,9 @@ typedef struct
 	float array[NOISE_ARRAY_STATE_MAX_SIZE];
 } FFTVector;
 
+/**
+* Struct for THE noise repellent instance, the host is going to use.
+*/
 typedef struct
 {
 	const float* input; //input of samples from host (changing size)
@@ -206,6 +219,11 @@ typedef struct
 	LV2_URID prop_FFTp2;
 } Nrepel;
 
+/**
+* Instantiates the plugin.
+* Allocates memory for the noise repellent object, initialize what is necessary
+* and returns a pointer as LV2Handle.
+*/
 static LV2_Handle
 instantiate(const LV2_Descriptor* descriptor, double rate, const char* bundle_path,
 						const LV2_Feature* const* features)
@@ -372,6 +390,9 @@ instantiate(const LV2_Descriptor* descriptor, double rate, const char* bundle_pa
 	return (LV2_Handle)self;
 }
 
+/**
+* Used by the host to connect the ports of this plugin.
+*/
 static void
 connect_port(LV2_Handle instance, uint32_t port, void* data)
 {
@@ -424,6 +445,9 @@ connect_port(LV2_Handle instance, uint32_t port, void* data)
 	}
 }
 
+/**
+* To reset the noise profile and set every value to default one.
+*/
 static void
 reset_noise_profile(Nrepel* self)
 {
@@ -455,6 +479,9 @@ reset_noise_profile(Nrepel* self)
 	self->transient_present = false;
 }
 
+/**
+* Main process function of the plugin.
+*/
 static void
 run(LV2_Handle instance, uint32_t n_samples)
 {
@@ -676,12 +703,19 @@ run(LV2_Handle instance, uint32_t n_samples)
 	// fclose(fp);
 }
 
+
+/**
+* Cleanup and freeing memory.
+*/
 static void
 cleanup(LV2_Handle instance)
 {
 	free(instance);
 }
 
+/**
+* State saving of the noise profile.
+*/
 static LV2_State_Status
 savestate(LV2_Handle instance, LV2_State_Store_Function store, LV2_State_Handle handle,
 					uint32_t flags, const LV2_Feature* const* features)
@@ -707,6 +741,9 @@ savestate(LV2_Handle instance, LV2_State_Store_Function store, LV2_State_Handle 
   return LV2_STATE_SUCCESS;
 }
 
+/**
+* State restoration of the noise profile.
+*/
 static LV2_State_Status
 restorestate(LV2_Handle instance, LV2_State_Retrieve_Function retrieve,
 						 LV2_State_Handle handle, uint32_t flags,
@@ -744,6 +781,9 @@ restorestate(LV2_Handle instance, LV2_State_Retrieve_Function retrieve,
 	return LV2_STATE_SUCCESS;
 }
 
+/**
+* extension for additional interfaces.
+*/
 static const void*
 extension_data(const char* uri)
 {
@@ -755,6 +795,9 @@ extension_data(const char* uri)
 	return NULL;
 }
 
+/**
+* Descriptor for linking methods.
+*/
 static const
 LV2_Descriptor descriptor =
 {
@@ -768,6 +811,9 @@ LV2_Descriptor descriptor =
 	extension_data
 };
 
+/**
+* Symbol export using the descriptor above.
+*/
 LV2_SYMBOL_EXPORT
 const LV2_Descriptor*
 lv2_descriptor(uint32_t index)

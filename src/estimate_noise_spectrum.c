@@ -17,6 +17,12 @@ You should have received a copy of the GNU Lesser General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
+/**
+* \file estimate_noise_spectrum.c
+* \author Luciano Dato
+* \brief Methods for noise spectrum estimation
+*/
+
 #include <math.h>
 #include <float.h>
 
@@ -36,7 +42,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define BAND_2_GAIN 2.0f //gain for the band
 #define BAND_3_GAIN 5.0f //gain for the band
 
-//This thresholds will dictate how louizou algorithm recognizes noise
+/**
+* Outputs the thresholds used by louizou method to discriminate between noise and signal
+*/
 void
 compute_auto_thresholds(float* auto_thresholds, float fft_size, float fft_size_2,
 												float samp_rate)
@@ -61,7 +69,9 @@ compute_auto_thresholds(float* auto_thresholds, float fft_size, float fft_size_2
 	}
 }
 
-//Loizou noise-estimation algorithm for highly non-stationary environments
+/**
+* Loizou noise-estimation algorithm for highly non-stationary environments
+*/
 static void
 estimate_noise_loizou(float* thresh, int fft_size_2, float* p2, float* s_pow_spec,
 											float* prev_s_pow_spec, float* noise_thresholds_p2,
@@ -112,8 +122,9 @@ estimate_noise_loizou(float* thresh, int fft_size_2, float* p2, float* s_pow_spe
   }
 }
 
-
-//Automatic noise threshold estimation
+/**
+* Wrapper for automatic and dynamic noise estimation
+*/
 void
 adapt_noise(float* p2, int fft_size_2, float* noise_thresholds_p2, float* thresh,
 						float* prev_noise_thresholds, float* s_pow_spec, float* prev_s_pow_spec,	float* p_min, float* prev_p_min, float* speech_p_p, float* prev_speech_p_p)
@@ -130,9 +141,9 @@ adapt_noise(float* p2, int fft_size_2, float* noise_thresholds_p2, float* thresh
 
 }
 
-//Manual Capture threshold estimation (using moving average). This could use a 2 band approach
-//where it get the max for 4khz and up and the rolling mean for lower frequencies
-//with the caution of smoothing transition TODO try
+/**
+* Noise estimation based using a rolling mean over user selected noise
+*/
 void
 get_noise_statistics(float* fft_p2, int fft_size_2, float* noise_thresholds_p2,
 										 float window_count)

@@ -17,6 +17,12 @@ You should have received a copy of the GNU Lesser General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
+/**
+* \file masking.c
+* \author Luciano Dato
+* \brief Methods for masking threshold estimation
+*/
+
 #include <float.h>
 #include <math.h>
 
@@ -38,7 +44,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 //Proposed by Sinha and Tewfik and explained by Virag
 const float relative_thresholds[N_BARK_BANDS] = { -16.f, -17.f, -18.f, -19.f, -20.f, -21.f, -22.f, -23.f, -24.f, -25.f, -25.f, -25.f, -25.f, -25.f, -25.f, -24.f, -23.f, -22.f, -19.f, -18.f, -18.f, -18.f, -18.f, -18.f, -18.f};
 
-//fft to bark bilinear transform
+/**
+* Fft to bark bilinear scale transform
+*/
 void
 compute_bark_mapping(float* bark_z,int fft_size_2, int srate)
 {
@@ -53,6 +61,9 @@ compute_bark_mapping(float* bark_z,int fft_size_2, int srate)
   }
 }
 
+/**
+* Computes the spectral spreading function matrix of Schroeder using bark scale.
+*/
 void
 compute_SSF(float* SSF)
 {
@@ -71,7 +82,10 @@ compute_SSF(float* SSF)
   }
 }
 
-//Convolution by multiplication of a Toepliz matrix to a vector
+/**
+* Convolution between the spreading function by multiplication of a Toepliz matrix
+* to a bark spectrum.
+*/
 void convolve_with_SSF(float* SSF, float* bark_spectrum, float* spreaded_spectrum)
 {
   int i,j;
@@ -85,7 +99,9 @@ void convolve_with_SSF(float* SSF, float* bark_spectrum, float* spreaded_spectru
   }
 }
 
-//Computes the energy of each bark band
+/**
+* Computes the energy of each bark band
+*/
 void
 compute_bark_spectrum(float* bark_z, float* bark_spectrum, float* spectrum,
                       float* intermediate_band_bins, float* n_bins_per_band)
@@ -121,6 +137,9 @@ compute_bark_spectrum(float* bark_z, float* bark_spectrum, float* spectrum,
   }
 }
 
+/**
+* Computes the spl reference value for dB to dBSPL conversion
+*/
 void
 spl_reference(float* spl_reference_values, int fft_size_2, int srate,
               float* input_fft_buffer_at, float* output_fft_buffer_at,
@@ -164,6 +183,9 @@ spl_reference(float* spl_reference_values, int fft_size_2, int srate,
 
 }
 
+/**
+* dB to dBSPL conversion
+*/
 void
 convert_to_dbspl(float* spl_reference_values,float* masking_thresholds, int fft_size_2)
 {
@@ -173,6 +195,9 @@ convert_to_dbspl(float* spl_reference_values,float* masking_thresholds, int fft_
   }
 }
 
+/**
+* Computes the absolute thresholds of hearing to contrast with the masking thresholds
+*/
 void
 compute_absolute_thresholds(float* absolute_thresholds,int fft_size_2, int srate)
 {
@@ -186,7 +211,10 @@ compute_absolute_thresholds(float* absolute_thresholds,int fft_size_2, int srate
   }
 }
 
-//Computes the tonality factor using the spectral flatness
+/**
+* Computes the tonality factor using the spectral flatness in each band of the bark
+* spectrum.
+*/
 float
 compute_tonality_factor(float* spectrum, float* intermediate_band_bins,
                         float* n_bins_per_band, int band)
@@ -226,7 +254,9 @@ compute_tonality_factor(float* spectrum, float* intermediate_band_bins,
   return tonality_factor;
 }
 
-//masking threshold calculation
+/**
+* Masking threshold calculation
+*/
 void
 compute_masking_thresholds(float* bark_z, float* absolute_thresholds, float* SSF,
                            float* spectrum, int fft_size_2, float* masking_thresholds,
@@ -299,7 +329,9 @@ compute_masking_thresholds(float* bark_z, float* absolute_thresholds, float* SSF
   }
 }
 
-//alpha and beta computation according to Virag
+/**
+* alpha and beta computation according to Virags paper
+*/
 void
 compute_alpha_and_beta(float* fft_p2, float* noise_thresholds_p2, int fft_size_2,
                        float* alpha_masking, float* beta_masking, float* bark_z,

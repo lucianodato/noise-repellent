@@ -17,6 +17,12 @@ You should have received a copy of the GNU Lesser General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
+/**
+* \file extra_functions.c
+* \author Luciano Dato
+* \brief Extra methods used by others. This keeps clean other files.
+*/
+
 #include <math.h>
 #include <float.h>
 #include <stdbool.h>
@@ -49,21 +55,15 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 #define TP_UPPER_LIMIT 5.f //This correspond to the upper limit of the adaptive threshold multiplier. Should be the same as the ttl configured one
 
-//struct for spectral peaks array
-typedef struct
-{
-	float magnitude;
-	int position;
-} FFTPeak;
-
-//Force already-denormal float value to zero
+/**
+* Method to force already-denormal float value to zero
+*/
 float
 sanitize_denormal(float value)
 {
   if (isnan(value))
   {
     return FLT_MIN; //to avoid log errors
-    //return 0.f; //to avoid log errors
   }
   else
   {
@@ -104,28 +104,6 @@ nearest_even(int x)
 		return x-1;
 }
 
-void
-initialize_array(float* array, float value,int size)
-{
-	for(int k=0; k<size;k++)
-	{
-		array[k] = value;
-	}
-}
-
-//Parabolic interpolation as explained in  https://ccrma.stanford.edu/~jos/parshl/Peak_Detection_Steps_3.html
-void
-parabolic_interpolation(float left_val, float middle_val, float right_val,
-                        int current_bin, float* result_val, int* result_bin)
-{
-  float delta_x = 0.5 * ((left_val - right_val) / (left_val - 2.f*middle_val + right_val));
-  *result_bin = current_bin + (int)delta_x;
-  *result_val = middle_val - 0.25 * (left_val - right_val) * delta_x;
-}
-
-//-----------dB SCALE-----------
-
-//power scales
 float
 from_dB(float gdb)
 {
@@ -137,8 +115,6 @@ to_dB(float g)
 {
   return (10.f*log10f(g));
 }
-
-//-----------FREQ <> INDEX OR BIN------------
 
 float
 bin_to_freq(int i, float samp_rate, int N)
@@ -152,9 +128,44 @@ freq_to_bin(float freq, float samp_rate, int N)
   return (int) (freq / (samp_rate / N / 2.f));
 }
 
-//---------SPECTRAL OPERATIONS-------------
+//---------SPECTRAL METHODS-------------
 
-//verifies if the spectrum is full of zeros
+/**
+* FFT peak struct. To describe spectral peaks
+*/
+typedef struct
+{
+	float magnitude;
+	int position;
+} FFTPeak;
+
+/**
+* Parabolic interpolation as explained in  https://ccrma.stanford.edu/~jos/parshl/Peak_Detection_Steps_3.html
+*/
+void
+parabolic_interpolation(float left_val, float middle_val, float right_val,
+                        int current_bin, float* result_val, int* result_bin)
+{
+  float delta_x = 0.5 * ((left_val - right_val) / (left_val - 2.f*middle_val + right_val));
+  *result_bin = current_bin + (int)delta_x;
+  *result_val = middle_val - 0.25 * (left_val - right_val) * delta_x;
+}
+
+/**
+* To initialize an array to a single value in all positions
+*/
+void
+initialize_array(float* array, float value,int size)
+{
+	for(int k=0; k<size;k++)
+	{
+		array[k] = value;
+	}
+}
+
+/**
+* Verifies if the spectrum is full of zeros
+*/
 bool
 is_empty(float* spectrum, int N)
 {
@@ -169,7 +180,9 @@ is_empty(float* spectrum, int N)
   return true;
 }
 
-//finds the max value of the spectrum
+/**
+* Finds the max value of the spectrum
+*/
 float
 max_spectral_value(float* spectrum, int N)
 {
@@ -182,7 +195,9 @@ max_spectral_value(float* spectrum, int N)
   return max;
 }
 
-//finds the min value of the spectrum
+/**
+* Finds the min value of the spectrum
+*/
 float
 min_spectral_value(float* spectrum, int N)
 {
@@ -195,7 +210,9 @@ min_spectral_value(float* spectrum, int N)
   return min;
 }
 
-//Mean value of a spectrum
+/**
+* Finds the mean value of the spectrum
+*/
 float
 spectral_mean(float* a,int m)
 {
@@ -205,7 +222,9 @@ spectral_mean(float* a,int m)
     return(sum/(float)(m+1));
 }
 
-//Sum of all values of a spectrum
+/**
+* Sums of all values of a spectrum
+*/
 float
 spectral_addition(float* a,int m)
 {
@@ -215,7 +234,9 @@ spectral_addition(float* a,int m)
     return sum;
 }
 
-//Median value of a spectrum
+/**
+* Finds the median value of the spectrum
+*/
 float
 spectral_median(float* x,int n)
 {
@@ -250,6 +271,9 @@ spectral_median(float* x,int n)
     }
 }
 
+/**
+* Finds the moda value of the spectrum
+*/
 float
 spectral_moda(float* x,int n)
 {
@@ -283,6 +307,9 @@ spectral_moda(float* x,int n)
   return x[pos_max];
 }
 
+/**
+* Normalizes spectral values
+*/
 void
 get_normalized_spectum(float* spectrum,int N)
 {
@@ -297,6 +324,9 @@ get_normalized_spectum(float* spectrum,int N)
 	}
 }
 
+/**
+* Outputs the spectral flux between two spectrums
+*/
 float
 spectral_flux(float* spectrum,float* spectrum_prev,float N)
 {
@@ -312,6 +342,9 @@ spectral_flux(float* spectrum,float* spectrum_prev,float N)
   return spectral_flux;
 }
 
+/**
+* Outputs the high frequency content of the spectrum
+*/
 float
 high_frequency_content(float* spectrum,float N)
 {
@@ -325,6 +358,9 @@ high_frequency_content(float* spectrum,float N)
   return sum/(float)(N+1);
 }
 
+/**
+* Computes the spectral envelope like Robels paper
+*/
 void
 spectral_envelope(int fft_size_2, float* fft_p2, int samp_rate, float* spectral_envelope_values)
 {
@@ -371,6 +407,9 @@ spectral_envelope(int fft_size_2, float* fft_p2, int samp_rate, float* spectral_
 	}
 }
 
+/**
+* Outputs the spectral peaks of a spectrum
+*/
 void
 spectral_peaks(int fft_size_2, float* fft_p2, FFTPeak* spectral_peaks, int* peak_pos,
                int* peaks_count, int samp_rate)
@@ -497,6 +536,9 @@ spectral_peaks(int fft_size_2, float* fft_p2, FFTPeak* spectral_peaks, int* peak
   //printf("%i\n",k );
 }
 
+/**
+* Outputs the p norm of a spectrum
+*/
 float
 spectrum_p_norm(float* spectrum, float N, float p)
 {
@@ -512,6 +554,9 @@ spectrum_p_norm(float* spectrum, float N, float p)
 
 //---------------WHITENING--------------
 
+/**
+* Whitens the spectrum adaptively
+*/
 void
 spectral_whitening(float* spectrum,float b,int N, float* max_spectrum,
 									 float* whitening_window_count, float max_decay_rate)
@@ -548,7 +593,10 @@ spectral_whitening(float* spectrum,float b,int N, float* max_spectrum,
 
 //---------------TIME SMOOTHING--------------
 
-//This was proposed in this work SPECTRAL SUBTRACTION WITH ADAPTIVE AVERAGING OF THE GAIN FUNCTION
+/**
+* Spectral smoothing proposed in SPECTRAL SUBTRACTION WITH ADAPTIVE AVERAGING OF
+* THE GAIN FUNCTION
+*/
 void
 spectrum_adaptive_time_smoothing(int fft_size_2, float* spectrum_prev, float* spectrum,
                                  float* noise_thresholds, float* prev_beta, float coeff)
@@ -595,6 +643,9 @@ spectrum_adaptive_time_smoothing(int fft_size_2, float* spectrum_prev, float* sp
   }
 }
 
+/**
+* Spectral smoothing by applying a release envelope
+*/
 void
 apply_time_envelope(float* spectrum, float* spectrum_prev, float N, float release_coeff)
 {
@@ -613,6 +664,10 @@ apply_time_envelope(float* spectrum, float* spectrum_prev, float N, float releas
 
 //------TRANSIENT PROTECTION------
 
+/**
+* Transient detection using a rolling mean thresholding over the spectral flux of
+* the signal
+*/
 bool
 transient_detection(float* fft_p2, float* transient_preserv_prev, float fft_size_2,
 										float* tp_window_count, float* tp_r_mean, float transient_protection)
@@ -657,7 +712,9 @@ transient_detection(float* fft_p2, float* transient_preserv_prev, float fft_size
 
 //-----------WINDOW---------------
 
-//blackman window values computing
+/**
+* blackman window values computing
+*/
 float
 blackman(int k, int N)
 {
@@ -665,7 +722,9 @@ blackman(int k, int N)
   return 0.42-0.5*cosf(2.f*M_PI*p) + 0.08*cosf(4.f*M_PI*p);
 }
 
-//hanning window values computing
+/**
+* hanning window values computing
+*/
 float
 hanning(int k, int N)
 {
@@ -673,7 +732,9 @@ hanning(int k, int N)
   return 0.5 - 0.5 * cosf(2.f*M_PI*p);
 }
 
-//hamming window values computing
+/**
+* hamming window values computing
+*/
 float
 hamming(int k, int N)
 {
@@ -681,7 +742,9 @@ hamming(int k, int N)
   return 0.54 - 0.46 * cosf(2.f*M_PI*p);
 }
 
-//wrapper to compute windows values
+/**
+* wrapper to compute windows values
+*/
 void
 fft_window(float* window, int N, int window_type)
 {
@@ -703,6 +766,9 @@ fft_window(float* window, int N, int window_type)
   }
 }
 
+/**
+* Outputs the scaling needed by the configured STFT transform
+*/
 float
 get_window_scale_factor(float* input_window,float* output_window,int frame_size)
 {
@@ -712,7 +778,9 @@ get_window_scale_factor(float* input_window,float* output_window,int frame_size)
  	return (sum/(float)(frame_size));
 }
 
-//wrapper for pre and post processing windows
+/**
+* Wrapper for pre and post processing windows
+*/
 void
 fft_pre_and_post_window(float* input_window, float* output_window, int frame_size,
                         int window_option_input, int window_option_output,
@@ -750,6 +818,9 @@ fft_pre_and_post_window(float* input_window, float* output_window, int frame_siz
   *(overlap_scale_factor) = get_window_scale_factor(input_window,output_window,frame_size);
 }
 
+/**
+* Gets the magnitude and phase spectrum of the complex spectrum
+*/
 void
 get_info_from_bins(float* fft_p2, float* fft_magnitude, float* fft_phase,
 									 int fft_size_2, int fft_size, float* fft_buffer)
