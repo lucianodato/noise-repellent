@@ -22,7 +22,7 @@ Limitations
 
 Install
 -------
-To compile and install this plugin you will need the LV2 SDK, gnu-make, a c-compiler, git, pkg-config and fftw3 library.
+To compile and install this plugin you will need the LV2 SDK, gnu-make, a c-compiler, git, pkg-config and fftw3 library (>= 3.3.5 is recommended to avoid threading issues).
 
 ```bash
   git clone https://github.com/lucianodato/noise-repellent.git
