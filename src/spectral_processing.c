@@ -51,6 +51,21 @@ preprocessing(float noise_thresholds_offset, float* fft_p2,
 
 	//PREPROCESSING
 
+	//------SMOOTHING DETECTOR------
+
+	if(adaptive_state == 0.f) //Only when adaptive is off
+	{
+		memcpy(smoothed_spectrum,fft_p2,sizeof(float)*(fft_size_2+1));
+
+		apply_time_envelope(smoothed_spectrum, smoothed_spectrum_prev, fft_size_2, release_coeff);
+
+		// This adaptive method is based on SPECTRAL SUBTRACTION WITH ADAPTIVE AVERAGING OF THE GAIN FUNCTION
+		// spectrum_adaptive_time_smoothing(fft_size_2, smoothed_spectrum_prev, smoothed_spectrum,
+		// 																 noise_thresholds_scaled, prev_beta, 1.f-release_coeff);
+
+		memcpy(smoothed_spectrum_prev,smoothed_spectrum,sizeof(float)*(fft_size_2+1));
+	}
+
 	//CALCULATION OF ALPHA WITH MASKING THRESHOLDS USING VIRAGS METHOD
 
 	if(masking_value > 1.f && adaptive_state == 0.f){ //Only when adaptive is off
@@ -75,28 +90,13 @@ preprocessing(float noise_thresholds_offset, float* fft_p2,
 		}
 	}
 
-	//------SMOOTHING DETECTOR------
-
-	if(adaptive_state == 0.f) //Only when adaptive is off
-	{
-		memcpy(smoothed_spectrum,fft_p2,sizeof(float)*(fft_size_2+1));
-
-		apply_time_envelope(smoothed_spectrum, smoothed_spectrum_prev, fft_size_2, release_coeff);
-
-		// This adaptive method is based on SPECTRAL SUBTRACTION WITH ADAPTIVE AVERAGING OF THE GAIN FUNCTION
-		// spectrum_adaptive_time_smoothing(fft_size_2, smoothed_spectrum_prev, smoothed_spectrum,
-		// 																 noise_thresholds_scaled, prev_beta, 1.f-release_coeff);
-
-		memcpy(smoothed_spectrum_prev,smoothed_spectrum,sizeof(float)*(fft_size_2+1));
-	}
-
 	//------TRANSIENT PROTECTION------
 
 	if (transient_protection > 1.f)
 	{
 		*(transient_present) = transient_detection(fft_p2, transient_preserv_prev,
 																							 fft_size_2, tp_window_count, tp_r_mean,
-																						 	 transient_protection);
+																							 transient_protection);
 	}
 }
 
