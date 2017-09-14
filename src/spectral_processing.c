@@ -175,8 +175,7 @@ residual_calulation(int fft_size, float* output_fft_buffer,
 }
 
 /**
-* Mixes the cleaned signal with the residual taking into account the reduction setted by
-* by the user. Outputs the final signal or the residual only.
+* Mixes the cleaned signal with the residual taking into account the reduction setted by the user. Outputs the final signal or the residual only.
 */
 void
 final_spectrum_ensemble(int fft_size, float* final_spectrum,
@@ -205,7 +204,7 @@ final_spectrum_ensemble(int fft_size, float* final_spectrum,
 }
 
 /**
-* Mixes unprocessed and processed signal to bypass softly
+* Mixes unprocessed and processed signal to bypass softly.
 */
 void
 soft_bypass(float* final_spectrum, float* output_fft_buffer, float wet_dry,

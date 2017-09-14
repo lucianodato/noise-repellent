@@ -33,7 +33,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define GAMMA2 0.5f
 
 /**
-* Wiener substraction supression rule. Outputs the filter mirrored around nyquist
+* Wiener substraction supression rule. Outputs the filter mirrored around nyquist.
 */
 void
 wiener_subtraction(int fft_size_2, float* spectrum, float* noise_thresholds, float* Gk)
@@ -68,7 +68,7 @@ wiener_subtraction(int fft_size_2, float* spectrum, float* noise_thresholds, flo
 }
 
 /**
-* Power substraction supression rule. Outputs the filter mirrored around nyquist
+* Power substraction supression rule. Outputs the filter mirrored around nyquist.
 */
 void
 power_subtraction(int fft_size_2, float* spectrum, float* noise_thresholds, float* Gk)
@@ -103,7 +103,7 @@ power_subtraction(int fft_size_2, float* spectrum, float* noise_thresholds, floa
 }
 
 /**
-* Magnitude substraction supression rule. Outputs the filter mirrored around nyquist
+* Magnitude substraction supression rule. Outputs the filter mirrored around nyquist.
 */
 void
 magnitude_subtraction(int fft_size_2, float* spectrum, float* noise_thresholds, float* Gk)
@@ -138,7 +138,7 @@ magnitude_subtraction(int fft_size_2, float* spectrum, float* noise_thresholds, 
 }
 
 /**
-* Gating with hard knee supression rule. Outputs the filter mirrored around nyquist
+* Gating with hard knee supression rule. Outputs the filter mirrored around nyquist.
 */
 void
 spectral_gating(int fft_size_2, float* spectrum, float* noise_thresholds, float* Gk)

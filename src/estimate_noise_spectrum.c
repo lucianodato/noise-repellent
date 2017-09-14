@@ -43,7 +43,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define BAND_3_GAIN 7.0f //gain for the band
 
 /**
-* Outputs the thresholds used by louizou method to discriminate between noise and signal
+* Outputs the thresholds used by louizou method to discriminate between noise and signal.
 */
 void
 compute_auto_thresholds(float* auto_thresholds, float fft_size, float fft_size_2,
@@ -70,7 +70,7 @@ compute_auto_thresholds(float* auto_thresholds, float fft_size, float fft_size_2
 }
 
 /**
-* Loizou noise-estimation algorithm for highly non-stationary environments
+* Loizou noise-estimation algorithm for highly non-stationary environments.
 */
 static void
 estimate_noise_loizou(float* thresh, int fft_size_2, float* p2, float* s_pow_spec,
@@ -123,7 +123,7 @@ estimate_noise_loizou(float* thresh, int fft_size_2, float* p2, float* s_pow_spe
 }
 
 /**
-* Wrapper for automatic and dynamic noise estimation
+* Wrapper for automatic and dynamic noise estimation.
 */
 void
 adapt_noise(float* p2, int fft_size_2, float* noise_thresholds_p2, float* thresh,
@@ -142,7 +142,7 @@ adapt_noise(float* p2, int fft_size_2, float* noise_thresholds_p2, float* thresh
 }
 
 /**
-* Noise estimation based using a rolling mean over user selected noise
+* Noise estimation based using a rolling mean over user selected noise.
 */
 void
 get_noise_statistics(float* fft_p2, int fft_size_2, float* noise_thresholds_p2,

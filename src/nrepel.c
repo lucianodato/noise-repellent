@@ -221,8 +221,6 @@ typedef struct
 
 /**
 * Instantiates the plugin.
-* Allocates memory for the noise repellent object, initialize what is necessary
-* and returns a pointer as LV2Handle.
 */
 static LV2_Handle
 instantiate(const LV2_Descriptor* descriptor, double rate, const char* bundle_path,
