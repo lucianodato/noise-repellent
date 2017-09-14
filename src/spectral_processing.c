@@ -34,6 +34,30 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 /**
 * Includes every preprocessing or precomputing before the supression rule.
+* \param noise_thresholds_offset the scaling of the thresholds setted by the user
+* \param fft_p2 the power spectrum of current frame
+* \param noise_thresholds_p2 the noise thresholds for each bin estimated previously
+* \param noise_thresholds_scaled the noise thresholds for each bin estimated previously scaled by the user
+* \param smoothed_spectrum current power specturm with time smoothing applied
+* \param smoothed_spectrum_prev the power specturm with time smoothing applied of previous frame
+* \param fft_size_2 is half of the fft size
+* \param prev_beta beta of previous frame for adaptive smoothing (not used yet)
+* \param bark_z defines the bark to linear mapping for current spectrum config
+* \param absolute_thresholds defines the absolute thresholds of hearing for current spectrum config
+* \param SSF defines the spreading function matrix
+* \param release_coeff release coefficient for time smoothing
+* \param spreaded_unity_gain_bark_spectrum correction to be applied to SSF convolution
+* \param spl_reference_values defines the reference values for each bin to convert from db to db SPL
+* \param alpha_masking is the array of oversustraction factors for each bin
+* \param beta_masking is the array of the spectral flooring factors for each bin
+* \param masking_value is the limit max oversustraction to be computed
+* \param adaptive flag that indicates if the noise is being estimated adaptively
+* \param reduction_value is the limit max the spectral flooring to be computed
+* \param transient_preserv_prev is the previous frame for spectral flux computing
+* \param tp_window_count is the frame counter for the rolling mean thresholding for onset detection
+* \param tp_r_mean is the rolling mean value for onset detection
+* \param transient_present indicates if current frame is an onset or not (contains a transient)
+* \param transient_protection is the flag that indicates whether transient protection is active or not
 */
 void
 preprocessing(float noise_thresholds_offset, float* fft_p2,
@@ -102,6 +126,15 @@ preprocessing(float noise_thresholds_offset, float* fft_p2,
 
 /**
 * Computes the supression filter based on pre-processing data.
+* \param fft_p2 the power spectrum of current frame
+* \param noise_thresholds_p2 the noise thresholds for each bin estimated previously
+* \param noise_thresholds_scaled the noise thresholds for each bin estimated previously scaled by the user
+* \param smoothed_spectrum current power specturm with time smoothing applied
+* \param fft_size_2 is half of the fft size
+* \param adaptive flag that indicates if the noise is being estimated adaptively
+* \param Gk is the filter computed by the supression rule for each bin of the spectrum
+* \param transient_protection is the flag that indicates whether transient protection is active or not
+* \param transient_present indicates if current frame is an onset or not (contains a transient)
 */
 void
 spectral_gain(float* fft_p2, float* noise_thresholds_p2, float* noise_thresholds_scaled,
@@ -131,12 +164,15 @@ spectral_gain(float* fft_p2, float* noise_thresholds_p2, float* noise_thresholds
 
 /**
 * Applies the filter to the spectrum and gets the clean signal.
+* \param fft_size size of the fft
+* \param output_fft_buffer the unprocessed spectrum remaining in the fft buffer
+* \param denoised_spectrum the spectrum of the cleaned signal
+* \param Gk is the filter computed by the supression rule for each bin of the spectrum
 */
 void
 denoised_calulation(int fft_size,	float* output_fft_buffer,
 										float* denoised_spectrum, float* Gk)
 {
-
   int k;
 
   //Apply the computed gain to the signal and store it in denoised array
@@ -148,6 +184,13 @@ denoised_calulation(int fft_size,	float* output_fft_buffer,
 
 /**
 * Gets the residual signal of the reduction.
+* \param fft_size size of the fft
+* \param output_fft_buffer the unprocessed spectrum remaining in the fft buffer
+* \param denoised_spectrum the spectrum of the cleaned signal
+* \param whitening_factor the mix coefficient between whitened and not whitened residual spectrum
+* \param residual_max_spectrum contains the maximun temporal value in each residual bin
+* \param whitening_window_count counts frames to distinguish the first from the others
+* \param max_decay_rate coefficient that sets the memory for each temporal maximun
 */
 void
 residual_calulation(int fft_size, float* output_fft_buffer,
@@ -176,6 +219,12 @@ residual_calulation(int fft_size, float* output_fft_buffer,
 
 /**
 * Mixes the cleaned signal with the residual taking into account the reduction setted by the user. Outputs the final signal or the residual only.
+* \param fft_size size of the fft
+* \param final_spectrum the spectrum to output from the plugin
+* \param residual_spectrum the spectrum of the reduction residual
+* \param denoised_spectrum the spectrum of the cleaned signal
+* \param reduction_amount the amount of dB power to reduce setted by the user
+* \param noise_listen control variable that decides whether to output the mixed noise reduced signal or the residual only
 */
 void
 final_spectrum_ensemble(int fft_size, float* final_spectrum,
@@ -205,6 +254,10 @@ final_spectrum_ensemble(int fft_size, float* final_spectrum,
 
 /**
 * Mixes unprocessed and processed signal to bypass softly.
+* \param final_spectrum the spectrum to output from the plugin
+* \param output_fft_buffer the unprocessed spectrum remaining in the fft buffer
+* \param wet_dry mixing coefficient
+* \param fft_size size of the fft
 */
 void
 soft_bypass(float* final_spectrum, float* output_fft_buffer, float wet_dry,

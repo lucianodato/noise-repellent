@@ -20,7 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 /**
 * \file denoise_gain.c
 * \author Luciano Dato
-* \brief All supression rules
+* \brief All supression rules and filter computing related methods
 */
 
 #include <float.h>
@@ -34,6 +34,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 /**
 * Wiener substraction supression rule. Outputs the filter mirrored around nyquist.
+* \param fft_size_2 is half of the fft size
+* \param noise_thresholds is the threshold for each corresponding power spectum value
+* /param spectrum is the power spectum array
+* \param Gk is the filter computed by the supression rule for each bin of the spectrum
 */
 void
 wiener_subtraction(int fft_size_2, float* spectrum, float* noise_thresholds, float* Gk)
@@ -69,6 +73,10 @@ wiener_subtraction(int fft_size_2, float* spectrum, float* noise_thresholds, flo
 
 /**
 * Power substraction supression rule. Outputs the filter mirrored around nyquist.
+* \param fft_size_2 is half of the fft size
+* \param spectrum is the power spectum array
+* \param noise_thresholds is the threshold for each corresponding power spectum value
+* \param Gk is the filter computed by the supression rule for each bin of the spectrum
 */
 void
 power_subtraction(int fft_size_2, float* spectrum, float* noise_thresholds, float* Gk)
@@ -104,6 +112,10 @@ power_subtraction(int fft_size_2, float* spectrum, float* noise_thresholds, floa
 
 /**
 * Magnitude substraction supression rule. Outputs the filter mirrored around nyquist.
+* \param fft_size_2 is half of the fft size
+* \param spectrum is the power spectum array
+* \param noise_thresholds is the threshold for each corresponding power spectum value
+* \param Gk is the filter computed by the supression rule for each bin of the spectrum
 */
 void
 magnitude_subtraction(int fft_size_2, float* spectrum, float* noise_thresholds, float* Gk)
@@ -139,6 +151,10 @@ magnitude_subtraction(int fft_size_2, float* spectrum, float* noise_thresholds, 
 
 /**
 * Gating with hard knee supression rule. Outputs the filter mirrored around nyquist.
+* \param fft_size_2 is half of the fft size
+* \param spectrum is the power spectum array
+* \param noise_thresholds is the threshold for each corresponding power spectum value
+* \param Gk is the filter computed by the supression rule for each bin of the spectrum
 */
 void
 spectral_gating(int fft_size_2, float* spectrum, float* noise_thresholds, float* Gk)
@@ -176,15 +192,13 @@ spectral_gating(int fft_size_2, float* spectrum, float* noise_thresholds, float*
 }
 
 /**
-* Generalized spectral subtraction supression rule.
-* \param gamma defines what type of spectral Subtraction is used
-* gamma1=gamma2=1 is magnitude substaction
-* gamma1=2 gamma2=0.5 is power Subtraction
-* gamma1=2 gamma2=1 is wiener filtering
-* \param alpha is the oversustraction factor
-* \param beta is the spectral flooring factor
-* This version uses an array of alphas and betas.
-* Outputs the filter mirrored around nyquist
+* Generalized spectral subtraction supression rule. This version uses an array of alphas and betas. Outputs the filter mirrored around nyquist. GAMMA defines what type of spectral Subtraction is used. GAMMA1=GAMMA2=1 is magnitude substaction. GAMMA1=2 GAMMA2=0.5 is power Subtraction. GAMMA1=2 GAMMA2=1 is wiener filtering.
+* \param fft_size_2 is half of the fft size
+* \param alpha is the array of oversustraction factors for each bin
+* \param beta is the array of the spectral flooring factors for each bin
+* \param spectrum is the power spectum array
+* \param noise_thresholds is the threshold for each corresponding power spectum value
+* \param Gk is the filter computed by the supression rule for each bin of the spectrum
 */
 void
 denoise_gain_gss(int fft_size_2, float* alpha, float* beta, float* spectrum,
@@ -221,6 +235,12 @@ denoise_gain_gss(int fft_size_2, float* alpha, float* beta, float* spectrum,
 
 /**
 * Gets the postfilter for the current filter computed by the supression rule used.
+* \param fft_size_2 is half of the fft size
+* \param fft_size is the fft size
+* \param spectrum is the power spectum array
+* \param pf_threshold is the PF-threshold setted by the user
+* \param postfilter is the postfilter computed to apply to previously computed filter
+* \param Gk_spectral is the filter computed by the supression rule for each bin of the spectrum
 */
 void
 compute_post_filter(int fft_size_2, int fft_size, float* spectrum, float pf_threshold,

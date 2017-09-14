@@ -46,6 +46,9 @@ const float relative_thresholds[N_BARK_BANDS] = { -16.f, -17.f, -18.f, -19.f, -2
 
 /**
 * Fft to bark bilinear scale transform.
+* \param bark_z defines the bark to linear mapping for current spectrum config
+* \param fft_size_2 is half of the fft size
+* \param srate current sample rate of the host
 */
 void
 compute_bark_mapping(float* bark_z,int fft_size_2, int srate)
@@ -63,6 +66,7 @@ compute_bark_mapping(float* bark_z,int fft_size_2, int srate)
 
 /**
 * Computes the spectral spreading function matrix of Schroeder using bark scale.
+* \param SSF defines the spreading function matrix
 */
 void
 compute_SSF(float* SSF)
@@ -85,6 +89,9 @@ compute_SSF(float* SSF)
 /**
 * Convolution between the spreading function by multiplication of a Toepliz matrix
 * to a bark spectrum.
+* \param SSF defines the spreading function matrix
+* \param bark_spectrum the bark spectrum values of current power spectrum
+* \param spreaded_spectrum result of the convolution bewtween SSF and the bark spectrum
 */
 void convolve_with_SSF(float* SSF, float* bark_spectrum, float* spreaded_spectrum)
 {
@@ -101,6 +108,11 @@ void convolve_with_SSF(float* SSF, float* bark_spectrum, float* spreaded_spectru
 
 /**
 * Computes the energy of each bark band.
+* \param bark_z defines the bark to linear mapping for current spectrum config
+* \param bark_spectrum the bark spectrum values of current power spectrum
+* \param spectrum is the power spectum array
+* \param intermediate_band_bins holds the bin numbers that are limits of each band
+* \param n_bins_per_band holds the the number of bins in each band
 */
 void
 compute_bark_spectrum(float* bark_z, float* bark_spectrum, float* spectrum,
@@ -139,6 +151,12 @@ compute_bark_spectrum(float* bark_z, float* bark_spectrum, float* spectrum,
 
 /**
 * Computes the spl reference value for dB to dBSPL conversion.
+* \param spl_reference_values defines the reference values for each bin to convert from db to db SPL
+* \param fft_size_2 is half of the fft size
+* \param srate current sample rate of the host
+* \param input_fft_buffer_at input buffer for the reference sinewave fft transform
+* \param output_fft_buffer_at output buffer for the reference sinewave fft transform
+* \param forward_at fftw plan for the reference sinewave fft transform
 */
 void
 spl_reference(float* spl_reference_values, int fft_size_2, int srate,
@@ -185,6 +203,9 @@ spl_reference(float* spl_reference_values, int fft_size_2, int srate,
 
 /**
 * dB to dBSPL conversion.
+* \param spl_reference_values defines the reference values for each bin to convert from db to db SPL
+* \param masking_thresholds the masking thresholds obtained in db scale
+* \param fft_size_2 is half of the fft size
 */
 void
 convert_to_dbspl(float* spl_reference_values,float* masking_thresholds, int fft_size_2)
@@ -197,6 +218,9 @@ convert_to_dbspl(float* spl_reference_values,float* masking_thresholds, int fft_
 
 /**
 * Computes the absolute thresholds of hearing to contrast with the masking thresholds.
+* \param absolute_thresholds defines the absolute thresholds of hearing for current spectrum config
+* \param fft_size_2 is half of the fft size
+* \param srate current sample rate of the host
 */
 void
 compute_absolute_thresholds(float* absolute_thresholds,int fft_size_2, int srate)
@@ -212,8 +236,12 @@ compute_absolute_thresholds(float* absolute_thresholds,int fft_size_2, int srate
 }
 
 /**
-* Computes the tonality factor using the spectral flatness in each band of the bark
+* Computes the tonality factor using the spectral flatness for a given bark band
 * spectrum.
+* \param spectrum is the power spectum array
+* \param intermediate_band_bins holds the bin numbers that are limits of each band
+* \param n_bins_per_band holds the the number of bins in each band
+* \param band the bark band given
 */
 float
 compute_tonality_factor(float* spectrum, float* intermediate_band_bins,
@@ -256,6 +284,14 @@ compute_tonality_factor(float* spectrum, float* intermediate_band_bins,
 
 /**
 * Masking threshold calculation.
+* \param bark_z defines the bark to linear mapping for current spectrum config
+* \param absolute_thresholds defines the absolute thresholds of hearing for current spectrum config
+* \param SSF defines the spreading function matrix
+* \param spectrum is the power spectum array
+* \param fft_size_2 is half of the fft size
+* \param masking_thresholds the masking thresholds obtained in db scale
+* \param spreaded_unity_gain_bark_spectrum correction to be applied to SSF convolution
+* \param spl_reference_values defines the reference values for each bin to convert from db to db SPL
 */
 void
 compute_masking_thresholds(float* bark_z, float* absolute_thresholds, float* SSF,
@@ -331,6 +367,18 @@ compute_masking_thresholds(float* bark_z, float* absolute_thresholds, float* SSF
 
 /**
 * alpha and beta computation according to Virags paper.
+* \param fft_p2 the power spectrum of current frame
+* \param noise_thresholds_p2 the noise thresholds for each bin estimated previously
+* \param fft_size_2 is half of the fft size
+* \param alpha_masking is the array of oversustraction factors for each bin
+* \param beta_masking is the array of the spectral flooring factors for each bin
+* \param bark_z defines the bark to linear mapping for current spectrum config
+* \param absolute_thresholds defines the absolute thresholds of hearing for current spectrum config
+* \param SSF defines the spreading function matrix
+* \param spreaded_unity_gain_bark_spectrum correction to be applied to SSF convolution
+* \param spl_reference_values defines the reference values for each bin to convert from db to db SPL
+* \param masking_value is the limit max oversustraction to be computed
+* \param reduction_value is the limit max the spectral flooring to be computed
 */
 void
 compute_alpha_and_beta(float* fft_p2, float* noise_thresholds_p2, int fft_size_2,
@@ -344,7 +392,6 @@ compute_alpha_and_beta(float* fft_p2, float* noise_thresholds_p2, int fft_size_2
   float masking_thresholds[fft_size_2+1];
   float estimated_clean[fft_size_2+1];
   float normalized_value;
-
 
   //Noise masking threshold must be computed from a clean signal
   //therefor we aproximate a clean signal using a power Sustraction over

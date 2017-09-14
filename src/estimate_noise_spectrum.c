@@ -44,6 +44,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 /**
 * Outputs the thresholds used by louizou method to discriminate between noise and signal.
+* \param auto_thresholds Reference threshold for louizou algorithm (same as thresh)
+* \param fft_size is the fft size
+* \param fft_size_2 is half of the fft size
+* \param samp_rate current sample rate of the host
 */
 void
 compute_auto_thresholds(float* auto_thresholds, float fft_size, float fft_size_2,
@@ -71,6 +75,17 @@ compute_auto_thresholds(float* auto_thresholds, float fft_size, float fft_size_2
 
 /**
 * Loizou noise-estimation algorithm for highly non-stationary environments.
+* \param thresh Reference threshold for louizou algorithm
+* \param fft_size_2 is half of the fft size
+* \param p2 the power spectrum of current frame
+* \param s_pow_spec current smoothed power spectrum
+* \param prev_s_pow_spec previous smoothed power spectrum
+* \param noise_thresholds_p2 the noise thresholds for each bin estimated
+* \param prev_noise noise thresholds estimated for previous frame
+* \param p_min spectrum of the local minimun values
+* \param prev_p_min spectrum of the previous local minimun values
+* \param speech_p_p speech presence probability spectrum
+* \param prev_speech_p_p speech presence probability spectrum of previous frame
 */
 static void
 estimate_noise_loizou(float* thresh, int fft_size_2, float* p2, float* s_pow_spec,
@@ -124,6 +139,17 @@ estimate_noise_loizou(float* thresh, int fft_size_2, float* p2, float* s_pow_spe
 
 /**
 * Wrapper for automatic and dynamic noise estimation.
+* \param p2 the power spectrum of current frame
+* \param fft_size_2 is half of the fft size
+* \param noise_thresholds_p2 the noise thresholds for each bin estimated
+* \param thresh Reference threshold for louizou algorithm
+* \param prev_noise_thresholds noise thresholds estimated for previous frame
+* \param s_pow_spec current smoothed power spectrum
+* \param prev_s_pow_spec previous smoothed power spectrum
+* \param p_min spectrum of the local minimun values
+* \param prev_p_min spectrum of the previous local minimun values
+* \param speech_p_p speech presence probability spectrum
+* \param prev_speech_p_p speech presence probability spectrum of previous frame
 */
 void
 adapt_noise(float* p2, int fft_size_2, float* noise_thresholds_p2, float* thresh,
@@ -143,6 +169,10 @@ adapt_noise(float* p2, int fft_size_2, float* noise_thresholds_p2, float* thresh
 
 /**
 * Noise estimation based using a rolling mean over user selected noise.
+* \param fft_p2 the power spectrum of current frame
+* \param fft_size_2 is half of the fft size
+* \param noise_thresholds_p2 the noise thresholds for each bin estimated
+* \param window_count is the frame counter for the rolling mean estimation
 */
 void
 get_noise_statistics(float* fft_p2, int fft_size_2, float* noise_thresholds_p2,
