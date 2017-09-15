@@ -57,6 +57,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 /**
 * Method to force already-denormal float value to zero.
+* \param value to sanitize
 */
 float
 sanitize_denormal(float value)
@@ -71,12 +72,14 @@ sanitize_denormal(float value)
   }
 }
 
+///sign function.
 int
 sign(float x)
 {
   return (x >= 0.f ? 1.f : -1.f);
 }
 
+///gets the next power of two of a number x.
 int
 next_pow_two(int x)
 {
@@ -86,6 +89,7 @@ next_pow_two(int x)
 	return power;
 }
 
+///gets the nearest odd number of a number x.
 int
 nearest_odd(int x)
 {
@@ -95,6 +99,7 @@ nearest_odd(int x)
 		return x;
 }
 
+///gets the nearest even number of a number x.
 int
 nearest_even(int x)
 {
@@ -104,24 +109,36 @@ nearest_even(int x)
 		return x-1;
 }
 
+///converts a db value to linear scale.
 float
 from_dB(float gdb)
 {
   return (expf(gdb/10.f*logf(10.f)));
 }
 
+///converts a linear value to db scale.
 float
 to_dB(float g)
 {
   return (10.f*log10f(g));
 }
 
+/*Maps a bin number to a frequency
+* \param i bin number
+* \param samp_rate current sample rate of the host
+* \param N size of the fft
+*/
 float
 bin_to_freq(int i, float samp_rate, int N)
 {
   return (float) i * (samp_rate / N / 2.f);
 }
 
+/*Maps a frequency to a bin number
+* \param freq frequency
+* \param samp_rate current sample rate of the host
+* \param N size of the fft
+*/
 int
 freq_to_bin(float freq, float samp_rate, int N)
 {
@@ -141,6 +158,12 @@ typedef struct
 
 /**
 * Parabolic interpolation as explained in  https://ccrma.stanford.edu/~jos/parshl/Peak_Detection_Steps_3.html.
+* \param left_val value at the left of the point to interpolate
+* \param middle_val value at the middle of the point to interpolate
+* \param right_val value at the right of the point to interpolate
+* \param current_bin current bin value before interpolation
+* \param result_val interpolation value result
+* \param result_val interpolation bin result
 */
 void
 parabolic_interpolation(float left_val, float middle_val, float right_val,
@@ -153,6 +176,9 @@ parabolic_interpolation(float left_val, float middle_val, float right_val,
 
 /**
 * To initialize an array to a single value in all positions.
+* \param array the array to initialize
+* \param value the value to copy to every position in the array
+* \param size the size of the array
 */
 void
 initialize_array(float* array, float value,int size)
@@ -165,6 +191,8 @@ initialize_array(float* array, float value,int size)
 
 /**
 * Verifies if the spectrum is full of zeros.
+* \param spectrum the array to check
+* \param N the size of the array (half the fft size plus 1)
 */
 bool
 is_empty(float* spectrum, int N)
@@ -182,6 +210,8 @@ is_empty(float* spectrum, int N)
 
 /**
 * Finds the max value of the spectrum.
+* \param spectrum the array to check
+* \param N the size of the array (half the fft size plus 1)
 */
 float
 max_spectral_value(float* spectrum, int N)
@@ -197,6 +227,8 @@ max_spectral_value(float* spectrum, int N)
 
 /**
 * Finds the min value of the spectrum.
+* \param spectrum the array to check
+* \param N the size of the array (half the fft size plus 1)
 */
 float
 min_spectral_value(float* spectrum, int N)
@@ -212,6 +244,8 @@ min_spectral_value(float* spectrum, int N)
 
 /**
 * Finds the mean value of the spectrum.
+* \param a the array to check
+* \param m the size of the array (half the fft size plus 1)
 */
 float
 spectral_mean(float* a,int m)
@@ -224,6 +258,8 @@ spectral_mean(float* a,int m)
 
 /**
 * Sums of all values of a spectrum.
+* \param a the array to sum
+* \param m the size of the array (half the fft size plus 1)
 */
 float
 spectral_addition(float* a,int m)
@@ -236,6 +272,8 @@ spectral_addition(float* a,int m)
 
 /**
 * Finds the median value of the spectrum.
+* \param x the array to check
+* \param n the size of the array (half the fft size plus 1)
 */
 float
 spectral_median(float* x,int n)
@@ -273,6 +311,8 @@ spectral_median(float* x,int n)
 
 /**
 * Finds the moda value of the spectrum.
+* \param x the array to check
+* \param n the size of the array (half the fft size plus 1)
 */
 float
 spectral_moda(float* x,int n)
@@ -309,6 +349,8 @@ spectral_moda(float* x,int n)
 
 /**
 * Normalizes spectral values.
+* \param spectrum the spectrum to normalize
+* \param N the size of the spectrum (half the fft size plus 1)
 */
 void
 get_normalized_spectum(float* spectrum,int N)
@@ -326,6 +368,9 @@ get_normalized_spectum(float* spectrum,int N)
 
 /**
 * Outputs the spectral flux between two spectrums.
+* \param spectrum the current power spectrum
+* \param spectrum_prev the previous power spectrum
+* \param N the size of the spectrum (half the fft size plus 1)
 */
 float
 spectral_flux(float* spectrum,float* spectrum_prev,float N)
@@ -344,6 +389,8 @@ spectral_flux(float* spectrum,float* spectrum_prev,float N)
 
 /**
 * Outputs the high frequency content of the spectrum.
+* \param spectrum the current power spectrum
+* \param N the size of the spectrum (half the fft size plus 1)
 */
 float
 high_frequency_content(float* spectrum,float N)
@@ -359,7 +406,11 @@ high_frequency_content(float* spectrum,float N)
 }
 
 /**
-* Computes the spectral envelope like Robels paper.
+* Computes the spectral envelope like Robel paper indicates.
+* \param fft_size_2 half of the fft size
+* \param fft_p2 the current power spectrum
+* \param samp_rate current sample rate of the host
+* \param spectral_envelope_values array that holds the spectral envelope values
 */
 void
 spectral_envelope(int fft_size_2, float* fft_p2, int samp_rate, float* spectral_envelope_values)
@@ -408,7 +459,13 @@ spectral_envelope(int fft_size_2, float* fft_p2, int samp_rate, float* spectral_
 }
 
 /**
-* Outputs the spectral peaks of a spectrum.
+* Finds the spectral peaks of a spectrum.
+* \param fft_size_2 half of the fft size
+* \param fft_p2 the current power spectrum
+* \param spectral_peaks array of resulting spectral peaks founded
+* \param peak_pos array of positions of resulting spectral peaks
+* \param peaks_count counter of peaks founded
+* \param samp_rate current sample rate of the host
 */
 void
 spectral_peaks(int fft_size_2, float* fft_p2, FFTPeak* spectral_peaks, int* peak_pos,
@@ -538,6 +595,9 @@ spectral_peaks(int fft_size_2, float* fft_p2, FFTPeak* spectral_peaks, int* peak
 
 /**
 * Outputs the p norm of a spectrum.
+* \param spectrum the power spectrum to get the norm of
+* \param N the size of the array
+* \param p the norm number
 */
 float
 spectrum_p_norm(float* spectrum, float N, float p)
@@ -556,9 +616,14 @@ spectrum_p_norm(float* spectrum, float N, float p)
 
 /**
 * Whitens the spectrum adaptively.
+* \param spectrum the power spectrum of the residue to be whitened
+* \param b the mixing coefficient
+* \param N the size of the array (fft size)
+* \param max_spectrum array of temporal maximums of the residual signal
+* \param max_decay_rate amount of ms of decay for temporal maximums
 */
 void
-spectral_whitening(float* spectrum,float b,int N, float* max_spectrum,
+spectral_whitening(float* spectrum,float b, int N, float* max_spectrum,
 									 float* whitening_window_count, float max_decay_rate)
 {
 	float whitened_spectrum[N];
@@ -596,6 +661,12 @@ spectral_whitening(float* spectrum,float b,int N, float* max_spectrum,
 /**
 * Spectral smoothing proposed in SPECTRAL SUBTRACTION WITH ADAPTIVE AVERAGING OF
 * THE GAIN FUNCTION.
+* \param fft_size_2 half of the fft size
+* \param spectrum the current power spectrum
+* \param spectrum_prev the previous power spectrum
+* \param noise_thresholds the noise thresholds estimated
+* \param prev_beta beta corresponded to previos frame
+* \param coeff reference smoothing value
 */
 void
 spectrum_adaptive_time_smoothing(int fft_size_2, float* spectrum_prev, float* spectrum,
@@ -645,6 +716,10 @@ spectrum_adaptive_time_smoothing(int fft_size_2, float* spectrum_prev, float* sp
 
 /**
 * Spectral smoothing by applying a release envelope.
+* \param spectrum the current power spectrum
+* \param spectrum_prev the previous power spectrum
+* \param N half of the fft size
+* \param release_coeff release coefficient
 */
 void
 apply_time_envelope(float* spectrum, float* spectrum_prev, float N, float release_coeff)
@@ -667,6 +742,12 @@ apply_time_envelope(float* spectrum, float* spectrum_prev, float N, float releas
 /**
 * Transient detection using a rolling mean thresholding over the spectral flux of
 * the signal.
+* \param fft_p2 the current power spectrum
+* \param transient_preserv_prev the previous power spectrum
+* \param fft_size_2 half of the fft size
+* \param tp_window_count tp_window_count counter for the rolling mean thresholding
+* \param tp_r_mean rolling mean value
+* \param transient_protection the manual scaling of the mean thresholding setted by the user
 */
 bool
 transient_detection(float* fft_p2, float* transient_preserv_prev, float fft_size_2,
@@ -714,6 +795,8 @@ transient_detection(float* fft_p2, float* transient_preserv_prev, float fft_size
 
 /**
 * blackman window values computing.
+* \param k bin number
+* \param N fft size
 */
 float
 blackman(int k, int N)
@@ -724,6 +807,8 @@ blackman(int k, int N)
 
 /**
 * hanning window values computing.
+* \param k bin number
+* \param N fft size
 */
 float
 hanning(int k, int N)
@@ -734,6 +819,8 @@ hanning(int k, int N)
 
 /**
 * hamming window values computing.
+* \param k bin number
+* \param N fft size
 */
 float
 hamming(int k, int N)
@@ -744,6 +831,9 @@ hamming(int k, int N)
 
 /**
 * wrapper to compute windows values.
+* \param window array for window values
+* \param N fft size
+* \param window_type type of window
 */
 void
 fft_window(float* window, int N, int window_type)
@@ -768,6 +858,9 @@ fft_window(float* window, int N, int window_type)
 
 /**
 * Outputs the scaling needed by the configured STFT transform.
+* \param input_window array of the input window values
+* \param output_window array of the output window values
+* \param frame_size size of the window arrays
 */
 float
 get_window_scale_factor(float* input_window,float* output_window,int frame_size)
@@ -780,6 +873,12 @@ get_window_scale_factor(float* input_window,float* output_window,int frame_size)
 
 /**
 * Wrapper for pre and post processing windows.
+* \param input_window array of the input window values
+* \param output_window array of the output window values
+* \param frame_size size of the window arrays
+* \param window_option_input input window option
+* \param window_option_output output window option
+* \param overlap_scale_factor scaling factor for the OLA for configured window options
 */
 void
 fft_pre_and_post_window(float* input_window, float* output_window, int frame_size,
@@ -820,6 +919,12 @@ fft_pre_and_post_window(float* input_window, float* output_window, int frame_siz
 
 /**
 * Gets the magnitude and phase spectrum of the complex spectrum.
+* \param fft_p2 the current power spectrum
+* \param fft_magnitude the current magnitude spectrum
+* \param fft_phase the current phase spectrum
+* \param fft_size_2 half of the fft size
+* \param fft_size size of the fft
+* \param fft_buffer buffer with the complex spectrum of the fft transform
 */
 void
 get_info_from_bins(float* fft_p2, float* fft_magnitude, float* fft_phase,
