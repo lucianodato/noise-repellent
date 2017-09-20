@@ -378,11 +378,14 @@ compute_masking_thresholds(float* bark_z, float* absolute_thresholds, float* SSF
 
 /**
 * alpha and beta computation according to Virags paper. Alphas refers to the oversubtraction
-* factor for each fft bin and beta to the spectral flooring. Using masking thresholds for
-* means of adapt this two parameters correlate much more with human hearing and results in
-* smoother results than using non linear sustraction or others methods of adapting them.
-* Spectral flooring is not used since users decide the amount of noise reduccion themselves
-* and spectral flooring is tied to that parameter instead of being setted automatically.
+* factor for each fft bin and beta to the spectral flooring. What the oversubtraction
+* factor for each bin really does is scaling the noise profile in order reduce more or
+* less noise in the supression rule. Spectral flooring limits the amount of reduction in
+* each bin. Using masking thresholds for means of adapting this two parameters correlate
+* much more with human hearing and results in smoother results than using non linear
+* subtraction or others methods of adapting them. Spectral flooring is not used since
+* users decide the amount of noise reduccion themselves and spectral flooring is tied to
+* that parameter instead of being setted automatically.
 * \param fft_p2 the power spectrum of current frame
 * \param noise_thresholds_p2 the noise thresholds for each bin estimated previously
 * \param fft_size_2 is half of the fft size
@@ -423,13 +426,6 @@ compute_alpha_and_beta(float* fft_p2, float* noise_thresholds_p2, int fft_size_2
   compute_masking_thresholds(bark_z, absolute_thresholds, SSF, estimated_clean,
                              fft_size_2, masking_thresholds,
                              spreaded_unity_gain_bark_spectrum, spl_reference_values);
-
-  /*Get alpha and beta based on masking thresholds
-  *beta and alpha values would adapt based on masking thresholds
-  *frame to frame for optimal oversubtraction and noise floor parameter in each one
-  *noise floor would better be controled by user using the amount of reduction
-  *so beta is not modified
-  */
 
   //First we need the maximun and the minimun value of the masking threshold
   float max_masked_tmp = max_spectral_value(masking_thresholds,fft_size_2);

@@ -158,6 +158,7 @@ typedef struct
 
 /**
 * Parabolic interpolation as explained in  https://ccrma.stanford.edu/~jos/parshl/Peak_Detection_Steps_3.html.
+* This is used for more precise spectral peak detection.
 * \param left_val value at the left of the point to interpolate
 * \param middle_val value at the middle of the point to interpolate
 * \param right_val value at the right of the point to interpolate
@@ -406,7 +407,8 @@ high_frequency_content(float* spectrum,float N)
 }
 
 /**
-* Computes the spectral envelope like Robel paper indicates.
+* Computes the spectral envelope like Robel 'Efficient Spectral Envelope Estimation and its
+* application to pitch shifting and envelope preservation' indicates.
 * \param fft_size_2 half of the fft size
 * \param fft_p2 the current power spectrum
 * \param samp_rate current sample rate of the host
@@ -459,7 +461,7 @@ spectral_envelope(int fft_size_2, float* fft_p2, int samp_rate, float* spectral_
 }
 
 /**
-* Finds the spectral peaks of a spectrum.
+* Finds the spectral peaks of a spectrum. (Not used in current version)
 * \param fft_size_2 half of the fft size
 * \param fft_p2 the current power spectrum
 * \param spectral_peaks array of resulting spectral peaks founded
@@ -615,7 +617,11 @@ spectrum_p_norm(float* spectrum, float N, float p)
 //---------------WHITENING--------------
 
 /**
-* Whitens the spectrum adaptively.
+* Whitens the spectrum adaptively as proposed in 'Adaptive whitening for improved
+* real-time audio onset detection' by Stowell and Plumbley. The idea here is that when
+* residual noise resembles white noise the ear is able to precieve it as not so annoying.
+* It uses a temporal max value for each bin and a decay factor as the memory regulator of
+* that maximun value.
 * \param spectrum the power spectrum of the residue to be whitened
 * \param b the mixing coefficient
 * \param N the size of the array (fft size)
@@ -630,7 +636,6 @@ spectral_whitening(float* spectrum,float b, int N, float* max_spectrum,
 
 	*(whitening_window_count) += 1.f;
 
-	//Adaptive whitening like in ADAPTIVE WHITENING FOR IMPROVED REAL-TIME AUDIO ONSET DETECTION
 	for (int k = 0; k < N; k++)
 	{
 		if(*(whitening_window_count) > 1.f)
@@ -659,8 +664,8 @@ spectral_whitening(float* spectrum,float b, int N, float* max_spectrum,
 //---------------TIME SMOOTHING--------------
 
 /**
-* Spectral smoothing proposed in SPECTRAL SUBTRACTION WITH ADAPTIVE AVERAGING OF
-* THE GAIN FUNCTION.
+* Spectral smoothing proposed in 'Spectral subtraction with adaptive averaging of
+* the gain function' but is not used yet.
 * \param fft_size_2 half of the fft size
 * \param spectrum the current power spectrum
 * \param spectrum_prev the previous power spectrum
@@ -689,8 +694,6 @@ spectrum_adaptive_time_smoothing(int fft_size_2, float* spectrum_prev, float* sp
   //beta is the adaptive coefficient
   beta_ts = MIN(discrepancy,1.f);
 
-  //printf("%f\n", beta_ts);
-
   //Gamma is the smoothing coefficient of the adaptive factor beta
   if(*prev_beta < beta_ts)
   {
@@ -715,7 +718,7 @@ spectrum_adaptive_time_smoothing(int fft_size_2, float* spectrum_prev, float* sp
 }
 
 /**
-* Spectral smoothing by applying a release envelope.
+* Spectral time smoothing by applying a release envelope. This seems to work better than * using time smoothing directly or McAulay & Malpass modification.
 * \param spectrum the current power spectrum
 * \param spectrum_prev the previous power spectrum
 * \param N half of the fft size
@@ -741,7 +744,9 @@ apply_time_envelope(float* spectrum, float* spectrum_prev, float N, float releas
 
 /**
 * Transient detection using a rolling mean thresholding over the spectral flux of
-* the signal.
+* the signal. Using more heuristics like high frequency content and others like the ones
+* anylised by Dixon in 'Simple Spectrum-Based Onset Detection' would be better. Onset
+* detection is explained thoroughly in 'A tutorial on onset detection in music signals' * by Bello.
 * \param fft_p2 the current power spectrum
 * \param transient_preserv_prev the previous power spectrum
 * \param fft_size_2 half of the fft size
@@ -776,12 +781,6 @@ transient_detection(float* fft_p2, float* transient_preserv_prev, float fft_size
 
 	if (reduction_function > adapted_threshold)
 	{
-		// printf("%f", reduction_function);
-		// printf("%s", "   ");
-		// printf("%f", adapted_threshold);
-		// printf("%s", "   ");
-		// printf("%f\n", *(tp_r_mean));
-
 		return true;
 	}
 	else
@@ -830,7 +829,7 @@ hamming(int k, int N)
 }
 
 /**
-* wrapper to compute windows values.
+* Wrapper to compute windows values.
 * \param window array for window values
 * \param N fft size
 * \param window_type type of window
@@ -857,7 +856,7 @@ fft_window(float* window, int N, int window_type)
 }
 
 /**
-* Outputs the scaling needed by the configured STFT transform.
+* Outputs the scaling needed by the configured STFT transform to apply in OLA method.
 * \param input_window array of the input window values
 * \param output_window array of the output window values
 * \param frame_size size of the window arrays
@@ -872,7 +871,7 @@ get_window_scale_factor(float* input_window,float* output_window,int frame_size)
 }
 
 /**
-* Wrapper for pre and post processing windows.
+* Wrapper for getting the pre and post processing windows.
 * \param input_window array of the input window values
 * \param output_window array of the output window values
 * \param frame_size size of the window arrays
@@ -918,7 +917,10 @@ fft_pre_and_post_window(float* input_window, float* output_window, int frame_siz
 }
 
 /**
-* Gets the magnitude and phase spectrum of the complex spectrum.
+* Gets the magnitude and phase spectrum of the complex spectrum. Takimg into account that
+* the half complex fft was used half of the spectrum contains the real part the other
+* the imaginary. Look at http://www.fftw.org/doc/The-Halfcomplex_002dformat-DFT.html for
+* more info. DC bin was treated as suggested in http://www.fftw.org/fftw2_doc/fftw_2.html
 * \param fft_p2 the current power spectrum
 * \param fft_magnitude the current magnitude spectrum
 * \param fft_phase the current phase spectrum
@@ -933,7 +935,6 @@ get_info_from_bins(float* fft_p2, float* fft_magnitude, float* fft_phase,
 	int k;
 	float real_p,imag_n,mag,p2,phase;
 
-	//Look at http://www.fftw.org/fftw2_doc/fftw_2.html
 	//DC bin
 	real_p = fft_buffer[0];
 	imag_n = 0.f;
@@ -958,7 +959,7 @@ get_info_from_bins(float* fft_p2, float* fft_magnitude, float* fft_phase,
 		}
 		else
 		{
-			//Nyquist - this is due to half complex transform look at http://www.fftw.org/doc/The-Halfcomplex_002dformat-DFT.html
+			//Nyquist - this is due to half complex transform
 			p2 = real_p*real_p;
 			mag = real_p;
 			phase = atan2f(real_p, 0.f); //Phase is 0 for DC and nyquist

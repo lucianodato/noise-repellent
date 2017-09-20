@@ -233,7 +233,7 @@ final_spectrum_ensemble(int fft_size, float* final_spectrum,
 {
   int k;
 
-	//OUTPUT RESULTS using smooth bypass and parametric sustraction
+	//OUTPUT RESULTS using smooth bypass and parametric subtraction
 	if (noise_listen == 0.f)
 	{
 	//Mix residual and processed (Parametric way of noise reduction)

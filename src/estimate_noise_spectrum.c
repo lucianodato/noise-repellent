@@ -44,6 +44,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 /**
 * Outputs the thresholds used by louizou method to discriminate between noise and signal.
+* 3 bands are used to perform more or less disctintion. Previous macros defines it
+* configuration.
 * \param auto_thresholds Reference threshold for louizou algorithm (same as thresh)
 * \param fft_size is the fft size
 * \param fft_size_2 is half of the fft size
@@ -138,7 +140,7 @@ estimate_noise_loizou(float* thresh, int fft_size_2, float* p2, float* s_pow_spe
 }
 
 /**
-* Wrapper for automatic and dynamic noise estimation.
+* Wrapper for adaptive noise estimation.
 * \param p2 the power spectrum of current frame
 * \param fft_size_2 is half of the fft size
 * \param noise_thresholds_p2 the noise thresholds for each bin estimated
@@ -155,7 +157,6 @@ void
 adapt_noise(float* p2, int fft_size_2, float* noise_thresholds_p2, float* thresh,
 						float* prev_noise_thresholds, float* s_pow_spec, float* prev_s_pow_spec,	float* p_min, float* prev_p_min, float* speech_p_p, float* prev_speech_p_p)
 {
-  //Loizou noise-estimation algorithm for highly non-stationary environments
   estimate_noise_loizou(thresh, fft_size_2, p2, s_pow_spec, prev_s_pow_spec,
 												noise_thresholds_p2, prev_noise_thresholds, p_min, prev_p_min, speech_p_p, prev_speech_p_p);
 
@@ -168,7 +169,7 @@ adapt_noise(float* p2, int fft_size_2, float* noise_thresholds_p2, float* thresh
 }
 
 /**
-* Noise estimation based using a rolling mean over user selected noise.
+* Noise estimation using a rolling mean over user selected noise section.
 * \param fft_p2 the power spectrum of current frame
 * \param fft_size_2 is half of the fft size
 * \param noise_thresholds_p2 the noise thresholds for each bin estimated
@@ -189,7 +190,7 @@ get_noise_statistics(float* fft_p2, int fft_size_2, float* noise_thresholds_p2,
     }
 		else
 		{
-      noise_thresholds_p2[k] += ((fft_p2[k] - noise_thresholds_p2[k])/ window_count); //rolling mean
+      noise_thresholds_p2[k] += ((fft_p2[k] - noise_thresholds_p2[k])/ window_count); 
     }
   }
 }

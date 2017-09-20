@@ -234,7 +234,8 @@ denoise_gain_gss(int fft_size_2, float* alpha, float* beta, float* spectrum,
 }
 
 /**
-* Gets the postfilter for the current filter computed by the supression rule used.
+* Gets the postfilter for the current filter computed by the supression rule used. (Not
+* used in current version).
 * \param fft_size_2 is half of the fft size
 * \param fft_size is the fft size
 * \param spectrum is the power spectum array
