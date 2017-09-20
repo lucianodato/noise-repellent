@@ -48,9 +48,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 * \param release_coeff release coefficient for time smoothing
 * \param spreaded_unity_gain_bark_spectrum correction to be applied to SSF convolution
 * \param spl_reference_values defines the reference values for each bin to convert from db to db SPL
-* \param alpha_masking is the array of oversustraction factors for each bin
+* \param alpha_masking is the array of oversubtraction factors for each bin
 * \param beta_masking is the array of the spectral flooring factors for each bin
-* \param masking_value is the limit max oversustraction to be computed
+* \param masking_value is the limit max oversubtraction to be computed
 * \param adaptive flag that indicates if the noise is being estimated adaptively
 * \param reduction_value is the limit max the spectral flooring to be computed
 * \param transient_preserv_prev is the previous frame for spectral flux computing

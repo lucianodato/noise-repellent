@@ -149,7 +149,7 @@ typedef struct
 
 	//noise related
 	float* noise_thresholds_p2; //captured noise profile power spectrum
-	float* noise_thresholds_scaled; //captured noise profile power spectrum scaled by oversustraction
+	float* noise_thresholds_scaled; //captured noise profile power spectrum scaled by oversubtraction
 	bool noise_thresholds_availables; //indicate whether a noise profile is available or no
 	float noise_window_count; //Count windows for mean computing
 
@@ -599,7 +599,7 @@ run(LV2_Handle instance, uint32_t n_samples)
 					//If there is a noise profile reduce noise
 					if (self->noise_thresholds_availables == true)
 					{
-						//Detector smoothing and oversustraction
+						//Detector smoothing and oversubtraction
 						preprocessing(self->thresholds_offset_linear, self->fft_p2,
 													self->noise_thresholds_p2, self->noise_thresholds_scaled,
 													self->smoothed_spectrum, self->smoothed_spectrum_prev,

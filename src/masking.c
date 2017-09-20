@@ -377,7 +377,7 @@ compute_masking_thresholds(float* bark_z, float* absolute_thresholds, float* SSF
 }
 
 /**
-* alpha and beta computation according to Virags paper. Alphas refers to the oversustraction
+* alpha and beta computation according to Virags paper. Alphas refers to the oversubtraction
 * factor for each fft bin and beta to the spectral flooring. Using masking thresholds for
 * means of adapt this two parameters correlate much more with human hearing and results in
 * smoother results than using non linear sustraction or others methods of adapting them.
@@ -386,14 +386,14 @@ compute_masking_thresholds(float* bark_z, float* absolute_thresholds, float* SSF
 * \param fft_p2 the power spectrum of current frame
 * \param noise_thresholds_p2 the noise thresholds for each bin estimated previously
 * \param fft_size_2 is half of the fft size
-* \param alpha_masking is the array of oversustraction factors for each bin
+* \param alpha_masking is the array of oversubtraction factors for each bin
 * \param beta_masking is the array of the spectral flooring factors for each bin
 * \param bark_z defines the bark to linear mapping for current spectrum config
 * \param absolute_thresholds defines the absolute thresholds of hearing for current spectrum config
 * \param SSF defines the spreading function matrix
 * \param spreaded_unity_gain_bark_spectrum correction to be applied to SSF convolution
 * \param spl_reference_values defines the reference values for each bin to convert from db to db SPL
-* \param masking_value is the limit max oversustraction to be computed
+* \param masking_value is the limit max oversubtraction to be computed
 * \param reduction_value is the limit max the spectral flooring to be computed
 */
 void
@@ -426,7 +426,7 @@ compute_alpha_and_beta(float* fft_p2, float* noise_thresholds_p2, int fft_size_2
 
   /*Get alpha and beta based on masking thresholds
   *beta and alpha values would adapt based on masking thresholds
-  *frame to frame for optimal oversustraction and noise floor parameter in each one
+  *frame to frame for optimal oversubtraction and noise floor parameter in each one
   *noise floor would better be controled by user using the amount of reduction
   *so beta is not modified
   */

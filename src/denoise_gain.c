@@ -194,7 +194,7 @@ spectral_gating(int fft_size_2, float* spectrum, float* noise_thresholds, float*
 /**
 * Generalized spectral subtraction supression rule. This version uses an array of alphas and betas. Outputs the filter mirrored around nyquist. GAMMA defines what type of spectral Subtraction is used. GAMMA1=GAMMA2=1 is magnitude substaction. GAMMA1=2 GAMMA2=0.5 is power Subtraction. GAMMA1=2 GAMMA2=1 is wiener filtering.
 * \param fft_size_2 is half of the fft size
-* \param alpha is the array of oversustraction factors for each bin
+* \param alpha is the array of oversubtraction factors for each bin
 * \param beta is the array of the spectral flooring factors for each bin
 * \param spectrum is the power spectum array
 * \param noise_thresholds is the threshold for each corresponding power spectum value
