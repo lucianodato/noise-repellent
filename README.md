@@ -8,7 +8,7 @@ Features
 * Adaptive and manual noise thresholds estimation
 * Regulable noise floor
 * Regulable offset of thresholds to perform oversubtraction
-* Time smoothing and a masking psycho-acoustic model for artifacts reduction
+* Time smoothing and a masking threshold estimation to reduce artifacts
 * Basic Onset detector to avoid transients softening
 * Whitening of the noise floor to mask artifacts and to recover higher frequencies
 * Option to listen to the residual signal
@@ -78,4 +78,4 @@ For manual reduction:
 * If noise floor changes a bit over time it might be useful to use higher thresholds offset.
 * Make sure that the section you select to learn the noise profile is noise only (no breaths or sustained notes or anything but noise)
 * The longer the section you select to learn the noise the better the reduction will sound.
-* The best way to reduce artifacts is to use a combination of masking release and transient protection controls. Masking will reduce musical noise and at the same time it will preserve the wanted signal but too much will start to distort it. Release can reduce musical noise significantly but too much can blur transients away. To avoid this you can increase transient preservation until you find those transients less distorted.If you are not percieving what you are doing to listen to the residual signal and switch between 1 and a higher value.
+* The best way to reduce artifacts is to use a combination of masking, release and transient protection controls. Masking will reduce musical noise and at the same time it will preserve the wanted signal but too much will start to distort it. Release can reduce musical noise significantly but too much can blur transients away. To avoid this you can increase transient preservation until you find those transients less distorted. If you are not percieving what you are doing to listen to the residual signal and increase to a higher value.
