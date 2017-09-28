@@ -39,6 +39,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define HANN_WINDOW 0
 #define HAMMING_WINDOW 1
 #define BLACKMAN_WINDOW 2
+#define VORBIS_WINDOW 3
 
 #define M_PI 3.14159265358979323846f
 
@@ -829,6 +830,20 @@ hamming(int k, int N)
 }
 
 /**
+* Vorbis window values computing. It satisfies Princen-Bradley criterion so perfect
+* reconstruction could be achieved with 50% overlap when used both in Analysis and
+* Synthesis
+* \param k bin number
+* \param N fft size
+*/
+float
+vorbis(int k, int N)
+{
+  float p = ((float)(k))/((float)(N));
+  return sinf(M_PI/2.f * powf(sinf(M_PI*p),2.f));
+}
+
+/**
 * Wrapper to compute windows values.
 * \param window array for window values
 * \param N fft size
@@ -850,6 +865,9 @@ fft_window(float* window, int N, int window_type)
       break;
       case HAMMING_WINDOW:
       window[k] = hamming(k, N);
+      break;
+      case VORBIS_WINDOW:
+      window[k] = vorbis(k, N);
       break;
     }
   }
@@ -887,28 +905,34 @@ fft_pre_and_post_window(float* input_window, float* output_window, int frame_siz
   //Input window
   switch(window_option_input)
   {
-    case 0: // HANN-HANN
+    case 0: // HANN
       fft_window(input_window,frame_size,0); //STFT input window
       break;
-    case 1: //HAMMING-HANN
+    case 1: //HAMMING
       fft_window(input_window,frame_size,1); //STFT input window
       break;
-    case 2: //BLACKMAN-HANN
+    case 2: //BLACKMAN
       fft_window(input_window,frame_size,2); //STFT input window
+      break;
+    case 3: //VORBIS
+      fft_window(input_window,frame_size,3); //STFT input window
       break;
   }
 
   //Output window
   switch(window_option_output)
   {
-    case 0: // HANN-HANN
+    case 0: // HANN
       fft_window(output_window,frame_size,0); //STFT input window
       break;
-    case 1: //HAMMING-HANN
+    case 1: //HAMMING
       fft_window(output_window,frame_size,1); //STFT input window
       break;
-    case 2: //BLACKMAN-HANN
+    case 2: //BLACKMAN
       fft_window(output_window,frame_size,2); //STFT input window
+      break;
+    case 3: //VORBIS
+      fft_window(output_window,frame_size,3); //STFT input window
       break;
   }
 
