@@ -73,21 +73,15 @@ preprocessing(float noise_thresholds_offset, float* fft_p2,
 {
 	int k;
 
-	//PREPROCESSING
+	//PREPROCESSING - PRECALCULATIONS
 
-	//------SMOOTHING DETECTOR------
+	//------TRANSIENT DETECTION------
 
-	if(adaptive_state == 0.f) //Only when adaptive is off
+	if (transient_protection > 1.f)
 	{
-		memcpy(smoothed_spectrum,fft_p2,sizeof(float)*(fft_size_2+1));
-
-		apply_time_envelope(smoothed_spectrum, smoothed_spectrum_prev, fft_size_2, release_coeff);
-
-		// This adaptive method is based on SPECTRAL SUBTRACTION WITH ADAPTIVE AVERAGING OF THE GAIN FUNCTION
-		// spectrum_adaptive_time_smoothing(fft_size_2, smoothed_spectrum_prev, smoothed_spectrum,
-		// 																 noise_thresholds_scaled, prev_beta, 1.f-release_coeff);
-
-		memcpy(smoothed_spectrum_prev,smoothed_spectrum,sizeof(float)*(fft_size_2+1));
+		*(transient_present) = transient_detection(fft_p2, transient_preserv_prev,
+																							 fft_size_2, tp_window_count, tp_r_mean,
+																							 transient_protection);
 	}
 
 	//CALCULATION OF ALPHA WITH MASKING THRESHOLDS USING VIRAGS METHOD
@@ -114,13 +108,19 @@ preprocessing(float noise_thresholds_offset, float* fft_p2,
 		}
 	}
 
-	//------TRANSIENT PROTECTION------
+	//------SMOOTHING DETECTOR------
 
-	if (transient_protection > 1.f)
+	if(adaptive_state == 0.f) //Only when adaptive is off
 	{
-		*(transient_present) = transient_detection(fft_p2, transient_preserv_prev,
-																							 fft_size_2, tp_window_count, tp_r_mean,
-																							 transient_protection);
+		memcpy(smoothed_spectrum,fft_p2,sizeof(float)*(fft_size_2+1));
+
+		apply_time_envelope(smoothed_spectrum, smoothed_spectrum_prev, fft_size_2, release_coeff);
+
+		// This adaptive method is based on SPECTRAL SUBTRACTION WITH ADAPTIVE AVERAGING OF THE GAIN FUNCTION
+		// spectrum_adaptive_time_smoothing(fft_size_2, smoothed_spectrum_prev, smoothed_spectrum,
+		// 																 noise_thresholds_scaled, prev_beta, 1.f-release_coeff);
+
+		memcpy(smoothed_spectrum_prev,smoothed_spectrum,sizeof(float)*(fft_size_2+1));
 	}
 }
 

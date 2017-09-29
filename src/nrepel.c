@@ -518,7 +518,11 @@ run(LV2_Handle instance, uint32_t n_samples)
 	/*exponential decay coefficients for envelopes and adaptive noise profiling
 		These must take into account the hop size as explained in the following paper
 		FFT-BASED DYNAMIC RANGE COMPRESSION*/
-	self->release_coeff = expf(-1000.f/(((*(self->release)) * self->samp_rate)/ self->hop));
+	if (*(self->release) != 0.f)
+	{
+		self->release_coeff = expf(-1000.f/(((*(self->release)) * self->samp_rate)/ self->hop));
+	}
+
 	self->amount_of_reduction_linear = from_dB(-1.f * *(self->amount_of_reduction));
 	self->thresholds_offset_linear = from_dB(*(self->noise_thresholds_offset));
 	self->whitening_factor = *(self->whitening_factor_pc)/100.f;
