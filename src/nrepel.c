@@ -518,9 +518,13 @@ run(LV2_Handle instance, uint32_t n_samples)
 	/*exponential decay coefficients for envelopes and adaptive noise profiling
 		These must take into account the hop size as explained in the following paper
 		FFT-BASED DYNAMIC RANGE COMPRESSION*/
-	if (*(self->release) != 0.f)
+	if (*(self->release) != 0.f) //This allows to turn off smoothing with 0 ms in order to use masking only
 	{
 		self->release_coeff = expf(-1000.f/(((*(self->release)) * self->samp_rate)/ self->hop));
+	}
+	else
+	{
+		self->release_coeff = 0.f; //This avoids incorrect results when moving sliders rapidly
 	}
 
 	self->amount_of_reduction_linear = from_dB(-1.f * *(self->amount_of_reduction));

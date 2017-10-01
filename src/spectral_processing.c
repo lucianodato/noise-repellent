@@ -92,6 +92,10 @@ preprocessing(float noise_thresholds_offset, float* fft_p2,
 													 SSF, spreaded_unity_gain_bark_spectrum, spl_reference_values,
 												 	 masking_value, reduction_value);
 	}
+	else
+	{
+		initialize_array(alpha_masking,1.f,fft_size_2+1); //This avoids incorrect results when moving sliders rapidly
+	}
 
 	//------OVERSUBTRACTION------
 
