@@ -32,6 +32,14 @@ To compile and install this plug-in you will need the LV2 SDK, gnu-make, a c-com
 
 There is now an AUR package at https://aur.archlinux.org/packages/noise-repellent-git for Arch Users (Kindly done by CrocoDuck).
 
+Code Documentation
+-----
+Code is documented using doxygen. To read it be sure to install doxygen in your system and run the following command in doc folder
+```bash
+  doxygen -s doxygen.conf
+```
+This will output an html folder. Accessing index.html you can read the documentation.
+
 Usage
 -----
 Manual noise learn workflow:
