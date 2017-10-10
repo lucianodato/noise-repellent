@@ -51,11 +51,11 @@ Adaptive noise learn workflow:
 1) Turn on Adaptive mode and keep it on (preferably)
 2) Tweak parameters
 
-What's the difference between Audacity Noise reduction tool?
+What's the difference between Audacity's noise reduction tool?
 -----
 The main difference is that this plugin is coded in order to apply the effect in real time. That sounds fancy but really is a limitation. When you apply any processing offline (not in real time) you have access to all the data at once and that is a big advantage in order to use much more complex schemes for a cleaner reduction. In real time you only have access small blocks of sound at a time. So what is gained using real time processing? You have instant feedback of what you are doing (that is not the case in Audacity Noise Reduction).
 
-Ok, so in terms of interaction noise-repellent is much better but what about the internals and better yet results? Audacity uses a combination of over-subtraction and time and frequency smoothing in order to get cleaner results. Noise-repellent uses a psycho-acoustic model to adaptively apply over-subtraction and time smoothing with a release envelope to avoid artifacts. Plus is has a transient protection feature for percussive sounds. Alright, so how does it sounds? You'll have to try it for yourself but I haven't had the chance to encounter a case where it sounded worse yet. 
+Ok, so in terms of interaction noise-repellent is much better but what about the internals and better yet results? Audacity uses a combination of over-subtraction and time and frequency smoothing in order to get cleaner results. Noise-repellent uses a psycho-acoustic model to adaptively apply over-subtraction and time smoothing with a release envelope to avoid artifacts. Plus is has a transient protection feature for percussive sounds. Alright, so how does it sounds? You'll have to try it for yourself but I haven't had the chance to encounter a case where it sounded worse yet.
 
 Parameters explained
 -----
