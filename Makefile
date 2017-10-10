@@ -57,7 +57,7 @@ ifeq ($(shell pkg-config --exists fftw3f || echo no), no)
 endif
 
 override CFLAGS += -fPIC -std=c99
-override CFLAGS += `pkg-config --cflags lv2`
+override CFLAGS += `pkg-config --cflags lv2 fftw3f`
 override LOADLIBES += `pkg-config --cflags --libs fftw3f`
 
 #for debug building
@@ -87,7 +87,7 @@ $(BUILDDIR)$(LV2NAME).ttl: $(TTLDIR)$(LV2NAME).ttl.in
 
 $(BUILDDIR)$(LV2NAME)$(LIB_EXT): $(SRCDIR)$(LV2NAME).c
 	@mkdir -p $(BUILDDIR)
-	$(CC) $(CPPFLAGS) $(CFLAGS) \
+	$(CC) $(CFLAGS) \
 		-o $(BUILDDIR)$(LV2NAME)$(LIB_EXT) $(SRCDIR)$(LV2NAME).c \
 		-shared $(LV2LDFLAGS) $(LDFLAGS) $(LOADLIBES)
 
