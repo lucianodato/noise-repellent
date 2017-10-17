@@ -118,7 +118,6 @@ typedef struct
 	float amount_of_reduction_linear;	//Reduction amount linear value
 	float thresholds_offset_linear;	//Threshold offset linear value
 	float whitening_factor; //Whitening amount of the reduction
-	float prev_beta; //For the adaptive smoothing
 
 	//Buffers for processing and outputting
 	int input_latency;
@@ -133,15 +132,6 @@ typedef struct
 	fftwf_plan forward;
 	fftwf_plan backward;
 
-	//Postfilter related
-	float* input_fft_buffer_ps;
-	float* output_fft_buffer_ps;
-	fftwf_plan forward_ps;
-	float* input_fft_buffer_g;
-	float* output_fft_buffer_g;
-	fftwf_plan forward_g;
-	fftwf_plan backward_g;
-
 	//Arrays and variables for getting bins info
 	float* fft_p2; //power spectrum
 	float* fft_magnitude; //magnitude spectrum
@@ -152,13 +142,6 @@ typedef struct
 	float* noise_thresholds_scaled; //captured noise profile power spectrum scaled by oversubtraction
 	bool noise_thresholds_availables; //indicate whether a noise profile is available or no
 	float noise_window_count; //Count windows for mean computing
-
-	//whitening related
-	float* spectral_envelope_values; //spectral envelope
-	FFTPeak* noise_spectral_peaks; //Tonal noises of the noise profile
-	int* peak_pos; //Whether theres a peak or not in current postiion of the spectrum
-	int peak_count;	//counts the amount of peaks found
-	bool peaks_detected; //flag to execute peak detection
 
 	//smoothing related
 	float* smoothed_spectrum; //power spectrum to be smoothed
@@ -293,12 +276,6 @@ instantiate(const LV2_Descriptor* descriptor, double rate, const char* bundle_pa
 	self->noise_window_count = 0.f;
 	self->noise_thresholds_availables = false;
 
-	self->spectral_envelope_values = (float*)calloc((self->fft_size_2+1), sizeof(float));
-	self->noise_spectral_peaks = (FFTPeak*)calloc((SP_MAX_NUM), sizeof(FFTPeak));
-	self->peak_pos = (int*)calloc((self->fft_size_2+1), sizeof(int));
-	self->peak_count = 0.f;
-	self->peaks_detected = false;
-
 	//noise adaptive estimation related
 	self->auto_thresholds = (float*)calloc((self->fft_size_2+1), sizeof(float));
 	self->prev_noise_thresholds = (float*)calloc((self->fft_size_2+1), sizeof(float));
@@ -312,7 +289,6 @@ instantiate(const LV2_Descriptor* descriptor, double rate, const char* bundle_pa
 	//smoothing related
 	self->smoothed_spectrum = (float*)calloc((self->fft_size_2+1), sizeof(float));
 	self->smoothed_spectrum_prev = (float*)calloc((self->fft_size_2+1), sizeof(float));
-	self->prev_beta = 0.f;
 
 	//transient preservation
 	self->transient_preserv_prev = (float*)calloc((self->fft_size_2+1), sizeof(float));
@@ -335,15 +311,6 @@ instantiate(const LV2_Descriptor* descriptor, double rate, const char* bundle_pa
 
 	//reduction gains related
 	self->Gk = (float*)calloc((self->fft_size), sizeof(float));
-
-	//Postfilter related
-	self->input_fft_buffer_ps = (float*)calloc(self->fft_size, sizeof(float));
-	self->output_fft_buffer_ps = (float*)calloc(self->fft_size, sizeof(float));
-	self->forward_ps = fftwf_plan_r2r_1d(self->fft_size, self->input_fft_buffer_ps, self->output_fft_buffer_ps, FFTW_R2HC, FFTW_ESTIMATE);
-	self->input_fft_buffer_g = (float*)calloc(self->fft_size, sizeof(float));
-	self->output_fft_buffer_g = (float*)calloc(self->fft_size, sizeof(float));
-	self->forward_g = fftwf_plan_r2r_1d(self->fft_size, self->input_fft_buffer_g, self->output_fft_buffer_g, FFTW_R2HC, FFTW_ESTIMATE);
-	self->backward_g = fftwf_plan_r2r_1d(self->fft_size, self->output_fft_buffer_g, self->input_fft_buffer_g, FFTW_HC2R, FFTW_ESTIMATE);
 
 	//whitening related
 	self->residual_max_spectrum = (float*)calloc((self->fft_size), sizeof(float));
@@ -452,9 +419,7 @@ reset_noise_profile(Nrepel* self)
 	initialize_array(self->noise_thresholds_p2,0.f,self->fft_size_2+1);
 	initialize_array(self->noise_thresholds_scaled,0.f,self->fft_size_2+1);
 	self->noise_window_count = 0.f;
-	self->peak_count = 0.f;
 	self->noise_thresholds_availables = false;
-	self->peaks_detected = false;
 
 	initialize_array(self->Gk,1.f,self->fft_size);
 
@@ -611,9 +576,8 @@ run(LV2_Handle instance, uint32_t n_samples)
 						preprocessing(self->thresholds_offset_linear, self->fft_p2,
 													self->noise_thresholds_p2, self->noise_thresholds_scaled,
 													self->smoothed_spectrum, self->smoothed_spectrum_prev,
-													self->fft_size_2, &self->prev_beta, self->bark_z,
-													self->absolute_thresholds, self->SSF,
-													self->release_coeff,
+													self->fft_size_2, self->bark_z, self->absolute_thresholds,
+													self->SSF, self->release_coeff,
 													self->spreaded_unity_gain_bark_spectrum,
 													self->spl_reference_values, self->alpha_masking,
 													self->beta_masking, *(self->masking), *(self->adaptive_state),

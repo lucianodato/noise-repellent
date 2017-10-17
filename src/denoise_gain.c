@@ -26,8 +26,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <float.h>
 #include <math.h>
 
-#define PF_SMOOTHING 100.0 //Postfilter smoothing scaling
-
 //General spectral subtraction configuration
 #define GAMMA1 2.f
 #define GAMMA2 0.5f
@@ -230,74 +228,5 @@ denoise_gain_gss(int fft_size_2, float* alpha, float* beta, float* spectrum,
 	for (k = 1; k < fft_size_2; k++)
 	{
 		Gk[(2*fft_size_2)-k] = Gk[k];
-	}
-}
-
-/**
-* Gets the postfilter for the current filter computed by the supression rule used. (Not
-* used in current version).
-* \param fft_size_2 is half of the fft size
-* \param fft_size is the fft size
-* \param spectrum is the power spectum array
-* \param pf_threshold is the PF-threshold setted by the user
-* \param postfilter is the postfilter computed to apply to previously computed filter
-* \param Gk_spectral is the filter computed by the supression rule for each bin of the spectrum
-*/
-void
-compute_post_filter(int fft_size_2, int fft_size, float* spectrum, float pf_threshold,
-										float* postfilter, float* Gk_spectral)
-{
-	int k;
-	float num = 0.f, den = 0.f;
-	float indicator;
-	float ksi_lambda;
-	float n_lambda;
-
-	//Low SNR detector
-	for (k = 0; k <= fft_size_2 ; k++)
-	{
-		num += spectrum[k] * Gk_spectral[k];
-		den += spectrum[k];
-	}
-
-	indicator = num/den;
-
-	//threshold decision
-	if(indicator >= pf_threshold)
-	{
-		ksi_lambda = 1.f;
-	}
-	else
-	{
-		ksi_lambda = indicator;
-	}
-
-	//window size
-	if(ksi_lambda == 1.f)
-	{
-		n_lambda = 1.f;
-	}
-	else
-	{
-		n_lambda = 2.f*roundf(PF_SMOOTHING*(1.f - ksi_lambda/pf_threshold)) + 1.f;
-	}
-
-	//construct the filter window (zero phase)
-	for (k = 0; k < fft_size_2 ; k++)
-	{
-		if(k < n_lambda)
-		{
-			postfilter[k] = 1.f/n_lambda;
-		}
-		else
-		{
-			postfilter[k] = 0.f;
-		}
-	}
-
-	//mirrored gain array
-	for (k = 1; k < fft_size_2; k++)
-	{
-		postfilter[fft_size-k] = postfilter[k];
 	}
 }
