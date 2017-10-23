@@ -1,22 +1,20 @@
 @prefix doap: <http://usefulinc.com/ns/doap#> .
 @prefix foaf: <http://xmlns.com/foaf/0.1/> .
-@prefix lv2:  <http://lv2plug.in/ns/lv2core#> .
-@prefix pprop: <http://lv2plug.in/ns/ext/port-props#> .
+@prefix lv2: <http://lv2plug.in/ns/lv2core#> .
+@prefix param: <http://lv2plug.in/ns/ext/parameters#> .
 @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
-@prefix param: <http://lv2plug.in/ns/ext/parameters#> .
 @prefix pg: <http://lv2plug.in/ns/ext/port-groups#> .
+@prefix pprop: <http://lv2plug.in/ns/ext/port-props#> .
 @prefix units: <http://lv2plug.in/ns/extensions/units#> .
 @prefix state: <http://lv2plug.in/ns/ext/state#> .
 @prefix urid: <http://lv2plug.in/ns/ext/urid#> .
-
 
 <http://example.com/lucianodato#me>
   a foaf:Person ;
   foaf:name "Luciano Dato" ;
   foaf:homepage <https://github.com/lucianodato> ;
   foaf:mbox <mailto:lucianodato@gmail.com> .
-
 
 <https://github.com/lucianodato/noise-repellent>
   a lv2:Plugin, lv2:SpectralPlugin, lv2:UtilityPlugin, doap:Project ;
@@ -50,8 +48,8 @@
     lv2:name "Thresholds offset",
       "Compensacion de umbrales"@es ,
       "Décalage des seuils"@fr ;
-    lv2:minimum -6.0 ;
-    lv2:maximum 6.0 ;
+    lv2:minimum -12.0 ;
+    lv2:maximum 12.0 ;
     lv2:default 0.0 ;
     units:unit units:db ;
   ], [
@@ -62,26 +60,36 @@
     lv2:name "Release",
       "Relevo"@es ,
       "Relâchement"@fr ;
-    lv2:minimum 1.0 ;
+    lv2:minimum 0.0 ;
     lv2:maximum 1000.0 ;
-    lv2:default 100.0 ;
+    lv2:default 150.0 ;
     units:unit units:ms ;
   ], [
     a lv2:ControlPort,
       lv2:InputPort ;
     lv2:index 3 ;
-    lv2:symbol "pf_threshold" ;
-    lv2:name "PF threshold",
-      "Umbral PF"@es ,
-      "Seuil PF"@fr ;
-    lv2:minimum -60.0 ;
-    lv2:maximum 0.0 ;
-    lv2:default -60.0 ;
-    units:unit units:db ;
+    lv2:symbol "masking" ;
+    lv2:name "Masking",
+      "Enmascaramiento"@es,
+      "Masquage"@fr;
+    lv2:minimum 1.0 ;
+    lv2:maximum 10.0 ;
+    lv2:default 5.0 ;
+  ], [
+    a lv2:InputPort,
+    lv2:ControlPort ;
+    lv2:index 4 ;
+    lv2:symbol "transient_protection" ;
+    lv2:name "Protect Transients",
+      "Proteger transientes"@es ,
+      "Protéger les transitoires"@fr ;
+    lv2:default 1.0 ;
+    lv2:minimum 1.0 ;
+    lv2:maximum 6.0 ;
   ], [
     a lv2:ControlPort,
       lv2:InputPort ;
-    lv2:index 4 ;
+    lv2:index 5 ;
     lv2:symbol "whitening" ;
     lv2:name "Residual whitening",
       "Blanqueo de residuo"@es ,
@@ -93,7 +101,7 @@
   ], [
     a lv2:ControlPort,
       lv2:InputPort ;
-    lv2:index 5 ;
+    lv2:index 6 ;
     lv2:symbol "noise_learn" ;
     lv2:name "Learn noise profile",
       "Aprender perfil de ruido"@es ,
@@ -105,11 +113,11 @@
   ], [
     a lv2:ControlPort,
       lv2:InputPort ;
-    lv2:index 6 ;
+    lv2:index 7 ;
     lv2:symbol "adaptive_noise_learn" ;
     lv2:name "Adaptive noise learn",
-          "Adaptar perfil de ruido"@es ,
-          "Apprentissage adaptatif du bruit"@fr ;
+      "Adaptar perfil de ruido"@es ,
+      "Apprentissage adaptatif du bruit"@fr ;
     lv2:minimum 0 ;
     lv2:maximum 1 ;
     lv2:default 0 ;
@@ -117,7 +125,7 @@
   ], [
     a lv2:InputPort,
     lv2:ControlPort ;
-    lv2:index 7 ;
+    lv2:index 8 ;
     lv2:symbol "reset_noise_profile" ;
     lv2:name "Reset noise profile",
       "Reiniciar perfil de ruido"@es ,
@@ -129,7 +137,7 @@
   ], [
     a lv2:InputPort,
     lv2:ControlPort ;
-    lv2:index 8 ;
+    lv2:index 9 ;
     lv2:symbol "Residual_listen" ;
     lv2:name "Residual listen",
       "Escuchar Residuo"@es ,
@@ -140,7 +148,7 @@
     lv2:portProperty lv2:toggled, lv2:integer ;
   ], [
     a lv2:InputPort, lv2:ControlPort ;
-    lv2:index 9 ;
+    lv2:index 10 ;
     lv2:name "Enable" ;
     lv2:symbol "enable" ;
     lv2:default 1.0 ;
@@ -152,7 +160,7 @@
     a lv2:OutputPort,
       lv2:ControlPort ;
     lv2:name "latency" ;
-    lv2:index 10 ;
+    lv2:index 11 ;
     lv2:symbol "latency" ;
     lv2:minimum 0 ;
     lv2:maximum 8192 ;
@@ -161,17 +169,17 @@
   ], [
     a lv2:AudioPort,
       lv2:InputPort ;
-    lv2:index 11 ;
+    lv2:index 12 ;
     lv2:symbol "input" ;
     lv2:name "Input" ;
   ], [
     a lv2:AudioPort,
       lv2:OutputPort ;
-    lv2:index 12 ;
+    lv2:index 13 ;
     lv2:symbol "output" ;
     lv2:name "Output" ;
   ];
-  rdfs:comment "Instructions: select a section of noise only in your track and loop it. Turn on noise capture for one second or two to learn the noise profile and then turn it off. Then you can now adjust the reduction.",
-   "Instrucciones: seleccionar una seccion de la pista que solo contenga ruido y reproducirla ciclicamente. Encender la captura del perfil de ruido por unos segundos para capturar el perfil de ruido y luego apagarlo. Luego se puede ajustar la reduccion."@es ,
-   "Instructions : sélectionnez une portion de bruit seul dans votre piste et lisez-la en boucle. Activez la capture de l'empreinte pendant une seconde ou deux pour apprendre le profil du bruit, puis désactivez-la. Vous pouvez alors ajuster la réduction."@fr ;
+  rdfs:comment "An LV2 plugin for broadband noise reduction",
+               "Un plugin LV2 para la reduccion de ruido"@es,
+               "Un plugin LV2 pour la réduction du bruit à large bande"@fr ;
 .

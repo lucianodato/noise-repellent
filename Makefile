@@ -1,10 +1,11 @@
 #!/usr/bin/make -f
 OPTIMIZATIONS ?= -msse -msse2 -mfpmath=sse -ffast-math -fomit-frame-pointer -O3 -fno-finite-math-only
 PREFIX ?= /usr/local
-CFLAGS ?= $(OPTIMIZATIONS) -Wall # -g3 -DDEBUG
+CFLAGS ?= $(OPTIMIZATIONS) -Wall
 
 STRIP?=strip
 STRIPFLAGS?=-s
+DEBUG?=0
 
 nrepel_VERSION?=$(shell git describe --tags HEAD 2>/dev/null | sed 's/-g.*$$//;s/^v//' || echo "LV2")
 ###############################################################################
@@ -15,6 +16,9 @@ LOADLIBES=-lm
 LV2NAME=nrepel
 BUNDLE=nrepel.lv2
 BUILDDIR=build/
+SRCDIR=src/
+TTLDIR=lv2ttl/
+DOCDIR=doc/
 targets=
 
 UNAME=$(shell uname)
@@ -54,8 +58,15 @@ ifeq ($(shell pkg-config --exists fftw3f || echo no), no)
 endif
 
 override CFLAGS += -fPIC -std=c99
-override CFLAGS += `pkg-config --cflags lv2`
+override CFLAGS += `pkg-config --cflags lv2 fftw3f`
 override LOADLIBES += `pkg-config --cflags --libs fftw3f`
+
+#for debug building
+ifeq ($(DEBUG), 1)
+  override CFLAGS += -g3 -DDEBUG
+else
+  override CFLAGS += -DNDEBUG
+endif
 
 # build target definitions
 default: all
@@ -65,25 +76,27 @@ all: $(BUILDDIR)manifest.ttl $(BUILDDIR)$(LV2NAME).ttl $(targets)
 lv2syms:
 	echo "_lv2_descriptor" > lv2syms
 
-$(BUILDDIR)manifest.ttl: manifest.ttl.in
+$(BUILDDIR)manifest.ttl: $(TTLDIR)manifest.ttl.in
 	@mkdir -p $(BUILDDIR)
 	sed "s/@LV2NAME@/$(LV2NAME)/;s/@LIB_EXT@/$(LIB_EXT)/" \
-	  manifest.ttl.in > $(BUILDDIR)manifest.ttl
+	  $(TTLDIR)manifest.ttl.in > $(BUILDDIR)manifest.ttl
 
-$(BUILDDIR)$(LV2NAME).ttl: $(LV2NAME).ttl.in
+$(BUILDDIR)$(LV2NAME).ttl: $(TTLDIR)$(LV2NAME).ttl.in
 	@mkdir -p $(BUILDDIR)
 	sed "s/@VERSION@/lv2:microVersion $(LV2MIC) ;lv2:minorVersion $(LV2MIN) ;/g" \
-		$(LV2NAME).ttl.in > $(BUILDDIR)$(LV2NAME).ttl
+		$(TTLDIR)$(LV2NAME).ttl.in > $(BUILDDIR)$(LV2NAME).ttl
 
-$(BUILDDIR)$(LV2NAME)$(LIB_EXT): $(LV2NAME).c
+$(BUILDDIR)$(LV2NAME)$(LIB_EXT): $(SRCDIR)$(LV2NAME).c
 	@mkdir -p $(BUILDDIR)
-	$(CC) $(CPPFLAGS) $(CFLAGS) \
-	  -o $(BUILDDIR)$(LV2NAME)$(LIB_EXT) $(LV2NAME).c \
-	  -shared $(LV2LDFLAGS) $(LDFLAGS) $(LOADLIBES)
+	$(CC) $(CFLAGS) \
+		-o $(BUILDDIR)$(LV2NAME)$(LIB_EXT) $(SRCDIR)$(LV2NAME).c \
+		-shared $(LV2LDFLAGS) $(LDFLAGS) $(LOADLIBES)
+
+ifeq ($(DEBUG), 0)
 	$(STRIP) $(STRIPFLAGS) $(BUILDDIR)$(LV2NAME)$(LIB_EXT)
+endif
 
-# install/uninstall/clean target definitions
-
+# install/uninstall/clean/doc target definitions
 install: all
 	install -d $(DESTDIR)$(LV2DIR)/$(BUNDLE)
 	install -m644 $(BUILDDIR)$(LV2NAME)$(LIB_EXT) $(DESTDIR)$(LV2DIR)/$(BUNDLE)
@@ -99,4 +112,7 @@ clean:
 	rm -f $(BUILDDIR)manifest.ttl $(BUILDDIR)$(LV2NAME).ttl $(BUILDDIR)$(LV2NAME)$(LIB_EXT) lv2syms
 	-test -d $(BUILDDIR) && rmdir $(BUILDDIR) || true
 
-.PHONY: clean all install uninstall
+doc:
+	doxygen -s $(DOCDIR)doxygen.conf
+
+.PHONY: doc clean all install uninstall
