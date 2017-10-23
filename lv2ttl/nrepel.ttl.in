@@ -81,7 +81,8 @@
     lv2:index 4 ;
     lv2:symbol "transient_protection" ;
     lv2:name "Protect Transients",
-      "Proteger transientes"@es ;
+      "Proteger transientes"@es ,
+      "Protéger les transitoires"@fr ;
     lv2:default 1.0 ;
     lv2:minimum 1.0 ;
     lv2:maximum 6.0 ;
@@ -115,8 +116,8 @@
     lv2:index 7 ;
     lv2:symbol "adaptive_noise_learn" ;
     lv2:name "Adaptive noise learn",
-          "Adaptar perfil de ruido"@es ,
-          "Apprentissage adaptatif du bruit"@fr ;
+      "Adaptar perfil de ruido"@es ,
+      "Apprentissage adaptatif du bruit"@fr ;
     lv2:minimum 0 ;
     lv2:maximum 1 ;
     lv2:default 0 ;
@@ -180,5 +181,5 @@
   ];
   rdfs:comment "An LV2 plugin for broadband noise reduction",
                "Un plugin LV2 para la reduccion de ruido"@es,
-               ""@fr ;
+               "Un plugin LV2 pour la réduction du bruit à large bande"@fr ;
 .
