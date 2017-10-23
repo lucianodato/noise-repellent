@@ -65,7 +65,7 @@ wiener_subtraction(int fft_size_2, float* spectrum, float* noise_thresholds, flo
 	//mirrored gain array
 	for (k = 1; k < fft_size_2; k++)
 	{
-			Gk[(2*fft_size_2)-k] = Gk[k];
+		Gk[(2*fft_size_2)-k] = Gk[k];
 	}
 }
 
@@ -104,7 +104,7 @@ power_subtraction(int fft_size_2, float* spectrum, float* noise_thresholds, floa
 	//mirrored gain array
 	for (k = 1; k < fft_size_2; k++)
 	{
-			Gk[(2*fft_size_2)-k] = Gk[k];
+		Gk[(2*fft_size_2)-k] = Gk[k];
 	}
 }
 
@@ -143,7 +143,7 @@ magnitude_subtraction(int fft_size_2, float* spectrum, float* noise_thresholds, 
 	//mirrored gain array
 	for (k = 1; k < fft_size_2; k++)
 	{
-			Gk[(2*fft_size_2)-k] = Gk[k];
+		Gk[(2*fft_size_2)-k] = Gk[k];
 	}
 }
 

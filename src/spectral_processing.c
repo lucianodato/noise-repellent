@@ -120,10 +120,6 @@ preprocessing(float noise_thresholds_offset, float* fft_p2,
 
 		apply_time_envelope(smoothed_spectrum, smoothed_spectrum_prev, fft_size_2, release_coeff);
 
-		// This adaptive method is based on SPECTRAL SUBTRACTION WITH ADAPTIVE AVERAGING OF THE GAIN FUNCTION
-		// spectrum_adaptive_time_smoothing(fft_size_2, smoothed_spectrum_prev, smoothed_spectrum,
-		// 																 noise_thresholds_scaled, prev_beta, 1.f-release_coeff);
-
 		memcpy(smoothed_spectrum_prev,smoothed_spectrum,sizeof(float)*(fft_size_2+1));
 	}
 }
@@ -167,7 +163,7 @@ spectral_gain(float* fft_p2, float* noise_thresholds_p2, float* noise_thresholds
 }
 
 /**
-* Applies the filter to the spectrum and gets the clean signal.
+* Applies the filter to the complex spectrum and gets the clean signal.
 * \param fft_size size of the fft
 * \param output_fft_buffer the unprocessed spectrum remaining in the fft buffer
 * \param denoised_spectrum the spectrum of the cleaned signal
@@ -222,7 +218,8 @@ residual_calulation(int fft_size, float* output_fft_buffer,
 }
 
 /**
-* Mixes the cleaned signal with the residual taking into account the reduction setted by the user. Outputs the final signal or the residual only.
+* Mixes the cleaned signal with the residual taking into account the reduction configured
+* by the user. Outputs the final signal or the residual only.
 * \param fft_size size of the fft
 * \param final_spectrum the spectrum to output from the plugin
 * \param residual_spectrum the spectrum of the reduction residual

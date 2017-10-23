@@ -34,10 +34,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 //extra values
 #define N_BARK_BANDS 25
-#define HIGH_FREQ_BIAS 20.f
-#define S_AMP 1.f
 #define AT_SINE_WAVE_FREQ 1000.f
 #define REFERENCE_LEVEL 90.f //dbSPL level of reproduction
+
+#define BIAS 0
+#define HIGH_FREQ_BIAS 20.f
+#define S_AMP 1.f
 
 #define ARRAYACCESS(a, i, j) ((a)[(i) * N_BARK_BANDS + (j)]) //This is for SSF Matrix recall
 
@@ -61,7 +63,6 @@ compute_bark_mapping(float* bark_z,int fft_size_2, int srate)
   for(k = 0 ; k <= fft_size_2 ; k++)
   {
     freq = (float)srate / 2.f /(float)(fft_size_2)*(float)k ; //bin to freq
-    //bark_z[k] = 7.f*logf(freq/650.f + sqrtf(1.f + (freq/650.f)*(freq/650.f))) ;
     bark_z[k] = 1.f + 13.f*atanf(0.00076f*freq) + 3.5f*atanf(powf(freq/7500.f,2.f)) ;
   }
 }
@@ -336,10 +337,12 @@ compute_masking_thresholds(float* bark_z, float* absolute_thresholds, float* SSF
     //Masking offset
     masking_offset[j] = (tonality_factor*(14.5+(j+1)) + 5.5*(1.f - tonality_factor));
 
+#if BIAS
     //Using offset proposed by Virag (an optimization not needed)
-    //masking_offset[j] = relative_thresholds[j];
+    masking_offset[j] = relative_thresholds[j];
     //Consider tonal noise in upper bands (j>15) due to musical noise of the power Sustraction that was used at First
-    //if(j>15) masking_offset[j] += HIGH_FREQ_BIAS;
+    if(j>15) masking_offset[j] += HIGH_FREQ_BIAS;
+#endif
 
     //spread Masking threshold
     threshold_j[j] = powf(10.f,log10f(spreaded_spectrum[j]) - (masking_offset[j]/10.f));
