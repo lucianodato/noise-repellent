@@ -18,6 +18,7 @@ BUNDLE=nrepel.lv2
 BUILDDIR=build/
 SRCDIR=src/
 TTLDIR=lv2ttl/
+DOCDIR=doc/
 targets=
 
 UNAME=$(shell uname)
@@ -95,7 +96,7 @@ ifeq ($(DEBUG), 0)
 	$(STRIP) $(STRIPFLAGS) $(BUILDDIR)$(LV2NAME)$(LIB_EXT)
 endif
 
-# install/uninstall/clean target definitions
+# install/uninstall/clean/doc target definitions
 install: all
 	install -d $(DESTDIR)$(LV2DIR)/$(BUNDLE)
 	install -m644 $(BUILDDIR)$(LV2NAME)$(LIB_EXT) $(DESTDIR)$(LV2DIR)/$(BUNDLE)
@@ -111,4 +112,7 @@ clean:
 	rm -f $(BUILDDIR)manifest.ttl $(BUILDDIR)$(LV2NAME).ttl $(BUILDDIR)$(LV2NAME)$(LIB_EXT) lv2syms
 	-test -d $(BUILDDIR) && rmdir $(BUILDDIR) || true
 
-.PHONY: clean all install uninstall
+doc:
+	doxygen -s $(DOCDIR)doxygen.conf
+
+.PHONY: doc clean all install uninstall
