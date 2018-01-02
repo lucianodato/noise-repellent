@@ -39,9 +39,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define OUTPUT_WINDOW 3 //0 HANN 1 HAMMING 2 BLACKMAN 3 VORBIS Output windows for STFT algorithm
 #define OVERLAP_FACTOR 4 //4 is 75% overlap Values bigger than 4 will rescale correctly (if Vorbis windows is not used)
 
-#define NOISE_ARRAY_STATE_MAX_SIZE 8192 //max alloc size of the noise_thresholds to save with the session. This will consider upto fs of 192 kHz with aprox 23hz resolution
-
-
 ///---------------------------------------------------------------------
 
 /**
@@ -72,7 +69,7 @@ typedef struct
 {
 	uint32_t child_size;
 	uint32_t child_type;
-	float array[NOISE_ARRAY_STATE_MAX_SIZE];
+	float array[FFT_SIZE];
 } FFTVector;
 
 /**
