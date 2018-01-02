@@ -29,7 +29,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include "lv2/lv2plug.in/ns/ext/atom/atom.h"
 #include "lv2/lv2plug.in/ns/ext/state/state.h"
 
-#include "spectral_processing.c"
+#include "stft.c"
 
 #define NREPEL_URI "https://github.com/lucianodato/noise-repellent"
 

@@ -25,6 +25,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 #include <fftw3.h>
 #include "spectral_processing.c"
+#include "circular_buffer.c"
 
 /**
 * STFT handling struct.
@@ -41,9 +42,8 @@ typedef struct
   int input_latency;
   float* input_window;
   float* output_window;
-  float* in_fifo;
-  float* out_fifo;
-  int read_ptr; //buffers read pointer
+  circular_buffer* input_circular_buffer;
+  circular_buffer* output_circular_buffer;
   float* output_accum;
   float* fft_power;
   float* fft_phase;
@@ -70,14 +70,13 @@ stft_configure(STFT_transform* instance, int block_size, int fft_size,
   instance->overlap_factor = overlap_factor;
   instance->hop = instance->fft_size/instance->overlap_factor;
   instance->input_latency = instance->fft_size - instance->hop;
-  instance->read_ptr = instance->input_latency; //the initial position because we are that many samples ahead
 }
 
 /**
 * Wrapper for getting the pre and post processing windows.
 * \param input_window array of the input window values
 * \param output_window array of the output window values
-* \param frame_size size of the window arrays
+* \param block_size size of the window arrays
 * \param window_option_input input window option
 * \param window_option_output output window option
 * \param overlap_scale_factor scaling factor for the OLA for configured window options
@@ -89,16 +88,16 @@ fft_pre_and_post_window(STFT_transform* instance)
   switch(instance->window_option_input)
   {
     case 0: // HANN
-      fft_window(instance->input_window, instance->frame_size, 0); //STFT input window
+      fft_window(instance->input_window, instance->block_size, 0); //STFT input window
       break;
     case 1: //HAMMING
-      fft_window(instance->input_window, instance->frame_size, 1); //STFT input window
+      fft_window(instance->input_window, instance->block_size, 1); //STFT input window
       break;
     case 2: //BLACKMAN
-      fft_window(instance->input_window, instance->frame_size, 2); //STFT input window
+      fft_window(instance->input_window, instance->block_size, 2); //STFT input window
       break;
     case 3: //VORBIS
-      fft_window(instance->input_window, instance->frame_size, 3); //STFT input window
+      fft_window(instance->input_window, instance->block_size, 3); //STFT input window
       break;
   }
 
@@ -106,29 +105,29 @@ fft_pre_and_post_window(STFT_transform* instance)
   switch(instance->window_option_output)
   {
     case 0: // HANN
-      fft_window(instance->output_window, instance->frame_size, 0); //STFT input window
+      fft_window(instance->output_window, instance->block_size, 0); //STFT input window
       break;
     case 1: //HAMMING
-      fft_window(instance->output_window, instance->frame_size, 1); //STFT input window
+      fft_window(instance->output_window, instance->block_size, 1); //STFT input window
       break;
     case 2: //BLACKMAN
-      fft_window(instance->output_window, instance->frame_size, 2); //STFT input window
+      fft_window(instance->output_window, instance->block_size, 2); //STFT input window
       break;
     case 3: //VORBIS
-      fft_window(instance->output_window, instance->frame_size, 3); //STFT input window
+      fft_window(instance->output_window, instance->block_size, 3); //STFT input window
       break;
   }
 
   //Scaling necessary for perfect reconstruction using Overlapp Add
   instance->overlap_scale_factor = get_window_scale_factor(instance->input_window,
                                                            instance->output_window,
-                                                           instance->frame_size);
+                                                           instance->block_size);
 }
 
 /**
 * Gets the magnitude and phase spectrum of the complex spectrum. Takimg into account that
-* the half complex fft was used half of the spectrum contains the real part the other
-* the imaginary. Look at http://www.fftw.org/doc/The-Halfcomplex_002dformat-DFT.html for
+* the half complex fft was used half of the spectrum contains the real part and the other
+* the imaginary one. Look at http://www.fftw.org/doc/The-Halfcomplex_002dformat-DFT.html for
 * more info. DC bin was treated as suggested in http://www.fftw.org/fftw2_doc/fftw_2.html
 * \param fft_power the current power spectrum
 * \param fft_magnitude the current magnitude spectrum
@@ -183,6 +182,14 @@ get_info_from_bins(float* fft_power, float* fft_magnitude, float* fft_phase,
 void
 stft_zeropad(STFT_transform* instance)
 {
+  int k;
+  int number_of_zeros = instance->fft_size - instance->block_size;
+
+  //This adds zeros at the end. The right way should be an equal amount at the sides
+  for(k = 0; k = number_of_zeros - 1; k++)
+  {
+    instance->input_fft_buffer[instance->block_size - 1 + k] = 0.f;
+  }
 }
 
 void
@@ -195,8 +202,6 @@ stft_fft_analysis(STFT_transform* instance)
     instance->input_fft_buffer[k] *= instance->input_window[k];
   }
 
-  //----------FFT Analysis------------
-
   //Do transform
   fftwf_execute(instance->forward);
 }
@@ -204,8 +209,7 @@ stft_fft_analysis(STFT_transform* instance)
 void
 stft_fft_synthesis(STFT_transform* instance)
 {
-  //------------FFT Synthesis-------------
-
+  int k;
   //Do inverse transform
   fftwf_execute(instance->backward);
 
@@ -225,6 +229,7 @@ stft_fft_synthesis(STFT_transform* instance)
 void
 stft_ola(STFT_transform* instance)
 {
+  int k;
   //Windowing scaling and accumulation
   for(k = 0; k < instance->fft_size; k++)
   {
@@ -234,7 +239,7 @@ stft_ola(STFT_transform* instance)
   //Output samples up to the hop size
   for (k = 0; k < instance->hop; k++)
   {
-    instance->out_fifo[k] = instance->output_accum[k];
+    cb_write_one(instance->output_circular_buffer, instance->output_accum[k]);
   }
 
   //shift FFT accumulator the hop size
@@ -254,54 +259,16 @@ void
 stft_reset(STFT_transform* instance)
 {
   //Reset all arrays
-  initialize_array(instance->input_fft_buffer,0.f,self->fft_size);
-  initialize_array(instance->output_fft_buffer,0.f,self->fft_size);
-  initialize_array(instance->input_window,0.f,self->fft_size);
-  initialize_array(instance->output_window,0.f,self->fft_size);
-  initialize_array(instance->in_fifo,0.f,self->fft_size);
-  initialize_array(instance->out_fifo,0.f,self->fft_size);
-  initialize_array(instance->output_accum,0.f,self->fft_size*2);
-  initialize_array(instance->fft_power,0.f,self->fft_size_2+1);
-  initialize_array(instance->fft_magnitude,0.f,self->fft_size_2+1);
-  initialize_array(instance->fft_phase,0.f,self->fft_size_2+1);
-}
-
-void
-stft_init(STFT_transform* instance, int block_size, int fft_size,int window_option_input,
-          int window_option_output, int overlap_factor)
-{
-  stft_configure(instance, block_size, fft_size, window_option_input, window_option_output,
-                 overlap_factor);
-
-  //STFT window related
-  instance->input_window = (float*)malloc(instance->fft_size, sizeof(float));
-  instance->output_window = (float*)malloc(instance->fft_size, sizeof(float));
-
-  //buffers for OLA
-  instance->in_fifo = (float*)malloc(instance->fft_size, sizeof(float));
-  instance->out_fifo = (float*)malloc(instance->fft_size, sizeof(float));
-  instance->output_accum = (float*)malloc(instance->fft_size*2, sizeof(float));
-
-  //FFTW related
-  instance->input_fft_buffer = (float*)fftwf_malloc(instance->fft_size * sizeof(float));
-  instance->output_fft_buffer = (float*)fftwf_malloc(instance->fft_size * sizeof(float));
-  instance->forward = fftwf_plan_r2r_1d(instance->fft_size, instance->input_fft_buffer,
-                                        instance->output_fft_buffer, FFTW_R2HC,
-                                        FFTW_ESTIMATE);
-  instance->backward = fftwf_plan_r2r_1d(instance->fft_size, instance->output_fft_buffer,
-                                         instance->input_fft_buffer, FFTW_HC2R,
-                                         FFTW_ESTIMATE);
-
-  //Arrays for getting bins info
-  instance->fft_power = (float*)malloc((instance->fft_size_2+1), sizeof(float));
-  instance->fft_magnitude = (float*)malloc((instance->fft_size_2+1), sizeof(float));
-  instance->fft_phase = (float*)malloc((instance->fft_size_2+1), sizeof(float));
-
-  //Initialize all arrays with zeros
-  stft_reset(instance);
-
-  //Window combination initialization (pre processing window post processing window)
-  fft_pre_and_post_window(instance);
+  initialize_array(instance->input_fft_buffer,0.f,instance->fft_size);
+  initialize_array(instance->output_fft_buffer,0.f,instance->fft_size);
+  initialize_array(instance->input_window,0.f,instance->fft_size);
+  initialize_array(instance->output_window,0.f,instance->fft_size);
+  cb_reset(instance->input_circular_buffer);
+  cb_reset(instance->output_circular_buffer);
+  initialize_array(instance->output_accum,0.f,instance->fft_size*2);
+  initialize_array(instance->fft_power,0.f,instance->fft_size_2+1);
+  initialize_array(instance->fft_magnitude,0.f,instance->fft_size_2+1);
+  initialize_array(instance->fft_phase,0.f,instance->fft_size_2+1);
 }
 
 void
@@ -313,8 +280,8 @@ stft_free(STFT_transform* instance)
 	fftwf_destroy_plan(instance->backward);
 	free(instance->input_window);
 	free(instance->output_window);
-	free(instance->in_fifo);
-	free(instance->out_fifo);
+	cb_free(instance->input_circular_buffer);
+	cb_free(instance->output_circular_buffer);
 	free(instance->output_accum);
 	free(instance->fft_power);
 	free(instance->fft_magnitude);
@@ -322,20 +289,86 @@ stft_free(STFT_transform* instance)
 	free(instance);
 }
 
-void
-stft_run(STFT_transform* instance, uint32_t n_samples, float* input, float* output)
+
+STFT_transform*
+stft_init(int block_size, int fft_size,int window_option_input,
+          int window_option_output, int overlap_factor)
 {
-  stft_analysis(instance);
+  //Allocate object
+  STFT_transform *instance = (STFT_transform*)malloc(sizeof(STFT_transform));
+
+  stft_configure(instance, block_size, fft_size, window_option_input, window_option_output,
+                 overlap_factor);
+
+  //Individual array allocation
+
+  //STFT window related
+  instance->input_window = (float*)malloc(instance->fft_size * sizeof(float));
+  instance->output_window = (float*)malloc(instance->fft_size * sizeof(float));
+
+  //circular buffers init
+  instance->input_circular_buffer = cb_init(instance->block_size);
+  instance->output_circular_buffer = cb_init(instance->block_size);
+
+  //buffers for OLA
+  instance->output_accum = (float*)malloc((instance->fft_size*2) * sizeof(float));
+
+  //FFTW related
+  instance->input_fft_buffer = (float*)fftwf_malloc(instance->fft_size * sizeof(float));
+  instance->output_fft_buffer = (float*)fftwf_malloc(instance->fft_size * sizeof(float));
+  instance->forward = fftwf_plan_r2r_1d(instance->fft_size, instance->input_fft_buffer,
+                                       instance->output_fft_buffer, FFTW_R2HC,
+                                       FFTW_ESTIMATE);
+  instance->backward = fftwf_plan_r2r_1d(instance->fft_size, instance->output_fft_buffer,
+                                        instance->input_fft_buffer, FFTW_HC2R,
+                                        FFTW_ESTIMATE);
+
+  //Arrays for getting bins info
+  instance->fft_power = (float*)malloc((instance->fft_size_2+1) * sizeof(float));
+  instance->fft_magnitude = (float*)malloc((instance->fft_size_2+1) * sizeof(float));
+  instance->fft_phase = (float*)malloc((instance->fft_size_2+1) * sizeof(float));
+
+  //Initialize all arrays with zeros
+  stft_reset(instance);
+
+  //Window combination initialization (pre processing window post processing window)
+  fft_pre_and_post_window(instance);
+
+  return instance;
+}
+
+void
+stft_fill_buffers(STFT_transform* instance, int n_samples, float* input, float* output)
+{
+
+}
+
+void
+stft_analysis(STFT_transform* instance)
+{
+  stft_fft_analysis(instance);
 
   get_info_from_bins(instance->fft_power, instance->fft_magnitude, instance->fft_phase,
                      instance->fft_size_2, instance->fft_size,
                      instance->output_fft_buffer);
-
-  stft_synthesis(instance);
 }
 
 void
-stft_get_p2_spectrum(STFT_transform* instance)
+stft_synthesis(STFT_transform* instance)
 {
+  stft_fft_synthesis(instance);
 
+  stft_ola(instance);
+}
+
+void
+stft_get_power_spectrum(float* power_spectrum, STFT_transform* instance)
+{
+  memcpy(power_spectrum, instance->fft_power, sizeof(float)*(instance->fft_size_2+1));
+}
+
+void
+stft_get_magnitude_spectrum(float* magnitude_spectrum, STFT_transform* instance)
+{
+  memcpy(magnitude_spectrum, instance->fft_magnitude, sizeof(float)*(instance->fft_size_2+1));
 }
