@@ -41,7 +41,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define BLACKMAN_WINDOW 2
 #define VORBIS_WINDOW 3
 
-#define M_PI 3.14159265358979323846f
+#ifndef M_PI
+#   define M_PI 3.14159265358979323846f
+#endif
+
 
 #define SP_MAX_NUM 100 //Max number of spectral peaks to find
 #define SP_THRESH 0.1f //Threshold to discriminate peaks (high value to discard noise) Linear 0<>1
