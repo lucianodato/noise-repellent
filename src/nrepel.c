@@ -69,7 +69,7 @@ typedef struct
 {
 	uint32_t child_size;
 	uint32_t child_type;
-	float array[FFT_SIZE];
+	float array[FFT_SIZE/2 + 1];
 } FFTVector;
 
 /**
