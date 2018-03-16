@@ -6,7 +6,7 @@ summary: Noise Repellent
 description: |
   An lv2 plugin for broadband noise reduction.
 
-confinement: devmode
+confinement: classic
 
 parts:
   noise-repellent:
