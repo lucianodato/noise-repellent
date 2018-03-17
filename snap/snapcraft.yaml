@@ -1,6 +1,6 @@
 name: noise-repellent
 version: git
-grade: devel
+grade: stable
 architectures: [amd64, i386]
 summary: Noise Repellent
 description: |
