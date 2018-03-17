@@ -1,7 +1,9 @@
 name: noise-repellent
 version: git
 grade: devel
-architectures: [amd64, i386]
+architectures:
+  - amd64
+  - i386
 summary: Noise Repellent
 description: |
   An lv2 plugin for broadband noise reduction.
