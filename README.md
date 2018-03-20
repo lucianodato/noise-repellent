@@ -1,5 +1,3 @@
-[![Snap Status](https://build.snapcraft.io/badge/lucianodato/noise-repellent.svg)](https://build.snapcraft.io/user/lucianodato/noise-repellent)
-
 noise-repellent
 -------
 An lv2 plug-in for broadband noise reduction.
