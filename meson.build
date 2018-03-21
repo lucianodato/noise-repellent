@@ -1,5 +1,7 @@
-project('noise-repellent', 'c',
-    default_options : 'c_std=c99',
+project(
+    'noise-repellent',
+    'c',
+    default_options: 'c_std=c99'
 )
 
 #shared object name
@@ -25,10 +27,11 @@ cflags = [
 ]
 
 #build configuration
-shared_library(lv2_name,
+shared_library(
+    lv2_name,
     src,
+    name_prefix: '',
     dependencies: nr_dep,
-    c_args: cflags,
-    name_prefix: ''
+    c_args: cflags
 )
 
