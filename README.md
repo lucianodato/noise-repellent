@@ -17,7 +17,7 @@ Features
 
 Limitations
 -------
-* The plug-in will introduce latency so it's not appropriate to be used while recording (23 ms for 44.1 kHz)
+* The plug-in will introduce latency so it's not appropriate to be used while recording (33 ms for 44.1 kHz)
 * It was developed to be used with Ardour however it is known to work with other hosts
 
 Install
@@ -29,6 +29,8 @@ To compile and install this plug-in you will need the LV2 SDK, gnu-make, a c-com
   make
   sudo make install
 ```
+
+A meson build is provided but it needs more work in order to replicate current makefile
 
 There is now an AUR package at https://aur.archlinux.org/packages/noise-repellent-git for Arch Users (Kindly done by CrocoDuck).
 
