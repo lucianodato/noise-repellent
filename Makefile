@@ -58,7 +58,6 @@ ifeq ($(shell pkg-config --exists fftw3f || echo no), no)
 endif
 
 override CFLAGS += -fPIC -std=c99
-override CFLAGS += `pkg-config --cflags lv2 fftw3f`
 override LOADLIBES += `pkg-config --cflags --libs fftw3f`
 
 #for debug building
