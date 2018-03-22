@@ -1,8 +1,8 @@
 #!/bin/bash
 
-rm -r builddir
-mkdir builddir
-cd builddir
-meson .. --buildtype release --strip
+rm -r build
+mkdir build
+cd build
+meson .. --buildtype debug
 ninja -v
 
