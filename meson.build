@@ -9,9 +9,13 @@ lv2_name = 'nrepel'
 src = 'src/nrepel.c'
 
 #dependencies for noise repellent
+
+fftw_dep = dependency('fftw3f')
+lv2_dep = dependency('lv2')
+
 nr_dep = [
-    fftw_dep = dependency('fftw3f'),
-    lv2_dep = dependency('lv2')
+    fftw_dep,
+    lv2_dep
 ]
 
 #compiler optimization flags
