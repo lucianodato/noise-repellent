@@ -30,7 +30,7 @@ To compile and install this plug-in you will need the LV2 SDK, gnu-make, a c-com
   sudo make install
 ```
 
-A meson build is provided. To use this build system you will have to get a c-compiler, meson, ninja build, fftw3f, library and LV2 SDK.
+A meson build is provided. To use this build system you will have to get a c-compiler, meson, ninja build, fftw3f library and LV2 SDK.
 ```bash
   git clone https://github.com/lucianodato/noise-repellent.git
   chmod +x install.sh
