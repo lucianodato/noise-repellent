@@ -33,6 +33,20 @@ largs = [
     '-lm'
 ]
 
+#install destination
+i_path = '/usr/local/lib/lv2/nrepel.lv2'
+
+#Ensamble ttl files in order to be copied to install folder
+#version = run_command('git', 'describe', '--tags HEAD 2>/dev/null | sed "s/-g.*$$//;s/^v//" || echo "LV2"').stdout().strip()
+#lib_ext = get_option(name_suffix)
+#ttl_dir = 'lv2ttl'
+
+#sed "s/@lv2_name@/$(lv2_name)/;s/@lib_ext@/$(lib_ext)/" \
+#    $(ttl_dir)manifest.ttl.in > $(i_path)manifest.ttl
+
+#version = run_command(sed "s/@verision@/lv2:microVersion $(LV2MIC) ;lv2:minorVersion $(LV2MIN) ;/g" \
+#    $(ttl_dir)$(lv2_name).ttl.in > $(i_path)$(lv2_name).ttl
+
 #build configuration
 shared_library(
     lv2_name,
@@ -40,6 +54,7 @@ shared_library(
     name_prefix: '',
     dependencies: nr_dep,
     c_args: cflags,
-    link_args: largs
+    link_args: largs,
+    install: true,
+    install_dir : i_path
 )
-
