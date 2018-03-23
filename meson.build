@@ -41,11 +41,11 @@ i_path = '/usr/local/lib/lv2/nrepel.lv2'
 #lib_ext = get_option(name_suffix)
 #ttl_dir = 'lv2ttl'
 
-#sed "s/@lv2_name@/$(lv2_name)/;s/@lib_ext@/$(lib_ext)/" \
-#    $(ttl_dir)manifest.ttl.in > $(i_path)manifest.ttl
+#sed "s/@LV2NAME@/lv2_name/;s/@LIB_EXT@/lib_ext/" \
+#    ttl_dir/manifest.ttl.in > i_path/manifest.ttl
 
-#version = run_command(sed "s/@verision@/lv2:microVersion $(LV2MIC) ;lv2:minorVersion $(LV2MIN) ;/g" \
-#    $(ttl_dir)$(lv2_name).ttl.in > $(i_path)$(lv2_name).ttl
+#sed "s/@VERSION@/lv2:microVersion $(LV2MIC) ;lv2:minorVersion $(LV2MIN) ;/g" \
+#    ttl_dir/lv2_name.ttl.in > i_path/lv2_name.ttl
 
 #build configuration
 shared_library(
