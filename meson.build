@@ -10,6 +10,9 @@ lv2_name = 'nrepel'
 #source to compile
 src = 'src/nrepel.c'
 
+#install destination
+i_path = '/usr/local/lib/lv2/nrepel.lv2'
+
 #dependencies for noise repellent
 fftw_dep = dependency('fftw3f')
 lv2_dep = dependency('lv2')
@@ -33,19 +36,8 @@ largs = [
     '-lm'
 ]
 
-#install destination
-i_path = '/usr/local/lib/lv2/nrepel.lv2'
-
 #Ensamble ttl files in order to be copied to install folder
-#version = run_command('git', 'describe', '--tags HEAD 2>/dev/null | sed "s/-g.*$$//;s/^v//" || echo "LV2"').stdout().strip()
-#lib_ext = get_option(name_suffix)
-#ttl_dir = 'lv2ttl'
-
-#sed "s/@LV2NAME@/lv2_name/;s/@LIB_EXT@/lib_ext/" \
-#    ttl_dir/manifest.ttl.in > i_path/manifest.ttl
-
-#sed "s/@VERSION@/lv2:microVersion $(LV2MIC) ;lv2:minorVersion $(LV2MIN) ;/g" \
-#    ttl_dir/lv2_name.ttl.in > i_path/lv2_name.ttl
+#meson.add_install_script('../generate_ttls.sh')
 
 #build configuration
 shared_library(
