@@ -37,7 +37,6 @@ largs = [
 ]
 
 #Ensamble ttl files in order to be copied to install folder
-extension = get_pkgconfig_variable('name_suffix')
 #meson.add_install_script('../generate_ttls.sh')
 
 #build configuration
