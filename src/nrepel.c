@@ -68,7 +68,7 @@ typedef struct
 {
 	uint32_t child_size;
 	uint32_t child_type;
-	float array[FFT_SIZE / 2 + 1];
+	float array[(FFT_SIZE/2) + 1];
 } FFTVector;
 
 /**
@@ -184,9 +184,6 @@ typedef struct
 	float *input_fft_buffer_at;
 	float *output_fft_buffer_at;
 	fftwf_plan forward_at;
-
-	// clock_t start, end;
-	// double cpu_time_used;
 
 	//LV2 state URID (Save and restore noise profile)
 	LV2_URID_Map *map;
@@ -446,10 +443,6 @@ run(LV2_Handle instance, uint32_t n_samples)
 {
 	Nrepel *self = (Nrepel *)instance;
 
-	// //Time execution measurement
-	// self->start = clock();
-	// //--------------
-
 	//handy variables
 	int k;
 	unsigned int pos;
@@ -651,22 +644,6 @@ run(LV2_Handle instance, uint32_t n_samples)
 			//-------------------------------
 		} //if
 	}	 //main loop
-
-	// //Time measurement
-	// self->end = clock();
-	// self->cpu_time_used = ((double) (self->end - self->start)) / CLOCKS_PER_SEC;
-	//
-	// //To string
-	// char buffer[50];
-	// sprintf(buffer,"%lf",self->cpu_time_used);
-	// strcat(buffer,"\n");
-	//
-	// //Saving results to a file
-	// FILE *fp;
-	//
-	// fp = fopen("resuts.txt", "a");
-	// fputs(buffer, fp);
-	// fclose(fp);
 }
 
 /**
