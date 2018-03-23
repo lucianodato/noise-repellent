@@ -1,26 +1,25 @@
 #!/usr/bin/make -f
-OPTIMIZATIONS ?= -msse -msse2 -mfpmath=sse -ffast-math -fomit-frame-pointer -O3 -fno-finite-math-only
+OPTIMIZATIONS ?= -msse -msse2 -mfpmath=sse -ffast-math -fomit-frame-pointer -fno-finite-math-only
 PREFIX ?= /usr/local
 CFLAGS ?= $(OPTIMIZATIONS) -Wall
-
+LOADLIBES=-lm
 STRIP?=strip
 STRIPFLAGS?=-s
 DEBUG?=0
 
-nrepel_VERSION?=$(shell git describe --tags HEAD 2>/dev/null | sed 's/-g.*$$//;s/^v//' || echo "LV2")
-###############################################################################
-LIB_EXT=.so
-
 LV2DIR ?= $(PREFIX)/lib/lv2
-LOADLIBES=-lm
 LV2NAME=nrepel
 BUNDLE=nrepel.lv2
 BUILDDIR=build/
 SRCDIR=src/
 TTLDIR=lv2ttl/
 DOCDIR=doc/
-targets=
 
+###############################################################################
+#get os and configure compiling flags and library extension
+LIB_EXT=.so
+
+targets=
 UNAME=$(shell uname)
 ifeq ($(UNAME),Darwin)
   LV2LDFLAGS=-dynamiclib
@@ -46,6 +45,7 @@ targets+=$(BUILDDIR)$(LV2NAME)$(LIB_EXT)
 
 ###############################################################################
 # extract versions
+nrepel_VERSION?=$(shell git describe --tags HEAD 2>/dev/null | sed 's/-g.*$$//;s/^v//' || echo "LV2")
 LV2VERSION=$(nrepel_VERSION)
 include git2lv2.mk
 
@@ -62,9 +62,9 @@ override LOADLIBES += `pkg-config --cflags --libs fftw3f`
 
 #for debug building
 ifeq ($(DEBUG), 1)
-  override CFLAGS += -g3 -DDEBUG
+  override CFLAGS += -O0 -g3 -DDEBUG
 else
-  override CFLAGS += -DNDEBUG
+  override CFLAGS += -O3 -DNDEBUG
 endif
 
 # build target definitions
@@ -77,7 +77,7 @@ lv2syms:
 
 $(BUILDDIR)manifest.ttl: $(TTLDIR)manifest.ttl.in
 	@mkdir -p $(BUILDDIR)
-	sed "s/@LV2NAME@/$(LV2NAME)/;s/@LIB_EXT@/$(LIB_EXT)/" \
+	sed "s/@LIB_EXT@/$(LIB_EXT)/" \
 	  $(TTLDIR)manifest.ttl.in > $(BUILDDIR)manifest.ttl
 
 $(BUILDDIR)$(LV2NAME).ttl: $(TTLDIR)$(LV2NAME).ttl.in
