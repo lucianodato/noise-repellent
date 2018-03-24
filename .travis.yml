@@ -2,7 +2,7 @@ language: c
 
 before_install:
   - sudo apt-get update -qq
-  - sudo apt-get install -qq lv2-dev libfftw3-dev pkg-config build-essentials make
+  - sudo apt-get install -qq lv2-dev libfftw3-dev pkg-config build-essential make
 
 script:
   - make
