@@ -1,18 +1,20 @@
-language: c
+sudo: false
 
 os:
   - linux
   - osx
 
-compiler:
-  - gcc
+language:
+  - c
 
 before_install:
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew update; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew link --overwrite gcc; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install ninja python3; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then pip3 install meson; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install lv2 fftw; fi
-  - sudo apt-get update -qq
-  - sudo apt-get install -qq lv2-dev libfftw3-dev
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get update -qq; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get install -qq lv2-dev libfftw3-dev; fi
 
 script:
-  - make
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then make; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then SDKROOT=$(xcodebuild -version -sdk macosx Path) meson builddir && ninja -C builddir test; fi
