@@ -32,14 +32,6 @@ To compile and install this plug-in you will need the LV2 SDK, gnu-make, a c-com
   sudo make install
 ```
 
-A meson build is provided. To use this build system you will have to get a c-compiler, meson, ninja build, fftw3f library and LV2 SDK.
-```bash
-  git clone https://github.com/lucianodato/noise-repellent.git
-  chmod +x install.sh
-  ./install.sh
-```
-
-
 There is now an AUR package at https://aur.archlinux.org/packages/noise-repellent-git for Arch Users (Kindly done by CrocoDuck).
 
 Code Documentation
