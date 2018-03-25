@@ -19,7 +19,6 @@ a bunch of improvements to avoid artifacts.
 
 
 %build
-%configure
 %make_build
 
 
