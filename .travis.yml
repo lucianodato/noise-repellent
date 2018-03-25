@@ -20,11 +20,9 @@ before_install:
 script:
   - make
   - mkdir bin
-  - cd build
-  - mkdir nrpel.lv2
-  - mv * nrepel.lv2
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then zip -9 -r noise-repellent-$TRAVIS_TAG-linuxlv2.zip *.lv2; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then zip -9 -r noise-repellent-$TRAVIS_TAG-osxlv2.zip *.lv2; fi
+  - mv build nrepel.lv2
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then zip -9 -r noise-repellent-$TRAVIS_TAG-linuxlv2.zip nrepel.lv2; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then zip -9 -r noise-repellent-$TRAVIS_TAG-osxlv2.zip nrepel.lv2; fi
   - mv *.zip ../bin
 
 deploy:
