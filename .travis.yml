@@ -8,8 +8,7 @@ matrix:
     - os: osx
       osx_image: xcode8.3
 
-language:
-  - c
+language: c
 
 before_install:
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew update; fi
@@ -20,4 +19,26 @@ before_install:
 
 script:
   - make
-  - sudo make install 
+  - mkdir bin
+  - cd build
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then zip -9 -r noise-repellent-$TRAVIS_TAG-linuxlv2.zip *.lv2; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then zip -9 -r noise-repellent-$TRAVIS_TAG-osxlv2.zip *.lv2; fi
+  - mv *.zip ../bin
+
+deploy:
+  provider: releases
+  api_key:
+    secure: $GITHUB_OAUTH_TOKEN
+  file:
+    - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then noise-repellent-$TRAVIS_TAG-linuxlv2.zip; fi
+    - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then noise-repellent-$TRAVIS_TAG-osxlv2.zip; fi
+  skip_cleanup: true
+  overwrite: true
+  on:
+    repo: lucianodato/noise-repellent
+    tags: true
+
+notifications:
+  email:
+    on_success: always
+    on_failure: always
