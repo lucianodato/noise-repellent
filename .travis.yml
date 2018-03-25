@@ -29,9 +29,8 @@ deploy:
   provider: releases
   api_key:
     secure: ${GH_TOKEN}
-  file:
-    - noise-repellent-$TRAVIS_TAG-linuxlv2.zip
-    - noise-repellent-$TRAVIS_TAG-osxlv2.zip
+  file_glob: true
+  file: bin/*
   skip_cleanup: true
   overwrite: true
   on:
