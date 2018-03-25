@@ -28,7 +28,7 @@ script:
 deploy:
   provider: releases
   api_key:
-    secure: $GITHUB_OAUTH_TOKEN
+    secure: 1WwP4njZbvlo08FcNXtSJg
   file:
     - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then noise-repellent-$TRAVIS_TAG-linuxlv2.zip; fi
     - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then noise-repellent-$TRAVIS_TAG-osxlv2.zip; fi
