@@ -9,7 +9,6 @@ Source0:        https://github.com/lucianodato/noise-repellent/archive/0.1.4.tar
 
 BuildRequires:  fftw3
 BuildRequires:  lv2
-Requires:       
 
 %description
 Noise-repellent is a spectral noise reduction lv2 plugin based on spectral subtraction with
