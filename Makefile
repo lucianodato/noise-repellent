@@ -7,6 +7,13 @@ STRIP?=strip
 STRIPFLAGS?=-s
 DEBUG?=0
 
+#for debug building
+ifeq ($(DEBUG), 1)
+  override CFLAGS += -O0 -g3 -DDEBUG
+else
+  override CFLAGS += -O3 -DNDEBUG
+endif
+
 LV2DIR ?= $(PREFIX)/lib/lv2
 LV2NAME=nrepel
 BUNDLE=nrepel.lv2
@@ -59,13 +66,6 @@ endif
 
 override CFLAGS += -fPIC -std=c99
 override LOADLIBES += `pkg-config --libs fftw3f`
-
-#for debug building
-ifeq ($(DEBUG), 1)
-  override CFLAGS += -O0 -g3 -DDEBUG
-else
-  override CFLAGS += -O3 -DNDEBUG
-endif
 
 # build target definitions
 default: all

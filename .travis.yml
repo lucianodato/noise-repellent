@@ -36,8 +36,3 @@ deploy:
   on:
     repo: lucianodato/noise-repellent
     tags: true
-
-notifications:
-  email:
-    on_success: always
-    on_failure: always
