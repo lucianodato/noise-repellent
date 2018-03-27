@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/lucianodato/noise-repellent.svg?branch=master)](https://travis-ci.org/lucianodato/noise-repellent)
+
 noise-repellent
 -------
 An lv2 plug-in for broadband noise reduction.
@@ -17,7 +19,7 @@ Features
 
 Limitations
 -------
-* The plug-in will introduce latency so it's not appropriate to be used while recording (23 ms for 44.1 kHz)
+* The plug-in will introduce latency so it's not appropriate to be used while recording (33 ms for 44.1 kHz)
 * It was developed to be used with Ardour however it is known to work with other hosts
 
 Install

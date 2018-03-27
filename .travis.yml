@@ -1,0 +1,38 @@
+sudo: false
+
+matrix:
+  include:
+    - os: linux
+      dist: xenial
+      sudo: required
+    - os: osx
+      osx_image: xcode8.3
+
+language: c
+
+before_install:
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew update; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew cask uninstall oclint; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install lv2 fftw; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get update -qq; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get install -qq lv2-dev libfftw3-dev; fi
+
+script:
+  - make
+  - mkdir bin
+  - mv build nrepel.lv2
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then zip -9 -r noise-repellent-$TRAVIS_TAG-linuxlv2.zip nrepel.lv2; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then zip -9 -r noise-repellent-$TRAVIS_TAG-osxlv2.zip nrepel.lv2; fi
+  - mv *.zip ../bin
+
+deploy:
+  provider: releases
+  api_key:
+    secure: ${GH_TOKEN}
+  file_glob: true
+  file: bin/*
+  skip_cleanup: true
+  overwrite: true
+  on:
+    repo: lucianodato/noise-repellent
+    tags: true

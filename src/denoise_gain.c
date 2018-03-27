@@ -37,18 +37,17 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 * /param spectrum is the power spectum array
 * \param Gk is the filter computed by the supression rule for each bin of the spectrum
 */
-void
-wiener_subtraction(int fft_size_2, float* spectrum, float* noise_thresholds, float* Gk)
+void wiener_subtraction(int fft_size_2, float *spectrum, float *noise_thresholds, float *Gk)
 {
 	int k;
 
-	for (k = 0; k <= fft_size_2 ; k++)
+	for (k = 0; k <= fft_size_2; k++)
 	{
 		if (noise_thresholds[k] > FLT_MIN)
 		{
-			if(spectrum[k] > noise_thresholds[k])
+			if (spectrum[k] > noise_thresholds[k])
 			{
-				Gk[k] = (spectrum[k]-noise_thresholds[k]) / spectrum[k];
+				Gk[k] = (spectrum[k] - noise_thresholds[k]) / spectrum[k];
 			}
 			else
 			{
@@ -65,7 +64,7 @@ wiener_subtraction(int fft_size_2, float* spectrum, float* noise_thresholds, flo
 	//mirrored gain array
 	for (k = 1; k < fft_size_2; k++)
 	{
-		Gk[(2*fft_size_2)-k] = Gk[k];
+		Gk[(2 * fft_size_2) - k] = Gk[k];
 	}
 }
 
@@ -76,18 +75,17 @@ wiener_subtraction(int fft_size_2, float* spectrum, float* noise_thresholds, flo
 * \param noise_thresholds is the threshold for each corresponding power spectum value
 * \param Gk is the filter computed by the supression rule for each bin of the spectrum
 */
-void
-power_subtraction(int fft_size_2, float* spectrum, float* noise_thresholds, float* Gk)
+void power_subtraction(int fft_size_2, float *spectrum, float *noise_thresholds, float *Gk)
 {
 	int k;
 
-	for (k = 0; k <= fft_size_2 ; k++)
+	for (k = 0; k <= fft_size_2; k++)
 	{
 		if (noise_thresholds[k] > FLT_MIN)
 		{
-			if(spectrum[k] > noise_thresholds[k])
+			if (spectrum[k] > noise_thresholds[k])
 			{
-				Gk[k] = sqrtf((spectrum[k]-noise_thresholds[k]) / spectrum[k]);
+				Gk[k] = sqrtf((spectrum[k] - noise_thresholds[k]) / spectrum[k]);
 			}
 			else
 			{
@@ -104,7 +102,7 @@ power_subtraction(int fft_size_2, float* spectrum, float* noise_thresholds, floa
 	//mirrored gain array
 	for (k = 1; k < fft_size_2; k++)
 	{
-		Gk[(2*fft_size_2)-k] = Gk[k];
+		Gk[(2 * fft_size_2) - k] = Gk[k];
 	}
 }
 
@@ -115,18 +113,17 @@ power_subtraction(int fft_size_2, float* spectrum, float* noise_thresholds, floa
 * \param noise_thresholds is the threshold for each corresponding power spectum value
 * \param Gk is the filter computed by the supression rule for each bin of the spectrum
 */
-void
-magnitude_subtraction(int fft_size_2, float* spectrum, float* noise_thresholds, float* Gk)
+void magnitude_subtraction(int fft_size_2, float *spectrum, float *noise_thresholds, float *Gk)
 {
 	int k;
 
-	for (k = 0; k <= fft_size_2 ; k++)
+	for (k = 0; k <= fft_size_2; k++)
 	{
 		if (noise_thresholds[k] > FLT_MIN)
 		{
-			if(spectrum[k] > noise_thresholds[k])
+			if (spectrum[k] > noise_thresholds[k])
 			{
-				Gk[k] = (sqrtf(spectrum[k])-sqrtf(noise_thresholds[k])) / sqrtf(spectrum[k]);
+				Gk[k] = (sqrtf(spectrum[k]) - sqrtf(noise_thresholds[k])) / sqrtf(spectrum[k]);
 			}
 			else
 			{
@@ -143,7 +140,7 @@ magnitude_subtraction(int fft_size_2, float* spectrum, float* noise_thresholds, 
 	//mirrored gain array
 	for (k = 1; k < fft_size_2; k++)
 	{
-		Gk[(2*fft_size_2)-k] = Gk[k];
+		Gk[(2 * fft_size_2) - k] = Gk[k];
 	}
 }
 
@@ -154,12 +151,11 @@ magnitude_subtraction(int fft_size_2, float* spectrum, float* noise_thresholds, 
 * \param noise_thresholds is the threshold for each corresponding power spectum value
 * \param Gk is the filter computed by the supression rule for each bin of the spectrum
 */
-void
-spectral_gating(int fft_size_2, float* spectrum, float* noise_thresholds, float* Gk)
+void spectral_gating(int fft_size_2, float *spectrum, float *noise_thresholds, float *Gk)
 {
 	int k;
 
-	for (k = 0; k <= fft_size_2 ; k++)
+	for (k = 0; k <= fft_size_2; k++)
 	{
 		if (noise_thresholds[k] > FLT_MIN)
 		{
@@ -185,7 +181,7 @@ spectral_gating(int fft_size_2, float* spectrum, float* noise_thresholds, float*
 	//mirrored gain array
 	for (k = 1; k < fft_size_2; k++)
 	{
-		Gk[(2*fft_size_2)-k] = Gk[k];
+		Gk[(2 * fft_size_2) - k] = Gk[k];
 	}
 }
 
@@ -198,35 +194,34 @@ spectral_gating(int fft_size_2, float* spectrum, float* noise_thresholds, float*
 * \param noise_thresholds is the threshold for each corresponding power spectum value
 * \param Gk is the filter computed by the supression rule for each bin of the spectrum
 */
-void
-denoise_gain_gss(int fft_size_2, float* alpha, float* beta, float* spectrum,
-								 float* noise_thresholds, float* Gk)
+void denoise_gain_gss(int fft_size_2, float *alpha, float *beta, float *spectrum,
+					  float *noise_thresholds, float *Gk)
 {
-  int k;
+	int k;
 
-  for (k = 0; k <= fft_size_2 ; k++)
+	for (k = 0; k <= fft_size_2; k++)
 	{
-    if (spectrum[k] > FLT_MIN)
+		if (spectrum[k] > FLT_MIN)
 		{
-      if(powf((noise_thresholds[k]/spectrum[k]),GAMMA1) < (1.f/(alpha[k]+beta[k])))
+			if (powf((noise_thresholds[k] / spectrum[k]), GAMMA1) < (1.f / (alpha[k] + beta[k])))
 			{
-        Gk[k] = MAX(powf(1.f-(alpha[k]*powf((noise_thresholds[k]/spectrum[k]),GAMMA1)),GAMMA2),0.f);
-      }
+				Gk[k] = MAX(powf(1.f - (alpha[k] * powf((noise_thresholds[k] / spectrum[k]), GAMMA1)), GAMMA2), 0.f);
+			}
 			else
 			{
-        Gk[k] = MAX(powf(beta[k]*powf((noise_thresholds[k]/spectrum[k]),GAMMA1),GAMMA2),0.f);
-      }
-    }
+				Gk[k] = MAX(powf(beta[k] * powf((noise_thresholds[k] / spectrum[k]), GAMMA1), GAMMA2), 0.f);
+			}
+		}
 		else
 		{
-      //Otherwise we keep everything as is
-      Gk[k] = 1.f;
-    }
-  }
+			//Otherwise we keep everything as is
+			Gk[k] = 1.f;
+		}
+	}
 
 	//mirrored gain array
 	for (k = 1; k < fft_size_2; k++)
 	{
-		Gk[(2*fft_size_2)-k] = Gk[k];
+		Gk[(2 * fft_size_2) - k] = Gk[k];
 	}
 }
