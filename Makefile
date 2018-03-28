@@ -51,10 +51,6 @@ endif
 targets+=$(BUILDDIR)$(LV2NAME)$(LIB_EXT)
 
 ###############################################################################
-# extract versions
-nrepel_VERSION?=$(shell git describe --tags HEAD 2>/dev/null | sed 's/-g.*$$//;s/^v//' || echo "LV2")
-LV2VERSION=$(nrepel_VERSION)
-include git2lv2.mk
 
 # check for build-dependencies
 ifeq ($(shell pkg-config --exists lv2 || echo no), no)
@@ -71,9 +67,6 @@ override LOADLIBES += `pkg-config --libs fftw3f`
 default: all
 
 all: $(BUILDDIR)manifest.ttl $(BUILDDIR)$(LV2NAME).ttl $(targets)
-
-lv2syms:
-	echo "_lv2_descriptor" > lv2syms
 
 $(BUILDDIR)manifest.ttl: $(TTLDIR)manifest.ttl.in
 	@mkdir -p $(BUILDDIR)
