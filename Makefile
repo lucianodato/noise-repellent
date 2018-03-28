@@ -82,8 +82,7 @@ $(BUILDDIR)manifest.ttl: $(TTLDIR)manifest.ttl.in
 
 $(BUILDDIR)$(LV2NAME).ttl: $(TTLDIR)$(LV2NAME).ttl.in
 	@mkdir -p $(BUILDDIR)
-	sed "s/@VERSION@/lv2:microVersion $(LV2MIC) ;lv2:minorVersion $(LV2MIN) ;/g" \
-		$(TTLDIR)$(LV2NAME).ttl.in > $(BUILDDIR)$(LV2NAME).ttl
+	cp $(TTLDIR)$(LV2NAME).ttl.in $(BUILDDIR)$(LV2NAME).ttl
 
 $(BUILDDIR)$(LV2NAME)$(LIB_EXT): $(SRCDIR)$(LV2NAME).c
 	@mkdir -p $(BUILDDIR)
