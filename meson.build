@@ -11,9 +11,13 @@ lv2_name = 'nrepel'
 src = 'src/nrepel.c'
 
 #dependencies for noise repellent
-fftw_dep = dependency('fftw3f')
-lv2_dep = dependency('lv2')
+cc = meson.get_compiler('c')
+m_dep = cc.find_library('m', required : true)
+fftw_dep = dependency('fftw3f', required : true)
+lv2_dep = dependency('lv2', required : true)
+
 nr_dep = [
+    m_dep,
     fftw_dep,
     lv2_dep
 ]
@@ -28,9 +32,6 @@ cflags = [
     '-fno-finite-math-only'
 ]
 
-#linking flags (besides dependencies)
-largs = '-lm'
-
 #install destination
 i_path = '/usr/local/lib/lv2/nrepel.lv2'
 
@@ -41,7 +42,6 @@ shared_library(
     name_prefix: '',
     dependencies: nr_dep,
     c_args: cflags,
-    link_args: largs,
     install: true,
     install_dir : i_path
 )
