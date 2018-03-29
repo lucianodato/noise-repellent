@@ -109,13 +109,13 @@ int nearest_even(int x)
 ///converts a db value to linear scale.
 float from_dB(float gdb)
 {
-  return (expf(gdb / 20.f * logf(10.f)));
+  return (expf(gdb / 10.f * logf(10.f)));
 }
 
 ///converts a linear value to db scale.
 float to_dB(float g)
 {
-  return (20.f * log10f(g));
+  return (10.f * log10f(g));
 }
 
 /*Maps a bin number to a frequency

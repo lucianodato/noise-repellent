@@ -73,9 +73,9 @@ $(BUILDDIR)manifest.ttl: $(TTLDIR)manifest.ttl.in
 	sed "s/@LIB_EXT@/$(LIB_EXT)/" \
 	  $(TTLDIR)manifest.ttl.in > $(BUILDDIR)manifest.ttl
 
-$(BUILDDIR)$(LV2NAME).ttl: $(TTLDIR)$(LV2NAME).ttl.in
+$(BUILDDIR)$(LV2NAME).ttl: $(TTLDIR)$(LV2NAME).ttl
 	@mkdir -p $(BUILDDIR)
-	cp $(TTLDIR)$(LV2NAME).ttl.in $(BUILDDIR)$(LV2NAME).ttl
+	cp $(TTLDIR)$(LV2NAME).ttl $(BUILDDIR)$(LV2NAME).ttl
 
 $(BUILDDIR)$(LV2NAME)$(LIB_EXT): $(SRCDIR)$(LV2NAME).c
 	@mkdir -p $(BUILDDIR)
