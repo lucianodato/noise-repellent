@@ -23,7 +23,7 @@ script:
   - mkdir -p build
   - cd build
   - meson .. --buildtype release --strip
-  - ninja
+  - ninja -v
   
 # deploy:
 #   provider: releases
