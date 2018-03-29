@@ -47,7 +47,7 @@ if current_os == 'windows'
   extension = '.dll' #windows
 endif
 
-#Configure manifest ttl in order to be copied to install folder
+#Configure manifest ttl in order to replace the correct shared object extension
 manifest_conf = configuration_data()
 manifest_conf.set('LIB_EXT',extension)
 configure_file(input : 'lv2ttl/manifest.ttl.in',
