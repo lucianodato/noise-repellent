@@ -22,7 +22,7 @@ before_install:
 script:
   - mkdir -p build
   - cd build
-  - meson .. --buildtype release --strip
+  - meson .. --buildtype release
   - ninja -v
   - sudo ninja install
   
