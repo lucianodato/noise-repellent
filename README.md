@@ -24,22 +24,22 @@ Limitations
 
 Install
 -------
-To compile and install this plug-in you will need the LV2 SDK, gnu-make, a c-compiler, git, pkg-config and fftw3 library (>= 3.3.5 is recommended to avoid threading issues).
+To compile and install this plug-in you will need the LV2 SDK, meson (make sure to install the latest version with pip3), ninja compiler, git and fftw3 library (>= 3.3.5 is recommended to avoid threading issues).
 
 ```bash
   git clone https://github.com/lucianodato/noise-repellent.git
-  make
-  sudo make install
+  chmod +x install.sh
+  ./install.sh
 ```
 
 There is now an AUR package at https://aur.archlinux.org/packages/noise-repellent-git for Arch Users (Kindly done by CrocoDuck).
 
 Code Documentation
 -----
-Code is documented using doxygen. To read it be sure to install doxygen in your system and run the following command
+Code is documented using doxygen. To read it be sure to install doxygen in your system and run the following command:
 
 ```bash
-  make doc
+  doxygen -s doc/doxygen.conf
 ```
 This will generate an html folder inside doc folder. Accessing index.html you can read the documentation.
 
