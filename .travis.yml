@@ -24,6 +24,7 @@ script:
   - cd build
   - meson .. --buildtype release --strip
   - ninja -v
+  - sudo ninja install
   
 # deploy:
 #   provider: releases
