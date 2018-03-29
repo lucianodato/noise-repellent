@@ -29,12 +29,22 @@ cflags = [
 ]
 
 #linking flags (besides dependencies)
-largs = [
-    '-lm'
-]
+largs = '-lm'
 
 #install destination
 i_path = '/usr/local/lib/lv2/nrepel.lv2'
+
+#build of the shared object
+shared_library(
+    lv2_name,
+    src,
+    name_prefix: '',
+    dependencies: nr_dep,
+    c_args: cflags,
+    link_args: largs,
+    install: true,
+    install_dir : i_path
+)
 
 #get the build operating system
 current_os = build_machine.system()
@@ -57,17 +67,5 @@ configure_file(input : 'lv2ttl/manifest.ttl.in',
 #add manifest.ttl and nrepel.ttl to be installed with the shared object
 install_data(
     ['build/manifest.ttl', 'lv2ttl/nrepel.ttl'],
-    install_dir : i_path
-)
-
-#build configuration for the shared object
-shared_library(
-    lv2_name,
-    src,
-    name_prefix: '',
-    dependencies: nr_dep,
-    c_args: cflags,
-    link_args: largs,
-    install: true,
     install_dir : i_path
 )
