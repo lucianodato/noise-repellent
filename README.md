@@ -24,13 +24,14 @@ Limitations
 
 Install
 -------
-To compile and install this plug-in you will need the LV2 SDK, meson (make sure to install the latest version with pip3), ninja compiler, git and fftw3 library (>= 3.3.5 is recommended to avoid threading issues).
+To compile and install this plug-in you will need the LV2 SDK, Meson build system (use pip3 to install it), ninja compiler, git and fftw3 library (>= 3.3.5 is recommended to avoid threading issues).
 
 ```bash
   git clone https://github.com/lucianodato/noise-repellent.git
   chmod +x install.sh
   ./install.sh
 ```
+The old makefile is still there for packagers if preferred
 
 There is now an AUR package at https://aur.archlinux.org/packages/noise-repellent-git for Arch Users (Kindly done by CrocoDuck).
 
