@@ -23,7 +23,6 @@
   doap:name "Noise repellent",
     "Repelente de ruido"@es ,
     "Répulseur de bruit"@fr ;
-  @VERSION@
   lv2:optionalFeature lv2:hardRTCapable ;
   lv2:extensionData state:interface ;
   lv2:requiredFeature urid:map ;

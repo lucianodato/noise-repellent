@@ -32,8 +32,7 @@ ifeq ($(UNAME),Darwin)
   LV2LDFLAGS=-dynamiclib
   LIB_EXT=.dylib
   EXTENDED_RE=-E
-  STRIPFLAGS=-u -r -arch all -s lv2syms
-  targets+=lv2syms
+  STRIPFLAGS=-u -r -arch all
 else
   LV2LDFLAGS=-Wl,-Bstatic -Wl,-Bdynamic
   LIB_EXT=.so
@@ -51,10 +50,6 @@ endif
 targets+=$(BUILDDIR)$(LV2NAME)$(LIB_EXT)
 
 ###############################################################################
-# extract versions
-nrepel_VERSION?=$(shell git describe --tags HEAD 2>/dev/null | sed 's/-g.*$$//;s/^v//' || echo "LV2")
-LV2VERSION=$(nrepel_VERSION)
-include git2lv2.mk
 
 # check for build-dependencies
 ifeq ($(shell pkg-config --exists lv2 || echo no), no)
@@ -72,18 +67,14 @@ default: all
 
 all: $(BUILDDIR)manifest.ttl $(BUILDDIR)$(LV2NAME).ttl $(targets)
 
-lv2syms:
-	echo "_lv2_descriptor" > lv2syms
-
 $(BUILDDIR)manifest.ttl: $(TTLDIR)manifest.ttl.in
 	@mkdir -p $(BUILDDIR)
 	sed "s/@LIB_EXT@/$(LIB_EXT)/" \
 	  $(TTLDIR)manifest.ttl.in > $(BUILDDIR)manifest.ttl
 
-$(BUILDDIR)$(LV2NAME).ttl: $(TTLDIR)$(LV2NAME).ttl.in
+$(BUILDDIR)$(LV2NAME).ttl: $(TTLDIR)$(LV2NAME).ttl
 	@mkdir -p $(BUILDDIR)
-	sed "s/@VERSION@/lv2:microVersion $(LV2MIC) ;lv2:minorVersion $(LV2MIN) ;/g" \
-		$(TTLDIR)$(LV2NAME).ttl.in > $(BUILDDIR)$(LV2NAME).ttl
+	cp $(TTLDIR)$(LV2NAME).ttl $(BUILDDIR)$(LV2NAME).ttl
 
 $(BUILDDIR)$(LV2NAME)$(LIB_EXT): $(SRCDIR)$(LV2NAME).c
 	@mkdir -p $(BUILDDIR)
