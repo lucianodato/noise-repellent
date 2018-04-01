@@ -62,16 +62,6 @@ typedef enum {
 	NREPEL_OUTPUT = 13,
 } PortIndex;
 
-// /**
-// * Noise Profile state.
-// */
-// typedef struct
-// {
-// 	uint32_t child_size;
-// 	uint32_t child_type;
-// 	float array[(FFT_SIZE/2) + 1];
-// } FFTVector;
-
 /**
 * Struct for THE noise repellent instance, the host is going to use.
 */
@@ -96,12 +86,7 @@ typedef struct
 	float *report_latency;			//Latency necessary
 
 	//Parameters values and arrays for the STFT
-	int fft_size;				//FFT size for the STFT
-	int block_size;				//Block size for the STFT
-	int window_option_input;	//Type of input Window for the STFT
-	int window_option_output;   //Type of output Window for the STFT
-	float overlap_factor;		//oversampling factor for overlap calculations
-	STFT_transform* transform;  //The stft transform object
+	STFTtransform* transform;  //The stft transform object
 
 	//Algorithm exta variables
 	float tau;						  //time constant for soft bypass
@@ -161,9 +146,6 @@ typedef struct
 	float *spreaded_unity_gain_bark_spectrum;
 	float *alpha_masking;
 	float *beta_masking;
-	float *input_fft_buffer_at;
-	float *output_fft_buffer_at;
-	fftwf_plan forward_at;
 
 	// //LV2 state URID (Save and restore noise profile)
 	// LV2_URID_Map *map;
@@ -212,84 +194,73 @@ instantiate(const LV2_Descriptor *descriptor, double rate, const char *bundle_pa
 	self->samp_rate = (float)rate;
 
 	//STFT related
-	self->fft_size = FFT_SIZE;
-	self->block_size = BLOCK_SIZE;
-	self->window_option_input = INPUT_WINDOW;
-	self->window_option_output = OUTPUT_WINDOW;
-	self->overlap_factor = OVERLAP_FACTOR;
-	self->transform = stft_init(self->block_size, self->fft_size, self->window_option_input,
-          	  self->window_option_output, self->overlap_factor);
+	self->transform = stft_init(BLOCK_SIZE, FFT_SIZE, INPUT_WINDOW, OUTPUT_WINDOW, OVERLAP_FACTOR);
 
 	//soft bypass
 	self->tau = (1.f - expf(-2.f * M_PI * 25.f * 64.f / self->samp_rate));
 	self->wet_dry = 0.f;
 
 	//noise threshold related
-	self->noise_thresholds_p2 = (float *)calloc((self->fft_size/2 + 1), sizeof(float));
-	self->noise_thresholds_scaled = (float *)calloc((self->fft_size/2 + 1), sizeof(float));
+	self->noise_thresholds_p2 = (float *)calloc((self->transform->fft_size_2 + 1), sizeof(float));
+	self->noise_thresholds_scaled = (float *)calloc((self->transform->fft_size_2 + 1), sizeof(float));
 	self->noise_window_count = 0.f;
 	self->noise_thresholds_availables = false;
 
 	//noise adaptive estimation related
-	self->auto_thresholds = (float *)calloc((self->fft_size/2 + 1), sizeof(float));
-	self->prev_noise_thresholds = (float *)calloc((self->fft_size/2 + 1), sizeof(float));
-	self->s_pow_spec = (float *)calloc((self->fft_size/2 + 1), sizeof(float));
-	self->prev_s_pow_spec = (float *)calloc((self->fft_size/2 + 1), sizeof(float));
-	self->p_min = (float *)calloc((self->fft_size/2 + 1), sizeof(float));
-	self->prev_p_min = (float *)calloc((self->fft_size/2 + 1), sizeof(float));
-	self->speech_p_p = (float *)calloc((self->fft_size/2 + 1), sizeof(float));
-	self->prev_speech_p_p = (float *)calloc((self->fft_size/2 + 1), sizeof(float));
+	self->auto_thresholds = (float *)calloc((self->transform->fft_size_2 + 1), sizeof(float));
+	self->prev_noise_thresholds = (float *)calloc((self->transform->fft_size_2 + 1), sizeof(float));
+	self->s_pow_spec = (float *)calloc((self->transform->fft_size_2 + 1), sizeof(float));
+	self->prev_s_pow_spec = (float *)calloc((self->transform->fft_size_2 + 1), sizeof(float));
+	self->p_min = (float *)calloc((self->transform->fft_size_2 + 1), sizeof(float));
+	self->prev_p_min = (float *)calloc((self->transform->fft_size_2 + 1), sizeof(float));
+	self->speech_p_p = (float *)calloc((self->transform->fft_size_2 + 1), sizeof(float));
+	self->prev_speech_p_p = (float *)calloc((self->transform->fft_size_2 + 1), sizeof(float));
 
 	//smoothing related
-	self->smoothed_spectrum = (float *)calloc((self->fft_size/2 + 1), sizeof(float));
-	self->smoothed_spectrum_prev = (float *)calloc((self->fft_size/2 + 1), sizeof(float));
+	self->smoothed_spectrum = (float *)calloc((self->transform->fft_size_2 + 1), sizeof(float));
+	self->smoothed_spectrum_prev = (float *)calloc((self->transform->fft_size_2 + 1), sizeof(float));
 
 	//transient preservation
-	self->transient_preserv_prev = (float *)calloc((self->fft_size/2 + 1), sizeof(float));
+	self->transient_preserv_prev = (float *)calloc((self->transform->fft_size_2 + 1), sizeof(float));
 	self->tp_window_count = 0.f;
 	self->tp_r_mean = 0.f;
 	self->transient_present = false;
 
 	//masking related
-	self->bark_z = (float *)calloc((self->fft_size/2 + 1), sizeof(float));
-	self->absolute_thresholds = (float *)calloc((self->fft_size/2 + 1), sizeof(float));
+	self->bark_z = (float *)calloc((self->transform->fft_size_2 + 1), sizeof(float));
+	self->absolute_thresholds = (float *)calloc((self->transform->fft_size_2 + 1), sizeof(float));
 	self->unity_gain_bark_spectrum = (float *)calloc(N_BARK_BANDS, sizeof(float));
 	self->spreaded_unity_gain_bark_spectrum = (float *)calloc(N_BARK_BANDS, sizeof(float));
-	self->spl_reference_values = (float *)calloc((self->fft_size/2 + 1), sizeof(float));
-	self->alpha_masking = (float *)calloc((self->fft_size/2 + 1), sizeof(float));
-	self->beta_masking = (float *)calloc((self->fft_size/2 + 1), sizeof(float));
+	self->spl_reference_values = (float *)calloc((self->transform->fft_size_2 + 1), sizeof(float));
+	self->alpha_masking = (float *)calloc((self->transform->fft_size_2 + 1), sizeof(float));
+	self->beta_masking = (float *)calloc((self->transform->fft_size_2 + 1), sizeof(float));
 	self->SSF = (float *)calloc((N_BARK_BANDS * N_BARK_BANDS), sizeof(float));
-	self->input_fft_buffer_at = (float *)calloc(self->fft_size, sizeof(float));
-	self->output_fft_buffer_at = (float *)calloc(self->fft_size, sizeof(float));
-	self->forward_at = fftwf_plan_r2r_1d(self->fft_size, self->input_fft_buffer_at, self->output_fft_buffer_at, FFTW_R2HC, FFTW_ESTIMATE);
-
+	
 	//reduction gains related
-	self->Gk = (float *)calloc((self->fft_size), sizeof(float));
+	self->Gk = (float *)calloc((self->transform->fft_size), sizeof(float));
 
 	//whitening related
-	self->residual_max_spectrum = (float *)calloc((self->fft_size), sizeof(float));
+	self->residual_max_spectrum = (float *)calloc((self->transform->fft_size), sizeof(float));
 	self->max_decay_rate = expf(-1000.f / (((WHITENING_DECAY_RATE)*self->samp_rate) / self->transform->hop));
 	self->whitening_window_count = 0.f;
 
 	//final ensemble related
-	self->residual_spectrum = (float *)calloc((self->fft_size), sizeof(float));
-	self->denoised_spectrum = (float *)calloc((self->fft_size), sizeof(float));
-	self->final_spectrum = (float *)calloc((self->fft_size), sizeof(float));
+	self->residual_spectrum = (float *)calloc((self->transform->fft_size), sizeof(float));
+	self->denoised_spectrum = (float *)calloc((self->transform->fft_size), sizeof(float));
+	self->final_spectrum = (float *)calloc((self->transform->fft_size), sizeof(float));
 
 	//Set initial gain as unity for the positive part
-	initialize_array(self->Gk, 1.f, self->fft_size);
+	initialize_array(self->Gk, 1.f, self->transform->fft_size);
 
 	//Compute adaptive initial thresholds
-	compute_auto_thresholds(self->auto_thresholds, self->fft_size, self->fft_size/2,
+	compute_auto_thresholds(self->auto_thresholds, self->transform->fft_size, self->transform->fft_size_2,
 							self->samp_rate);
 
 	//MASKING initializations
-	compute_bark_mapping(self->bark_z, self->fft_size/2, self->samp_rate);
-	compute_absolute_thresholds(self->absolute_thresholds, self->fft_size/2,
+	compute_bark_mapping(self->bark_z, self->transform->fft_size_2, self->samp_rate);
+	compute_absolute_thresholds(self->absolute_thresholds, self->transform->fft_size_2,
 								self->samp_rate);
-	spl_reference(self->spl_reference_values, self->fft_size/2, self->samp_rate,
-				  self->input_fft_buffer_at, self->output_fft_buffer_at,
-				  &self->forward_at);
+	spl_reference(self->spl_reference_values, self->transform->fft_size, self->transform->fft_size_2, self->samp_rate);
 	compute_SSF(self->SSF);
 
 	//Initializing unity gain values for offset normalization
@@ -298,8 +269,8 @@ instantiate(const LV2_Descriptor *descriptor, double rate, const char *bundle_pa
 	convolve_with_SSF(self->SSF, self->unity_gain_bark_spectrum,
 					  self->spreaded_unity_gain_bark_spectrum);
 
-	initialize_array(self->alpha_masking, 1.f, self->fft_size/2 + 1);
-	initialize_array(self->beta_masking, 0.f, self->fft_size/2 + 1);
+	initialize_array(self->alpha_masking, 1.f, self->transform->fft_size_2 + 1);
+	initialize_array(self->beta_masking, 0.f, self->transform->fft_size_2 + 1);
 
 	return (LV2_Handle)self;
 }
@@ -365,26 +336,26 @@ connect_port(LV2_Handle instance, uint32_t port, void *data)
 static void
 reset_noise_profile(Nrepel *self)
 {
-	initialize_array(self->noise_thresholds_p2, 0.f, self->fft_size/2 + 1);
-	initialize_array(self->noise_thresholds_scaled, 0.f, self->fft_size/2 + 1);
+	initialize_array(self->noise_thresholds_p2, 0.f, self->transform->fft_size_2 + 1);
+	initialize_array(self->noise_thresholds_scaled, 0.f, self->transform->fft_size_2 + 1);
 	self->noise_window_count = 0.f;
 	self->noise_thresholds_availables = false;
 
-	initialize_array(self->Gk, 1.f, self->fft_size);
+	initialize_array(self->Gk, 1.f, self->transform->fft_size);
 
-	initialize_array(self->residual_max_spectrum, 0.f, self->fft_size);
+	initialize_array(self->residual_max_spectrum, 0.f, self->transform->fft_size);
 	self->whitening_window_count = 0.f;
 
-	initialize_array(self->prev_noise_thresholds, 0.f, self->fft_size/2 + 1);
-	initialize_array(self->s_pow_spec, 0.f, self->fft_size/2 + 1);
-	initialize_array(self->prev_s_pow_spec, 0.f, self->fft_size/2 + 1);
-	initialize_array(self->p_min, 0.f, self->fft_size/2 + 1);
-	initialize_array(self->prev_p_min, 0.f, self->fft_size/2 + 1);
-	initialize_array(self->speech_p_p, 0.f, self->fft_size/2 + 1);
-	initialize_array(self->prev_speech_p_p, 0.f, self->fft_size/2 + 1);
+	initialize_array(self->prev_noise_thresholds, 0.f, self->transform->fft_size_2 + 1);
+	initialize_array(self->s_pow_spec, 0.f, self->transform->fft_size_2 + 1);
+	initialize_array(self->prev_s_pow_spec, 0.f, self->transform->fft_size_2 + 1);
+	initialize_array(self->p_min, 0.f, self->transform->fft_size_2 + 1);
+	initialize_array(self->prev_p_min, 0.f, self->transform->fft_size_2 + 1);
+	initialize_array(self->speech_p_p, 0.f, self->transform->fft_size_2 + 1);
+	initialize_array(self->prev_speech_p_p, 0.f, self->transform->fft_size_2 + 1);
 
-	initialize_array(self->alpha_masking, 1.f, self->fft_size/2 + 1);
-	initialize_array(self->beta_masking, 0.f, self->fft_size/2 + 1);
+	initialize_array(self->alpha_masking, 1.f, self->transform->fft_size_2 + 1);
+	initialize_array(self->beta_masking, 0.f, self->transform->fft_size_2 + 1);
 
 	self->tp_window_count = 0.f;
 	self->tp_r_mean = 0.f;
@@ -459,6 +430,16 @@ cleanup(LV2_Handle instance)
 }
 
 // /**
+// * Noise Profile state.
+// */
+// typedef struct
+// {
+// 	uint32_t child_size;
+// 	uint32_t child_type;
+// 	float array[(FFT_SIZE/2) + 1];
+// } NProfile;
+
+// /**
 // * State saving of the noise profile.
 // */
 // static LV2_State_Status
@@ -467,12 +448,12 @@ cleanup(LV2_Handle instance)
 // {
 // 	Nrepel *self = (Nrepel *)instance;
 
-// 	FFTVector *vector = (FFTVector *)malloc(sizeof(FFTVector));
+// 	NProfile *vector = (NProfile *)malloc(sizeof(NProfile));
 
 // 	vector->child_type = self->atom_Float;
 // 	vector->child_size = sizeof(float);
 
-// 	store(handle, self->prop_fftsize, &self->fft_size, sizeof(int), self->atom_Int,
+// 	store(handle, self->prop_fftsize, &self->transform->fft_size, sizeof(int), self->atom_Int,
 // 		  LV2_STATE_IS_POD | LV2_STATE_IS_PORTABLE);
 
 // 	store(handle, self->prop_nwindow, &self->noise_window_count, sizeof(float),
@@ -480,7 +461,7 @@ cleanup(LV2_Handle instance)
 
 // 	memcpy(vector->array, self->noise_thresholds_p2, sizeof(vector->array));
 
-// 	store(handle, self->prop_FFTp2, (void *)vector, sizeof(FFTVector),
+// 	store(handle, self->prop_FFTp2, (void *)vector, sizeof(NProfile),
 // 		  self->atom_Vector, LV2_STATE_IS_POD | LV2_STATE_IS_PORTABLE);
 
 // 	return LV2_STATE_SUCCESS;
@@ -500,13 +481,13 @@ cleanup(LV2_Handle instance)
 // 	uint32_t valflags;
 
 // 	const int32_t *fftsize = retrieve(handle, self->prop_fftsize, &size, &type, &valflags);
-// 	if (!fftsize || type != self->atom_Int || *fftsize != self->fft_size/2)
+// 	if (!fftsize || type != self->atom_Int || *fftsize != self->transform->fft_size_2)
 // 	{
 // 		return LV2_STATE_ERR_NO_PROPERTY;
 // 	}
 
 // 	const void *vecFFTp2 = retrieve(handle, self->prop_FFTp2, &size, &type, &valflags);
-// 	if (!vecFFTp2 || size != sizeof(FFTVector) || type != self->atom_Vector)
+// 	if (!vecFFTp2 || size != sizeof(NProfile) || type != self->atom_Vector)
 // 	{
 // 		return LV2_STATE_ERR_NO_PROPERTY;
 // 	}
@@ -515,7 +496,7 @@ cleanup(LV2_Handle instance)
 // 	self->noise_thresholds_availables = false;
 
 // 	//Copy to local variables
-// 	memcpy(self->noise_thresholds_p2, (float *)LV2_ATOM_BODY(vecFFTp2), (self->fft_size/2 + 1) * sizeof(float));
+// 	memcpy(self->noise_thresholds_p2, (float *)LV2_ATOM_BODY(vecFFTp2), (self->transform->fft_size_2 + 1) * sizeof(float));
 
 // 	const float *wincount = retrieve(handle, self->prop_nwindow, &size, &type, &valflags);
 // 	if (fftsize && type == self->atom_Float)

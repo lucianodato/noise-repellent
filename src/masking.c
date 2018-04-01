@@ -24,6 +24,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
 #include <float.h>
+#include <fftw3.h>
 #include <math.h>
 
 //masking thresholds values recomended by virag
@@ -162,36 +163,41 @@ void compute_bark_spectrum(float *bark_z, float *bark_spectrum, float *spectrum,
 * \param output_fft_buffer_at output buffer for the reference sinewave fft transform
 * \param forward_at fftw plan for the reference sinewave fft transform
 */
-void spl_reference(float *spl_reference_values, int fft_size_2, int srate,
-                   float *input_fft_buffer_at, float *output_fft_buffer_at,
-                   fftwf_plan *forward_at)
+void spl_reference(float* spl_reference_values, int fft_size, int fft_size_2, int srate)
 {
   int k;
-  float sinewave[2 * fft_size_2];
-  float window[2 * fft_size_2];
+  float *input_fft_buffer_at;
+  float *output_fft_buffer_at;
+  fftwf_plan forward_at;
+  float sinewave[fft_size];
+  float window[fft_size];
   float fft_p2_at[fft_size_2 + 1];
   float fft_magnitude_at[fft_size_2 + 1];
   float fft_phase_at[fft_size_2 + 1];
   float fft_p2_at_dbspl[fft_size_2 + 1];
 
+  input_fft_buffer_at = (float *)calloc(fft_size, sizeof(float));
+	output_fft_buffer_at = (float *)calloc(fft_size, sizeof(float));
+	forward_at = fftwf_plan_r2r_1d(fft_size, input_fft_buffer_at, output_fft_buffer_at, FFTW_R2HC, FFTW_ESTIMATE);
+
   //Generate a fullscale sine wave of 1 kHz
-  for (k = 0; k < 2 * fft_size_2; k++)
+  for (k = 0; k < fft_size; k++)
   {
     sinewave[k] = S_AMP * sinf((2.f * M_PI * k * AT_SINE_WAVE_FREQ) / (float)srate);
   }
 
   //Windowing the sinewave
-  fft_window(window, 2 * fft_size_2, 0); //von-Hann window
-  for (k = 0; k < 2 * fft_size_2; k++)
+  fft_window(window, fft_size, 0); //von-Hann window
+  for (k = 0; k < fft_size; k++)
   {
     input_fft_buffer_at[k] = sinewave[k] * window[k];
   }
 
   //Do FFT
-  fftwf_execute(*forward_at);
+  fftwf_execute(forward_at);
 
   //Get the magnitude
-  get_info_from_bins(fft_p2_at, fft_magnitude_at, fft_phase_at, fft_size_2, 2 * fft_size_2,
+  get_info_from_bins(fft_p2_at, fft_magnitude_at, fft_phase_at, fft_size_2, fft_size,
                      output_fft_buffer_at);
 
   //Convert to db and taking into account 90dbfs of reproduction loudness
@@ -200,7 +206,11 @@ void spl_reference(float *spl_reference_values, int fft_size_2, int srate,
     fft_p2_at_dbspl[k] = REFERENCE_LEVEL - 10.f * log10f(fft_p2_at[k]);
   }
 
-  memcpy(spl_reference_values, fft_p2_at_dbspl, sizeof(float) * (fft_size_2 + 1));
+  memcpy(spl_reference_values, fft_p2_at_dbspl, sizeof(float)*(fft_size_2+1));
+
+  fftwf_free(input_fft_buffer_at);
+  fftwf_free(output_fft_buffer_at);
+	fftwf_destroy_plan(forward_at);
 }
 
 /**

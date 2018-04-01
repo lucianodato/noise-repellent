@@ -53,12 +53,12 @@ typedef struct
   float* output_accum;
   float* input_fft_buffer;
   float* output_fft_buffer;
-} STFT_transform;
+} STFTtransform;
 
 //-----------STFT private---------------
 
 void
-stft_configure(STFT_transform* self, int block_size, int fft_size,
+stft_configure(STFTtransform* self, int block_size, int fft_size,
                int window_option_input, int window_option_output, int overlap_factor)
 {
   //self configuration
@@ -73,8 +73,75 @@ stft_configure(STFT_transform* self, int block_size, int fft_size,
   self->read_position = self->input_latency;
 }
 
+/**
+* Gets the scaling needed by the configured STFT transform to apply in OLA method.
+* \param input_window array of the input window values
+* \param output_window array of the output window values
+* \param frame_size size of the window arrays
+*/
+void 
+stft_window_scale_factor(STFTtransform* self)
+{
+  float sum = 0.f;
+  
+  for (int i = 0; i < self->block_size; i++)
+    sum += self->input_window[i] * self->output_window[i];
+  
+  self->overlap_scale_factor = (sum / (float)(self->block_size));
+}
+
+/**
+* Wrapper for getting the pre and post processing windows.
+* \param input_window array of the input window values
+* \param output_window array of the output window values
+* \param frame_size size of the window arrays
+* \param window_option_input input window option
+* \param window_option_output output window option
+* \param overlap_scale_factor scaling factor for the OLA for configured window options
+*/
 void
-stft_zeropad(STFT_transform* self)
+stft_pre_and_post_window(STFTtransform* self)
+{
+  //Input window
+  switch (self->window_option_input)
+  {
+  case 0:                                    // HANN
+    fft_window(self->input_window, self->block_size, 0); //STFT input window
+    break;
+  case 1:                                    //HAMMING
+    fft_window(self->input_window, self->block_size, 1); //STFT input window
+    break;
+  case 2:                                    //BLACKMAN
+    fft_window(self->input_window, self->block_size, 2); //STFT input window
+    break;
+  case 3:                                    //VORBIS
+    fft_window(self->input_window, self->block_size, 3); //STFT input window
+    break;
+  }
+
+  //Output window
+  switch (self->window_option_output)
+  {
+  case 0:                                     // HANN
+    fft_window(self->output_window, self->block_size, 0); //STFT input window
+    break;
+  case 1:                                     //HAMMING
+    fft_window(self->output_window, self->block_size, 1); //STFT input window
+    break;
+  case 2:                                     //BLACKMAN
+    fft_window(self->output_window, self->block_size, 2); //STFT input window
+    break;
+  case 3:                                     //VORBIS
+    fft_window(self->output_window, self->block_size, 3); //STFT input window
+    break;
+  }
+
+  //Scaling necessary for perfect reconstruction using Overlapp Add
+  stft_window_scale_factor(self);
+}
+
+void
+stft_zeropad(STFTtransform* self)
 {
   int k;
   int number_of_zeros = self->fft_size - self->block_size;
@@ -87,7 +154,7 @@ stft_zeropad(STFT_transform* self)
 }
 
 void
-stft_fft_analysis(STFT_transform* self)
+stft_fft_analysis(STFTtransform* self)
 {
   int k;
   //Windowing the frame input values in the center (zero-phasing)
@@ -101,7 +168,7 @@ stft_fft_analysis(STFT_transform* self)
 }
 
 void
-stft_fft_synthesis(STFT_transform* self)
+stft_fft_synthesis(STFTtransform* self)
 {
   int k;
   //Do inverse transform
@@ -121,7 +188,7 @@ stft_fft_synthesis(STFT_transform* self)
 }
 
 void
-stft_ola(STFT_transform* self)
+stft_ola(STFTtransform* self)
 {
   int k;
   
@@ -149,7 +216,7 @@ stft_ola(STFT_transform* self)
 }
 
 void
-stft_analysis(STFT_transform* self)
+stft_analysis(STFTtransform* self)
 {
   if(self->block_size < self->fft_size)
   {
@@ -164,24 +231,23 @@ stft_analysis(STFT_transform* self)
 }
 
 void
-stft_processing(STFT_transform* self)
+stft_processing(STFTtransform* self)
 {
   return;
 }
 
 void
-stft_synthesis(STFT_transform* self)
+stft_synthesis(STFTtransform* self)
 {
   stft_fft_synthesis(self);
 
   stft_ola(self);
 }
 
-
 //-----------STFT public---------------
 
 void
-stft_reset(STFT_transform* self)
+stft_reset(STFTtransform* self)
 {
   //Reset all arrays
   initialize_array(self->input_fft_buffer,0.f,self->fft_size);
@@ -197,7 +263,7 @@ stft_reset(STFT_transform* self)
 }
 
 void
-stft_free(STFT_transform* self)
+stft_free(STFTtransform* self)
 {
   fftwf_free(self->input_fft_buffer);
   fftwf_free(self->output_fft_buffer);
@@ -215,12 +281,12 @@ stft_free(STFT_transform* self)
 }
 
 
-STFT_transform*
+STFTtransform*
 stft_init(int block_size, int fft_size,int window_option_input,
           int window_option_output, int overlap_factor)
 {
   //Allocate object
-  STFT_transform *self = (STFT_transform*)malloc(sizeof(STFT_transform));
+  STFTtransform *self = (STFTtransform*)malloc(sizeof(STFTtransform));
 
   stft_configure(self, block_size, fft_size, window_option_input, window_option_output,
                  overlap_factor);
@@ -257,29 +323,15 @@ stft_init(int block_size, int fft_size,int window_option_input,
   stft_reset(self);
 
   //Window combination initialization (pre processing window post processing window)
-  fft_pre_and_post_window(self->input_window, self->output_window, self->block_size,
-                          self->window_option_input, self->window_option_output,
-                          &self->overlap_scale_factor);
+  stft_pre_and_post_window(self);
 
   return self;
 }
 
 void
-stft_get_power_spectrum(float* power_spectrum, STFT_transform* self)
+stft_run(STFTtransform* self, int n_samples, const float* input, float* output)
 {
-  memcpy(power_spectrum, self->fft_power, sizeof(float)*(self->fft_size_2+1));
-}
-
-void
-stft_get_magnitude_spectrum(float* magnitude_spectrum, STFT_transform* self)
-{
-  memcpy(magnitude_spectrum, self->fft_magnitude, sizeof(float)*(self->fft_size_2+1));
-}
-
-void
-stft_run(STFT_transform* self, int n_samples, const float* input, float* output)
-{
-  int k,j;
+  int k, j;
 
   for (k = 0; k < n_samples; k++)
   {
@@ -291,10 +343,11 @@ stft_run(STFT_transform* self, int n_samples, const float* input, float* output)
     if(self->read_position >= self->block_size)
     {
       //Fill the fft_buffer and reset the read position
-      for(j = 0; j < self->block_size; j++)
-      {
-        self->input_fft_buffer[j] = self->in_fifo[j];
-      }
+      // for (j = 0; j < self->block_size; j++)
+      // {
+      //   self->input_fft_buffer[j] = self->in_fifo[j];
+      // }
+      memcpy(self->input_fft_buffer, self->in_fifo, sizeof(float)*self->block_size);
       self->read_position = self->input_latency;
 
       //Do fft analysis
@@ -307,4 +360,16 @@ stft_run(STFT_transform* self, int n_samples, const float* input, float* output)
       stft_synthesis(self);
     }
   }
+}
+
+void
+stft_get_power_spectrum(float* power_spectrum, STFTtransform* self)
+{
+  memcpy(power_spectrum, self->fft_power, sizeof(float)*(self->fft_size_2+1));
+}
+
+void
+stft_get_magnitude_spectrum(float* magnitude_spectrum, STFTtransform* self)
+{
+  memcpy(magnitude_spectrum, self->fft_magnitude, sizeof(float)*(self->fft_size_2+1));
 }
