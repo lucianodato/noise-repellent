@@ -88,64 +88,6 @@ typedef struct
 	//Parameters values and arrays for the STFT
 	STFTtransform* transform;  //The stft transform object
 
-	//Algorithm exta variables
-	float tau;						  //time constant for soft bypass
-	float wet_dry_target;			  //softbypass target for softbypass
-	float wet_dry;					  //softbypass coeff
-	float reduction_coeff;			  //Gain to apply to the residual noise
-	float release_coeff;			  //Release coefficient for Envelopes
-	float amount_of_reduction_linear; //Reduction amount linear value
-	float thresholds_offset_linear;   //Threshold offset linear value
-	float whitening_factor;			  //Whitening amount of the reduction
-
-	//noise related
-	float *noise_thresholds_p2;		  //captured noise profile power spectrum
-	float *noise_thresholds_scaled;   //captured noise profile power spectrum scaled by oversubtraction
-	bool noise_thresholds_availables; //indicate whether a noise profile is available or no
-	float noise_window_count;		  //Count windows for mean computing
-
-	//smoothing related
-	float *smoothed_spectrum;	  //power spectrum to be smoothed
-	float *smoothed_spectrum_prev; //previous frame smoothed power spectrum for envelopes
-
-	//Transient preservation related
-	float *transient_preserv_prev; //previous frame smoothed power spectrum for envelopes
-	float tp_r_mean;
-	bool transient_present;
-	float tp_window_count;
-
-	//Reduction gains
-	float *Gk; //definitive gain
-
-	//Ensemble related
-	float *residual_spectrum;
-	float *denoised_spectrum;
-	float *final_spectrum;
-
-	//whitening related
-	float *residual_max_spectrum;
-	float max_decay_rate;
-	float whitening_window_count;
-
-	//Loizou algorithm
-	float *auto_thresholds; //Reference threshold for louizou algorithm
-	float *prev_noise_thresholds;
-	float *s_pow_spec;
-	float *prev_s_pow_spec;
-	float *p_min;
-	float *prev_p_min;
-	float *speech_p_p;
-	float *prev_speech_p_p;
-
-	//masking
-	float *bark_z;
-	float *absolute_thresholds; //absolute threshold of hearing
-	float *SSF;
-	float *spl_reference_values;
-	float *unity_gain_bark_spectrum;
-	float *spreaded_unity_gain_bark_spectrum;
-	float *alpha_masking;
-	float *beta_masking;
 
 	// //LV2 state URID (Save and restore noise profile)
 	// LV2_URID_Map *map;
@@ -195,82 +137,6 @@ instantiate(const LV2_Descriptor *descriptor, double rate, const char *bundle_pa
 
 	//STFT related
 	self->transform = stft_init(BLOCK_SIZE, FFT_SIZE, INPUT_WINDOW, OUTPUT_WINDOW, OVERLAP_FACTOR);
-
-	//soft bypass
-	self->tau = (1.f - expf(-2.f * M_PI * 25.f * 64.f / self->samp_rate));
-	self->wet_dry = 0.f;
-
-	//noise threshold related
-	self->noise_thresholds_p2 = (float *)calloc((self->transform->fft_size_2 + 1), sizeof(float));
-	self->noise_thresholds_scaled = (float *)calloc((self->transform->fft_size_2 + 1), sizeof(float));
-	self->noise_window_count = 0.f;
-	self->noise_thresholds_availables = false;
-
-	//noise adaptive estimation related
-	self->auto_thresholds = (float *)calloc((self->transform->fft_size_2 + 1), sizeof(float));
-	self->prev_noise_thresholds = (float *)calloc((self->transform->fft_size_2 + 1), sizeof(float));
-	self->s_pow_spec = (float *)calloc((self->transform->fft_size_2 + 1), sizeof(float));
-	self->prev_s_pow_spec = (float *)calloc((self->transform->fft_size_2 + 1), sizeof(float));
-	self->p_min = (float *)calloc((self->transform->fft_size_2 + 1), sizeof(float));
-	self->prev_p_min = (float *)calloc((self->transform->fft_size_2 + 1), sizeof(float));
-	self->speech_p_p = (float *)calloc((self->transform->fft_size_2 + 1), sizeof(float));
-	self->prev_speech_p_p = (float *)calloc((self->transform->fft_size_2 + 1), sizeof(float));
-
-	//smoothing related
-	self->smoothed_spectrum = (float *)calloc((self->transform->fft_size_2 + 1), sizeof(float));
-	self->smoothed_spectrum_prev = (float *)calloc((self->transform->fft_size_2 + 1), sizeof(float));
-
-	//transient preservation
-	self->transient_preserv_prev = (float *)calloc((self->transform->fft_size_2 + 1), sizeof(float));
-	self->tp_window_count = 0.f;
-	self->tp_r_mean = 0.f;
-	self->transient_present = false;
-
-	//masking related
-	self->bark_z = (float *)calloc((self->transform->fft_size_2 + 1), sizeof(float));
-	self->absolute_thresholds = (float *)calloc((self->transform->fft_size_2 + 1), sizeof(float));
-	self->unity_gain_bark_spectrum = (float *)calloc(N_BARK_BANDS, sizeof(float));
-	self->spreaded_unity_gain_bark_spectrum = (float *)calloc(N_BARK_BANDS, sizeof(float));
-	self->spl_reference_values = (float *)calloc((self->transform->fft_size_2 + 1), sizeof(float));
-	self->alpha_masking = (float *)calloc((self->transform->fft_size_2 + 1), sizeof(float));
-	self->beta_masking = (float *)calloc((self->transform->fft_size_2 + 1), sizeof(float));
-	self->SSF = (float *)calloc((N_BARK_BANDS * N_BARK_BANDS), sizeof(float));
-	
-	//reduction gains related
-	self->Gk = (float *)calloc((self->transform->fft_size), sizeof(float));
-
-	//whitening related
-	self->residual_max_spectrum = (float *)calloc((self->transform->fft_size), sizeof(float));
-	self->max_decay_rate = expf(-1000.f / (((WHITENING_DECAY_RATE)*self->samp_rate) / self->transform->hop));
-	self->whitening_window_count = 0.f;
-
-	//final ensemble related
-	self->residual_spectrum = (float *)calloc((self->transform->fft_size), sizeof(float));
-	self->denoised_spectrum = (float *)calloc((self->transform->fft_size), sizeof(float));
-	self->final_spectrum = (float *)calloc((self->transform->fft_size), sizeof(float));
-
-	//Set initial gain as unity for the positive part
-	initialize_array(self->Gk, 1.f, self->transform->fft_size);
-
-	//Compute adaptive initial thresholds
-	compute_auto_thresholds(self->auto_thresholds, self->transform->fft_size, self->transform->fft_size_2,
-							self->samp_rate);
-
-	//MASKING initializations
-	compute_bark_mapping(self->bark_z, self->transform->fft_size_2, self->samp_rate);
-	compute_absolute_thresholds(self->absolute_thresholds, self->transform->fft_size_2,
-								self->samp_rate);
-	spl_reference(self->spl_reference_values, self->transform->fft_size, self->transform->fft_size_2, self->samp_rate);
-	compute_SSF(self->SSF);
-
-	//Initializing unity gain values for offset normalization
-	initialize_array(self->unity_gain_bark_spectrum, 1.f, N_BARK_BANDS);
-	//Convolve unitary energy bark spectrum with SSF
-	convolve_with_SSF(self->SSF, self->unity_gain_bark_spectrum,
-					  self->spreaded_unity_gain_bark_spectrum);
-
-	initialize_array(self->alpha_masking, 1.f, self->transform->fft_size_2 + 1);
-	initialize_array(self->beta_masking, 0.f, self->transform->fft_size_2 + 1);
 
 	return (LV2_Handle)self;
 }
@@ -331,81 +197,6 @@ connect_port(LV2_Handle instance, uint32_t port, void *data)
 }
 
 /**
-* To reset the noise profile and set every value to default one.
-*/
-static void
-reset_noise_profile(Nrepel *self)
-{
-	initialize_array(self->noise_thresholds_p2, 0.f, self->transform->fft_size_2 + 1);
-	initialize_array(self->noise_thresholds_scaled, 0.f, self->transform->fft_size_2 + 1);
-	self->noise_window_count = 0.f;
-	self->noise_thresholds_availables = false;
-
-	initialize_array(self->Gk, 1.f, self->transform->fft_size);
-
-	initialize_array(self->residual_max_spectrum, 0.f, self->transform->fft_size);
-	self->whitening_window_count = 0.f;
-
-	initialize_array(self->prev_noise_thresholds, 0.f, self->transform->fft_size_2 + 1);
-	initialize_array(self->s_pow_spec, 0.f, self->transform->fft_size_2 + 1);
-	initialize_array(self->prev_s_pow_spec, 0.f, self->transform->fft_size_2 + 1);
-	initialize_array(self->p_min, 0.f, self->transform->fft_size_2 + 1);
-	initialize_array(self->prev_p_min, 0.f, self->transform->fft_size_2 + 1);
-	initialize_array(self->speech_p_p, 0.f, self->transform->fft_size_2 + 1);
-	initialize_array(self->prev_speech_p_p, 0.f, self->transform->fft_size_2 + 1);
-
-	initialize_array(self->alpha_masking, 1.f, self->transform->fft_size_2 + 1);
-	initialize_array(self->beta_masking, 0.f, self->transform->fft_size_2 + 1);
-
-	self->tp_window_count = 0.f;
-	self->tp_r_mean = 0.f;
-	self->transient_present = false;
-}
-
-static void
-preconfigure_parameters(Nrepel *self)
-{
-	//Inform latency at run call
-	*(self->report_latency) = (float)self->transform->input_latency;
-
-	//Reset button state (if on)
-	if (*(self->reset_profile) == 1.f)
-	{
-		reset_noise_profile(self);
-	}
-
-	//Softbypass targets in case of disabled or enabled
-	if (*(self->enable) == 0.f)
-	{ //if disabled
-		self->wet_dry_target = 0.f;
-	}
-	else
-	{ //if enabled
-		self->wet_dry_target = 1.f;
-	}
-	//Interpolate parameters over time softly to bypass without clicks or pops
-	self->wet_dry += self->tau * (self->wet_dry_target - self->wet_dry) + FLT_MIN;
-
-	//Parameters values
-	/*exponential decay coefficients for envelopes and adaptive noise profiling
-		These must take into account the hop size as explained in the following paper
-		FFT-BASED DYNAMIC RANGE COMPRESSION*/
-	if (*(self->release) != 0.f) //This allows to turn off smoothing with 0 ms in order to use masking only
-	{
-		self->release_coeff = expf(-1000.f / (((*(self->release)) * self->samp_rate) / self->transform->hop));
-	}
-	else
-	{
-		self->release_coeff = 0.f; //This avoids incorrect results when moving sliders rapidly
-	}
-
-	self->amount_of_reduction_linear = from_dB(-1.f * *(self->amount_of_reduction));
-	self->thresholds_offset_linear = from_dB(*(self->noise_thresholds_offset));
-	self->whitening_factor = *(self->whitening_factor_pc) / 100.f;
-}
-
-
-/**
 * Main process function of the plugin.
 */
 static void
@@ -413,8 +204,8 @@ run(LV2_Handle instance, uint32_t n_samples)
 {
 	Nrepel *self = (Nrepel *)instance;
 
-	//Preconfigure parameters
-	preconfigure_parameters(self);
+	//Inform latency at run call
+	*(self->report_latency) = (float)get_latency(self->transform);
 
 	//Run the stft transform and process samples
 	stft_run(self->transform, n_samples, self->input, self->output);
@@ -426,6 +217,7 @@ run(LV2_Handle instance, uint32_t n_samples)
 static void
 cleanup(LV2_Handle instance)
 {
+	stft_free(instance->transform);
 	free(instance);
 }
 
