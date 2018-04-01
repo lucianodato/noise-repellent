@@ -55,8 +55,6 @@ typedef struct
   float* output_fft_buffer;
 } STFTtransform;
 
-//-----------STFT private---------------
-
 void
 stft_configure(STFTtransform* self, int block_size, int fft_size,
                int window_option_input, int window_option_output, int overlap_factor)
@@ -244,8 +242,6 @@ stft_synthesis(STFTtransform* self)
   stft_ola(self);
 }
 
-//-----------STFT public---------------
-
 void
 stft_reset(STFTtransform* self)
 {
@@ -331,7 +327,7 @@ stft_init(int block_size, int fft_size,int window_option_input,
 void
 stft_run(STFTtransform* self, int n_samples, const float* input, float* output)
 {
-  int k, j;
+  int k;
 
   for (k = 0; k < n_samples; k++)
   {
@@ -356,16 +352,4 @@ stft_run(STFTtransform* self, int n_samples, const float* input, float* output)
       stft_synthesis(self);
     }
   }
-}
-
-void
-stft_get_power_spectrum(float* power_spectrum, STFTtransform* self)
-{
-  memcpy(power_spectrum, self->fft_power, sizeof(float)*(self->fft_size_2+1));
-}
-
-void
-stft_get_magnitude_spectrum(float* magnitude_spectrum, STFTtransform* self)
-{
-  memcpy(magnitude_spectrum, self->fft_magnitude, sizeof(float)*(self->fft_size_2+1));
 }
