@@ -343,10 +343,6 @@ stft_run(STFTtransform* self, int n_samples, const float* input, float* output)
     if(self->read_position >= self->block_size)
     {
       //Fill the fft_buffer and reset the read position
-      // for (j = 0; j < self->block_size; j++)
-      // {
-      //   self->input_fft_buffer[j] = self->in_fifo[j];
-      // }
       memcpy(self->input_fft_buffer, self->in_fifo, sizeof(float)*self->block_size);
       self->read_position = self->input_latency;
 
