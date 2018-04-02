@@ -20,12 +20,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 /**
 * \file stft.c
 * \author Luciano Dato
-* \brief Contains a very basic STFT transform abstraction
+* \brief Contains an STFT transform abstraction suitable for real time processing
 */
 
 #include <fftw3.h>
-#include "extra_functions.c"
-//#include "noise_reduction.c"
+#include "spectral_processing.c"
 
 /**
 * STFT handling struct.
@@ -33,12 +32,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 typedef struct
 {
   int fft_size;
-  int fft_size_2;
   fftwf_plan forward;
   fftwf_plan backward;
-  float *fft_power;
-  float *fft_phase;
-  float *fft_magnitude;
   int block_size;
   int window_option_input;    //Type of input Window for the STFT
   int window_option_output;   //Type of output Window for the STFT
@@ -56,13 +51,12 @@ typedef struct
   float *output_fft_buffer;
 } STFTtransform;
 
-void stft_configure(STFTtransform *self, int block_size, int fft_size,
-                    int window_option_input, int window_option_output, int overlap_factor)
+void stft_configure(STFTtransform *self, int fft_size, int block_size, int window_option_input,
+                    int window_option_output, int overlap_factor)
 {
   //self configuration
   self->block_size = block_size;
   self->fft_size = fft_size;
-  self->fft_size_2 = self->fft_size / 2;
   self->window_option_input = window_option_input;
   self->window_option_output = window_option_output;
   self->overlap_factor = overlap_factor;
@@ -215,15 +209,6 @@ void stft_analysis(STFTtransform *self)
   }
 
   stft_fft_analysis(self);
-
-  get_info_from_bins(self->fft_power, self->fft_magnitude,
-                     self->fft_phase, self->fft_size_2,
-                     self->fft_size, self->output_fft_buffer);
-}
-
-void stft_processing(STFTtransform *self)
-{
-  return;
 }
 
 void stft_synthesis(STFTtransform *self)
@@ -231,6 +216,13 @@ void stft_synthesis(STFTtransform *self)
   stft_fft_synthesis(self);
 
   stft_ola(self);
+}
+
+void stft_processing(STFTtransform *self, Sprocessor *processor, float *enable)
+{
+  //Call processing  with the obtained fft transform
+  //when stft analysis is applied it resides in output_fft_buffer
+  sp_run(processor, self->output_fft_buffer, enable);
 }
 
 void stft_reset(STFTtransform *self)
@@ -243,9 +235,6 @@ void stft_reset(STFTtransform *self)
   initialize_array(self->in_fifo, 0.f, self->block_size);
   initialize_array(self->out_fifo, 0.f, self->block_size);
   initialize_array(self->output_accum, 0.f, self->block_size * 2);
-  initialize_array(self->fft_power, 0.f, self->fft_size_2 + 1);
-  initialize_array(self->fft_magnitude, 0.f, self->fft_size_2 + 1);
-  initialize_array(self->fft_phase, 0.f, self->fft_size_2 + 1);
 }
 
 void stft_free(STFTtransform *self)
@@ -259,20 +248,17 @@ void stft_free(STFTtransform *self)
   free(self->in_fifo);
   free(self->out_fifo);
   free(self->output_accum);
-  free(self->fft_power);
-  free(self->fft_magnitude);
-  free(self->fft_phase);
   free(self);
 }
 
 STFTtransform *
-stft_init(int block_size, int fft_size, int window_option_input,
+stft_init(int fft_size, int block_size, int window_option_input,
           int window_option_output, int overlap_factor)
 {
   //Allocate object
   STFTtransform *self = (STFTtransform *)malloc(sizeof(STFTtransform));
 
-  stft_configure(self, block_size, fft_size, window_option_input, window_option_output,
+  stft_configure(self, fft_size, block_size, window_option_input, window_option_output,
                  overlap_factor);
 
   //Individual array allocation
@@ -298,11 +284,6 @@ stft_init(int block_size, int fft_size, int window_option_input,
                                      self->input_fft_buffer, FFTW_HC2R,
                                      FFTW_ESTIMATE);
 
-  //Arrays for getting bins info
-  self->fft_power = (float *)malloc((self->fft_size_2 + 1) * sizeof(float));
-  self->fft_magnitude = (float *)malloc((self->fft_size_2 + 1) * sizeof(float));
-  self->fft_phase = (float *)malloc((self->fft_size_2 + 1) * sizeof(float));
-
   //Initialize all arrays with zeros
   stft_reset(self);
 
@@ -312,7 +293,18 @@ stft_init(int block_size, int fft_size, int window_option_input,
   return self;
 }
 
-void stft_run(STFTtransform *self, int n_samples, const float *input, float *output)
+int get_latency(STFTtransform *self)
+{
+  return self->input_latency;
+}
+
+int get_hop(STFTtransform *self)
+{
+  return self->hop;
+}
+
+void stft_run(STFTtransform *self, int n_samples, const float *input, float *output,
+              Sprocessor *processor, float *enable)
 {
   int k;
 
@@ -332,19 +324,11 @@ void stft_run(STFTtransform *self, int n_samples, const float *input, float *out
       //Do fft analysis
       stft_analysis(self);
 
-      //Copy the spectrum to be processed
-
       //Do processing
-      //stft_processing(self);
+      stft_processing(self, processor, enable);
 
       //Do synthesis
       stft_synthesis(self);
     }
   }
-}
-
-int
-get_latency(STFTtransform *self)
-{
-  return self->input_latency;
 }

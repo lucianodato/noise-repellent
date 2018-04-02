@@ -20,233 +20,112 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 /**
 * \file spectral_processing.c
 * \author Luciano Dato
-* \brief All methods related to spectral processing the spectrum
+* \brief Contains an spectral processing abstraction
+* \ in this case noise reduction
 */
 
-#include <float.h>
-#include <math.h>
-
-#include "estimate_noise_spectrum.c"
-#include "denoise_gain.c"
-#include "masking.c"
-
-//------------GAIN AND THRESHOLD CALCULATION---------------
+#include "extra_functions.c"
 
 /**
-* Includes every preprocessing or precomputing before the supression rule.
-* \param noise_thresholds_offset the scaling of the thresholds setted by the user
-* \param fft_p2 the power spectrum of current frame
-* \param noise_thresholds_p2 the noise thresholds for each bin estimated previously
-* \param noise_thresholds_scaled the noise thresholds for each bin estimated previously scaled by the user
-* \param smoothed_spectrum current power specturm with time smoothing applied
-* \param smoothed_spectrum_prev the power specturm with time smoothing applied of previous frame
-* \param fft_size_2 is half of the fft size
-* \param prev_beta beta of previous frame for adaptive smoothing (not used yet)
-* \param bark_z defines the bark to linear mapping for current spectrum config
-* \param absolute_thresholds defines the absolute thresholds of hearing for current spectrum config
-* \param SSF defines the spreading function matrix
-* \param release_coeff release coefficient for time smoothing
-* \param spreaded_unity_gain_bark_spectrum correction to be applied to SSF convolution
-* \param spl_reference_values defines the reference values for each bin to convert from db to db SPL
-* \param alpha_masking is the array of oversubtraction factors for each bin
-* \param beta_masking is the array of the spectral flooring factors for each bin
-* \param masking_value is the limit max oversubtraction to be computed
-* \param adaptive flag that indicates if the noise is being estimated adaptively
-* \param reduction_value is the limit max the spectral flooring to be computed
-* \param transient_preserv_prev is the previous frame for spectral flux computing
-* \param tp_window_count is the frame counter for the rolling mean thresholding for onset detection
-* \param tp_r_mean is the rolling mean value for onset detection
-* \param transient_present indicates if current frame is an onset or not (contains a transient)
-* \param transient_protection is the flag that indicates whether transient protection is active or not
+* Struct for the processing unit.
 */
-void preprocessing(float noise_thresholds_offset, float *fft_p2,
-				   float *noise_thresholds_p2,
-				   float *noise_thresholds_scaled, float *smoothed_spectrum,
-				   float *smoothed_spectrum_prev, int fft_size_2,
-				   float *bark_z, float *absolute_thresholds, float *SSF,
-				   float release_coeff, float *spreaded_unity_gain_bark_spectrum,
-				   float *spl_reference_values, float *alpha_masking, float *beta_masking,
-				   float masking_value, float adaptive_state, float reduction_value,
-				   float *transient_preserv_prev, float *tp_window_count, float *tp_r_mean,
-				   bool *transient_present, float transient_protection)
+typedef struct
 {
-	int k;
+    //General parameters
+    int fft_size;
+    int fft_size_2;
+    int samp_rate;
+    int hop;
 
-	//PREPROCESSING - PRECALCULATIONS
+    //Ensemble related
+    float *original_fft_spectrum;
+    float *processed_fft_spectrum;
 
-	//------TRANSIENT DETECTION------
+    //Spectrum related
+    float *power_spectrum;
+    float *phase_spectrum;
+    float *magnitude_spectrum;
 
-	if (transient_protection > 1.f)
-	{
-		*(transient_present) = transient_detection(fft_p2, transient_preserv_prev,
-												   fft_size_2, tp_window_count, tp_r_mean,
-												   transient_protection);
-	}
+    //Soft bypass
+    float tau;            //time constant for soft bypass
+    float wet_dry_target; //softbypass target for softbypass
+    float wet_dry;        //softbypass coeff
 
-	//CALCULATION OF ALPHA WITH MASKING THRESHOLDS USING VIRAGS METHOD
+    //Sdenoiser *denoiser;
+} Sprocessor;
 
-	if (masking_value > 1.f && adaptive_state == 0.f)
-	{ //Only when adaptive is off
-		compute_alpha_and_beta(fft_p2, noise_thresholds_p2, fft_size_2,
-							   alpha_masking, beta_masking, bark_z, absolute_thresholds,
-							   SSF, spreaded_unity_gain_bark_spectrum, spl_reference_values,
-							   masking_value, reduction_value);
-	}
-	else
-	{
-		initialize_array(alpha_masking, 1.f, fft_size_2 + 1); //This avoids incorrect results when moving sliders rapidly
-	}
-
-	//------OVERSUBTRACTION------
-
-	//Scale noise thresholds (equals applying an oversubtraction factor in spectral subtraction)
-	for (k = 0; k <= fft_size_2; k++)
-	{
-		if (adaptive_state == 0.f)
-		{
-			noise_thresholds_scaled[k] = noise_thresholds_p2[k] * noise_thresholds_offset * alpha_masking[k];
-		}
-		else
-		{
-			noise_thresholds_scaled[k] = noise_thresholds_p2[k] * noise_thresholds_offset;
-		}
-	}
-
-	//------SMOOTHING DETECTOR------
-
-	if (adaptive_state == 0.f) //Only when adaptive is off
-	{
-		memcpy(smoothed_spectrum, fft_p2, sizeof(float) * (fft_size_2 + 1));
-
-		apply_time_envelope(smoothed_spectrum, smoothed_spectrum_prev, fft_size_2, release_coeff);
-
-		memcpy(smoothed_spectrum_prev, smoothed_spectrum, sizeof(float) * (fft_size_2 + 1));
-	}
+void sp_configure(Sprocessor *self, int fft_size, int samp_rate, int hop)
+{
+    self->fft_size = fft_size;
+    self->fft_size_2 = self->fft_size / 2;
+    self->samp_rate = samp_rate;
+    self->hop = hop;
 }
 
-/**
-* Computes the supression filter based on pre-processing data.
-* \param fft_p2 the power spectrum of current frame
-* \param noise_thresholds_p2 the noise thresholds for each bin estimated previously
-* \param noise_thresholds_scaled the noise thresholds for each bin estimated previously scaled by the user
-* \param smoothed_spectrum current power specturm with time smoothing applied
-* \param fft_size_2 is half of the fft size
-* \param adaptive flag that indicates if the noise is being estimated adaptively
-* \param Gk is the filter computed by the supression rule for each bin of the spectrum
-* \param transient_protection is the flag that indicates whether transient protection is active or not
-* \param transient_present indicates if current frame is an onset or not (contains a transient)
-*/
-void spectral_gain(float *fft_p2, float *noise_thresholds_p2, float *noise_thresholds_scaled,
-				   float *smoothed_spectrum, int fft_size_2, float adaptive, float *Gk,
-				   float transient_protection, bool transient_present)
+void sp_reset(Sprocessor *self)
 {
-	//------REDUCTION GAINS------
-
-	//Get reduction to apply
-	if (adaptive == 1.f)
-	{
-		power_subtraction(fft_size_2, fft_p2, noise_thresholds_scaled, Gk);
-	}
-	else
-	{
-		//Protect transient by avoiding smoothing if present
-		if (transient_present && transient_protection > 1.f)
-		{
-			wiener_subtraction(fft_size_2, fft_p2, noise_thresholds_scaled, Gk);
-		}
-		else
-		{
-			spectral_gating(fft_size_2, smoothed_spectrum, noise_thresholds_scaled, Gk);
-		}
-	}
+    //Reset all arrays
+    initialize_array(self->original_fft_spectrum, 0.f, self->fft_size);
+    initialize_array(self->processed_fft_spectrum, 0.f, self->fft_size);
+    initialize_array(self->power_spectrum, 0.f, self->fft_size_2 + 1);
+    initialize_array(self->magnitude_spectrum, 0.f, self->fft_size_2 + 1);
+    initialize_array(self->phase_spectrum, 0.f, self->fft_size_2 + 1);
 }
 
-/**
-* Applies the filter to the complex spectrum and gets the clean signal.
-* \param fft_size size of the fft
-* \param output_fft_buffer the unprocessed spectrum remaining in the fft buffer
-* \param denoised_spectrum the spectrum of the cleaned signal
-* \param Gk is the filter computed by the supression rule for each bin of the spectrum
-*/
-void denoised_calulation(int fft_size, float *output_fft_buffer,
-						 float *denoised_spectrum, float *Gk)
+Sprocessor *
+sp_init(int fft_size, int samp_rate, int hop)
 {
-	int k;
+    //Allocate object
+    Sprocessor *self = (Sprocessor *)malloc(sizeof(Sprocessor));
 
-	//Apply the computed gain to the signal and store it in denoised array
-	for (k = 0; k < fft_size; k++)
-	{
-		denoised_spectrum[k] = output_fft_buffer[k] * Gk[k];
-	}
+    sp_configure(self, fft_size, samp_rate, hop);
+
+    //spectrum allocation
+    self->original_fft_spectrum = (float *)calloc((self->fft_size), sizeof(float));
+    self->processed_fft_spectrum = (float *)calloc((self->fft_size), sizeof(float));
+
+    //Arrays for getting bins info
+    self->power_spectrum = (float *)malloc((self->fft_size_2 + 1) * sizeof(float));
+    self->magnitude_spectrum = (float *)malloc((self->fft_size_2 + 1) * sizeof(float));
+    self->phase_spectrum = (float *)malloc((self->fft_size_2 + 1) * sizeof(float));
+
+    //soft bypass
+    self->tau = (1.f - expf(-2.f * M_PI * 25.f * 64.f / self->samp_rate));
+    self->wet_dry = 0.f;
+
+    //Initialize arrays with zeros
+    sp_reset(self);
+
+    //Estimation initialization
+    //sd_init(self->denoiser);
+
+    return self;
 }
 
-/**
-* Gets the residual signal of the reduction.
-* \param fft_size size of the fft
-* \param output_fft_buffer the unprocessed spectrum remaining in the fft buffer
-* \param denoised_spectrum the spectrum of the cleaned signal
-* \param whitening_factor the mix coefficient between whitened and not whitened residual spectrum
-* \param residual_max_spectrum contains the maximun temporal value in each residual bin
-* \param whitening_window_count counts frames to distinguish the first from the others
-* \param max_decay_rate coefficient that sets the memory for each temporal maximun
-*/
-void residual_calulation(int fft_size, float *output_fft_buffer,
-						 float *residual_spectrum, float *denoised_spectrum,
-						 float whitening_factor, float *residual_max_spectrum,
-						 float *whitening_window_count, float max_decay_rate)
+void sp_free(Sprocessor *self)
 {
-
-	int k;
-
-	//Residual signal
-	for (k = 0; k < fft_size; k++)
-	{
-		residual_spectrum[k] = output_fft_buffer[k] - denoised_spectrum[k];
-	}
-
-	////////////POSTPROCESSING RESIDUAL
-	//Whitening (residual spectrum more similar to white noise)
-	if (whitening_factor > 0.f)
-	{
-		spectral_whitening(residual_spectrum, whitening_factor, fft_size,
-						   residual_max_spectrum, whitening_window_count, max_decay_rate);
-	}
-	////////////
+    free(self->power_spectrum);
+    free(self->magnitude_spectrum);
+    free(self->phase_spectrum);
+    free(self->original_fft_spectrum);
+    free(self->processed_fft_spectrum);
+    //sd_free(self->estimation);
+    free(self);
 }
 
-/**
-* Mixes the cleaned signal with the residual taking into account the reduction configured
-* by the user. Outputs the final signal or the residual only.
-* \param fft_size size of the fft
-* \param final_spectrum the spectrum to output from the plugin
-* \param residual_spectrum the spectrum of the reduction residual
-* \param denoised_spectrum the spectrum of the cleaned signal
-* \param reduction_amount the amount of dB power to reduce setted by the user
-* \param noise_listen control variable that decides whether to output the mixed noise reduced signal or the residual only
-*/
-void final_spectrum_ensemble(int fft_size, float *final_spectrum,
-							 float *residual_spectrum, float *denoised_spectrum,
-							 float reduction_amount, float noise_listen)
+void update_wetdry_target(Sprocessor *self, float* enable)
 {
-	int k;
-
-	//OUTPUT RESULTS using smooth bypass and parametric subtraction
-	if (noise_listen == 0.f)
-	{
-		//Mix residual and processed (Parametric way of noise reduction)
-		for (k = 0; k < fft_size; k++)
-		{
-			final_spectrum[k] = denoised_spectrum[k] + residual_spectrum[k] * reduction_amount;
-		}
-	}
-	else
-	{
-		//Output noise only
-		for (k = 0; k < fft_size; k++)
-		{
-			final_spectrum[k] = residual_spectrum[k];
-		}
-	}
+    //Softbypass targets in case of disabled or enabled
+    if (*(enable) == 0.f)
+    { //if disabled
+        self->wet_dry_target = 0.f;
+    }
+    else
+    { //if enabled
+        self->wet_dry_target = 1.f;
+    }
+    //Interpolate parameters over time softly to bypass without clicks or pops
+    self->wet_dry += self->tau * (self->wet_dry_target - self->wet_dry) + FLT_MIN;
 }
 
 /**
@@ -256,13 +135,35 @@ void final_spectrum_ensemble(int fft_size, float *final_spectrum,
 * \param wet_dry mixing coefficient
 * \param fft_size size of the fft
 */
-void soft_bypass(float *final_spectrum, float *output_fft_buffer, float wet_dry,
-				 int fft_size)
+void soft_bypass(Sprocessor *self)
 {
-	int k;
+    int k;
 
-	for (k = 0; k < fft_size; k++)
-	{
-		output_fft_buffer[k] = (1.f - wet_dry) * output_fft_buffer[k] + final_spectrum[k] * wet_dry;
-	}
+    for (k = 0; k < self->fft_size; k++)
+    {
+        self->processed_fft_spectrum[k] = (1.f - self->wet_dry) * self->original_fft_spectrum[k] + self->processed_fft_spectrum[k] * self->wet_dry;
+    }
+}
+
+void sp_run(Sprocessor *self, float *fft_spectrum, float *enable)
+{
+    update_wetdry_target(self, enable);
+
+    memcpy(self->original_fft_spectrum, fft_spectrum, sizeof(float) * self->fft_size);
+
+    get_info_from_bins(self->power_spectrum, self->magnitude_spectrum,
+                       self->phase_spectrum, self->fft_size_2,
+                       self->fft_size, self->original_fft_spectrum);
+
+    //Call the processing to be applied to the spectrum (in this case noise reduction)
+    //This is temporary just to test   
+    for (int i=0;i<self->fft_size;i++){
+        self->processed_fft_spectrum[i] =  self->original_fft_spectrum[i] * 0.7f;
+    }
+
+    //If bypassed mix unprocessed and processed signal softly
+    soft_bypass(self);
+
+    //Copy the processed spectrum to fft_spectrum
+    memcpy(fft_spectrum, self->processed_fft_spectrum, sizeof(float) * self->fft_size);
 }
