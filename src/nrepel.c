@@ -217,7 +217,9 @@ run(LV2_Handle instance, uint32_t n_samples)
 static void
 cleanup(LV2_Handle instance)
 {
-	stft_free(instance->transform);
+	Nrepel *self = (Nrepel *)instance;
+
+	stft_free(self->transform);
 	free(instance);
 }
 
