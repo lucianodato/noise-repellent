@@ -29,17 +29,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include "lv2/lv2plug.in/ns/ext/atom/atom.h"
 #include "lv2/lv2plug.in/ns/ext/state/state.h"
 
-#include "stft.c"
+#include "stft_processor.c"
 
 #define NREPEL_URI "https://github.com/lucianodato/noise-repellent"
-
-//STFT default values (Hardcoded for now)
-#define FFT_SIZE 2048    //Size of the fft transform
-#define BLOCK_SIZE 2048  //Size of the block of samples
-#define INPUT_WINDOW_TYPE 3   //0 HANN 1 HAMMING 2 BLACKMAN 3 VORBIS Input windows for STFT algorithm
-#define OUTPUT_WINDOW_TYPE 3  //0 HANN 1 HAMMING 2 BLACKMAN 3 VORBIS Output windows for STFT algorithm
-#define OVERLAP_FACTOR 4 //4 is 75% overlap Values bigger than 4 will rescale correctly (if Vorbis windows is not used)
-
 
 ///---------------------------------------------------------------------
 
@@ -64,7 +56,7 @@ typedef enum {
 } PortIndex;
 
 /**
-* Struct for THE noise repellent instance, the host is going to use.
+* Struct for noise repellent instance, the host is going to use.
 */
 typedef struct
 {
@@ -79,7 +71,7 @@ typedef struct
 
 	const float *input; //input of samples from host (changing size)
 	float *output;		//output of samples to host (changing size)
-	float samp_rate;	//Sample rate received from the host
+	float sample_rate;	//Sample rate received from the host
 
 	//Parameters for the algorithm (user input)
 	float *amount_of_reduction;		//Amount of noise to reduce in dB
@@ -95,11 +87,8 @@ typedef struct
 	float *enable;					//For soft bypass (click free bypass)
 	float *report_latency;			//Latency necessary
 
-	//STFT instance
-	STFTtransform *transform; //The stft transform object
-
-	//Spectral processing instance
-	Sprocessor *processor;
+	//STFT processing instance
+	STFTprocessor *stft_processor; //The stft transform object
 } Nrepel;
 
 /**
@@ -136,14 +125,10 @@ instantiate(const LV2_Descriptor *descriptor, double rate, const char *bundle_pa
 	// self->prop_FFTp2 = self->map->map(self->map->handle, NREPEL_URI "#FFTp2");
 
 	//Sampling related
-	self->samp_rate = (float)rate;
+	self->sample_rate = (float)rate;
 
 	//STFT related
-	self->transform = stft_init(FFT_SIZE, BLOCK_SIZE, INPUT_WINDOW_TYPE, OUTPUT_WINDOW_TYPE,
-                				OVERLAP_FACTOR);
-
-	//Spectral processor related
-	self->processor = sp_init(FFT_SIZE, self->samp_rate, get_hop(self->transform));
+	self->stft_processor = stft_p_init(self->sample_rate);
 
 	return (LV2_Handle)self;
 }
@@ -212,11 +197,10 @@ run(LV2_Handle instance, uint32_t n_samples)
 	Nrepel *self = (Nrepel *)instance;
 
 	//Inform latency at run call
-	*(self->report_latency) = (float)get_latency(self->transform);
+	*(self->report_latency) = (float)stft_p_get_latency(self->stft_processor);
 
 	//Run the stft transform and process samples
-	stft_run(self->transform, n_samples, self->input, self->output, self->processor,
-			 self->enable);
+	stft_p_run(self->stft_processor, n_samples, self->input, self->output, self->enable);
 }
 
 /**
@@ -227,8 +211,7 @@ cleanup(LV2_Handle instance)
 {
 	Nrepel *self = (Nrepel *)instance;
 
-	stft_free(self->transform);
-	sp_free(self->processor);
+	stft_p_free(self->stft_processor);
 	free(instance);
 }
 
