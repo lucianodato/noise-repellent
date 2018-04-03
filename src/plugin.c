@@ -172,7 +172,7 @@ run(LV2_Handle instance, uint32_t n_samples)
 	*(self->report_latency) = (float)stft_p_get_latency(self->stft_processor);
 
 	//Run the stft transform and process samples
-	stft_p_run(self->stft_processor, n_samples, self->input, self->output, self->enable);
+	stft_p_run(self->stft_processor, n_samples, self->input, self->output, (int)*self->enable);
 }
 
 /**

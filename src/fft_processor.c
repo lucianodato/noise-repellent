@@ -108,16 +108,16 @@ void fft_p_free(FFTprocessor *self)
 /**
 * Updates the wet/dry mixing coefficient.
 */
-void fft_p_update_wetdry_target(FFTprocessor *self, float* enable)
+void fft_p_update_wetdry_target(FFTprocessor *self, int enable)
 {
     //Softbypass targets in case of disabled or enabled
-    if (*(enable) == 0.f)
-    { //if disabled
-        self->wet_dry_target = 0.f;
-    }
-    else
+    if (enable)
     { //if enabled
         self->wet_dry_target = 1.f;
+    }
+    else
+    { //if disabled
+        self->wet_dry_target = 0.f;
     }
     //Interpolate parameters over time softly to bypass without clicks or pops
     self->wet_dry += self->tau * (self->wet_dry_target - self->wet_dry) + FLT_MIN;
@@ -139,7 +139,7 @@ void fft_p_soft_bypass(FFTprocessor *self)
 /**
 * Runs the fft processing for current block.
 */
-void fft_p_run(FFTprocessor *self, float *fft_spectrum, float *enable)
+void fft_p_run(FFTprocessor *self, float *fft_spectrum, int enable)
 {
     fft_p_update_wetdry_target(self, enable);
 
@@ -152,6 +152,7 @@ void fft_p_run(FFTprocessor *self, float *fft_spectrum, float *enable)
     {
         self->processed_fft_spectrum[i] = self->original_fft_spectrum[i] * 0.7f;
     }
+    //fft_d_process((self->fft_denoiser, self->original_fft_spectrum, adaptive_state, noise_learn_state));
 
     //If bypassed mix unprocessed and processed signal softly
     fft_p_soft_bypass(self);

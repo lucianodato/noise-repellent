@@ -267,20 +267,10 @@ int stft_p_get_latency(STFTprocessor *self)
 }
 
 /**
-* Calls the fft processor to apply the processing to current block.
-*/
-void stft_p_processing(STFTprocessor *self, float *enable)
-{
-  //Call processing  with the obtained fft transform
-  //when stft analysis is applied it resides in output_fft_buffer
-  fft_p_run(self->fft_processor, self->output_fft_buffer, enable);
-}
-
-/**
 * Runs the STFT processing for the given signal by the host.
 */
 void stft_p_run(STFTprocessor *self, int n_samples, const float *input, float *output,
-              float *enable)
+                int enable)
 {
   int k;
 
@@ -302,8 +292,9 @@ void stft_p_run(STFTprocessor *self, int n_samples, const float *input, float *o
       //Do analysis
       stft_p_analysis(self);
 
-      //Do processing
-      stft_p_processing(self, enable);
+      //Call processing  with the obtained fft transform
+      //when stft analysis is applied fft transform values reside in output_fft_buffer
+      fft_p_run(self->fft_processor, self->output_fft_buffer, enable);
 
       //Do synthesis
       stft_p_synthesis(self);

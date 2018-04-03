@@ -23,7 +23,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 * \brief Contains a the spectral noise reduction abstraction
 */
 
-#include "spectral_processing.c"
+#include "gain_estimator.c"
+#include "noise_estimator.c"
 
 /**
 * FFT denoising struct.
@@ -72,11 +73,6 @@ typedef struct
 static void
 fft_d_reset_noise_profile(FFTdenoiser *self)
 {
-    initialize_array(self->noise_thresholds_p2, 0.f, self->fft_size_2 + 1);
-    initialize_array(self->noise_thresholds_scaled, 0.f, self->fft_size_2 + 1);
-    self->noise_window_count = 0.f;
-    self->noise_thresholds_availables = false;
-
     initialize_array(self->Gk, 1.f, self->fft_size);
 
     initialize_array(self->power_spectrum, 0.f, self->fft_size_2 + 1);
@@ -85,73 +81,25 @@ fft_d_reset_noise_profile(FFTdenoiser *self)
 
     initialize_array(self->residual_max_spectrum, 0.f, self->fft_size);
     self->whitening_window_count = 0.f;
-
-    initialize_array(self->prev_noise_thresholds, 0.f, self->fft_size_2 + 1);
-    initialize_array(self->s_pow_spec, 0.f, self->fft_size_2 + 1);
-    initialize_array(self->prev_s_pow_spec, 0.f, self->fft_size_2 + 1);
-    initialize_array(self->p_min, 0.f, self->fft_size_2 + 1);
-    initialize_array(self->prev_p_min, 0.f, self->fft_size_2 + 1);
-    initialize_array(self->speech_p_p, 0.f, self->fft_size_2 + 1);
-    initialize_array(self->prev_speech_p_p, 0.f, self->fft_size_2 + 1);
-
-    initialize_array(self->alpha_masking, 1.f, self->fft_size_2 + 1);
-    initialize_array(self->beta_masking, 0.f, self->fft_size_2 + 1);
-
-    self->tp_window_count = 0.f;
-    self->tp_r_mean = 0.f;
-    self->transient_present = false;
 }
 
-void fft_d_init(FFTdenoiser *self, int fft_size, int samp_rate)
+void fft_d_init(FFTdenoiser *self, int fft_size, int samp_rate, int hop, float amount_of_reduction,
+                float whitening_factor_pc)
 {
     //Configuration
     self->fft_size = fft_size;
     self->fft_size_2 = self->fft_size / 2;
     self->samp_rate = samp_rate;
     self->hop = hop;
-
-    //noise threshold related
-    self->noise_thresholds_p2 = (float *)calloc((self->fft_size_2 + 1), sizeof(float));
-    self->noise_thresholds_scaled = (float *)calloc((self->fft_size_2 + 1), sizeof(float));
-    self->noise_window_count = 0.f;
-    self->noise_thresholds_availables = false;
-
-    //noise adaptive estimation related
-    self->auto_thresholds = (float *)calloc((self->fft_size_2 + 1), sizeof(float));
-    self->prev_noise_thresholds = (float *)calloc((self->fft_size_2 + 1), sizeof(float));
-    self->s_pow_spec = (float *)calloc((self->fft_size_2 + 1), sizeof(float));
-    self->prev_s_pow_spec = (float *)calloc((self->fft_size_2 + 1), sizeof(float));
-    self->p_min = (float *)calloc((self->fft_size_2 + 1), sizeof(float));
-    self->prev_p_min = (float *)calloc((self->fft_size_2 + 1), sizeof(float));
-    self->speech_p_p = (float *)calloc((self->fft_size_2 + 1), sizeof(float));
-    self->prev_speech_p_p = (float *)calloc((self->fft_size_2 + 1), sizeof(float));
-
-    //smoothing related
-    self->smoothed_spectrum = (float *)calloc((self->fft_size_2 + 1), sizeof(float));
-    self->smoothed_spectrum_prev = (float *)calloc((self->fft_size_2 + 1), sizeof(float));
-
-    //transient preservation
-    self->transient_preserv_prev = (float *)calloc((self->fft_size_2 + 1), sizeof(float));
-    self->tp_window_count = 0.f;
-    self->tp_r_mean = 0.f;
-    self->transient_present = false;
-
-    //masking related
-    self->bark_z = (float *)calloc((self->fft_size_2 + 1), sizeof(float));
-    self->absolute_thresholds = (float *)calloc((self->fft_size_2 + 1), sizeof(float));
-    self->unity_gain_bark_spectrum = (float *)calloc(N_BARK_BANDS, sizeof(float));
-    self->spreaded_unity_gain_bark_spectrum = (float *)calloc(N_BARK_BANDS, sizeof(float));
-    self->spl_reference_values = (float *)calloc((self->fft_size_2 + 1), sizeof(float));
-    self->alpha_masking = (float *)calloc((self->fft_size_2 + 1), sizeof(float));
-    self->beta_masking = (float *)calloc((self->fft_size_2 + 1), sizeof(float));
-    self->SSF = (float *)calloc((N_BARK_BANDS * N_BARK_BANDS), sizeof(float));
+    self->amount_of_reduction_linear = from_dB(-1.f * *(amount_of_reduction));
+    self->whitening_factor = *(whitening_factor_pc) / 100.f;
 
     //reduction gains related
     self->Gk = (float *)calloc((self->fft_size), sizeof(float));
 
     //whitening related
     self->residual_max_spectrum = (float *)calloc((self->fft_size), sizeof(float));
-    self->max_decay_rate = expf(-1000.f / (((WHITENING_DECAY_RATE)*samp_rate) / self->transform->hop));
+    self->max_decay_rate = expf(-1000.f / (((WHITENING_DECAY_RATE)*samp_rate) / self->hop));
     self->whitening_window_count = 0.f;
 
     //final ensemble related
@@ -166,26 +114,6 @@ void fft_d_init(FFTdenoiser *self, int fft_size, int samp_rate)
 
     //Set initial gain as unity for the positive part
     initialize_array(self->Gk, 1.f, self->fft_size);
-
-    //Compute adaptive initial thresholds
-    compute_auto_thresholds(self->auto_thresholds, self->fft_size, self->fft_size_2,
-                            samp_rate);
-
-    //MASKING initializations
-    compute_bark_mapping(self->bark_z, self->fft_size_2, samp_rate);
-    compute_absolute_thresholds(self->absolute_thresholds, self->fft_size_2,
-                                samp_rate);
-    spl_reference(self->spl_reference_values, self->fft_size, self->fft_size_2, samp_rate);
-    compute_SSF(self->SSF);
-
-    //Initializing unity gain values for offset normalization
-    initialize_array(self->unity_gain_bark_spectrum, 1.f, N_BARK_BANDS);
-    //Convolve unitary energy bark spectrum with SSF
-    convolve_with_SSF(self->SSF, self->unity_gain_bark_spectrum,
-                      self->spreaded_unity_gain_bark_spectrum);
-
-    initialize_array(self->alpha_masking, 1.f, self->fft_size_2 + 1);
-    initialize_array(self->beta_masking, 0.f, self->fft_size_2 + 1);
 }
 
 void fft_p_free(FFTdenoiser *self)
@@ -196,50 +124,8 @@ void fft_p_free(FFTdenoiser *self)
     free(self);
 }
 
-void get_release_coeff(FFTdenoiser *self, float *release)
-{
-    //Parameters values
-    /*exponential decay coefficients for envelopes and adaptive noise profiling
-        These must take into account the hop size as explained in the following paper
-        FFT-BASED DYNAMIC RANGE COMPRESSION*/
-    if (*(self->release) != 0.f) //This allows to turn off smoothing with 0 ms in order to use masking only
-    {
-        self->release_coeff = expf(-1000.f / (((*(release)) * self->samp_rate) / self->hop));
-    }
-    else
-    {
-        self->release_coeff = 0.f; //This avoids incorrect results when moving sliders rapidly
-    }
-}
-
-void preconfigure_parameters(FFTdenoiser *self, float *release, float *amount_of_reduction,
-                             float *noise_thresholds_offset, float *whitening_factor_pc)
-{
-    //Reset button state (if on)
-    if (*(self->reset_profile) == 1.f)
-    {
-        reset_noise_profile(self);
-    }
-
-    //Softbypass targets in case of disabled or enabled
-    if (*(self->enable) == 0.f)
-    { //if disabled
-        self->wet_dry_target = 0.f;
-    }
-    else
-    { //if enabled
-        self->wet_dry_target = 1.f;
-    }
-    //Interpolate parameters over time softly to bypass without clicks or pops
-    self->wet_dry += self->tau * (self->wet_dry_target - self->wet_dry) + FLT_MIN;
-
-    get_release_coeff(self, release);
-    self->amount_of_reduction_linear = from_dB(-1.f * *(self->amount_of_reduction));
-    self->thresholds_offset_linear = from_dB(*(self->noise_thresholds_offset));
-    self->whitening_factor = *(self->whitening_factor_pc) / 100.f;
-}
-
-void fft_d_process(FFTdenoiser *self, float* original_fft_spectrum, int *adaptive_state, int *noise_learn_state)
+void fft_d_process(FFTdenoiser *self, float* original_fft_spectrum, int adaptive_state,
+                   int noise_learn_state)
 {
     //First get the power, magnitude and phase spectrum 
     get_info_from_bins(self->power_spectrum, self->magnitude_spectrum,
