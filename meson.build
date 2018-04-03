@@ -1,10 +1,10 @@
 project('noise-repellent','c',default_options: 'c_std=c99')
 
 #shared object name
-lv2_name = 'nrepel'
+lv2_name = 'nrepellent'
 
 #source to compile
-src = 'src/nrepel.c'
+src = 'src/plugin.c'
 
 #dependencies for noise repellent
 cc = meson.get_compiler('c')
@@ -19,14 +19,14 @@ cflags = ['-msse','-msse2','-mfpmath=sse','-ffast-math','-fomit-frame-pointer','
 #get the build operating system and configure install path and shared object extension
 current_os = build_machine.system()
 if current_os == 'darwin' #mac
-    i_path = '/Library/Audio/Plug-Ins/LV2/nrepel.lv2'
+    i_path = '/Library/Audio/Plug-Ins/LV2/nrepellent.lv2'
     extension = '.dylib'
 else #unix like
-    i_path = '/usr/local/lib/lv2/nrepel.lv2'
+    i_path = '/usr/local/lib/lv2/nrepellent.lv2'
     extension = '.so'
 endif #windows
 if current_os == 'windows'
-    i_path = '%COMMONPROGRAMFILES%/LV2/nrepel.lv2'
+    i_path = '%COMMONPROGRAMFILES%/LV2/nrepellent.lv2'
     extension = '.dll'
 endif
 
@@ -39,4 +39,4 @@ manifest_conf.set('LIB_EXT',extension)
 configure_file(input : 'lv2ttl/manifest.ttl.in',output : 'manifest.ttl',configuration : manifest_conf)
 
 #add manifest.ttl and nrepel.ttl to be installed with the shared object
-install_data(['build/manifest.ttl', 'lv2ttl/nrepel.ttl'],install_dir : i_path)
+install_data(['build/manifest.ttl', 'lv2ttl/nrepellent.ttl'],install_dir : i_path)

@@ -148,10 +148,10 @@ void fft_p_run(FFTprocessor *self, float *fft_spectrum, float *enable)
     /*Call the processing to be applied to the spectrum (in this case noise reduction)
       and store the processed spectrum in the processed fft spectrum
     */
-    // for (int i = 0; i < self->fft_size; i++)//This is just to test
-    // {
-    //     self->processed_fft_spectrum[i] = self->original_fft_spectrum[i] * 0.7f;
-    // }
+    for (int i = 0; i < self->fft_size; i++)//This is just to test
+    {
+        self->processed_fft_spectrum[i] = self->original_fft_spectrum[i] * 0.7f;
+    }
 
     //If bypassed mix unprocessed and processed signal softly
     fft_p_soft_bypass(self);
