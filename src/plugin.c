@@ -23,15 +23,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 * \brief The main file for host interaction
 */
 
-#include <fftw3.h>
-#include "lv2/lv2plug.in/ns/lv2core/lv2.h"
-#include "lv2/lv2plug.in/ns/ext/urid/urid.h"
-#include "lv2/lv2plug.in/ns/ext/atom/atom.h"
-#include "lv2/lv2plug.in/ns/ext/state/state.h"
-
+#include "plugin_state.c"
 #include "stft_processor.c"
-
-#define NOISEREPELLENT_URI "https://github.com/lucianodato/noise-repellent"
 
 ///---------------------------------------------------------------------
 
@@ -60,18 +53,9 @@ typedef enum {
 */
 typedef struct
 {
-	// //LV2 state URID (Save and restore noise profile)
-	// LV2_URID_Map *map;
-	// LV2_URID atom_Vector;
-	// LV2_URID atom_Int;
-	// LV2_URID atom_Float;
-	// LV2_URID prop_fftsize;
-	// LV2_URID prop_nwindow;
-	// LV2_URID prop_FFTp2;
-
 	const float *input; //input of samples from host (changing size)
 	float *output;		//output of samples to host (changing size)
-	float sample_rate;	//Sample rate received from the host
+	float sample_rate;  //Sample rate received from the host
 
 	//Parameters for the algorithm (user input)
 	float *amount_of_reduction;		//Amount of noise to reduce in dB
@@ -89,6 +73,9 @@ typedef struct
 
 	//STFT processing instance
 	STFTprocessor *stft_processor; //The stft transform object
+
+	//Plugin state instance
+	Pstate *plugin_state;
 } Nrepellent;
 
 /**
@@ -101,28 +88,13 @@ instantiate(const LV2_Descriptor *descriptor, double rate, const char *bundle_pa
 	//Actual struct declaration
 	Nrepellent *self = (Nrepellent *)calloc(1, sizeof(Nrepellent));
 
-	// //Retrieve the URID map callback, and needed URIDs
-	// for (int i = 0; features[i]; ++i)
-	// {
-	// 	if (!strcmp(features[i]->URI, LV2_URID__map))
-	// 	{
-	// 		self->map = (LV2_URID_Map *)features[i]->data;
-	// 	}
-	// }
-	// if (!self->map)
+	// //Plugin state initialization
+	// if (!ps_init(self->plugin_state, features))
 	// {
 	// 	//bail out: host does not support urid:map
-	// 	free(self);
-	// 	return NULL;
+	//     free(self);
+	//     return NULL;
 	// }
-
-	// //For lv2 state (noise profile saving)
-	// self->atom_Vector = self->map->map(self->map->handle, LV2_ATOM__Vector);
-	// self->atom_Int = self->map->map(self->map->handle, LV2_ATOM__Int);
-	// self->atom_Float = self->map->map(self->map->handle, LV2_ATOM__Float);
-	// self->prop_fftsize = self->map->map(self->map->handle, NOISEREPELLENT_URI "#fftsize");
-	// self->prop_nwindow = self->map->map(self->map->handle, NOISEREPELLENT_URI "#nwindow");
-	// self->prop_FFTp2 = self->map->map(self->map->handle, NOISEREPELLENT_URI "#FFTp2");
 
 	//Sampling related
 	self->sample_rate = (float)rate;
@@ -215,114 +187,71 @@ cleanup(LV2_Handle instance)
 	free(instance);
 }
 
-// /**
-// * Noise Profile state.
-// */
-// typedef struct
-// {
-// 	uint32_t child_size;
-// 	uint32_t child_type;
-// 	float array[(FFT_SIZE/2) + 1];
-// } NProfile;
+/**
+* State saving of the noise profile.
+*/
+static LV2_State_Status
+savestate(LV2_Handle instance, LV2_State_Store_Function store, LV2_State_Handle handle,
+		  uint32_t flags, const LV2_Feature *const *features)
+{
+	//Nrepellent *self = (Nrepellent *)instance;
 
-// /**
-// * State saving of the noise profile.
-// */
-// static LV2_State_Status
-// savestate(LV2_Handle instance, LV2_State_Store_Function store, LV2_State_Handle handle,
-// 		  uint32_t flags, const LV2_Feature *const *features)
-// {
-// 	Nrepellent *self = (Nrepellent *)instance;
+	// ps_savestate(self->plugin_state, store, handle, self->stft_processor->fft_size,
+	// 			 self->stft_processor->fft_processor->fft_denoiser->noise_estimation->noise_window_count,
+	// 			 self->stft_processor->fft_processor->fft_denoiser->noise_estimation->noise_profile);
 
-// 	NProfile *vector = (NProfile *)malloc(sizeof(NProfile));
+	return LV2_STATE_SUCCESS;
+}
 
-// 	vector->child_type = self->atom_Float;
-// 	vector->child_size = sizeof(float);
+/**
+* State restoration of the noise profile.
+*/
+static LV2_State_Status
+restorestate(LV2_Handle instance, LV2_State_Retrieve_Function retrieve,
+			 LV2_State_Handle handle, uint32_t flags,
+			 const LV2_Feature *const *features)
+{
+	//Nrepellent *self = (Nrepellent *)instance;
 
-// 	store(handle, self->prop_fftsize, &self->transform->fft_size, sizeof(int), self->atom_Int,
-// 		  LV2_STATE_IS_POD | LV2_STATE_IS_PORTABLE);
+	// if(!ps_restorestate(self->plugin_state, retrieve, handle,
+	// 				self->stft_processor->fft_processor->fft_denoiser->noise_estimation->noise_profile,
+	// 				self->stft_processor->fft_processor->fft_denoiser->noise_estimation->noise_window_count,
+	// 				self->stft_processor->fft_size, self->stft_processor->fft_size_2))
+	// {
+	// 	return LV2_STATE_ERR_NO_PROPERTY;
+	// }
 
-// 	store(handle, self->prop_nwindow, &self->noise_window_count, sizeof(float),
-// 		  self->atom_Float, LV2_STATE_IS_POD | LV2_STATE_IS_PORTABLE);
+	return LV2_STATE_SUCCESS;
+}
 
-// 	memcpy(vector->array, self->noise_thresholds_p2, sizeof(vector->array));
-
-// 	store(handle, self->prop_FFTp2, (void *)vector, sizeof(NProfile),
-// 		  self->atom_Vector, LV2_STATE_IS_POD | LV2_STATE_IS_PORTABLE);
-
-// 	return LV2_STATE_SUCCESS;
-// }
-
-// /**
-// * State restoration of the noise profile.
-// */
-// static LV2_State_Status
-// restorestate(LV2_Handle instance, LV2_State_Retrieve_Function retrieve,
-// 			 LV2_State_Handle handle, uint32_t flags,
-// 			 const LV2_Feature *const *features)
-// {
-// 	Nrepellent *self = (Nrepellent *)instance;
-// 	size_t size;
-// 	uint32_t type;
-// 	uint32_t valflags;
-
-// 	const int32_t *fftsize = retrieve(handle, self->prop_fftsize, &size, &type, &valflags);
-// 	if (!fftsize || type != self->atom_Int || *fftsize != self->transform->fft_size_2)
-// 	{
-// 		return LV2_STATE_ERR_NO_PROPERTY;
-// 	}
-
-// 	const void *vecFFTp2 = retrieve(handle, self->prop_FFTp2, &size, &type, &valflags);
-// 	if (!vecFFTp2 || size != sizeof(NProfile) || type != self->atom_Vector)
-// 	{
-// 		return LV2_STATE_ERR_NO_PROPERTY;
-// 	}
-
-// 	//Deactivate any denoising before loading any noise profile
-// 	self->noise_thresholds_availables = false;
-
-// 	//Copy to local variables
-// 	memcpy(self->noise_thresholds_p2, (float *)LV2_ATOM_BODY(vecFFTp2), (self->transform->fft_size_2 + 1) * sizeof(float));
-
-// 	const float *wincount = retrieve(handle, self->prop_nwindow, &size, &type, &valflags);
-// 	if (fftsize && type == self->atom_Float)
-// 	{
-// 		self->noise_window_count = *wincount;
-// 	}
-
-// 	//Reactivate denoising with restored profile
-// 	self->noise_thresholds_availables = true;
-
-// 	return LV2_STATE_SUCCESS;
-// }
-
-// /**
-// * extension for additional interfaces.
-// */
-// static const void *
-// extension_data(const char *uri)
-// {
-// 	static const LV2_State_Interface state = {savestate, restorestate};
-// 	if (!strcmp(uri, LV2_STATE__interface))
-// 	{
-// 		return &state;
-// 	}
-// 	return NULL;
-// }
+/**
+* extension for additional interfaces.
+*/
+static const void *
+extension_data(const char *uri)
+{
+	static const LV2_State_Interface state = {savestate, restorestate};
+	if (!strcmp(uri, LV2_STATE__interface))
+	{
+		return &state;
+	}
+	return NULL;
+}
 
 /**
 * Descriptor for linking methods.
 */
 static const LV2_Descriptor descriptor =
-	{
-		NOISEREPELLENT_URI,
-		instantiate,
-		connect_port,
-		NULL,
-		run,
-		NULL,
-		cleanup /*,
-		extension_data*/};
+{
+	NOISEREPELLENT_URI,
+	instantiate,
+	connect_port,
+	NULL,
+	run,
+	NULL,
+	cleanup,
+	extension_data
+};
 
 /**
 * Symbol export using the descriptor above.
