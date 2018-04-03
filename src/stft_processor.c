@@ -28,7 +28,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 //STFT default values (Hardcoded for now)
 #define FFT_SIZE 2048    //Size of the fft transform
-#define BLOCK_SIZE 2048  //Size of the block of samples
+#define BLOCK_SIZE 1023  //Size of the block of samples
 #define INPUT_WINDOW_TYPE 3   //0 HANN 1 HAMMING 2 BLACKMAN 3 VORBIS Input windows for STFT algorithm
 #define OUTPUT_WINDOW_TYPE 3  //0 HANN 1 HAMMING 2 BLACKMAN 3 VORBIS Output windows for STFT algorithm
 #define OVERLAP_FACTOR 4 //4 is 75% overlap Values bigger than 4 will rescale correctly (if Vorbis windows is not used)
@@ -42,6 +42,7 @@ typedef struct
   fftwf_plan forward;
   fftwf_plan backward;
   int block_size;
+  int start_position;
   int window_option_input;    //Type of input Window for the STFT
   int window_option_output;   //Type of output Window for the STFT
   int overlap_factor;         //oversampling factor for overlap calculations
@@ -111,17 +112,26 @@ void stft_p_pre_and_post_window(STFTprocessor *self)
 }
 
 /**
-* Adds zeros to the spectrum in order to complete the spectrum if block_size != fft_size.
+* Fill the input fft buffer from the input fifo doing zeropadding if necessary.
 */
-void stft_p_zeropad(STFTprocessor *self)
+void fill_input_fft_buffer(STFTprocessor *self)
 {
-  int k;
-  int number_of_zeros = self->fft_size - self->block_size;
+  int i,j;
 
-  //This adds zeros at the end. The right way should be an equal amount at the sides
-  for (k = 0; k <= number_of_zeros - 1; k++)
+  //Do zeropadding if necessary
+  if (self->block_size < self->fft_size)
   {
-    self->input_fft_buffer[self->block_size - 1 + k] = 0.f;
+    //Initialize with zero all the array to make sure there's no garbage at the sides
+    initialize_array(self->input_fft_buffer, 0.f, self->fft_size);
+    
+    //Fill value at the center of the array
+    for(i = self->start_position, j = 0; i <= self->block_size; i++, j++)
+      self->input_fft_buffer[j]= self->in_fifo[i];
+  }
+  else
+  {
+    //fft size and block size are equal
+    memcpy(self->input_fft_buffer, self->in_fifo, sizeof(float)*self->block_size);
   }
 }
 
@@ -132,13 +142,8 @@ void stft_p_analysis(STFTprocessor *self)
 {
   int k;
 
-  if (self->block_size < self->fft_size)
-  {
-    stft_p_zeropad(self);
-  }
-
   //Windowing the frame input values in the center (zero-phasing)
-  for (k = 0; k < self->fft_size; k++)
+  for (k = 0; k < self->block_size; k++)
   {
     self->input_fft_buffer[k] *= self->input_window[k];
   }
@@ -172,7 +177,7 @@ void stft_p_synthesis(STFTprocessor *self)
 
   //OVERLAPP-ADD
   //Accumulation
-  for (k = 0; k < self->block_size; k++)
+  for (k = self->start_position; k < self->block_size; k++)
   {
     self->output_accum[k] += self->input_fft_buffer[k];
   }
@@ -220,8 +225,8 @@ void stft_p_reset(STFTprocessor *self)
   //Reset all arrays
   initialize_array(self->input_fft_buffer, 0.f, self->fft_size);
   initialize_array(self->output_fft_buffer, 0.f, self->fft_size);
-  initialize_array(self->input_window, 0.f, self->fft_size);
-  initialize_array(self->output_window, 0.f, self->fft_size);
+  initialize_array(self->input_window, 0.f, self->block_size);
+  initialize_array(self->output_window, 0.f, self->block_size);
   initialize_array(self->in_fifo, 0.f, self->block_size);
   initialize_array(self->out_fifo, 0.f, self->block_size);
   initialize_array(self->output_accum, 0.f, self->block_size * 2);
@@ -245,12 +250,13 @@ stft_p_init(int sample_rate)
   self->hop = self->fft_size / self->overlap_factor;
   self->input_latency = self->fft_size - self->hop;
   self->read_position = self->input_latency;
+  self->start_position = floor((self->block_size - self->fft_size)/2);
 
   //Individual array allocation
 
   //STFT window related
-  self->input_window = (float *)malloc(self->fft_size * sizeof(float));
-  self->output_window = (float *)malloc(self->fft_size * sizeof(float));
+  self->input_window = (float *)malloc(self->block_size * sizeof(float));
+  self->output_window = (float *)malloc(self->block_size * sizeof(float));
 
   //fifo buffer init
   self->in_fifo = (float *)malloc(self->block_size * sizeof(float));
@@ -316,9 +322,11 @@ void stft_p_run(STFTprocessor *self, int n_samples, const float *input, float *o
 
     if (self->read_position >= self->block_size)
     {
-      //Fill the buffer and reset the read position
-      memcpy(self->input_fft_buffer, self->in_fifo, sizeof(float) * self->block_size);
+      //Reset read position
       self->read_position = self->input_latency;
+
+      //Fill the buffer
+      fill_input_fft_buffer(self);
 
       //Do analysis
       stft_p_analysis(self);
