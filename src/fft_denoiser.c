@@ -18,16 +18,18 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
 /**
-* \file fft_denoiser.c
+* \file fft_processor.c
 * \author Luciano Dato
-* \brief Contains a the spectral noise reduction abstraction
+* \brief Contains an abstraction for a single fft spectrum denoising
 */
 
-#include "gain_estimator.c"
+#define WHITENING_DECAY_RATE 1000.f //Deacay in ms for max spectrum for whitening
+#define WHITENING_FLOOR 0.02f       //Minumum max value posible
+
 #include "noise_estimator.c"
 
 /**
-* FFT denoising struct.
+* FFT processor struct.
 */
 typedef struct
 {
@@ -37,29 +39,27 @@ typedef struct
     int samp_rate;
     int hop;
 
-    //Reduction gains
-    float *Gk; //definitive gain
-
     //Ensemble related
-    //Spectrum
+    float *fft_spectrum;
+    float *processed_fft_spectrum;
+
+    //Soft bypass
+    float tau;            //time constant for soft bypass
+    float wet_dry_target; //softbypass target for softbypass
+    float wet_dry;        //softbypass coeff
+
+    //Spectrum information arrays
     float *power_spectrum;
     float *phase_spectrum;
     float *magnitude_spectrum;
 
+    float *gain_spectrum; //definitive reduction gain
     float *residual_spectrum;
     float *denoised_spectrum;
-    float *final_spectrum;
+    float *whitened_residual_spectrum;
 
-    Gestimator *gain_estimation;
+    // Gestimator *gain_estimation;
     Nestimator *noise_estimation;
-
-    //Parameters for the algorithm (user input)
-    float amount_of_reduction;     //Amount of noise to reduce in dB
-
-    //Algorithm exta variables
-    float reduction_coeff;            //Gain to apply to the residual noise
-    float amount_of_reduction_linear; //Reduction amount linear value
-    float whitening_factor;           //Whitening amount of the reduction
 
     //whitening related
     float *residual_max_spectrum;
@@ -68,228 +68,272 @@ typedef struct
 } FFTdenoiser;
 
 /**
-* To reset the noise profile and set every value to default one.
+* Reset dynamic arrays to zero.
 */
-static void
-fft_d_reset_noise_profile(FFTdenoiser *self)
+void fft_d_reset(FFTdenoiser *self)
 {
-    initialize_array(self->Gk, 1.f, self->fft_size);
+    //Reset all arrays
+    initialize_array(self->fft_spectrum, 0.f, self->fft_size);
+    initialize_array(self->processed_fft_spectrum, 0.f, self->fft_size);
+    initialize_array(self->gain_spectrum, 1.f, self->fft_size);
 
     initialize_array(self->power_spectrum, 0.f, self->fft_size_2 + 1);
     initialize_array(self->magnitude_spectrum, 0.f, self->fft_size_2 + 1);
     initialize_array(self->phase_spectrum, 0.f, self->fft_size_2 + 1);
 
     initialize_array(self->residual_max_spectrum, 0.f, self->fft_size);
+    initialize_array(self->denoised_spectrum, 0.f, self->fft_size);
+    initialize_array(self->residual_spectrum, 0.f, self->fft_size);
+    initialize_array(self->whitened_residual_spectrum, 0.f, self->fft_size);
+    initialize_array(self->gain_spectrum, 0.f, self->fft_size);
+
     self->whitening_window_count = 0.f;
 }
 
-void fft_d_init(FFTdenoiser *self, int fft_size, int samp_rate, int hop, float amount_of_reduction,
-                float whitening_factor_pc)
+/**
+* FFT processor initialization and configuration.
+*/
+FFTdenoiser *
+fft_d_init(int fft_size, int samp_rate, int hop)
 {
+    //Allocate object
+    FFTdenoiser *self = (FFTdenoiser *)malloc(sizeof(FFTdenoiser));
+
     //Configuration
     self->fft_size = fft_size;
     self->fft_size_2 = self->fft_size / 2;
     self->samp_rate = samp_rate;
     self->hop = hop;
-    self->amount_of_reduction_linear = from_dB(-1.f * *(amount_of_reduction));
-    self->whitening_factor = *(whitening_factor_pc) / 100.f;
 
-    //reduction gains related
-    self->Gk = (float *)calloc((self->fft_size), sizeof(float));
+    //spectrum allocation
+    self->fft_spectrum = (float *)calloc((self->fft_size), sizeof(float));
+    self->processed_fft_spectrum = (float *)calloc((self->fft_size), sizeof(float));
+
+    //soft bypass
+    self->tau = (1.f - expf(-2.f * M_PI * 25.f * 64.f / self->samp_rate));
+    self->wet_dry = 0.f;
 
     //whitening related
     self->residual_max_spectrum = (float *)calloc((self->fft_size), sizeof(float));
-    self->max_decay_rate = expf(-1000.f / (((WHITENING_DECAY_RATE)*samp_rate) / self->hop));
-    self->whitening_window_count = 0.f;
+    self->max_decay_rate = expf(-1000.f / (((WHITENING_DECAY_RATE)*self->samp_rate) / self->hop));
 
     //final ensemble related
     self->residual_spectrum = (float *)calloc((self->fft_size), sizeof(float));
     self->denoised_spectrum = (float *)calloc((self->fft_size), sizeof(float));
-    self->final_spectrum = (float *)calloc((self->fft_size), sizeof(float));
+    self->gain_spectrum = (float *)calloc((self->fft_size), sizeof(float));
+    self->whitened_residual_spectrum = (float *)calloc((self->fft_size), sizeof(float));
 
     //Arrays for getting bins info
     self->power_spectrum = (float *)malloc((self->fft_size_2 + 1) * sizeof(float));
     self->magnitude_spectrum = (float *)malloc((self->fft_size_2 + 1) * sizeof(float));
     self->phase_spectrum = (float *)malloc((self->fft_size_2 + 1) * sizeof(float));
 
-    //Set initial gain as unity for the positive part
-    initialize_array(self->Gk, 1.f, self->fft_size);
+    //Reset all values
+    fft_d_reset(self);
+
+    //Noise estimator related
+    self->noise_estimation = n_e_init(self->fft_size);
+
+    return self;
 }
 
-void fft_p_free(FFTdenoiser *self)
+/**
+* Free allocated memory.
+*/
+void fft_d_free(FFTdenoiser *self)
 {
+    free(self->fft_spectrum);
+    free(self->processed_fft_spectrum);
     free(self->power_spectrum);
     free(self->magnitude_spectrum);
     free(self->phase_spectrum);
+    free(self->gain_spectrum);
+    free(self->residual_spectrum);
+    free(self->whitened_residual_spectrum);
+    free(self->denoised_spectrum);
+    free(self->residual_max_spectrum);
+    n_e_free(self->noise_estimation);
     free(self);
 }
 
-void fft_d_process(FFTdenoiser *self, float* original_fft_spectrum, int adaptive_state,
-                   int noise_learn_state)
+/**
+* Updates the wet/dry mixing coefficient.
+*/
+void fft_d_update_wetdry_target(FFTdenoiser *self, int enable)
 {
-    //First get the power, magnitude and phase spectrum 
-    get_info_from_bins(self->power_spectrum, self->magnitude_spectrum,
-                       self->phase_spectrum, self->fft_size_2,
-                       self->fft_size, self->original_fft_spectrum);
+    //Softbypass targets in case of disabled or enabled
+    if (enable)
+    { //if enabled
+        self->wet_dry_target = 1.f;
+    }
+    else
+    { //if disabled
+        self->wet_dry_target = 0.f;
+    }
+    //Interpolate parameters over time softly to bypass without clicks or pops
+    self->wet_dry += self->tau * (self->wet_dry_target - self->wet_dry) + FLT_MIN;
+}
 
-    //If the spectrum is not silence
-    if (!is_empty(self->power_spectrum, self->fft_size_2))
+/**
+* Mixes unprocessed and processed signal to bypass softly.
+*/
+void fft_d_soft_bypass(FFTdenoiser *self)
+{
+    int k;
+
+    for (k = 0; k < self->fft_size; k++)
     {
-        //If adaptive noise is selected the noise is adapted in time
-        if (*(adaptive_state) == 1.f)
-        {
-            //This has to be revised(issue 8 on github)
-            adapt_noise(self->power_spectrum, self->fft_size_2, self->noise_thresholds_p2,
-                        self->auto_thresholds, self->prev_noise_thresholds,
-                        self->s_pow_spec, self->prev_s_pow_spec, self->p_min,
-                        self->prev_p_min, self->speech_p_p, self->prev_speech_p_p);
-
-            self->noise_thresholds_availables = true;
-        }
-
-        /*If selected estimate noise spectrum is based on selected portion of signal
-            *do not process the signal
-            */
-        if (*(noise_learn_state) == 1.f)
-        { //MANUAL
-
-            //Increase window count for rolling mean
-            self->noise_window_count++;
-
-            get_noise_statistics(self->power_spectrum, self->fft_size_2,
-                                 self->noise_thresholds_p2, self->noise_window_count);
-
-            self->noise_thresholds_availables = true;
-        }
-        else
-        {
-            //If there is a noise profile reduce noise
-            if (self->noise_thresholds_availables == true)
-            {
-                //Detector smoothing and oversubtraction
-                preprocessing(self->thresholds_offset_linear, self->power_spectrum,
-                              self->noise_thresholds_p2, self->noise_thresholds_scaled,
-                              self->smoothed_spectrum, self->smoothed_spectrum_prev,
-                              self->fft_size_2, self->bark_z, self->absolute_thresholds,
-                              self->SSF, self->release_coeff,
-                              self->spreaded_unity_gain_bark_spectrum,
-                              self->spl_reference_values, self->alpha_masking,
-                              self->beta_masking, *(self->masking), *(self->adaptive_state),
-                              self->amount_of_reduction_linear, self->transient_preserv_prev,
-                              &self->tp_window_count, &self->tp_r_mean,
-                              &self->transient_present, *(self->transient_protection));
-
-                //Supression rule
-                spectral_gain(self->power_spectrum, self->noise_thresholds_p2,
-                              self->noise_thresholds_scaled, self->smoothed_spectrum,
-                              self->fft_size_2, *(self->adaptive_state), self->Gk,
-                              *(self->transient_protection), self->transient_present);
-
-                //apply gains
-                denoised_calulation(self->fft_size, self->fft_spectrum,
-                                    self->denoised_spectrum, self->Gk);
-
-                //residual signal
-                residual_calulation(self->fft_size, self->fft_spectrum,
-                                    self->residual_spectrum, self->denoised_spectrum,
-                                    self->whitening_factor, self->residual_max_spectrum,
-                                    &self->whitening_window_count, self->max_decay_rate);
-
-                //Ensemble the final spectrum using residual and denoised
-                final_spectrum_ensemble(self->fft_size, self->final_spectrum,
-                                        self->residual_spectrum,
-                                        self->denoised_spectrum,
-                                        self->amount_of_reduction_linear,
-                                        *(self->residual_listen));
-            }
-        }
+        self->processed_fft_spectrum[k] = (1.f - self->wet_dry) * self->fft_spectrum[k] + self->processed_fft_spectrum[k] * self->wet_dry;
     }
 }
 
 /**
-* Applies the filter to the complex spectrum and gets the clean signal.
-* \param fft_size size of the fft
-* \param output_fft_buffer the unprocessed spectrum remaining in the fft buffer
-* \param denoised_spectrum the spectrum of the cleaned signal
-* \param Gk is the filter computed by the supression rule for each bin of the spectrum
+* Whitens the spectrum adaptively as proposed in 'Adaptive whitening for improved
+* real-time audio onset detection' by Stowell and Plumbley. The idea here is that when
+* residual noise resembles white noise the ear is able to precieve it as not so annoying.
+* It uses a temporal max value for each bin and a decay factor as the memory regulator of
+* that maximun value.
 */
-void denoised_calulation(int fft_size, float *output_fft_buffer,
-						 float *denoised_spectrum, float *Gk)
+void residual_spectrum_whitening(FFTdenoiser *self, float whitening_factor)
+{
+  self->whitening_window_count++;
+
+  for (int k = 0; k < self->fft_size; k++)
+  {
+    if (self->whitening_window_count > 1.f)
+    {
+      self->residual_max_spectrum[k] = MAX(MAX(self->residual_spectrum[k], WHITENING_FLOOR), self->residual_max_spectrum[k] * self->max_decay_rate);
+    }
+    else
+    {
+      self->residual_max_spectrum[k] = MAX(self->residual_spectrum[k], WHITENING_FLOOR);
+    }
+  }
+
+  for (int k = 0; k < self->fft_size; k++)
+  {
+    if (self->residual_spectrum[k] > FLT_MIN)
+    {
+      //Get whitened spectrum
+      self->whitened_residual_spectrum[k] = self->residual_spectrum[k] / self->residual_max_spectrum[k];
+
+      //Interpolate between whitened and non whitened residual
+      self->residual_spectrum[k] = (1.f - whitening_factor) * self->residual_spectrum[k] + whitening_factor * self->whitened_residual_spectrum[k];
+    }
+  }
+}
+
+/**
+* Applies the filter to the complex spectrum and gets the clean signal.
+*/
+void get_denoised_spectrum(FFTdenoiser *self)
 {
 	int k;
 
 	//Apply the computed gain to the signal and store it in denoised array
-	for (k = 0; k < fft_size; k++)
+	for (k = 0; k < self->fft_size; k++)
 	{
-		denoised_spectrum[k] = output_fft_buffer[k] * Gk[k];
+		self->denoised_spectrum[k] = self->fft_spectrum[k] * self->gain_spectrum[k];
 	}
 }
 
 /**
 * Gets the residual signal of the reduction.
-* \param fft_size size of the fft
-* \param output_fft_buffer the unprocessed spectrum remaining in the fft buffer
-* \param denoised_spectrum the spectrum of the cleaned signal
-* \param whitening_factor the mix coefficient between whitened and not whitened residual spectrum
-* \param residual_max_spectrum contains the maximun temporal value in each residual bin
-* \param whitening_window_count counts frames to distinguish the first from the others
-* \param max_decay_rate coefficient that sets the memory for each temporal maximun
 */
-void residual_calulation(int fft_size, float *output_fft_buffer,
-						 float *residual_spectrum, float *denoised_spectrum,
-						 float whitening_factor, float *residual_max_spectrum,
-						 float *whitening_window_count, float max_decay_rate)
+void get_residual_spectrum(FFTdenoiser *self, float whitening_factor)
 {
-
 	int k;
 
 	//Residual signal
-	for (k = 0; k < fft_size; k++)
+	for (k = 0; k < self->fft_size; k++)
 	{
-		residual_spectrum[k] = output_fft_buffer[k] - denoised_spectrum[k];
+		self->residual_spectrum[k] = self->fft_spectrum[k] - self->denoised_spectrum[k];
 	}
 
-	////////////POSTPROCESSING RESIDUAL
 	//Whitening (residual spectrum more similar to white noise)
 	if (whitening_factor > 0.f)
 	{
-		spectral_whitening(residual_spectrum, whitening_factor, fft_size,
-						   residual_max_spectrum, whitening_window_count, max_decay_rate);
+		residual_spectrum_whitening(self, whitening_factor);
 	}
-	////////////
 }
 
 /**
 * Mixes the cleaned signal with the residual taking into account the reduction configured
 * by the user. Outputs the final signal or the residual only.
-* \param fft_size size of the fft
-* \param final_spectrum the spectrum to output from the plugin
-* \param residual_spectrum the spectrum of the reduction residual
-* \param denoised_spectrum the spectrum of the cleaned signal
-* \param reduction_amount the amount of dB power to reduce setted by the user
-* \param noise_listen control variable that decides whether to output the mixed noise reduced signal or the residual only
 */
-void final_spectrum_ensemble(int fft_size, float *final_spectrum,
-							 float *residual_spectrum, float *denoised_spectrum,
-							 float reduction_amount, float noise_listen)
+void get_final_spectrum(FFTdenoiser *self, bool residual_listen, float reduction_amount)
 {
 	int k;
 
 	//OUTPUT RESULTS using smooth bypass and parametric subtraction
-	if (noise_listen == 0.f)
+	if (residual_listen)
 	{
-		//Mix residual and processed (Parametric way of noise reduction)
-		for (k = 0; k < fft_size; k++)
+		//Output noise only
+		for (k = 0; k < self->fft_size; k++)
 		{
-			final_spectrum[k] = denoised_spectrum[k] + residual_spectrum[k] * reduction_amount;
+			self->processed_fft_spectrum[k] = self->residual_spectrum[k];
 		}
 	}
 	else
 	{
-		//Output noise only
-		for (k = 0; k < fft_size; k++)
+		//Mix residual and processed (Parametric way of noise reduction)
+		for (k = 0; k < self->fft_size; k++)
 		{
-			final_spectrum[k] = residual_spectrum[k];
+			self->processed_fft_spectrum[k] = self->denoised_spectrum[k] + 
+                                              self->residual_spectrum[k] * reduction_amount;
 		}
 	}
+}
+
+/**
+* Runs the fft processing for current block.
+*/
+void fft_d_run(FFTdenoiser *self, float *fft_spectrum, int enable, bool learn_noise, float whitening_factor,
+               float reduction_amount, bool residual_listen)
+{
+    fft_d_update_wetdry_target(self, enable);
+
+    memcpy(self->fft_spectrum, fft_spectrum, sizeof(float) * self->fft_size);
+
+    //First get the power, magnitude and phase spectrum 
+    get_info_from_bins(self->power_spectrum, self->magnitude_spectrum,
+                       self->phase_spectrum, self->fft_size_2,
+                       self->fft_size, self->fft_spectrum);
+
+    //If the spectrum is not silence
+    if (!is_empty(self->power_spectrum, self->fft_size_2))
+    {
+        /*If selected estimate noise spectrum is based on selected portion of signal
+        *do not process the signal
+        */
+        if (learn_noise)
+        { 
+            //LEARN NOISE (Using power spectrum)
+            n_e_run(self->noise_estimation, self->power_spectrum);
+        }
+        else
+        {   
+            //REDUCE NOISE OR LISTEN TO THE RESIDUAL
+            if (n_e_available(self->noise_estimation))
+            {
+                //Call gain estimator
+                
+
+                //apply gains
+                get_denoised_spectrum(self);
+
+                //residual signal
+                get_residual_spectrum(self, whitening_factor);
+
+                //Ensemble the final spectrum using residual and denoised
+                get_final_spectrum(self, residual_listen, reduction_amount);
+            }
+        }
+    }
+
+    //If bypassed mix unprocessed and processed signal softly
+    fft_d_soft_bypass(self);
+
+    //Copy the processed spectrum to fft_spectrum
+    memcpy(fft_spectrum, self->processed_fft_spectrum, sizeof(float) * self->fft_size);
 }

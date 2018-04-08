@@ -499,3 +499,27 @@ void get_release_coeff(FFTdenoiser *self, float *release)
         self->release_coeff = 0.f; //This avoids incorrect results when moving sliders rapidly
     }
 }
+
+void g_e_run(Gestimator *self, float *spectrum)
+{
+	int k;
+
+	//Detector smoothing and oversubtraction
+	preprocessing(self->thresholds_offset_linear, self->power_spectrum,
+					self->noise_thresholds_p2, self->noise_thresholds_scaled,
+					self->smoothed_spectrum, self->smoothed_spectrum_prev,
+					self->fft_size_2, self->bark_z, self->absolute_thresholds,
+					self->SSF, self->release_coeff,
+					self->spreaded_unity_gain_bark_spectrum,
+					self->spl_reference_values, self->alpha_masking,
+					self->beta_masking, *(self->masking), *(self->adaptive_state),
+					self->amount_of_reduction_linear, self->transient_preserv_prev,
+					&self->tp_window_count, &self->tp_r_mean,
+					&self->transient_present, *(self->transient_protection));
+
+	//Supression rule
+	spectral_gain(self->power_spectrum, self->noise_thresholds_p2,
+					self->noise_thresholds_scaled, self->smoothed_spectrum,
+					self->fft_size_2, *(self->adaptive_state), self->gain_spectrum,
+					*(self->transient_protection), self->transient_present);
+}

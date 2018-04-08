@@ -4,7 +4,7 @@ project('noise-repellent','c',default_options: 'c_std=c99')
 lv2_name = 'nrepellent'
 
 #source to compile
-src = 'src/plugin.c'
+src = 'src/noise_repellent.c'
 
 #dependencies for noise repellent
 cc = meson.get_compiler('c')

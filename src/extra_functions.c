@@ -52,9 +52,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 #define SE_RESOLUTION 100.f //Spectral envelope resolution
 
-#define WHITENING_DECAY_RATE 1000.f //Deacay in ms for max spectrum for whitening
-#define WHITENING_FLOOR 0.02f       //Minumum max value posible
-
 #define TP_UPPER_LIMIT 5.f //This correspond to the upper limit of the adaptive threshold multiplier. Should be the same as the ttl configured one
 
 /**
@@ -594,51 +591,6 @@ float spectrum_p_norm(float *spectrum, float N, float p)
   return powf(sum, 1.f / p);
 }
 
-//---------------WHITENING--------------
-
-/**
-* Whitens the spectrum adaptively as proposed in 'Adaptive whitening for improved
-* real-time audio onset detection' by Stowell and Plumbley. The idea here is that when
-* residual noise resembles white noise the ear is able to precieve it as not so annoying.
-* It uses a temporal max value for each bin and a decay factor as the memory regulator of
-* that maximun value.
-* \param spectrum the power spectrum of the residue to be whitened
-* \param b the mixing coefficient
-* \param N the size of the array (fft size)
-* \param max_spectrum array of temporal maximums of the residual signal
-* \param max_decay_rate amount of ms of decay for temporal maximums
-*/
-void spectral_whitening(float *spectrum, float b, int N, float *max_spectrum,
-                        float *whitening_window_count, float max_decay_rate)
-{
-  float whitened_spectrum[N];
-
-  *(whitening_window_count) += 1.f;
-
-  for (int k = 0; k < N; k++)
-  {
-    if (*(whitening_window_count) > 1.f)
-    {
-      max_spectrum[k] = MAX(MAX(spectrum[k], WHITENING_FLOOR), max_spectrum[k] * max_decay_rate);
-    }
-    else
-    {
-      max_spectrum[k] = MAX(spectrum[k], WHITENING_FLOOR);
-    }
-  }
-
-  for (int k = 0; k < N; k++)
-  {
-    if (spectrum[k] > FLT_MIN)
-    {
-      //Get whitened spectrum
-      whitened_spectrum[k] = spectrum[k] / max_spectrum[k];
-
-      //Interpolate between whitened and non whitened residual
-      spectrum[k] = (1.f - b) * spectrum[k] + b * whitened_spectrum[k];
-    }
-  }
-}
 
 //---------------TIME SMOOTHING--------------
 
