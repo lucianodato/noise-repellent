@@ -57,11 +57,11 @@ typedef struct
 	float sample_rate;  //Sample rate received from the host
 
 	//Parameters for the algorithm (user input)
-	float *amount_of_reduction;		//Amount of noise to reduce in dB
+	float *reduction_amount;		//Amount of noise to reduce in dB
 	float *noise_thresholds_offset; //This is to scale the noise profile (over subtraction factor)
 	float *release;					//Release time
 	float *masking;					//Masking scaling
-	float *whitening_factor_pc;		//Whitening amount of the reduction percentage
+	float *whitening_factor;		//Whitening amount of the reduction percentage
 	float *learn_noise;				//Learn Noise state (Manual-Off-Auto)
 	float *reset_profile;			//Reset Noise switch
 	float *residual_listen;			//For noise only listening
@@ -114,7 +114,7 @@ connect_port(LV2_Handle instance, uint32_t port, void *data)
 	switch ((PIndex)port)
 	{
 	case NOISEREPELLENT_AMOUNT:
-		self->amount_of_reduction = (float *)data;
+		self->reduction_amount = (float *)data;
 		break;
 	case NOISEREPELLENT_NOFFSET:
 		self->noise_thresholds_offset = (float *)data;
@@ -126,7 +126,7 @@ connect_port(LV2_Handle instance, uint32_t port, void *data)
 		self->masking = (float *)data;
 		break;
 	case NOISEREPELLENT_WHITENING:
-		self->whitening_factor_pc = (float *)data;
+		self->whitening_factor = (float *)data;
 		break;
 	case NOISEREPELLENT_N_LEARN:
 		self->learn_noise = (float *)data;
@@ -166,10 +166,16 @@ run(LV2_Handle instance, uint32_t n_samples)
 	//Inform latency at run call
 	*(self->report_latency) = (float)stft_d_get_latency(self->stft_denoiser);
 
-	//Run the stft processor and process samples
-	stft_d_run(self->stft_denoiser, n_samples, self->input, self->output, (int)*self->enable,
-			   (bool)*self->learn_noise, (*self->whitening_factor_pc/100.f),
-			   from_dB(-1.f * *self->amount_of_reduction), (bool)*self->residual_listen);
+	//Temporary variables
+	float whitening_factor = (*self->whitening_factor/100.f);
+	bool enable = (bool)*self->enable;
+	bool learn_noise = (bool)*self->learn_noise;
+	float reduction_amount = from_dB(-1.f * *self->reduction_amount);
+	bool residual_listen = (bool)*self->residual_listen;
+
+	//Run the stft denoiser to process samples
+	stft_d_run(self->stft_denoiser, n_samples, self->input, self->output, enable, learn_noise,
+			   whitening_factor, reduction_amount, residual_listen);
 }
 
 /**

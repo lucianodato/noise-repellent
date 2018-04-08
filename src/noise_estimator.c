@@ -60,6 +60,8 @@ n_e_init(int fft_size)
 
   self->noise_spectrum = (float *)calloc((self->fft_size_2 + 1), sizeof(float));
 
+  n_e_reset(self);
+
   return self;
 }
 

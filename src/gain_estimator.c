@@ -18,9 +18,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
 /**
-* \file fft_denoiser.c
+* \file gain_estimator.c
 * \author Luciano Dato
-* \brief Contains a the spectral noise reduction abstraction
+* \brief Contains a the reduction gain estimator abstraction
 */
 
 #include <float.h>
@@ -42,50 +42,19 @@ typedef struct
     int hop;
 
     //Reduction gains
-    float *Gk; //definitive gain
+    float *gain_spectrum; //definitive gain
 
     //Ensemble related
     //Spectrum
     float *noise_spectrum;
     float *signal_spectrum;
-
-	Mestimator masking_estimation;
-
-    //smoothing related
-    float *smoothed_spectrum;      //power spectrum to be smoothed
-    float *smoothed_spectrum_prev; //previous frame smoothed power spectrum for envelopes
-
-    //Transient preservation related
-    float *transient_preserv_prev; //previous frame smoothed power spectrum for envelopes
-    float tp_r_mean;
-    bool transient_present;
-    float tp_window_count;
-
-    //whitening related
-    float *residual_max_spectrum;
-    float max_decay_rate;
-    float whitening_window_count;
-
-    //masking
-    float *bark_z;
-    float *absolute_thresholds; //absolute threshold of hearing
-    float *SSF;
-    float *spl_reference_values;
-    float *unity_gain_bark_spectrum;
-    float *spreaded_unity_gain_bark_spectrum;
-    float *alpha_masking;
-    float *beta_masking;
 } FFTdenoiser;
 
 
 /**
 * Wiener substraction supression rule. Outputs the filter mirrored around nyquist.
-* \param fft_size_2 is half of the fft size
-* \param noise_thresholds is the threshold for each corresponding power spectum value
-* /param spectrum is the power spectum array
-* \param Gk is the filter computed by the supression rule for each bin of the spectrum
 */
-void wiener_subtraction(int fft_size_2, float *spectrum, float *noise_thresholds, float *Gk)
+void wiener_subtraction(int fft_size_2, float *spectrum, float *noise_thresholds, float *gain_spectrum)
 {
 	int k;
 
@@ -95,35 +64,31 @@ void wiener_subtraction(int fft_size_2, float *spectrum, float *noise_thresholds
 		{
 			if (spectrum[k] > noise_thresholds[k])
 			{
-				Gk[k] = (spectrum[k] - noise_thresholds[k]) / spectrum[k];
+				gain_spectrum[k] = (spectrum[k] - noise_thresholds[k]) / spectrum[k];
 			}
 			else
 			{
-				Gk[k] = 0.f;
+				gain_spectrum[k] = 0.f;
 			}
 		}
 		else
 		{
 			//Otherwise we keep everything as is
-			Gk[k] = 1.f;
+			gain_spectrum[k] = 1.f;
 		}
 	}
 
 	//mirrored gain array
 	for (k = 1; k < fft_size_2; k++)
 	{
-		Gk[(2 * fft_size_2) - k] = Gk[k];
+		gain_spectrum[(2 * fft_size_2) - k] = gain_spectrum[k];
 	}
 }
 
 /**
 * Power substraction supression rule. Outputs the filter mirrored around nyquist.
-* \param fft_size_2 is half of the fft size
-* \param spectrum is the power spectum array
-* \param noise_thresholds is the threshold for each corresponding power spectum value
-* \param Gk is the filter computed by the supression rule for each bin of the spectrum
 */
-void power_subtraction(int fft_size_2, float *spectrum, float *noise_thresholds, float *Gk)
+void power_subtraction(int fft_size_2, float *spectrum, float *noise_thresholds, float *gain_spectrum)
 {
 	int k;
 
@@ -133,35 +98,31 @@ void power_subtraction(int fft_size_2, float *spectrum, float *noise_thresholds,
 		{
 			if (spectrum[k] > noise_thresholds[k])
 			{
-				Gk[k] = sqrtf((spectrum[k] - noise_thresholds[k]) / spectrum[k]);
+				gain_spectrum[k] = sqrtf((spectrum[k] - noise_thresholds[k]) / spectrum[k]);
 			}
 			else
 			{
-				Gk[k] = 0.f;
+				gain_spectrum[k] = 0.f;
 			}
 		}
 		else
 		{
 			//Otherwise we keep everything as is
-			Gk[k] = 1.f;
+			gain_spectrum[k] = 1.f;
 		}
 	}
 
 	//mirrored gain array
 	for (k = 1; k < fft_size_2; k++)
 	{
-		Gk[(2 * fft_size_2) - k] = Gk[k];
+		gain_spectrum[(2 * fft_size_2) - k] = gain_spectrum[k];
 	}
 }
 
 /**
 * Magnitude substraction supression rule. Outputs the filter mirrored around nyquist.
-* \param fft_size_2 is half of the fft size
-* \param spectrum is the power spectum array
-* \param noise_thresholds is the threshold for each corresponding power spectum value
-* \param Gk is the filter computed by the supression rule for each bin of the spectrum
 */
-void magnitude_subtraction(int fft_size_2, float *spectrum, float *noise_thresholds, float *Gk)
+void magnitude_subtraction(int fft_size_2, float *spectrum, float *noise_thresholds, float *gain_spectrum)
 {
 	int k;
 
@@ -171,35 +132,31 @@ void magnitude_subtraction(int fft_size_2, float *spectrum, float *noise_thresho
 		{
 			if (spectrum[k] > noise_thresholds[k])
 			{
-				Gk[k] = (sqrtf(spectrum[k]) - sqrtf(noise_thresholds[k])) / sqrtf(spectrum[k]);
+				gain_spectrum[k] = (sqrtf(spectrum[k]) - sqrtf(noise_thresholds[k])) / sqrtf(spectrum[k]);
 			}
 			else
 			{
-				Gk[k] = 0.f;
+				gain_spectrum[k] = 0.f;
 			}
 		}
 		else
 		{
 			//Otherwise we keep everything as is
-			Gk[k] = 1.f;
+			gain_spectrum[k] = 1.f;
 		}
 	}
 
 	//mirrored gain array
 	for (k = 1; k < fft_size_2; k++)
 	{
-		Gk[(2 * fft_size_2) - k] = Gk[k];
+		gain_spectrum[(2 * fft_size_2) - k] = gain_spectrum[k];
 	}
 }
 
 /**
 * Gating with hard knee supression rule. Outputs the filter mirrored around nyquist.
-* \param fft_size_2 is half of the fft size
-* \param spectrum is the power spectum array
-* \param noise_thresholds is the threshold for each corresponding power spectum value
-* \param Gk is the filter computed by the supression rule for each bin of the spectrum
 */
-void spectral_gating(int fft_size_2, float *spectrum, float *noise_thresholds, float *Gk)
+void spectral_gating(int fft_size_2, float *spectrum, float *noise_thresholds, float *gain_spectrum)
 {
 	int k;
 
@@ -211,39 +168,33 @@ void spectral_gating(int fft_size_2, float *spectrum, float *noise_thresholds, f
 			if (spectrum[k] >= noise_thresholds[k])
 			{
 				//over the threshold
-				Gk[k] = 1.f;
+				gain_spectrum[k] = 1.f;
 			}
 			else
 			{
 				//under the threshold
-				Gk[k] = 0.f;
+				gain_spectrum[k] = 0.f;
 			}
 		}
 		else
 		{
 			//Otherwise we keep everything as is
-			Gk[k] = 1.f;
+			gain_spectrum[k] = 1.f;
 		}
 	}
 
 	//mirrored gain array
 	for (k = 1; k < fft_size_2; k++)
 	{
-		Gk[(2 * fft_size_2) - k] = Gk[k];
+		gain_spectrum[(2 * fft_size_2) - k] = gain_spectrum[k];
 	}
 }
 
 /**
 * Generalized spectral subtraction supression rule. This version uses an array of alphas and betas. Outputs the filter mirrored around nyquist. GAMMA defines what type of spectral Subtraction is used. GAMMA1=GAMMA2=1 is magnitude substaction. GAMMA1=2 GAMMA2=0.5 is power Subtraction. GAMMA1=2 GAMMA2=1 is wiener filtering.
-* \param fft_size_2 is half of the fft size
-* \param alpha is the array of oversubtraction factors for each bin
-* \param beta is the array of the spectral flooring factors for each bin
-* \param spectrum is the power spectum array
-* \param noise_thresholds is the threshold for each corresponding power spectum value
-* \param Gk is the filter computed by the supression rule for each bin of the spectrum
 */
 void denoise_gain_gss(int fft_size_2, float *alpha, float *beta, float *spectrum,
-					  float *noise_thresholds, float *Gk)
+					  float *noise_thresholds, float *gain_spectrum)
 {
 	int k;
 
@@ -253,24 +204,24 @@ void denoise_gain_gss(int fft_size_2, float *alpha, float *beta, float *spectrum
 		{
 			if (powf((noise_thresholds[k] / spectrum[k]), GAMMA1) < (1.f / (alpha[k] + beta[k])))
 			{
-				Gk[k] = MAX(powf(1.f - (alpha[k] * powf((noise_thresholds[k] / spectrum[k]), GAMMA1)), GAMMA2), 0.f);
+				gain_spectrum[k] = MAX(powf(1.f - (alpha[k] * powf((noise_thresholds[k] / spectrum[k]), GAMMA1)), GAMMA2), 0.f);
 			}
 			else
 			{
-				Gk[k] = MAX(powf(beta[k] * powf((noise_thresholds[k] / spectrum[k]), GAMMA1), GAMMA2), 0.f);
+				gain_spectrum[k] = MAX(powf(beta[k] * powf((noise_thresholds[k] / spectrum[k]), GAMMA1), GAMMA2), 0.f);
 			}
 		}
 		else
 		{
 			//Otherwise we keep everything as is
-			Gk[k] = 1.f;
+			gain_spectrum[k] = 1.f;
 		}
 	}
 
 	//mirrored gain array
 	for (k = 1; k < fft_size_2; k++)
 	{
-		Gk[(2 * fft_size_2) - k] = Gk[k];
+		gain_spectrum[(2 * fft_size_2) - k] = gain_spectrum[k];
 	}
 }
 
@@ -284,18 +235,6 @@ void denoise_gain_gss(int fft_size_2, float *alpha, float *beta, float *spectrum
 * subtraction or others methods of adapting them. Spectral flooring is not used since
 * users decide the amount of noise reduccion themselves and spectral flooring is tied to
 * that parameter instead of being setted automatically.
-* \param fft_p2 the power spectrum of current frame
-* \param noise_thresholds_p2 the noise thresholds for each bin estimated previously
-* \param fft_size_2 is half of the fft size
-* \param alpha_masking is the array of oversubtraction factors for each bin
-* \param beta_masking is the array of the spectral flooring factors for each bin
-* \param bark_z defines the bark to linear mapping for current spectrum config
-* \param absolute_thresholds defines the absolute thresholds of hearing for current spectrum config
-* \param SSF defines the spreading function matrix
-* \param spreaded_unity_gain_bark_spectrum correction to be applied to SSF convolution
-* \param spl_reference_values defines the reference values for each bin to convert from db to db SPL
-* \param masking_value is the limit max oversubtraction to be computed
-* \param reduction_value is the limit max the spectral flooring to be computed
 */
 void compute_alpha_and_beta(float *fft_p2, float *noise_thresholds_p2, int fft_size_2,
                             float *alpha_masking, float *beta_masking, float *bark_z,
@@ -352,35 +291,8 @@ void compute_alpha_and_beta(float *fft_p2, float *noise_thresholds_p2, int fft_s
   }
 }
 
-
-//------------GAIN AND THRESHOLD CALCULATION---------------
-
 /**
 * Includes every preprocessing or precomputing before the supression rule.
-* \param noise_thresholds_offset the scaling of the thresholds setted by the user
-* \param fft_p2 the power spectrum of current frame
-* \param noise_thresholds_p2 the noise thresholds for each bin estimated previously
-* \param noise_thresholds_scaled the noise thresholds for each bin estimated previously scaled by the user
-* \param smoothed_spectrum current power specturm with time smoothing applied
-* \param smoothed_spectrum_prev the power specturm with time smoothing applied of previous frame
-* \param fft_size_2 is half of the fft size
-* \param prev_beta beta of previous frame for adaptive smoothing (not used yet)
-* \param bark_z defines the bark to linear mapping for current spectrum config
-* \param absolute_thresholds defines the absolute thresholds of hearing for current spectrum config
-* \param SSF defines the spreading function matrix
-* \param release_coeff release coefficient for time smoothing
-* \param spreaded_unity_gain_bark_spectrum correction to be applied to SSF convolution
-* \param spl_reference_values defines the reference values for each bin to convert from db to db SPL
-* \param alpha_masking is the array of oversubtraction factors for each bin
-* \param beta_masking is the array of the spectral flooring factors for each bin
-* \param masking_value is the limit max oversubtraction to be computed
-* \param adaptive flag that indicates if the noise is being estimated adaptively
-* \param reduction_value is the limit max the spectral flooring to be computed
-* \param transient_preserv_prev is the previous frame for spectral flux computing
-* \param tp_window_count is the frame counter for the rolling mean thresholding for onset detection
-* \param tp_r_mean is the rolling mean value for onset detection
-* \param transient_present indicates if current frame is an onset or not (contains a transient)
-* \param transient_protection is the flag that indicates whether transient protection is active or not
 */
 void preprocessing(float noise_thresholds_offset, float *fft_p2,
 				   float *noise_thresholds_p2,
@@ -449,18 +361,9 @@ void preprocessing(float noise_thresholds_offset, float *fft_p2,
 
 /**
 * Computes the supression filter based on pre-processing data.
-* \param fft_p2 the power spectrum of current frame
-* \param noise_thresholds_p2 the noise thresholds for each bin estimated previously
-* \param noise_thresholds_scaled the noise thresholds for each bin estimated previously scaled by the user
-* \param smoothed_spectrum current power specturm with time smoothing applied
-* \param fft_size_2 is half of the fft size
-* \param adaptive flag that indicates if the noise is being estimated adaptively
-* \param Gk is the filter computed by the supression rule for each bin of the spectrum
-* \param transient_protection is the flag that indicates whether transient protection is active or not
-* \param transient_present indicates if current frame is an onset or not (contains a transient)
 */
 void spectral_gain(float *fft_p2, float *noise_thresholds_p2, float *noise_thresholds_scaled,
-				   float *smoothed_spectrum, int fft_size_2, float adaptive, float *Gk,
+				   float *smoothed_spectrum, int fft_size_2, float adaptive, float *gain_spectrum,
 				   float transient_protection, bool transient_present)
 {
 	//------REDUCTION GAINS------
@@ -468,31 +371,31 @@ void spectral_gain(float *fft_p2, float *noise_thresholds_p2, float *noise_thres
 	//Get reduction to apply
 	if (adaptive == 1.f)
 	{
-		power_subtraction(fft_size_2, fft_p2, noise_thresholds_scaled, Gk);
+		power_subtraction(fft_size_2, fft_p2, noise_thresholds_scaled, gain_spectrum);
 	}
 	else
 	{
 		//Protect transient by avoiding smoothing if present
 		if (transient_present && transient_protection > 1.f)
 		{
-			wiener_subtraction(fft_size_2, fft_p2, noise_thresholds_scaled, Gk);
+			wiener_subtraction(fft_size_2, fft_p2, noise_thresholds_scaled, gain_spectrum);
 		}
 		else
 		{
-			spectral_gating(fft_size_2, smoothed_spectrum, noise_thresholds_scaled, Gk);
+			spectral_gating(fft_size_2, smoothed_spectrum, noise_thresholds_scaled, gain_spectrum);
 		}
 	}
 }
 
-void get_release_coeff(FFTdenoiser *self, float *release)
+void get_release_coeff(FFTdenoiser *self, float release)
 {
     //Parameters values
     /*exponential decay coefficients for envelopes and adaptive noise profiling
         These must take into account the hop size as explained in the following paper
         FFT-BASED DYNAMIC RANGE COMPRESSION*/
-    if (*(self->release) != 0.f) //This allows to turn off smoothing with 0 ms in order to use masking only
+    if (release != 0.f) //This allows to turn off smoothing with 0 ms in order to use masking only
     {
-        self->release_coeff = expf(-1000.f / (((*(release)) * self->samp_rate) / self->hop));
+        self->release_coeff = expf(-1000.f / (((release) * self->samp_rate) / self->hop));
     }
     else
     {

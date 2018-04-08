@@ -159,7 +159,7 @@ void fft_d_free(FFTdenoiser *self)
 /**
 * Updates the wet/dry mixing coefficient.
 */
-void fft_d_update_wetdry_target(FFTdenoiser *self, int enable)
+void fft_d_update_wetdry_target(FFTdenoiser *self, bool enable)
 {
     //Softbypass targets in case of disabled or enabled
     if (enable)
@@ -316,16 +316,15 @@ void fft_d_run(FFTdenoiser *self, float *fft_spectrum, int enable, bool learn_no
             //REDUCE NOISE OR LISTEN TO THE RESIDUAL
             if (n_e_available(self->noise_estimation))
             {
+                //Call masking estimator
+
                 //Call gain estimator
                 
 
-                //apply gains
                 get_denoised_spectrum(self);
 
-                //residual signal
                 get_residual_spectrum(self, whitening_factor);
 
-                //Ensemble the final spectrum using residual and denoised
                 get_final_spectrum(self, residual_listen, reduction_amount);
             }
         }
