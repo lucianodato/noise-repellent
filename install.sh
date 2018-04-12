@@ -6,7 +6,7 @@ rm -rf build || true
 sudo rm -rf /usr/local/lib/lv2/nrepellent.lv2 || true
 
 #build the plugin in the new directory
-meson build --buildtype release --strip
+meson build --buildtype release
 cd build
 ninja -v
 
