@@ -23,7 +23,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 * \brief The main file for host interaction
 */
 
-#include <fftw3.h>
 #include "lv2/lv2plug.in/ns/lv2core/lv2.h"
 #include "lv2/lv2plug.in/ns/ext/urid/urid.h"
 #include "lv2/lv2plug.in/ns/ext/atom/atom.h"

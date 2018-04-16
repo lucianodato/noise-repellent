@@ -25,6 +25,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 #include <float.h>
 #include <math.h>
+#include <fftw3.h>
 
 //masking thresholds values recomended by virag
 #define ALPHA_MAX 6.f
@@ -61,7 +62,7 @@ void compute_bark_mapping(float *bark_z, int fft_size_2, int srate)
 
   for (k = 0; k <= fft_size_2; k++)
   {
-    freq = (float)srate / 2.f / (float)(fft_size_2) * (float)k; //bin to freq
+    freq = (float)srate / (2.f * (float)(fft_size_2) * (float)k); //bin to freq
     bark_z[k] = 1.f + 13.f * atanf(0.00076f * freq) + 3.5f * atanf(powf(freq / 7500.f, 2.f));
   }
 }
@@ -83,7 +84,7 @@ void compute_SSF(float *SSF)
     {
       y = (i + 1) - (j + 1);
       //Spreading function (Schroeder)
-      ARRAYACCESS(SSF, i, j) = 15.81 + 7.5 * (y + 0.474) - 17.5 * sqrtf(1.f + (y + 0.474) * (y + 0.474)); //dB scale
+      ARRAYACCESS(SSF, i, j) = 15.81f + 7.5f * (y + 0.474f) - 17.5f * sqrtf(1.f + (y + 0.474f) * (y + 0.474f)); //dB scale
       //db to Linear
       ARRAYACCESS(SSF, i, j) = powf(10.f, ARRAYACCESS(SSF, i, j) / 10.f);
     }
@@ -234,7 +235,7 @@ void compute_absolute_thresholds(float *absolute_thresholds, int fft_size_2, int
   for (k = 1; k <= fft_size_2; k++)
   {                                                                                                                                                     //As explained by thiemann
     freq = bin_to_freq(k, srate, fft_size_2);                                                                                                           //bin to freq
-    absolute_thresholds[k] = 3.64 * powf((freq / 1000), -0.8) - 6.5 * exp(-0.6 * powf((freq / 1000 - 3.3), 2)) + powf(10, -3) * powf((freq / 1000), 4); //dBSPL scale
+    absolute_thresholds[k] = 3.64f * powf((freq / 1000.f), -0.8f) - 6.5f * exp(-0.6f * powf((freq / 1000.f - 3.3f), 2.f)) + powf(10.f, -3.f) * powf((freq / 1000.f), 4.f); //dBSPL scale
   }
 }
 
@@ -327,7 +328,7 @@ void compute_masking_thresholds(float *bark_z, float *absolute_thresholds, float
     tonality_factor = compute_tonality_factor(spectrum, intermediate_band_bins, n_bins_per_band, j); //Uses power spectrum
 
     //Masking offset
-    masking_offset[j] = (tonality_factor * (14.5 + (j + 1)) + 5.5 * (1.f - tonality_factor));
+    masking_offset[j] = (tonality_factor * (14.5f + (float)(j + 1)) + 5.5f * (1.f - tonality_factor));
 
 #if BIAS
     //Using offset proposed by Virag (an optimization not needed)
