@@ -14,7 +14,10 @@ lv2_dep = dependency('lv2', required : true)
 nr_dep = [m_dep,fftw_dep,lv2_dep]
 
 #compiler optimization flags
-cflags = ['-msse','-msse2','-mfpmath=sse','-ffast-math','-fomit-frame-pointer','-fno-finite-math-only','-mrecip']
+if meson.get_compiler('c').get_id() == 'clang'
+  add_global_arguments('-mrecip', language : 'c')
+endif
+cflags = ['-msse','-msse2','-mfpmath=sse','-ffast-math','-fomit-frame-pointer','-fno-finite-math-only']
 
 #get the build operating system and configure install path and shared object extension
 current_os = build_machine.system()
