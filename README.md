@@ -28,8 +28,8 @@ To compile and install this plug-in you will need the LV2 SDK, Meson build syste
 
 ```bash
   git clone https://github.com/lucianodato/noise-repellent.git
-  chmod +x install.sh
-  ./install.sh
+  meson build --buildtype release && cd build
+  ninja && sudo ninja install
 ```
 The old makefile is still there for packagers if preferred
 
