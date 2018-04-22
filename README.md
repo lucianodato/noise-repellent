@@ -33,7 +33,7 @@ Installation (Use whatever --prefix folder your OS needs) for example in MacOS:
   ninja && sudo ninja install
 ```
 
-In linux to prefix should be something like --prefix "/usr/local/lib/lv2" or something similar depending on the distro.
+In linux prefix should be --prefix "/usr/local/lib/lv2" or something similar depending on your distro filesystem requirments.
 
 There is now an AUR package at https://aur.archlinux.org/packages/noise-repellent-git for Arch Users (Kindly done by CrocoDuck).
 
