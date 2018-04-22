@@ -26,6 +26,7 @@ Install
 -------
 To compile and install this plug-in you will need the LV2 SDK, Meson build system (use pip3 to install it), ninja compiler, git and fftw3 library (>= 3.3.5 is recommended to avoid threading issues).
 
+Installation on Linux (Use whatever --prefix folder your distro needs)
 ```bash
   git clone https://github.com/lucianodato/noise-repellent.git
   chmod +x install.sh
