@@ -19,19 +19,21 @@ Features
 
 Limitations
 -------
-* The plug-in will introduce latency so it's not appropriate to be used while recording (33 ms for 44.1 kHz)
+* The plug-in will introduce latency so it's not appropriate to be used while recording (35 ms for 44.1 kHz)
 * It was developed to be used with Ardour however it is known to work with other hosts
 
 Install
 -------
 To compile and install this plug-in you will need the LV2 SDK, Meson build system (use pip3 to install it), ninja compiler, git and fftw3 library (>= 3.3.5 is recommended to avoid threading issues).
 
+Installation (Use whatever --prefix folder your OS needs) for example in MacOS:
 ```bash
   git clone https://github.com/lucianodato/noise-repellent.git
-  chmod +x install.sh
-  ./install.sh
+  meson build --buildtype release --prefix "/Library/Audio/Plug-Ins/LV2" && cd build
+  ninja && sudo ninja install
 ```
-The old makefile is still there for packagers if preferred
+
+In linux prefix should be --prefix "/usr/local/lib/lv2" or something similar depending on your distro filesystem requirments.
 
 There is now an AUR package at https://aur.archlinux.org/packages/noise-repellent-git for Arch Users (Kindly done by CrocoDuck).
 
