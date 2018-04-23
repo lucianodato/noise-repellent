@@ -27,6 +27,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define WHITENING_FLOOR 0.02f       //Minumum max value posible
 
 #include "noise_estimator.c"
+#include "gain_estimator.c"
 
 /**
 * FFT processor struct.
@@ -319,7 +320,13 @@ void fft_d_run(FFTdenoiser *self, float *fft_spectrum, int enable, bool learn_no
                 //Call masking estimator
 
                 //Call gain estimator
-                
+
+                //Mirror the gain array as it's needed at this stage
+                //mirrored gain array
+                // for (k = 1; k < self->half_fft_size; k++)
+                // {
+                //     self->gain_spectrum[(2 * self->half_fft_size) - k] = self->gain_spectrum[k];
+                // }
 
                 get_denoised_spectrum(self);
 

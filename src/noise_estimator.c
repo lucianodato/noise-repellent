@@ -35,7 +35,7 @@ typedef struct
 {
   //General parameters
   int fft_size;
-  int fft_size_2;
+  int half_fft_size;
 
   //noise related
   float *noise_spectrum;       //captured noise profile power spectrum
@@ -46,7 +46,7 @@ typedef struct
 void n_e_reset(Nestimator *self)
 {
   self->noise_spectrum_available = false;
-  initialize_array(self->noise_spectrum, 0.f, self->fft_size_2 + 1);
+  initialize_array(self->noise_spectrum, 0.f, self->half_fft_size + 1);
 }
 
 Nestimator *
@@ -56,9 +56,9 @@ n_e_init(int fft_size)
 
   //Configuration
   self->fft_size = fft_size;
-  self->fft_size_2 = self->fft_size / 2;
+  self->half_fft_size = self->fft_size / 2;
 
-  self->noise_spectrum = (float *)calloc((self->fft_size_2 + 1), sizeof(float));
+  self->noise_spectrum = (float *)calloc((self->half_fft_size + 1), sizeof(float));
 
   n_e_reset(self);
 
@@ -88,7 +88,7 @@ void n_e_run(Nestimator *self, float *spectrum)
   self->noise_block_count++;
 
   //Get noise thresholds based on averageing the input noise signal between frames
-  for (k = 0; k <= self->fft_size_2; k++)
+  for (k = 0; k <= self->half_fft_size; k++)
   {
     if (self->noise_block_count <= 1.f)
     {

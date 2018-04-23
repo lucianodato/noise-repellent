@@ -27,12 +27,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <fftw3.h>
 #include <math.h>
 
-//masking thresholds values recomended by virag
-#define ALPHA_MAX 6.f
-#define ALPHA_MIN 1.f
-#define BETA_MAX 0.02f
-#define BETA_MIN 0.0f
-
 //extra values
 #define N_BARK_BANDS 25
 #define AT_SINE_WAVE_FREQ 1000.f

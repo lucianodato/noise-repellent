@@ -42,4 +42,81 @@ typedef struct
     //smoothing related
     float *smoothed_spectrum;      //power spectrum to be smoothed
     float *smoothed_spectrum_prev; //previous frame smoothed power spectrum for envelopes
-} FFTdenoiser;
+} Ssmoother;
+
+//---------------TIME SMOOTHING--------------
+
+/**
+* Spectral smoothing proposed in 'Spectral subtraction with adaptive averaging of
+* the gain function' but is not used yet.
+* \param fft_size_2 half of the fft size
+* \param spectrum the current power spectrum
+* \param spectrum_prev the previous power spectrum
+* \param noise_thresholds the noise thresholds estimated
+* \param prev_beta beta corresponded to previos frame
+* \param coeff reference smoothing value
+*/
+void spectrum_adaptive_time_smoothing(int fft_size_2, float *spectrum_prev, float *spectrum,
+                                      float *noise_thresholds, float *prev_beta, float coeff)
+{
+    int k;
+    float discrepancy, numerator = 0.f, denominator = 0.f;
+    float beta_ts;
+    float beta_smooth;
+    float gamma_ts;
+
+    for (k = 0; k <= fft_size_2; k++)
+    {
+        //These has to be magnitude spectrums
+        numerator += fabs(spectrum[k] - noise_thresholds[k]);
+        denominator += noise_thresholds[k];
+    }
+    //this is the discrepancy of the spectum
+    discrepancy = numerator / denominator;
+    //beta is the adaptive coefficient
+    beta_ts = MIN(discrepancy, 1.f);
+
+    //Gamma is the smoothing coefficient of the adaptive factor beta
+    if (*prev_beta < beta_ts)
+    {
+        gamma_ts = 0.f;
+    }
+    else
+    {
+        gamma_ts = coeff;
+    }
+
+    //Smoothing beta
+    beta_smooth = gamma_ts * *(prev_beta) + (1.f - gamma_ts) * beta_ts;
+
+    //copy current value to previous
+    *prev_beta = beta_smooth;
+
+    //Apply the adaptive smoothed beta over the signal
+    for (k = 0; k <= fft_size_2; k++)
+    {
+        spectrum[k] = (1.f - beta_smooth) * spectrum_prev[k] + beta_smooth * spectrum[k];
+    }
+}
+
+/**
+* Spectral time smoothing by applying a release envelope. This seems to work better than * using time smoothing directly or McAulay & Malpass modification.
+* \param spectrum the current power spectrum
+* \param spectrum_prev the previous power spectrum
+* \param N half of the fft size
+* \param release_coeff release coefficient
+*/
+void apply_time_envelope(float *spectrum, float *spectrum_prev, float N, float release_coeff)
+{
+    int k;
+
+    for (k = 0; k <= N; k++)
+    {
+        //It doesn't make much sense to have an attack slider when there is time smoothing
+        if (spectrum[k] > spectrum_prev[k])
+        {
+            //Release (when signal is incrementing in amplitude)
+            spectrum[k] = release_coeff * spectrum_prev[k] + (1.f - release_coeff) * spectrum[k];
+        }
+    }
+}

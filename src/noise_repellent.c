@@ -172,6 +172,9 @@ run(LV2_Handle instance, uint32_t n_samples)
 	bool learn_noise = (bool)*self->learn_noise;
 	float reduction_amount = from_dB(-1.f * *self->reduction_amount);
 	bool residual_listen = (bool)*self->residual_listen;
+	float release_time = *self->release;
+	float masking_ceil_limit = *self->masking;
+	float transient_threshold = *self->transient_protection;
 
 	//Run the stft denoiser to process samples
 	stft_d_run(self->stft_denoiser, n_samples, self->input, self->output, enable, learn_noise,
