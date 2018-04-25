@@ -270,8 +270,9 @@ int stft_d_get_latency(STFTdenoiser *self)
 * Runs the STFT processing for the given signal by the host.
 */
 void stft_d_run(STFTdenoiser *self, int n_samples, const float *input, float *output,
-                int enable, int learn_noise, float whitening_factor,float reduction_amount,
-                bool residual_listen)
+                int enable, int learn_noise, float whitening_factor, float reduction_amount,
+                bool residual_listen, float transient_threshold, float masking_ceiling_limit,
+                float release, float noise_rescale)
 {
   int k;
 
@@ -296,7 +297,8 @@ void stft_d_run(STFTdenoiser *self, int n_samples, const float *input, float *ou
       //Call processing  with the obtained fft transform
       //when stft analysis is applied fft transform values reside in output_fft_buffer
       fft_d_run(self->fft_denoiser, self->output_fft_buffer, enable, learn_noise, whitening_factor,
-                reduction_amount, residual_listen);
+                reduction_amount, residual_listen, transient_threshold, masking_ceiling_limit,
+                release, noise_rescale);
 
       //Do synthesis
       stft_d_synthesis(self);

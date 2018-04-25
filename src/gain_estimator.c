@@ -334,42 +334,25 @@ void compute_alpha_and_beta(Gestimator *self, float masking_ceiling_limit, float
   }
 }
 
-void get_release_coeff(FFTdenoiser *self, float release)
-{
-	//Parameters values
-	/*exponential decay coefficients for envelopes and adaptive noise profiling
-        These must take into account the hop size as explained in the following paper
-        FFT-BASED DYNAMIC RANGE COMPRESSION*/
-	if (release != 0.f) //This allows to turn off smoothing with 0 ms in order to use masking only
-	{
-		self->release_coeff = expf(-1000.f / (((release)*self->samp_rate) / self->hop));
-	}
-	else
-	{
-		self->release_coeff = 0.f; //This avoids incorrect results when moving sliders rapidly
-	}
-}
-
-/**
-* Includes every preprocessing or precomputing before the supression rule.
-*/
-void preprocessing(Gestimator *self, bool transient_protection, float masking_ceiling_limit, float release)
+void g_e_run(Gestimator *self, float *signal_spectrum, float *gain_spectrum, float transient_threshold,
+			 float masking_ceiling_limit, float release, float noise_rescale)
 {
 	int k;
+
+	memcpy(self->signal_spectrum, signal_spectrum, sizeof(float) * self->half_fft_size + 1);
 
 	//PREPROCESSING - PRECALCULATIONS
 
 	//------TRANSIENT DETECTION------
 
-	if (transient_protection > 1.f)
+	if (transient_threshold > 1.f)
 	{
-		self->transient_detected = transient_detection();
+		self->transient_detected = t_d_run(self->transient_detection, transient_threshold);
 	}
 
-	//CALCULATION OF ALPHA WITH MASKING THRESHOLDS USING VIRAGS METHOD
-
+	//COMPUTING OF ALPHA WITH MASKING THRESHOLDS USING VIRAGS METHOD
 	if (masking_ceiling_limit > 1.f)
-	{ //Only when adaptive is off
+	{
 		compute_alpha_and_beta(self, masking_ceiling_limit, 0.f); //temporary value to imitate current state
 	}
 	else
@@ -382,67 +365,29 @@ void preprocessing(Gestimator *self, bool transient_protection, float masking_ce
 	//Scale noise thresholds (equals applying an oversubtraction factor in spectral subtraction)
 	for (k = 0; k <= self->half_fft_size; k++)
 	{
-		noise_thresholds_scaled[k] = noise_thresholds_p2[k] * noise_thresholds_offset * alpha_masking[k];
+		self->noise_spectrum[k] = self->noise_spectrum[k] * noise_rescale * self->alpha[k];
 	}
 
 	//------SMOOTHING DETECTOR------
 
-	memcpy(smoothed_spectrum, fft_p2, sizeof(float) * (half_fft_size + 1));
+	s_s_run(self->spectrum_smoothing, release);
 
-	apply_time_envelope(smoothed_spectrum, smoothed_spectrum_prev, half_fft_size, release_coeff);
-
-	memcpy(smoothed_spectrum_prev, smoothed_spectrum, sizeof(float) * (half_fft_size + 1));
-
-}
-
-/**
-* Computes the supression filter based on pre-processing data.
-*/
-void spectral_gain(float *fft_p2, float *noise_thresholds_p2, float *noise_thresholds_scaled,
-				   float *smoothed_spectrum, int half_fft_size, float adaptive, float *gain_spectrum,
-				   float transient_protection, bool transient_present)
-{
 	//------REDUCTION GAINS------
 
-	//Get reduction to apply
-	if (adaptive == 1.f)
+	//Protect transient by avoiding smoothing if present
+	if (self->transient_detected && transient_threshold > 1.f)
 	{
-		power_subtraction(half_fft_size, fft_p2, noise_thresholds_scaled, gain_spectrum);
+		wiener_subtraction(self);
 	}
 	else
 	{
-		//Protect transient by avoiding smoothing if present
-		if (transient_present && transient_protection > 1.f)
-		{
-			wiener_subtraction(half_fft_size, fft_p2, noise_thresholds_scaled, gain_spectrum);
-		}
-		else
-		{
-			spectral_gating(half_fft_size, smoothed_spectrum, noise_thresholds_scaled, gain_spectrum);
-		}
+		spectral_gating(self);
 	}
-}
 
-void g_e_run(Gestimator *self, float *signal_spectrum)
-{
-	int k;
-
-	//Detector smoothing and oversubtraction
-	preprocessing(self->thresholds_offset_linear, self->power_spectrum,
-					self->noise_thresholds_p2, self->noise_thresholds_scaled,
-					self->smoothed_spectrum, self->smoothed_spectrum_prev,
-					self->half_fft_size, self->bark_z, self->absolute_thresholds,
-					self->SSF, self->release_coeff,
-					self->spreaded_unity_gain_bark_spectrum,
-					self->spl_reference_values, self->alpha_masking,
-					self->beta_masking, *(self->masking), *(self->adaptive_state),
-					self->amount_of_reduction_linear, self->transient_preserv_prev,
-					&self->tp_window_count, &self->tp_r_mean,
-					&self->transient_present, *(self->transient_protection));
-
-	//Supression rule
-	spectral_gain(self->power_spectrum, self->noise_thresholds_p2,
-					self->noise_thresholds_scaled, self->smoothed_spectrum,
-					self->half_fft_size, *(self->adaptive_state), self->gain_spectrum,
-					*(self->transient_protection), self->transient_present);
+	//Copy the obtained values and mirror the gain array
+	memcpy(gain_spectrum, self->gain_spectrum, sizeof(float) * self->half_fft_size + 1);
+	for (k = 1; k < self->half_fft_size; k++)
+	{
+	    gain_spectrum[(2 * self->half_fft_size) - k] = self->gain_spectrum[k];
+	}
 }

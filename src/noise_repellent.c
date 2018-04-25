@@ -58,7 +58,7 @@ typedef struct
 
 	//Parameters for the algorithm (user input)
 	float *reduction_amount;		//Amount of noise to reduce in dB
-	float *noise_thresholds_offset; //This is to scale the noise profile (over subtraction factor)
+	float *noise_rescale; //This is to scale the noise profile (over subtraction factor)
 	float *release;					//Release time
 	float *masking;					//Masking scaling
 	float *whitening_factor;		//Whitening amount of the reduction percentage
@@ -117,7 +117,7 @@ connect_port(LV2_Handle instance, uint32_t port, void *data)
 		self->reduction_amount = (float *)data;
 		break;
 	case NOISEREPELLENT_NOFFSET:
-		self->noise_thresholds_offset = (float *)data;
+		self->noise_rescale = (float *)data;
 		break;
 	case NOISEREPELLENT_RELEASE:
 		self->release = (float *)data;
@@ -173,12 +173,14 @@ run(LV2_Handle instance, uint32_t n_samples)
 	float reduction_amount = from_dB(-1.f * *self->reduction_amount);
 	bool residual_listen = (bool)*self->residual_listen;
 	float release_time = *self->release;
-	float masking_ceil_limit = *self->masking;
+	float masking_ceiling_limit = *self->masking;
 	float transient_threshold = *self->transient_protection;
+	float noise_rescale = *self->noise_rescale;
 
 	//Run the stft denoiser to process samples
 	stft_d_run(self->stft_denoiser, n_samples, self->input, self->output, enable, learn_noise,
-			   whitening_factor, reduction_amount, residual_listen);
+				whitening_factor, reduction_amount, residual_listen, transient_threshold,
+				masking_ceiling_limit, release_time, noise_rescale);
 }
 
 /**

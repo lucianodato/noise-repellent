@@ -59,7 +59,7 @@ typedef struct
     float *denoised_spectrum;
     float *whitened_residual_spectrum;
 
-    // Gestimator *gain_estimation;
+    Gestimator *gain_estimation;
     Nestimator *noise_estimation;
 
     //whitening related
@@ -290,7 +290,8 @@ void get_final_spectrum(FFTdenoiser *self, bool residual_listen, float reduction
 * Runs the fft processing for current block.
 */
 void fft_d_run(FFTdenoiser *self, float *fft_spectrum, int enable, bool learn_noise, float whitening_factor,
-               float reduction_amount, bool residual_listen)
+               float reduction_amount, bool residual_listen, float transient_threshold,
+               float masking_ceiling_limit, float release, float noise_rescale)
 {
     fft_d_update_wetdry_target(self, enable);
 
@@ -317,16 +318,8 @@ void fft_d_run(FFTdenoiser *self, float *fft_spectrum, int enable, bool learn_no
             //REDUCE NOISE OR LISTEN TO THE RESIDUAL
             if (n_e_available(self->noise_estimation))
             {
-                //Call masking estimator
-
-                //Call gain estimator
-
-                //Mirror the gain array as it's needed at this stage
-                //mirrored gain array
-                // for (k = 1; k < self->half_fft_size; k++)
-                // {
-                //     self->gain_spectrum[(2 * self->half_fft_size) - k] = self->gain_spectrum[k];
-                // }
+                g_e_run(self->gain_estimation, self->power_spectrum, self->gain_spectrum, transient_threshold,
+                        masking_ceiling_limit, release, noise_rescale);
 
                 get_denoised_spectrum(self);
 

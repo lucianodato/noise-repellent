@@ -48,12 +48,6 @@ typedef struct
 * the signal. Using more heuristics like high frequency content and others like the ones
 * anylised by Dixon in 'Simple Spectrum-Based Onset Detection' would be better. Onset
 * detection is explained thoroughly in 'A tutorial on onset detection in music signals' * by Bello.
-* \param fft_p2 the current power spectrum
-* \param transient_preserv_prev the previous power spectrum
-* \param fft_size_2 half of the fft size
-* \param tp_window_count tp_window_count counter for the rolling mean thresholding
-* \param tp_r_mean rolling mean value
-* \param transient_protection the manual scaling of the mean thresholding setted by the user
 */
 bool transient_detection(float *fft_p2, float *transient_preserv_prev, float fft_size_2,
                          float *tp_window_count, float *tp_r_mean, float transient_protection)
