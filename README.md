@@ -26,15 +26,12 @@ Install
 -------
 To compile and install this plug-in you will need the LV2 SDK, Meson build system (use pip3 to install it), ninja compiler, git and fftw3 library (>= 3.3.5 is recommended to avoid threading issues).
 
-Installation (Use whatever --prefix folder your OS needs) for example in MacOS:
+Installation:
 ```bash
   git clone https://github.com/lucianodato/noise-repellent.git
-  meson build --buildtype release --prefix "/Library/Audio/Plug-Ins/LV2" && cd build
-  ninja && sudo ninja install
+  cd noise-repellent
+  chmod +x install.sh && ./install.sh
 ```
-
-In linux prefix should be --prefix "/usr/local/lib/lv2" or something similar depending on your distro filesystem requirments.
-
 There is now an AUR package at https://aur.archlinux.org/packages/noise-repellent-git for Arch Users (Kindly done by CrocoDuck).
 
 Code Documentation

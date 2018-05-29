@@ -20,11 +20,8 @@ before_install:
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo pip3 install meson; fi
 
 script:
-  - mkdir -p build
-  - cd build
-  - meson .. --buildtype release
-  - ninja -v
-  - sudo ninja install
+  - chmod +x install.sh
+  - ./install.sh
   
 # deploy:
 #   provider: releases
