@@ -40,7 +40,7 @@ shared_library(lv2_name,src,name_prefix: '',dependencies: nr_dep,c_args: cflags,
 #Configure manifest ttl in order to replace the correct shared object extension
 manifest_conf = configuration_data()
 manifest_conf.set('LIB_EXT',extension)
-configure_file(input : 'lv2ttl/manifest.ttl.in',output : 'manifest.ttl',configuration : manifest_conf)
+manifest_ttl = configure_file(input : 'lv2ttl/manifest.ttl.in',output : 'manifest.ttl',configuration : manifest_conf)
 
 #add manifest.ttl and nrepel.ttl to be installed with the shared object
-install_data(['build/manifest.ttl', 'lv2ttl/nrepel.ttl'],install_dir : install_folder)
+install_data([manifest_ttl, 'lv2ttl/nrepel.ttl'],install_dir : install_folder)
