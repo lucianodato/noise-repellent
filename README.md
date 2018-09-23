@@ -4,6 +4,10 @@ noise-repellent
 -------
 An lv2 plug-in for broadband noise reduction.
 
+Short Demo
+-------
+[![](http://img.youtube.com/vi/iNVxCvgcnig/0.jpg)](http://www.youtube.com/watch?v=iNVxCvgcnig "")
+
 Features
 -------
 * Spectral gating and spectral subtraction suppression rule
@@ -32,7 +36,7 @@ Installation:
   cd noise-repellent
   chmod +x install.sh && ./install.sh
 ```
-There is now an AUR package at https://aur.archlinux.org/packages/noise-repellent-git for Arch Users (Kindly done by CrocoDuck).
+Noise-repellent is on Arch community at https://www.archlinux.org/packages/community/x86_64/noise-repellent/.
 
 Code Documentation
 -----
