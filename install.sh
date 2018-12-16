@@ -18,12 +18,23 @@ rm -rf build || true
 #build the plugin in the new directory
 if [ $OS = "Linux" ]; then
     meson build --buildtype release --prefix $INSTALL_DIR_LINUX
+    rc=$?
+    if [[ $rc != 0 ]]; then
+        echo "meson failed - aborting"
+        exit
+    fi
 elif [ $OS = "Mac" ]; then
     meson build --buildtype release --prefix $INSTALL_DIR_MAC
+    if [[ $rc != 0 ]]; then
+        echo "meson failed - aborting"
+        exit
+    fi
+else
+    echo "OS $OS not supported."
+    exit
 fi
 
 cd build
-ninja -v
 
 #install the plugin in the system
-sudo ninja install
+ninja -v && sudo ninja install
