@@ -37,7 +37,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 * /param spectrum is the power spectum array
 * \param Gk is the filter computed by the supression rule for each bin of the spectrum
 */
-void wiener_subtraction(int fft_size_2, float *spectrum, float *noise_thresholds, float *Gk)
+static void
+wiener_subtraction(int fft_size_2, float *spectrum, float *noise_thresholds, float *Gk)
 {
 	int k;
 
@@ -75,7 +76,8 @@ void wiener_subtraction(int fft_size_2, float *spectrum, float *noise_thresholds
 * \param noise_thresholds is the threshold for each corresponding power spectum value
 * \param Gk is the filter computed by the supression rule for each bin of the spectrum
 */
-void power_subtraction(int fft_size_2, float *spectrum, float *noise_thresholds, float *Gk)
+static void
+power_subtraction(int fft_size_2, float *spectrum, float *noise_thresholds, float *Gk)
 {
 	int k;
 
@@ -113,7 +115,8 @@ void power_subtraction(int fft_size_2, float *spectrum, float *noise_thresholds,
 * \param noise_thresholds is the threshold for each corresponding power spectum value
 * \param Gk is the filter computed by the supression rule for each bin of the spectrum
 */
-void magnitude_subtraction(int fft_size_2, float *spectrum, float *noise_thresholds, float *Gk)
+static void
+magnitude_subtraction(int fft_size_2, float *spectrum, float *noise_thresholds, float *Gk)
 {
 	int k;
 
@@ -151,7 +154,8 @@ void magnitude_subtraction(int fft_size_2, float *spectrum, float *noise_thresho
 * \param noise_thresholds is the threshold for each corresponding power spectum value
 * \param Gk is the filter computed by the supression rule for each bin of the spectrum
 */
-void spectral_gating(int fft_size_2, float *spectrum, float *noise_thresholds, float *Gk)
+static void
+spectral_gating(int fft_size_2, float *spectrum, float *noise_thresholds, float *Gk)
 {
 	int k;
 
@@ -194,7 +198,8 @@ void spectral_gating(int fft_size_2, float *spectrum, float *noise_thresholds, f
 * \param noise_thresholds is the threshold for each corresponding power spectum value
 * \param Gk is the filter computed by the supression rule for each bin of the spectrum
 */
-void denoise_gain_gss(int fft_size_2, float *alpha, float *beta, float *spectrum,
+static void
+denoise_gain_gss(int fft_size_2, float *alpha, float *beta, float *spectrum,
 					  float *noise_thresholds, float *Gk)
 {
 	int k;
