@@ -51,8 +51,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 * \param fft_size_2 is half of the fft size
 * \param samp_rate current sample rate of the host
 */
-void compute_auto_thresholds(float *auto_thresholds, float fft_size, float fft_size_2,
-                             float samp_rate)
+static void
+compute_auto_thresholds(float *auto_thresholds, float fft_size, float fft_size_2,
+                        float samp_rate)
 {
   //This was experimentally obteined in louizou paper
   int LF = freq_to_bin(CROSSOVER_POINT1, samp_rate, fft_size); //1kHz
@@ -152,8 +153,9 @@ estimate_noise_loizou(float *thresh, int fft_size_2, float *p2, float *s_pow_spe
 * \param speech_p_p speech presence probability spectrum
 * \param prev_speech_p_p speech presence probability spectrum of previous frame
 */
-void adapt_noise(float *p2, int fft_size_2, float *noise_thresholds_p2, float *thresh,
-                 float *prev_noise_thresholds, float *s_pow_spec, float *prev_s_pow_spec, float *p_min, float *prev_p_min, float *speech_p_p, float *prev_speech_p_p)
+static void
+adapt_noise(float *p2, int fft_size_2, float *noise_thresholds_p2, float *thresh,
+            float *prev_noise_thresholds, float *s_pow_spec, float *prev_s_pow_spec, float *p_min, float *prev_p_min, float *speech_p_p, float *prev_speech_p_p)
 {
   estimate_noise_loizou(thresh, fft_size_2, p2, s_pow_spec, prev_s_pow_spec,
                         noise_thresholds_p2, prev_noise_thresholds, p_min, prev_p_min, speech_p_p, prev_speech_p_p);
@@ -172,8 +174,9 @@ void adapt_noise(float *p2, int fft_size_2, float *noise_thresholds_p2, float *t
 * \param noise_thresholds_p2 the noise thresholds for each bin estimated
 * \param window_count is the frame counter for the rolling mean estimation
 */
-void get_noise_statistics(float *fft_p2, int fft_size_2, float *noise_thresholds_p2,
-                          float window_count)
+static void
+get_noise_statistics(float *fft_p2, int fft_size_2, float *noise_thresholds_p2,
+                     float window_count)
 {
   int k;
 

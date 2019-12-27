@@ -59,16 +59,17 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 * \param transient_present indicates if current frame is an onset or not (contains a transient)
 * \param transient_protection is the flag that indicates whether transient protection is active or not
 */
-void preprocessing(float noise_thresholds_offset, float *fft_p2,
-				   float *noise_thresholds_p2,
-				   float *noise_thresholds_scaled, float *smoothed_spectrum,
-				   float *smoothed_spectrum_prev, int fft_size_2,
-				   float *bark_z, float *absolute_thresholds, float *SSF,
-				   float release_coeff, float *spreaded_unity_gain_bark_spectrum,
-				   float *spl_reference_values, float *alpha_masking, float *beta_masking,
-				   float masking_value, float adaptive_state, float reduction_value,
-				   float *transient_preserv_prev, float *tp_window_count, float *tp_r_mean,
-				   bool *transient_present, float transient_protection)
+static void
+preprocessing(float noise_thresholds_offset, float *fft_p2,
+              float *noise_thresholds_p2,
+              float *noise_thresholds_scaled, float *smoothed_spectrum,
+              float *smoothed_spectrum_prev, int fft_size_2,
+              float *bark_z, float *absolute_thresholds, float *SSF,
+              float release_coeff, float *spreaded_unity_gain_bark_spectrum,
+              float *spl_reference_values, float *alpha_masking, float *beta_masking,
+              float masking_value, float adaptive_state, float reduction_value,
+              float *transient_preserv_prev, float *tp_window_count, float *tp_r_mean,
+              bool *transient_present, float transient_protection)
 {
 	int k;
 
@@ -136,9 +137,10 @@ void preprocessing(float noise_thresholds_offset, float *fft_p2,
 * \param transient_protection is the flag that indicates whether transient protection is active or not
 * \param transient_present indicates if current frame is an onset or not (contains a transient)
 */
-void spectral_gain(float *fft_p2, float *noise_thresholds_p2, float *noise_thresholds_scaled,
-				   float *smoothed_spectrum, int fft_size_2, float adaptive, float *Gk,
-				   float transient_protection, bool transient_present)
+static void
+spectral_gain(float *fft_p2, float *noise_thresholds_p2, float *noise_thresholds_scaled,
+              float *smoothed_spectrum, int fft_size_2, float adaptive, float *Gk,
+              float transient_protection, bool transient_present)
 {
 	//------REDUCTION GAINS------
 
@@ -168,8 +170,9 @@ void spectral_gain(float *fft_p2, float *noise_thresholds_p2, float *noise_thres
 * \param denoised_spectrum the spectrum of the cleaned signal
 * \param Gk is the filter computed by the supression rule for each bin of the spectrum
 */
-void denoised_calulation(int fft_size, float *output_fft_buffer,
-						 float *denoised_spectrum, float *Gk)
+static void
+denoised_calulation(int fft_size, float *output_fft_buffer,
+                    float *denoised_spectrum, float *Gk)
 {
 	int k;
 
@@ -190,10 +193,11 @@ void denoised_calulation(int fft_size, float *output_fft_buffer,
 * \param whitening_window_count counts frames to distinguish the first from the others
 * \param max_decay_rate coefficient that sets the memory for each temporal maximun
 */
-void residual_calulation(int fft_size, float *output_fft_buffer,
-						 float *residual_spectrum, float *denoised_spectrum,
-						 float whitening_factor, float *residual_max_spectrum,
-						 float *whitening_window_count, float max_decay_rate)
+static void
+residual_calulation(int fft_size, float *output_fft_buffer,
+                    float *residual_spectrum, float *denoised_spectrum,
+                    float whitening_factor, float *residual_max_spectrum,
+                    float *whitening_window_count, float max_decay_rate)
 {
 
 	int k;
@@ -224,9 +228,10 @@ void residual_calulation(int fft_size, float *output_fft_buffer,
 * \param reduction_amount the amount of dB power to reduce setted by the user
 * \param noise_listen control variable that decides whether to output the mixed noise reduced signal or the residual only
 */
-void final_spectrum_ensemble(int fft_size, float *final_spectrum,
-							 float *residual_spectrum, float *denoised_spectrum,
-							 float reduction_amount, float noise_listen)
+static void
+final_spectrum_ensemble(int fft_size, float *final_spectrum,
+                        float *residual_spectrum, float *denoised_spectrum,
+                        float reduction_amount, float noise_listen)
 {
 	int k;
 
@@ -256,8 +261,9 @@ void final_spectrum_ensemble(int fft_size, float *final_spectrum,
 * \param wet_dry mixing coefficient
 * \param fft_size size of the fft
 */
-void soft_bypass(float *final_spectrum, float *output_fft_buffer, float wet_dry,
-				 int fft_size)
+static void
+soft_bypass(float *final_spectrum, float *output_fft_buffer, float wet_dry,
+            int fft_size)
 {
 	int k;
 

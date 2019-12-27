@@ -18,6 +18,7 @@ if meson.get_compiler('c').get_id() == 'clang'
   add_global_arguments('-mrecip', language : 'c')
 endif
 cflags = ['-msse','-msse2','-mfpmath=sse','-ffast-math','-fomit-frame-pointer','-fno-finite-math-only']
+cflags += ['-Wno-unused-function']
 
 #install folder
 install_folder = 'nrepel.lv2'
