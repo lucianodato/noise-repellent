@@ -13,13 +13,14 @@ language: c
 
 before_install:
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew update; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew cask uninstall oclint; fi
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install lv2 fftw meson ninja pkg-config; fi
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get update -qq; fi
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get install -qq lv2-dev libfftw3-dev python3-pip ninja-build python3-setuptools; fi
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo -H pip3 install --upgrade pip; fi
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo -H pip3 install meson; fi
-
+  - if [[ "$TRAVIS_OS_NAME" == "windows" ]]; then git clone https://github.com/Microsoft/vcpkg; fi
+  - if [[ "$TRAVIS_OS_NAME" == "windows" ]]; /vcpkg/bootstrap-vcpkg.bat; fi
+  - if [[ "$TRAVIS_OS_NAME" == "windows" ]]; vcpkg install fftw3; fi
 script:
   - chmod +x .travis/make-binaries-${TRAVIS_OS_NAME}
   - bash .travis/make-binaries-${TRAVIS_OS_NAME}
