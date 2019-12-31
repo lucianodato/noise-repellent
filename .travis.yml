@@ -32,8 +32,8 @@ before_install:
   - if [[ "$TRAVIS_OS_NAME" == "windows" ]]; then 
       git clone https://github.com/drobilla/lv2.git;
       .lv2/waf configure;
-      .lv2//waf;
-      .lv2//waf install;
+      .lv2/waf;
+      .lv2/waf install;
     fi
 
 script:
