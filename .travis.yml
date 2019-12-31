@@ -21,8 +21,8 @@ before_install:
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo -H pip3 install meson; fi
 
 script:
-  - chmod +x make-binaries-$TRAVIS_OS_NAME
-  - bash make-binaries-$TRAVIS_OS_NAME
+  - chmod +x make-binaries-${TRAVIS_OS_NAME}
+  - bash make-binaries-${TRAVIS_OS_NAME}
   
   # deploy:
   #   provider: releases
