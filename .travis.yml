@@ -14,7 +14,7 @@ language: c
 before_install:
   - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then 
       brew update;
-      brew install lv2 fftw meson ninja pkg-config;
+      brew install lv2 fftw meson ninja pkg-config zip;
     fi
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then 
       sudo apt-get update -qq;
