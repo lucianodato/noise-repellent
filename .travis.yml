@@ -29,6 +29,12 @@ before_install:
       ./vcpkg/bootstrap-vcpkg.bat;
       ./vcpkg/vcpkg.exe install fftw3;
     fi
+  - if [[ "$TRAVIS_OS_NAME" == "windows" ]]; then 
+      git clone https://github.com/drobilla/lv2.git;
+      .lv2/waf configure;
+      .lv2//waf;
+      .lv2//waf install;
+    fi
 
 script:
   - chmod +x .travis/make-binaries-${TRAVIS_OS_NAME}
