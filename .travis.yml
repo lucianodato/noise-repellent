@@ -27,7 +27,7 @@ before_install:
   - if [[ "$TRAVIS_OS_NAME" == "windows" ]]; then 
       git clone https://github.com/Microsoft/vcpkg;
       ./vcpkg/bootstrap-vcpkg.bat;
-      vcpkg.exe install fftw3;
+      ./vcpkg/vcpkg.exe install fftw3;
     fi
 
 script:
