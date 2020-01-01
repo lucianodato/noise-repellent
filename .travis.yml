@@ -28,8 +28,8 @@ before_install:
       choco uninstall -y mingw --remove-dependencies;
       choco install cygwin;
       choco install cyg-get;
-      alias cyg-get="c:\tools\cygwin\cygwinsetup.exe -q -P";
-      cyg-get lv2-devel libfftw3-devel meson ninja pkg-config;
+      # alias cyg-get="c:\tools\cygwin\cygwinsetup.exe -q -P";
+      cyg-get install lv2-devel libfftw3-devel meson ninja pkg-config;
     fi
 
 script:
