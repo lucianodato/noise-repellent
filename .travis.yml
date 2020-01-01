@@ -25,10 +25,10 @@ before_install:
       sudo -H pip3 install meson;
     fi
   - if [[ "$TRAVIS_OS_NAME" == "windows" ]]; then 
-      choco uninstall -y mingw --remove-dependencies
-      choco install cygwin
-      choco install cyg-get
-      cyg-get lv2-devel libfftw3-devel meson ninja pkg-config
+      choco uninstall -y mingw --remove-dependencies;
+      choco install cygwin;
+      choco install cyg-get;
+      cyg-get lv2-devel libfftw3-devel meson ninja pkg-config;
     fi
 
 script:
