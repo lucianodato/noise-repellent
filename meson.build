@@ -28,7 +28,6 @@ current_os = build_machine.system()
 if current_os == 'darwin' #mac
     extension = '.dylib'
 else #unix like
-    #i_path = '/usr/local/lib/lv2/nrepel.lv2'
     extension = '.so'
 endif #windows
 if current_os == 'windows'
