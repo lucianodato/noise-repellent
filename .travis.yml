@@ -28,7 +28,7 @@ before_install:
       choco uninstall -y mingw --remove-dependencies;
       choco install cygwin;
       choco install cyg-get;
-      cat C:\ProgramData\chocolatey\logs\chocolatey.log;
+      cat C:/rogramData/chocolatey/logs/chocolatey.log;
     fi
 
 script:
