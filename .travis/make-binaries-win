@@ -1,18 +1,14 @@
 #!/bin/bash
-
 # Clean
 c:/tools/cygwin/bin/rm -rf build bin || true;
-
 # Build now
 c:/tools/cygwin/bin/meson build --buildtype release;
 cd build;
 c:/tools/cygwin/bin/ninja -v;
-
 # Move needed sources to bin folder
 cd .. && c:/tools/cygwin/bin/mkdir -p bin/noise-repellent.lv2;
 c:/tools/cygwin/bin/cp build/nrepel.* ./bin/noise-repellent.lv2;
 c:/tools/cygwin/bin/cp build/manifest.ttl ./bin/noise-repellent.lv2;
 c:/tools/cygwin/bin/cp lv2ttl/nrepel.ttl ./bin/noise-repellent.lv2;
-
 # Compress build in a zip file
 c:/tools/cygwin/bin/zip -9 -jr noise-repellent-$TRAVIS_TAG-$TRAVIS_OS_NAME-$TRAVIS_CPU_ARCH.zip ./bin/
