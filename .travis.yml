@@ -28,7 +28,7 @@ before_install:
       choco uninstall -y mingw --remove-dependencies;
       choco install cygwin;
       choco install cyg-get;
-      C:/ProgramData/chocolatey/bin/cyg-get.bat lv2-devel libfftw3-devel meson ninja pkg-config;
+      C:/ProgramData/chocolatey/bin/cyg-get.bat pkg-config-0.29-1;
     fi
 
 script:
