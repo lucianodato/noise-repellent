@@ -4,12 +4,12 @@
 c:/tools/cygwin/bin/rm -rf build bin || true
 
 # Build now
-c:/tools/cygwin/bin/meson build --buildtype release --errorlogs
-c:/tools/cygwin/bin/cd build
+c:/tools/cygwin/bin/meson build --buildtype release
+cd build
 c:/tools/cygwin/bin/ninja -v
 
 # Move needed sources to bin folder
-c:/tools/cygwin/bin/cd .. && c:/tools/cygwin/bin/mkdir -p bin/noise-repellent.lv2
+cd .. && c:/tools/cygwin/bin/mkdir -p bin/noise-repellent.lv2
 c:/tools/cygwin/bin/cp build/nrepel.* ./bin/noise-repellent.lv2
 c:/tools/cygwin/bin/cp build/manifest.ttl ./bin/noise-repellent.lv2
 c:/tools/cygwin/bin/cp lv2ttl/nrepel.ttl ./bin/noise-repellent.lv2

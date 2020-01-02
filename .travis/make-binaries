@@ -4,7 +4,7 @@
 rm -rf build bin || true
 
 # Build now
-meson build --buildtype release --errorlogs
+meson build --buildtype release
 cd build
 ninja -v
 
