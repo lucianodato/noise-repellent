@@ -6,7 +6,7 @@ set -e
 rm -rf build bin || true
 
 # Build now
-meson build --buildtype release
+meson build --buildtype release -v
 cd build
 ninja -v
 
@@ -17,4 +17,4 @@ cp build/manifest.ttl ./bin/noise-repellent.lv2
 cp lv2ttl/nrepel.ttl ./bin/noise-repellent.lv2
 
 # Compress build in a zip file
-zip -9 -jr noise-repellent-$TRAVIS_OS_NAME.zip ./bin/
+zip -9 -jr noise-repellent-$TRAVIS_TAG-$TRAVIS_OS_NAME-$TRAVIS_CPU_ARCH.zip ./bin/
