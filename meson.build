@@ -30,6 +30,7 @@ current_arch = build_machine.cpu_family()
 # Add x86_64 optimization where appropriate
 if current_arch != 'arm64'
     cflags += ['-msse','-msse2','-mfpmath=sse']
+endif
 
 # Extension for library by os
 if current_os == 'darwin' #mac
