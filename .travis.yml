@@ -28,7 +28,7 @@ before_install:
       choco uninstall -y mingw --remove-dependencies;
       choco install cygwin;
       choco install cyg-get;
-      C:/ProgramData/chocolatey/bin/cyg-get.bat pkg-config-0.29-1;
+      C:/ProgramData/chocolatey/bin/cyg-get.bat -help;
     fi
 
 script:
