@@ -1,7 +1,5 @@
 #!/bin/bash
 
-set -e
-
 # Clean
 rm -rf build bin || true
 
