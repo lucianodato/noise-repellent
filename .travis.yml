@@ -12,19 +12,19 @@ matrix:
 language: c
 
 before_install:
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then 
+  - if [ "$TRAVIS_OS_NAME" == "osx" ]; then 
       brew update;
       pip3 install --upgrade pip;
       pip3 install meson;
       brew install lv2 fftw ninja pkg-config zip;
     fi
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then 
+  - if [ "$TRAVIS_OS_NAME" == "linux" ]; then 
       sudo apt-get update -qq;
       sudo apt-get install -qq lv2-dev libfftw3-dev python3-pip ninja-build python3-setuptools;
       sudo -H pip3 install --upgrade pip;
       sudo -H pip3 install meson;
     fi
-  - if [[ "$TRAVIS_OS_NAME" == "windows" ]]; then 
+  - if [ "$TRAVIS_OS_NAME" == "windows" ]; then 
       choco uninstall -y mingw --remove-dependencies;
       choco install cygwin;
       choco install cyg-get;
@@ -33,7 +33,10 @@ before_install:
 
 script:
   - chmod +x .travis/make-binaries
-  - bash .travis/make-binaries
+  - if [ "$TRAVIS_OS_NAME" == "windows" ];
+      then c:/tools/cygwin/cygwin.bat .travis/make-binaries;
+      else bash .travis/make-binaries;
+    fi
   
 deploy:
   provider: releases
