@@ -13,7 +13,7 @@ install:
 build_script:   
     - xcopy /i /q /s C:\projects\noise-repellent C:\cygwin-root\home\appveyor\noise-repellent
     - C:\cygwin-root\bin\bash -e -l -c "ls -la && cd noise-repellent && chmod +x .ci/make-binaries-win && .ci/make-binaries-win"
-    - ps: Rename-Item -Path C:\cygwin-root\home\appveyor\noise-repellent\noise-repellent-win.zip -NewName noise-repellent-win-${env:cygwin}.zip
+    - ps: Rename-Item -Path C:\cygwin-root\home\appveyor\noise-repellent\noise-repellent-win.zip -NewName noise-repellent-win-${uname -m}.zip
     - ps: Push-AppveyorArtifact C:\cygwin-root\home\appveyor\noise-repellent\*.zip
 
 deploy:
