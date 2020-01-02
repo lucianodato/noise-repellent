@@ -17,7 +17,7 @@ nr_dep = [m_dep,fftw_dep,lv2_dep]
 if meson.get_compiler('c').get_id() == 'clang'
   add_global_arguments('-mrecip', language : 'c')
 endif
-cflags = ['-msse','-msse2','-mfpmath=sse','-ffast-math','-fomit-frame-pointer','-fno-finite-math-only']
+cflags = ['-ffast-math','-fomit-frame-pointer','-fno-finite-math-only']
 cflags += ['-Wno-unused-function']
 
 #install folder
@@ -25,13 +25,20 @@ install_folder = 'nrepel.lv2'
 
 #get the build operating system and configure install path and shared object extension
 current_os = build_machine.system()
+current_arch = build_machine.cpu_family()
+
+# Add x86_64 optimization where appropriate (not for arm)
+if current_arch != 'aarch64'
+    cflags += ['-msse','-msse2','-mfpmath=sse']
+endif
+
+# Extension for library by os
 if current_os == 'darwin' #mac
     extension = '.dylib'
-else #unix like
-    #i_path = '/usr/local/lib/lv2/nrepel.lv2'
+else #unix like    
     extension = '.so'
 endif #windows
-if current_os == 'windows'
+if current_os == 'windows' or current_os == 'cygwin'
     extension = '.dll'
 endif
 
@@ -40,7 +47,7 @@ shared_library(lv2_name,src,name_prefix: '',dependencies: nr_dep,c_args: cflags,
 
 #Configure manifest ttl in order to replace the correct shared object extension
 manifest_conf = configuration_data()
-manifest_conf.set('LIB_EXT',extension)
+manifest_conf.set('LIB_EXT', extension)
 manifest_ttl = configure_file(input : 'lv2ttl/manifest.ttl.in',output : 'manifest.ttl',configuration : manifest_conf)
 
 #add manifest.ttl and nrepel.ttl to be installed with the shared object
