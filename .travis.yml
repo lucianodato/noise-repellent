@@ -32,8 +32,8 @@ before_install:
     fi
 
 script:
-  - chmod +x .travis/make-binaries-${TRAVIS_OS_NAME}
-  - bash .travis/make-binaries-${TRAVIS_OS_NAME}
+  - chmod +x .travis/make-binaries
+  - bash .travis/make-binaries
   
 deploy:
   provider: releases
