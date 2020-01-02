@@ -29,13 +29,13 @@ before_install:
       choco install cygwin;
       choco install cyg-get;
       C:/ProgramData/chocolatey/bin/cyg-get.bat lv2-devel libfftw3-devel meson ninja pkg-config;
-      cat C:/tools/cygwin;
+      ls -la C:/tools/cygwin;
     fi
 
 script:
   - chmod +x .travis/make-binaries
   - if [ "$TRAVIS_OS_NAME" == "windows" ];
-      then c:/tools/cygwin/bash .travis/make-binaries;
+      then c:/tools/cygwin/bin/bash .travis/make-binaries;
       else bash .travis/make-binaries;
     fi
   
