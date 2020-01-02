@@ -27,8 +27,8 @@ install_folder = 'nrepel.lv2'
 current_os = build_machine.system()
 current_arch = build_machine.cpu_family()
 
-# Add x86_64 optimization where appropriate
-if current_arch != 'arm64'
+# Add x86_64 optimization where appropriate (not for arm)
+if current_arch != 'aarch64'
     cflags += ['-msse','-msse2','-mfpmath=sse']
 endif
 
