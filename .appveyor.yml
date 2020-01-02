@@ -12,7 +12,7 @@ install:
 
 build_script:   
     - xcopy /i /q /s C:\projects\noise-repellent C:\cygwin\home\appveyor\noise-repellent
-    - c:\cygwin-root\bin\sh -lc "cd noise-repellent && chmod +x .ci/make-binaries-win && bash .ci/make-binaries-win"
+    - c:\cygwin-root\bin\sh -lc "ls -la && cd noise-repellent && chmod +x .ci/make-binaries-win && bash .ci/make-binaries-win"
     - ps: Push-AppveyorArtifact C:\cygwin\home\appveyor\noise-repellent\noise-repellent-win-$PLATFORM.zip
 
 deploy:
