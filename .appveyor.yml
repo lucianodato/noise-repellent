@@ -1,5 +1,3 @@
-# There is a pre-installed cygwin: http://help.appveyor.com/discussions/suggestions/427-pre-install-cygwin
-    
 cache:
     - c:\cygwin-setup-cache
 
