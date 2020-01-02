@@ -28,7 +28,7 @@ before_install:
       choco uninstall -y mingw --remove-dependencies;
       choco install cygwin;
       choco install cyg-get;
-      C:/ProgramData/chocolatey/bin/cyg-get.bat -help;
+      C:/ProgramData/chocolatey/bin/cyg-get.bat lv2-devel libfftw3-devel meson ninja pkg-config;
     fi
 
 script:
@@ -40,9 +40,7 @@ deploy:
   api_key:
     secure: nix7UnjIKYVxiDYSi08UDezDk+YWwy0OtsYlSkxMm7l5LfyMznw51dB4mX2H1QwqzTb0wLZLRdcTLkeF+z+j3FlcDCiOAhsZOHUJWESQVLSdG90Wa2QzI15d3jqjv9SQBVvbzlgXeTF78zVzUbkvyeFIYWKnLTo/3vUTBsRp+BXqR7tg0ovPa4CnR7SB/K2IDIskMedMo8oJhbedggwMt+22iYAb6sY0NpbpffD8ZtP4mrei5KLD4sadMaVzrXj9H6Gn5ukxglfUPHnEitI3iUVdTybTmpbtUUF90lSs8SdzGiBWAvkXnPAVP2QpKGmhAVyUGdWQ+1juTcLgzuSVz/ApsU0cRs5W88sDgm5ZCLnjA0B83X7QvCPMHrtOdFNLXgPoY8LVcEnzX+eNFVcDEw1VIArhe/8iQd/36G2kF5OuwNKqPVCGuWIPvpIePNwY2ieGV0P/dpPNgTtnsMw/JVsoGIA3TNFqn218Y1TFSZN7T+gU9nvpnfAa4qMfdX7gsWhKzSGgCRBJGVfLe1OgHko2gefNV9CLguaeax+t9J1D/Xx4X0tUwhh+mbkfMiPQ4/kd1j4e0msvs5xfYKPSwEXJG4JjWlN9s8TY3s55Rf3Rc7R8RlwRaTYZmeC1zmHUGyDz8k7KvOMj3uw2jVRMy3TTG2lWeJHe4HWRfoJsUoA=
   file: 
-    - noise-repellent-$TRAVIS_TAG-linux.zip
-    - noise-repellent-$TRAVIS_TAG-osx.zip
-    - noise-repellent-$TRAVIS_TAG-windows.zip
+    - noise-repellent-$TRAVIS_TAG-$TRAVIS_OS_NAME-$TRAVIS_CPU_ARCH.zip
   skip_cleanup: true
   overwrite: true
   on:
