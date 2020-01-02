@@ -5,6 +5,9 @@ matrix:
     - os: linux
       dist: bionic
       sudo: required
+      arch:
+        - amd64
+        - arm64
     - os: osx
       osx_image: xcode11.3
 
