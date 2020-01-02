@@ -10,8 +10,7 @@ install:
     - ps: Invoke-WebRequest $env:cygwin -OutFile c:\cygwin-setup.exe
     - c:\cygwin-setup.exe --quiet-mode --no-shortcuts --no-startmenu --no-desktop --upgrade-also --only-site --site http://cygwin.mirror.constant.com/ --root c:\cygwin-root --local-package-dir c:\cygwin-setup-cache --packages gcc-g++,ninja,pkg-config,lv2-devel,libfftw3-devel,meson,zip
 
-build_script:
-    - dir C:\projects\noise-repellent    
+build_script:   
     - c:\cygwin-root\bin\sh -lc "chmod +x C:/projects/noise-repellent/.ci/make-binaries-win"
-    - c:\cygwin-root\bin\sh -lc "C:/projects/noise-repellent/.ci/make-binaries-win"
+    - c:\cygwin-root\bin\sh -lc "bash C:/projects/noise-repellent/.ci/make-binaries-win"
     - ps: Push-AppveyorArtifact C:/projects/noise-repellent/noise-repellent-win-$PLATFORM.zip
