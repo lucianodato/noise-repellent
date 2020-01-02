@@ -25,7 +25,7 @@ install_folder = 'nrepel.lv2'
 
 #get the build operating system and configure install path and shared object extension
 current_os = build_machine.system()
-current_arch = build_machine.cpu_family
+current_arch = build_machine.cpu_family()
 
 # Add x86_64 optimization where appropriate
 if current_arch != 'arm64'
