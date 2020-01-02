@@ -13,13 +13,14 @@ install:
 build_script:   
     - xcopy /i /q /s C:\projects\noise-repellent C:\cygwin-root\home\appveyor\noise-repellent
     - C:\cygwin-root\bin\bash -e -l -c "ls -la && cd noise-repellent && chmod +x .ci/make-binaries-win && .ci/make-binaries-win"
-    - ps: Push-AppveyorArtifact C:\cygwin-root\home\appveyor\noise-repellent\noise-repellent-win-$PLATFORM.zip
+    - ps: Rename-Item -Path C:\cygwin-root\home\appveyor\noise-repellent\noise-repellent-win.zip -NewName noise-repellent-win-$env:target_arch.zip
+    - ps: Push-AppveyorArtifact C:\cygwin-root\home\appveyor\noise-repellent\noise-repellent-win-$env:target_arch.zip
 
 deploy:
     provider: GitHub
     auth_token:
         secure: nix7UnjIKYVxiDYSi08UDezDk+YWwy0OtsYlSkxMm7l5LfyMznw51dB4mX2H1QwqzTb0wLZLRdcTLkeF+z+j3FlcDCiOAhsZOHUJWESQVLSdG90Wa2QzI15d3jqjv9SQBVvbzlgXeTF78zVzUbkvyeFIYWKnLTo/3vUTBsRp+BXqR7tg0ovPa4CnR7SB/K2IDIskMedMo8oJhbedggwMt+22iYAb6sY0NpbpffD8ZtP4mrei5KLD4sadMaVzrXj9H6Gn5ukxglfUPHnEitI3iUVdTybTmpbtUUF90lSs8SdzGiBWAvkXnPAVP2QpKGmhAVyUGdWQ+1juTcLgzuSVz/ApsU0cRs5W88sDgm5ZCLnjA0B83X7QvCPMHrtOdFNLXgPoY8LVcEnzX+eNFVcDEw1VIArhe/8iQd/36G2kF5OuwNKqPVCGuWIPvpIePNwY2ieGV0P/dpPNgTtnsMw/JVsoGIA3TNFqn218Y1TFSZN7T+gU9nvpnfAa4qMfdX7gsWhKzSGgCRBJGVfLe1OgHko2gefNV9CLguaeax+t9J1D/Xx4X0tUwhh+mbkfMiPQ4/kd1j4e0msvs5xfYKPSwEXJG4JjWlN9s8TY3s55Rf3Rc7R8RlwRaTYZmeC1zmHUGyDz8k7KvOMj3uw2jVRMy3TTG2lWeJHe4HWRfoJsUoA= # your encrypted token from GitHub
-    artifact: /.*\.zip/            # upload all zip to release assets
+    artifact: /.*\.zip/                # upload all zip to release assets
     draft: false
     prerelease: false
     force_update: true

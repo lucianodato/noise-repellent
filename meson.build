@@ -41,13 +41,16 @@ endif #windows
 if current_os == 'windows'
     extension = '.dll'
 endif
+if current_os == 'cygwin'
+    extension = '.dll'
+endif
 
 #build of the shared object
 shared_library(lv2_name,src,name_prefix: '',dependencies: nr_dep,c_args: cflags,install: true,install_dir : install_folder)
 
 #Configure manifest ttl in order to replace the correct shared object extension
 manifest_conf = configuration_data()
-manifest_conf.set('LIB_EXT',extension)
+manifest_conf.set('LIB_EXT', extension)
 manifest_ttl = configure_file(input : 'lv2ttl/manifest.ttl.in',output : 'manifest.ttl',configuration : manifest_conf)
 
 #add manifest.ttl and nrepel.ttl to be installed with the shared object
