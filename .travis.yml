@@ -34,7 +34,7 @@ before_install:
 script:
   - chmod +x .travis/make-binaries
   - if [ "$TRAVIS_OS_NAME" == "windows" ];
-      then c:/tools/cygwin/cygwin.bat .travis/make-binaries;
+      then c:/tools/cygwin/bin/bash .travis/make-binaries;
       else bash .travis/make-binaries;
     fi
   
