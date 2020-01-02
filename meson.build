@@ -38,10 +38,7 @@ if current_os == 'darwin' #mac
 else #unix like    
     extension = '.so'
 endif #windows
-if current_os == 'windows'
-    extension = '.dll'
-endif
-if current_os == 'cygwin'
+if current_os == 'windows' or current_os == 'cygwin'
     extension = '.dll'
 endif
 
