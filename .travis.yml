@@ -29,13 +29,12 @@ before_install:
       choco install cygwin;
       choco install cyg-get;
       C:/ProgramData/chocolatey/bin/cyg-get.bat lv2-devel libfftw3-devel meson ninja pkg-config;
-      powershell.exe Set-ProcessMitigation -Name c:/tools/cygwin/bin/bash -Disable DEP, EmulateAtlThunks, DisallowChildProcessCreation, ForceRelocateImages;
     fi
 
 script:
   - chmod +x .travis/make-binaries
   - if [ "$TRAVIS_OS_NAME" == "windows" ];
-      then c:/tools/cygwin/bin/bash .travis/make-binaries;
+      then cmd.exe /C 'c:/tools/cygwin/bin/bash .travis/make-binaries';
       else bash .travis/make-binaries;
     fi
   
