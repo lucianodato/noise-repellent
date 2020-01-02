@@ -17,7 +17,7 @@ nr_dep = [m_dep,fftw_dep,lv2_dep]
 if meson.get_compiler('c').get_id() == 'clang'
   add_global_arguments('-mrecip', language : 'c')
 endif
-cflags = ['-msse','-msse2','-mfpmath=sse','-ffast-math','-fomit-frame-pointer','-fno-finite-math-only']
+cflags = ['-ffast-math','-fomit-frame-pointer','-fno-finite-math-only']
 cflags += ['-Wno-unused-function']
 
 #install folder
@@ -25,9 +25,16 @@ install_folder = 'nrepel.lv2'
 
 #get the build operating system and configure install path and shared object extension
 current_os = build_machine.system()
+current_arch = build_machine.cpu_family
+
+# Add x86_64 optimization where appropriate
+if current_arch != 'arm64'
+    cflags += ['-msse','-msse2','-mfpmath=sse']
+
+# Extension for library by os
 if current_os == 'darwin' #mac
     extension = '.dylib'
-else #unix like
+else #unix like    
     extension = '.so'
 endif #windows
 if current_os == 'windows'
