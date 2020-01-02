@@ -30,8 +30,8 @@ before_install:
     fi
 
 script:
-  - chmod +x .ci/make-binaries
-  - bash .ci/make-binaries
+  - chmod +x scripts/make-binaries
+  - bash scripts/make-binaries
   
 deploy:
   provider: releases
