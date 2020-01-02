@@ -2,7 +2,7 @@
 # Clean
 c:/tools/cygwin/bin/rm -rf build bin || true;
 # Build now
-c:/tools/cygwin/bin/meson build --buildtype release --libdir --bindir --includedir;
+c:/tools/cygwin/bin/meson build --buildtype release --libdir c:/tools/cygwin/lib --bindir c:/tools/cygwin/bin;
 cd build;
 c:/tools/cygwin/bin/ninja -v;
 # Move needed sources to bin folder
