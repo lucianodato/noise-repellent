@@ -29,7 +29,7 @@ before_install:
       choco install cygwin;
       choco install cyg-get;
       C:/ProgramData/chocolatey/bin/cyg-get.bat lv2-devel libfftw3-devel meson ninja pkg-config;
-      cat C:\tools\cygwin;
+      cat C:/tools/cygwin;
     fi
 
 script:
