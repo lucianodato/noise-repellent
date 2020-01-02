@@ -12,5 +12,5 @@ install:
 
 build_script:
     - c:\cygwin-root\bin\sh -lc "chmod +x C:/projects/noise-repellent.ci/make-binaries-win"
-    - c:\cygwin-root\bin\sh -lc "C:/projects/noise-repellent.ci/make-binaries-win"
+    - c:\cygwin-root\bin\sh -lc "C:/projects/noise-repellent/.ci/make-binaries-win"
     - ps: Push-AppveyorArtifact C:/projects/noise-repellent/noise-repellent-win-$PLATFORM.zip
