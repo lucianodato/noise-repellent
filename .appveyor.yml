@@ -11,8 +11,8 @@ install:
     - c:\cygwin-setup.exe --quiet-mode --no-shortcuts --no-startmenu --no-desktop --upgrade-also --only-site --site http://cygwin.mirror.constant.com/ --root c:\cygwin-root --local-package-dir c:\cygwin-setup-cache --packages gcc-g++,ninja,pkg-config,lv2-devel,libfftw3-devel,meson,zip
 
 build_script:   
-    - xcopy /i /q /s C:\projects\noise-repellent C:\cygwin\home\appveyor\noise-repellent
-    - c:\cygwin-root\bin\sh -lc "ls -la && cd noise-repellent && chmod +x .ci/make-binaries-win && bash .ci/make-binaries-win"
+    - xcopy /i /q /s C:\projects\noise-repellent C:\cygwin-root\home\appveyor\noise-repellent
+    - C:\cygwin-root\bin\bash -e -l -c "ls -la && cd noise-repellent && chmod +x .ci/make-binaries-win && bash .ci/make-binaries-win > /dev/null"
     - ps: Push-AppveyorArtifact C:\cygwin\home\appveyor\noise-repellent\noise-repellent-win-$PLATFORM.zip
 
 deploy:
