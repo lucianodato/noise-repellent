@@ -16,6 +16,6 @@ install:
     - c:\cygwin-root\bin\sh -lc "cygcheck -s -v > $APPVEYOR_BUILD_FOLDER/cygcheck.log 2>&1"
     - ps: Push-AppveyorArtifact cygcheck.log
 build_script:
-    - c:\cygwin-root\bin\sh -lc "chmod +x $APPVEYOR_BUILD_FOLDER/.ci/make-binaries-win"
-    - c:\cygwin-root\bin\sh -lc "$APPVEYOR_BUILD_FOLDER/.ci/make-binaries-win"
+    - c:\cygwin-root\bin\sh -lc "chmod +x .ci/make-binaries-win"
+    - c:\cygwin-root\bin\sh -lc ".ci/make-binaries-win"
     - ps: Push-AppveyorArtifact noise-repellent-win-$PLATFORM.zip
