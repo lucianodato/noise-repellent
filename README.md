@@ -29,7 +29,7 @@ Limitations
 
 Install
 -------
-Binaries for most platforms are provided with releases but if you are an experienced user you can go ahead an compile it from source.
+Binaries for most platforms are provided with releases but if you are an experienced user you can go ahead an compile it from source. Just extract the adequate zip file for your platform to your lv2 plugins folder (normally /usr/local/lib/lv2 or $HOME/.lv2)
 
 To compile and install this plug-in you will need the LV2 SDK, Meson build system (use pip3 to install it), ninja compiler, git and fftw3 library (>= 3.3.5 is recommended to avoid threading issues).
 
