@@ -1,17 +1,12 @@
 #!/bin/bash
 
 # Clean
-rm -rf build nrepel.lv2 || true
+rm -rf build /tmp/nrepel.lv2 || true
 
 # Build now
-meson build --buildtype release
+meson build --buildtype release --prefix /tmp
 ninja -v -C build
-
-# Move needed sources to bin folder
-mkdir -p nrepel.lv2
-find build -maxdepth 1 -regex "^.*\.(dll|so|dylib)$" -exec cp {} ./nrepel.lv2 \;
-cp build/manifest.ttl ./nrepel.lv2
-cp lv2ttl/nrepel.ttl ./nrepel.lv2
+ninja -C build install
 
 # Compress build in a zip file
-zip -9 -r noise-repellent.zip ./nrepel.lv2/
+zip -9 -r noise-repellent.zip /tmp/nrepel.lv2
