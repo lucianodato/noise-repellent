@@ -15,4 +15,4 @@ cp build/manifest.ttl ./nrepel.lv2
 cp lv2ttl/nrepel.ttl ./nrepel.lv2
 
 # Compress build in a zip file
-zip -9 -r noise-repellent-$TRAVIS_TAG-$TRAVIS_OS_NAME-$TRAVIS_CPU_ARCH.zip ./nrepel.lv2/
+zip -9 -r noise-repellent-$TRAVIS_TAG-$TRAVIS_JOB_NAME.zip ./nrepel.lv2/
