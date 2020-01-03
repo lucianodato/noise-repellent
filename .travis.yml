@@ -50,7 +50,7 @@ script:
       chmod +x scripts/make-binaries; bash scripts/make-binaries;
     fi
   - if [ "$TRAVIS_JOB_NAME" == "linux-i386" ]; then
-      docker run -v `pwd`:/noise-repellent i386/ubuntu:latest /bin/bash -c "apt-get update -qq; apt-get install -qq pkg-config lv2-dev libfftw3-dev python3-pip ninja-build python3-setuptools zip; pip3 install --upgrade pip; pip install meson; cd /noise-repellent; bash ./scripts/make-binaries"; ls -la;
+      docker run -e TRAVIS_JOB_NAME=$TRAVIS_JOB_NAME -v `pwd`:/noise-repellent i386/ubuntu:latest /bin/bash -c "apt-get update -qq; apt-get install -qq pkg-config lv2-dev libfftw3-dev python3-pip ninja-build python3-setuptools zip; pip3 install --upgrade pip; pip install meson; cd /noise-repellent; bash ./scripts/make-binaries";
     fi
   - if [ "$TRAVIS_JOB_NAME" == "osx-amd64" ]; then
       chmod +x scripts/make-binaries; bash scripts/make-binaries;
