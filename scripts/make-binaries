@@ -9,7 +9,7 @@ ninja -v -C build
 
 # Move needed sources to bin folder
 mkdir -p nrepel.lv2
-find build -maxdepth 1 -regextype posix-extended -regex "^.*\.(dll|so|dylib)$" -exec cp {} ./nrepel.lv2 \;
+find build -maxdepth 1 -regex "^.*\.(dll|so|dylib)$" -exec cp {} ./nrepel.lv2 \;
 cp build/manifest.ttl ./nrepel.lv2
 cp lv2ttl/nrepel.ttl ./nrepel.lv2
 
