@@ -29,15 +29,23 @@ Limitations
 
 Install
 -------
+Binaries for most platforms are provided with releases but if you are an experienced user you can go ahead an compile it from source.
+
 To compile and install this plug-in you will need the LV2 SDK, Meson build system (use pip3 to install it), ninja compiler, git and fftw3 library (>= 3.3.5 is recommended to avoid threading issues).
 
 Installation:
 ```bash
   git clone https://github.com/lucianodato/noise-repellent.git
   cd noise-repellent
-  chmod +x install.sh && ./install.sh
+  meson build --buildtype release --prefix $HOME/.lv2
+  cd build
+  ninja -v && sudo ninja install
 ```
 Noise-repellent is on Arch community at https://www.archlinux.org/packages/community/x86_64/noise-repellent/.
+
+Usage Instuctions
+-----
+Please refer to project's wiki https://github.com/lucianodato/noise-repellent/wiki
 
 Code Documentation
 -----

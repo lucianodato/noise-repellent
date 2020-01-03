@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Clean
-rm -rf build bin || true
+rm -rf build nrepel.lv2 || true
 
 # Build now
 meson build --buildtype release
@@ -9,10 +9,10 @@ cd build
 ninja -v
 
 # Move needed sources to bin folder
-cd .. && mkdir -p bin/noise-repellent.lv2
-cp build/nrepel.* ./bin/noise-repellent.lv2
-cp build/manifest.ttl ./bin/noise-repellent.lv2
-cp lv2ttl/nrepel.ttl ./bin/noise-repellent.lv2
+cd .. && mkdir -p nrepel.lv2
+cp build/nrepel.* ./nrepel.lv2
+cp build/manifest.ttl ./nrepel.lv2
+cp lv2ttl/nrepel.ttl ./nrepel.lv2
 
 # Compress build in a zip file
-zip -9 -jr noise-repellent-$TRAVIS_TAG-$TRAVIS_OS_NAME-$TRAVIS_CPU_ARCH.zip ./bin/
+zip -9 -r noise-repellent-$TRAVIS_TAG-$TRAVIS_OS_NAME-$TRAVIS_CPU_ARCH.zip ./nrepel.lv2/
