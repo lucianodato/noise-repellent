@@ -37,7 +37,7 @@ Installation:
 ```bash
   git clone https://github.com/lucianodato/noise-repellent.git
   cd noise-repellent
-  meson build --buildtype release --prefix $HOME/.lv2
+  meson build --buildtype release --prefix (your-os-appropriate-location)
   cd build
   ninja -v && sudo ninja install
 ```
