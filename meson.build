@@ -34,6 +34,7 @@ endif
 
 # Extension for library by os
 if current_os == 'darwin' #mac
+    cflags += ['-march=i386', '-march=x86_64','-march=ppc','-mmacosx-version-min=10.5','-DMAC_OS_X_VERSION_MAX_ALLOWED=105']
     extension = '.dylib'
 else #unix like    
     extension = '.so'
