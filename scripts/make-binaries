@@ -5,14 +5,13 @@ rm -rf build nrepel.lv2 || true
 
 # Build now
 meson build --buildtype release
-cd build
-ninja -v
+ninja -v -C build
 
 # Move needed sources to bin folder
-cd .. && mkdir -p nrepel.lv2
-cp build/nrepel.* ./nrepel.lv2
+mkdir -p nrepel.lv2
+find build -maxdepth 1 -regextype posix-extended -regex "^.*\.(dll|so|dylib)$" -exec cp {} ./nrepel.lv2 \;
 cp build/manifest.ttl ./nrepel.lv2
 cp lv2ttl/nrepel.ttl ./nrepel.lv2
 
 # Compress build in a zip file
-zip -9 -r noise-repellent-$TRAVIS_TAG-$TRAVIS_JOB_NAME.zip ./nrepel.lv2/
+zip -9 -r noise-repellent.zip ./nrepel.lv2/

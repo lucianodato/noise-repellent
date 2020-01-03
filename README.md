@@ -38,8 +38,7 @@ Installation:
   git clone https://github.com/lucianodato/noise-repellent.git
   cd noise-repellent
   meson build --buildtype release --prefix (your-os-appropriate-location)
-  cd build
-  ninja -v && sudo ninja install
+  ninja -v -C build && sudo ninja install
 ```
 Noise-repellent is on Arch community at https://www.archlinux.org/packages/community/x86_64/noise-repellent/.
 
