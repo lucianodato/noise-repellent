@@ -27,14 +27,18 @@ install_folder = 'nrepel.lv2'
 current_os = build_machine.system()
 current_arch = build_machine.cpu_family()
 
-# Add x86_64 optimization where appropriate (not for arm)
+# Add x86_64 optimization where appropriate (not for ARM)
 if current_arch != 'aarch64'
     cflags += ['-msse','-msse2','-mfpmath=sse']
 endif
 
+# Add osx multiarch flags when appropriate
+if current_os == 'darwin'
+    cflags += ['-march=i386', '-march=x86-64','-mmacosx-version-min=10.5','-DMAC_OS_X_VERSION_MAX_ALLOWED=105']
+endif
+
 # Extension for library by os
 if current_os == 'darwin' #mac
-    cflags += ['-march=i386', '-march=x86-64','-mmacosx-version-min=10.5','-DMAC_OS_X_VERSION_MAX_ALLOWED=105']
     extension = '.dylib'
 else #unix like    
     extension = '.so'
