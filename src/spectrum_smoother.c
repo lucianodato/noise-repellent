@@ -42,7 +42,7 @@ typedef struct
     //smoothing related
     float *smoothed_spectrum;      //power spectrum to be smoothed
     float *smoothed_spectrum_prev; //previous frame smoothed power spectrum for envelopes
-} Ssmoother;
+} Spectral_Smoother;
 
 //---------------TIME SMOOTHING--------------
 
@@ -99,7 +99,7 @@ void spectrum_adaptive_time_smoothing(int fft_size_2, float *spectrum_prev, floa
     }
 }
 
-void get_release_coeff(FFTdenoiser *self, float release)
+void get_release_coeff(FFT_Denoiser *self, float release)
 {
     //Parameters values
     /*exponential decay coefficients for envelopes and adaptive noise profiling

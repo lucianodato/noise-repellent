@@ -27,10 +27,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include "fft_denoiser.c"
 
 //STFT default values (Hardcoded for now)
-#define FFT_SIZE 2048    //Size of the fft transform
-#define INPUT_WINDOW_TYPE 3   //0 HANN 1 HAMMING 2 BLACKMAN 3 VORBIS Input windows for STFT algorithm
-#define OUTPUT_WINDOW_TYPE 3  //0 HANN 1 HAMMING 2 BLACKMAN 3 VORBIS Output windows for STFT algorithm
-#define OVERLAP_FACTOR 4 //4 is 75% overlap Values bigger than 4 will rescale correctly (if Vorbis windows is not used)
+#define FFT_SIZE 2048        //Size of the fft transform
+#define INPUT_WINDOW_TYPE 3  //0 HANN 1 HAMMING 2 BLACKMAN 3 VORBIS Input windows for STFT algorithm
+#define OUTPUT_WINDOW_TYPE 3 //0 HANN 1 HAMMING 2 BLACKMAN 3 VORBIS Output windows for STFT algorithm
+#define OVERLAP_FACTOR 4     //4 is 75% overlap Values bigger than 4 will rescale correctly (if Vorbis windows is not used)
 
 /**
 * STFT processor struct.
@@ -56,29 +56,29 @@ typedef struct
   float *output_fft_buffer;
 
   //FFT processor instance
-	FFTdenoiser *fft_denoiser;
-} STFTdenoiser;
+  FFT_Denoiser *fft_denoiser;
+} STFT_Denoiser;
 
 /**
 * Wrapper for getting the pre and post processing windows and adequate scaling factor.
 */
-void stft_d_pre_and_post_window(STFTdenoiser *self)
+void stft_d_pre_and_post_window(STFT_Denoiser *self)
 {
   float sum = 0.f;
-  
+
   //Input window
   switch (self->window_option_input)
   {
-  case 0:                                                // HANN
+  case 0:                                              // HANN
     fft_window(self->input_window, self->fft_size, 0); //STFT input window
     break;
-  case 1:                                                //HAMMING
+  case 1:                                              //HAMMING
     fft_window(self->input_window, self->fft_size, 1); //STFT input window
     break;
-  case 2:                                                //BLACKMAN
+  case 2:                                              //BLACKMAN
     fft_window(self->input_window, self->fft_size, 2); //STFT input window
     break;
-  case 3:                                                //VORBIS
+  case 3:                                              //VORBIS
     fft_window(self->input_window, self->fft_size, 3); //STFT input window
     break;
   }
@@ -86,21 +86,21 @@ void stft_d_pre_and_post_window(STFTdenoiser *self)
   //Output window
   switch (self->window_option_output)
   {
-  case 0:                                                 // HANN
+  case 0:                                               // HANN
     fft_window(self->output_window, self->fft_size, 0); //STFT input window
     break;
-  case 1:                                                 //HAMMING
+  case 1:                                               //HAMMING
     fft_window(self->output_window, self->fft_size, 1); //STFT input window
     break;
-  case 2:                                                 //BLACKMAN
+  case 2:                                               //BLACKMAN
     fft_window(self->output_window, self->fft_size, 2); //STFT input window
     break;
-  case 3:                                                 //VORBIS
+  case 3:                                               //VORBIS
     fft_window(self->output_window, self->fft_size, 3); //STFT input window
     break;
   }
 
-  //Once windows are initialized we can obtain 
+  //Once windows are initialized we can obtain
   //the scaling necessary for perfect reconstruction using Overlapp Add
   for (int i = 0; i < self->fft_size; i++)
     sum += self->input_window[i] * self->output_window[i];
@@ -111,7 +111,7 @@ void stft_d_pre_and_post_window(STFTdenoiser *self)
 /**
 * Initializes all dynamics arrays with zeros.
 */
-void stft_d_reset(STFTdenoiser *self)
+void stft_d_reset(STFT_Denoiser *self)
 {
   //Reset all arrays
   initialize_array(self->input_fft_buffer, 0.f, self->fft_size);
@@ -126,11 +126,10 @@ void stft_d_reset(STFTdenoiser *self)
 /**
 * STFT processor initialization and configuration.
 */
-STFTdenoiser *
-stft_d_init(int sample_rate)
+STFT_Denoiser *stft_d_init(int sample_rate)
 {
   //Allocate object
-  STFTdenoiser *self = (STFTdenoiser *)malloc(sizeof(STFTdenoiser));
+  STFT_Denoiser *self = (STFT_Denoiser *)malloc(sizeof(STFT_Denoiser));
 
   //self configuration
   self->fft_size = FFT_SIZE;
@@ -171,7 +170,7 @@ stft_d_init(int sample_rate)
   stft_d_pre_and_post_window(self);
 
   //Spectral processor related
-	self->fft_denoiser = fft_d_init(self->fft_size, sample_rate, self->hop);
+  self->fft_denoiser = fft_d_init(self->fft_size, sample_rate, self->hop);
 
   return self;
 }
@@ -179,7 +178,7 @@ stft_d_init(int sample_rate)
 /**
 * Free allocated memory.
 */
-void stft_d_free(STFTdenoiser *self)
+void stft_d_free(STFT_Denoiser *self)
 {
   fftwf_free(self->input_fft_buffer);
   fftwf_free(self->output_fft_buffer);
@@ -197,7 +196,7 @@ void stft_d_free(STFTdenoiser *self)
 /**
 * Does the analysis part of the stft for current block.
 */
-void stft_d_analysis(STFTdenoiser *self)
+void stft_d_analysis(STFT_Denoiser *self)
 {
   int k;
 
@@ -215,7 +214,7 @@ void stft_d_analysis(STFTdenoiser *self)
 * Does the synthesis part of the stft for current block and then does the OLA method to
 * enable the final output.
 */
-void stft_d_synthesis(STFTdenoiser *self)
+void stft_d_synthesis(STFT_Denoiser *self)
 {
   int k;
 
@@ -261,7 +260,7 @@ void stft_d_synthesis(STFTdenoiser *self)
 /**
 * Returns the latency needed to be reported to the host.
 */
-int stft_d_get_latency(STFTdenoiser *self)
+int stft_d_get_latency(STFT_Denoiser *self)
 {
   return self->input_latency;
 }
@@ -269,7 +268,7 @@ int stft_d_get_latency(STFTdenoiser *self)
 /**
 * Runs the STFT processing for the given signal by the host.
 */
-void stft_d_run(STFTdenoiser *self, int n_samples, const float *input, float *output,
+void stft_d_run(STFT_Denoiser *self, int n_samples, const float *input, float *output,
                 int enable, int learn_noise, float whitening_factor, float reduction_amount,
                 bool residual_listen, float transient_threshold, float masking_ceiling_limit,
                 float release, float noise_rescale)
@@ -289,7 +288,7 @@ void stft_d_run(STFTdenoiser *self, int n_samples, const float *input, float *ou
       self->read_position = self->input_latency;
 
       //Fill the fft buffer
-      memcpy(self->input_fft_buffer, self->in_fifo, sizeof(float)*self->fft_size);
+      memcpy(self->input_fft_buffer, self->in_fifo, sizeof(float) * self->fft_size);
 
       //Do analysis
       stft_d_analysis(self);

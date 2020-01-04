@@ -41,18 +41,17 @@ typedef struct
   float *noise_spectrum;       //captured noise profile power spectrum
   bool noise_spectrum_available; //indicate whether a noise profile is available or no
   float noise_block_count;         //Count windows for mean computing
-} Nestimator;
+} Noise_Estimator;
 
-void n_e_reset(Nestimator *self)
+void n_e_reset(Noise_Estimator *self)
 {
   self->noise_spectrum_available = false;
   initialize_array(self->noise_spectrum, 0.f, self->half_fft_size + 1);
 }
 
-Nestimator *
-n_e_init(int fft_size)
+Noise_Estimator * n_e_init(int fft_size)
 {
-  Nestimator * self = (Nestimator *)malloc(sizeof(Nestimator));
+  Noise_Estimator * self = (Noise_Estimator *)malloc(sizeof(Noise_Estimator));
 
   //Configuration
   self->fft_size = fft_size;
@@ -66,13 +65,13 @@ n_e_init(int fft_size)
 }
 
 
-void n_e_free(Nestimator *self)
+void n_e_free(Noise_Estimator *self)
 {
   free(self->noise_spectrum);
   free(self);
 }
 
-bool n_e_available(Nestimator *self)
+bool n_e_available(Noise_Estimator *self)
 {
   return self->noise_spectrum_available;
 }
@@ -80,7 +79,7 @@ bool n_e_available(Nestimator *self)
 /**
 * Noise estimation using a rolling mean over user selected noise section.
 */
-void n_e_run(Nestimator *self, float *spectrum)
+void n_e_run(Noise_Estimator *self, float *spectrum)
 {
   int k;
 

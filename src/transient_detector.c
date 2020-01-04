@@ -39,7 +39,7 @@ typedef struct
     float tp_r_mean;
     bool transient_present;
     float tp_window_count;
-} Tdetector;
+} Transient_Detector;
 
 //------TRANSIENT PROTECTION------
 

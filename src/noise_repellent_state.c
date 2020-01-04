@@ -46,13 +46,13 @@ typedef struct
     uint32_t child_type;
     int np_size;
     float *values;
-} NProfile;
+} NoiseProfile;
 
-NProfile*
+NoiseProfile*
 np_init(LV2_URID child_type, int np_size)
 {
     //Allocate object
-    NProfile *self = (NProfile *)malloc(sizeof(NProfile));
+    NoiseProfile *self = (NoiseProfile *)malloc(sizeof(NoiseProfile));
 
     self->child_type = child_type;
 	self->child_size = sizeof(float);
@@ -76,10 +76,10 @@ typedef struct
     LV2_URID prop_nwindow;
     LV2_URID prop_FFTp2;
 
-    NProfile *noise_profile;
-} Pstate;
+    NoiseProfile *noise_profile;
+} Plugin_State;
 
-bool ps_configure(Pstate *self, const LV2_Feature *const *features, int np_size)
+bool ps_configure(Plugin_State *self, const LV2_Feature *const *features, int np_size)
 {
     //Retrieve the URID map callback, and needed URIDs
     for (int i = 0; features[i]; ++i)
@@ -107,7 +107,7 @@ bool ps_configure(Pstate *self, const LV2_Feature *const *features, int np_size)
     return true;
 }
 
-void ps_savestate(Pstate *self, LV2_State_Store_Function store, LV2_State_Handle handle,
+void ps_savestate(Plugin_State *self, LV2_State_Store_Function store, LV2_State_Handle handle,
                   int *fft_size,float *noise_window_count,float *noise_profile)
 {
     store(handle, self->prop_fftsize, &fft_size, sizeof(int), self->atom_Int,
@@ -118,11 +118,11 @@ void ps_savestate(Pstate *self, LV2_State_Store_Function store, LV2_State_Handle
 
 	memcpy(self->noise_profile->values, noise_profile, sizeof(self->noise_profile->np_size));
 
-	store(handle, self->prop_FFTp2, (void *)self->noise_profile, sizeof(NProfile),
+	store(handle, self->prop_FFTp2, (void *)self->noise_profile, sizeof(NoiseProfile),
 		  self->atom_Vector, LV2_STATE_IS_POD | LV2_STATE_IS_PORTABLE);
 }
 
-bool ps_restorestate(Pstate *self,  LV2_State_Retrieve_Function retrieve, LV2_State_Handle handle,
+bool ps_restorestate(Plugin_State *self,  LV2_State_Retrieve_Function retrieve, LV2_State_Handle handle,
                      float* noise_profile, float noise_window_count, int *fft_size,
                      int fft_size_2)
 {
@@ -137,7 +137,7 @@ bool ps_restorestate(Pstate *self,  LV2_State_Retrieve_Function retrieve, LV2_St
 	}
 
 	const void *vecFFTp2 = retrieve(handle, self->prop_FFTp2, &size, &type, &valflags);
-	if (!vecFFTp2 || size != sizeof(NProfile) || type != self->atom_Vector)
+	if (!vecFFTp2 || size != sizeof(NoiseProfile) || type != self->atom_Vector)
 	{
 		return false;
 	}

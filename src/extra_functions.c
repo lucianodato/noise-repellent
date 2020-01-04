@@ -58,8 +58,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 * Method to force already-denormal float value to zero.
 * \param value to sanitize
 */
-static float
-sanitize_denormal(float value)
+static float sanitize_denormal(float value)
 {
   if (isnan(value))
   {
@@ -72,15 +71,13 @@ sanitize_denormal(float value)
 }
 
 ///sign function.
-static int
-sign(float x)
+static int sign(float x)
 {
   return (x >= 0.f ? 1.f : -1.f);
 }
 
 ///gets the next power of two of a number x.
-static int
-next_pow_two(int x)
+static int next_pow_two(int x)
 {
   int power = 2;
   while (x >>= 1)
@@ -89,8 +86,7 @@ next_pow_two(int x)
 }
 
 ///gets the nearest odd number of a number x.
-static int
-nearest_odd(int x)
+static int nearest_odd(int x)
 {
   if (x % 2 == 0)
     return x + 1;
@@ -99,8 +95,7 @@ nearest_odd(int x)
 }
 
 ///gets the nearest even number of a number x.
-static int
-nearest_even(int x)
+static int nearest_even(int x)
 {
   if (x % 2 == 0)
     return x;
@@ -109,15 +104,13 @@ nearest_even(int x)
 }
 
 ///converts a db value to linear scale.
-static float
-from_dB(float gdb)
+static float from_dB(float gdb)
 {
   return (expf(gdb / 10.f * logf(10.f)));
 }
 
 ///converts a linear value to db scale.
-static float
-to_dB(float g)
+static float to_dB(float g)
 {
   return (10.f * log10f(g));
 }
@@ -127,8 +120,7 @@ to_dB(float g)
 * \param samp_rate current sample rate of the host
 * \param N size of the fft
 */
-static float
-bin_to_freq(int i, float samp_rate, int N)
+static float bin_to_freq(int i, float samp_rate, int N)
 {
   return (float)i * (samp_rate / N / 2.f);
 }
@@ -138,8 +130,7 @@ bin_to_freq(int i, float samp_rate, int N)
 * \param samp_rate current sample rate of the host
 * \param N size of the fft
 */
-static int
-freq_to_bin(float freq, float samp_rate, int N)
+static int freq_to_bin(float freq, float samp_rate, int N)
 {
   return (int)(freq / (samp_rate / N / 2.f));
 }
@@ -165,8 +156,7 @@ typedef struct
 * \param result_val interpolation value result
 * \param result_val interpolation bin result
 */
-static void
-parabolic_interpolation(float left_val, float middle_val, float right_val,
+static void parabolic_interpolation(float left_val, float middle_val, float right_val,
                         int current_bin, float *result_val, int *result_bin)
 {
   float delta_x = 0.5 * ((left_val - right_val) / (left_val - 2.f * middle_val + right_val));
@@ -180,8 +170,7 @@ parabolic_interpolation(float left_val, float middle_val, float right_val,
 * \param value the value to copy to every position in the array
 * \param size the size of the array
 */
-static void
-initialize_array(float *array, float value, int size)
+static void initialize_array(float *array, float value, int size)
 {
   for (int k = 0; k < size; k++)
   {
@@ -194,8 +183,7 @@ initialize_array(float *array, float value, int size)
 * \param spectrum the array to check
 * \param N the size of the array (half the fft size plus 1)
 */
-static bool
-is_empty(float *spectrum, int N)
+static bool is_empty(float *spectrum, int N)
 {
   int k;
   for (k = 0; k <= N; k++)
@@ -213,8 +201,7 @@ is_empty(float *spectrum, int N)
 * \param spectrum the array to check
 * \param N the size of the array (half the fft size plus 1)
 */
-static float
-max_spectral_value(float *spectrum, int N)
+static float max_spectral_value(float *spectrum, int N)
 {
   int k;
   float max = spectrum[0];
@@ -230,8 +217,7 @@ max_spectral_value(float *spectrum, int N)
 * \param spectrum the array to check
 * \param N the size of the array (half the fft size plus 1)
 */
-static float
-min_spectral_value(float *spectrum, int N)
+static float min_spectral_value(float *spectrum, int N)
 {
   int k;
   float min = spectrum[0];
@@ -247,8 +233,7 @@ min_spectral_value(float *spectrum, int N)
 * \param a the array to check
 * \param m the size of the array (half the fft size plus 1)
 */
-static float
-spectral_mean(float *a, int m)
+static float spectral_mean(float *a, int m)
 {
   float sum = 0.f;
   for (int i = 0; i <= m; i++)
@@ -261,8 +246,7 @@ spectral_mean(float *a, int m)
 * \param a the array to sum
 * \param m the size of the array (half the fft size plus 1)
 */
-static float
-spectral_addition(float *a, int m)
+static float spectral_addition(float *a, int m)
 {
   float sum = 0.f;
   for (int i = 0; i <= m; i++)
@@ -275,8 +259,7 @@ spectral_addition(float *a, int m)
 * \param x the array to check
 * \param n the size of the array (half the fft size plus 1)
 */
-static float
-spectral_median(float *x, int n)
+static float spectral_median(float *x, int n)
 {
   float temp;
   int i, j;
@@ -314,8 +297,7 @@ spectral_median(float *x, int n)
 * \param x the array to check
 * \param n the size of the array (half the fft size plus 1)
 */
-static float
-spectral_moda(float *x, int n)
+static float spectral_moda(float *x, int n)
 {
   float temp[n];
   int i, j, pos_max;
@@ -353,8 +335,7 @@ spectral_moda(float *x, int n)
 * \param spectrum the spectrum to normalize
 * \param N the size of the spectrum (half the fft size plus 1)
 */
-static void
-get_normalized_spectum(float *spectrum, int N)
+static void get_normalized_spectum(float *spectrum, int N)
 {
   int k;
   float max_value = max_spectral_value(spectrum, N);
@@ -373,8 +354,7 @@ get_normalized_spectum(float *spectrum, int N)
 * \param spectrum_prev the previous power spectrum
 * \param N the size of the spectrum (half the fft size plus 1)
 */
-static float
-spectral_flux(float *spectrum, float *spectrum_prev, float N)
+static float spectral_flux(float *spectrum, float *spectrum_prev, float N)
 {
   int i;
   float spectral_flux = 0.f;
@@ -393,8 +373,7 @@ spectral_flux(float *spectrum, float *spectrum_prev, float N)
 * \param spectrum the current power spectrum
 * \param N the size of the spectrum (half the fft size plus 1)
 */
-static float
-high_frequency_content(float *spectrum, float N)
+static float high_frequency_content(float *spectrum, float N)
 {
   int i;
   float sum = 0.f;
@@ -414,8 +393,7 @@ high_frequency_content(float *spectrum, float N)
 * \param samp_rate current sample rate of the host
 * \param spectral_envelope_values array that holds the spectral envelope values
 */
-static void
-spectral_envelope(int fft_size_2, float *fft_p2, int samp_rate, float *spectral_envelope_values)
+static void spectral_envelope(int fft_size_2, float *fft_p2, int samp_rate, float *spectral_envelope_values)
 {
   int k;
 
@@ -469,8 +447,7 @@ spectral_envelope(int fft_size_2, float *fft_p2, int samp_rate, float *spectral_
 * \param peaks_count counter of peaks founded
 * \param samp_rate current sample rate of the host
 */
-static void
-spectral_peaks(int fft_size_2, float *fft_p2, FFTPeak *spectral_peaks, int *peak_pos,
+static void spectral_peaks(int fft_size_2, float *fft_p2, FFTPeak *spectral_peaks, int *peak_pos,
                int *peaks_count, int samp_rate)
 {
   int k;
@@ -602,8 +579,7 @@ spectral_peaks(int fft_size_2, float *fft_p2, FFTPeak *spectral_peaks, int *peak
 * \param N the size of the array
 * \param p the norm number
 */
-static float
-spectrum_p_norm(float *spectrum, float N, float p)
+static float spectrum_p_norm(float *spectrum, float N, float p)
 {
   float sum = 0.f;
 
@@ -622,8 +598,7 @@ spectrum_p_norm(float *spectrum, float N, float p)
 * \param k bin number
 * \param N fft size
 */
-static float
-blackman(int k, int N)
+static float blackman(int k, int N)
 {
   float p = ((float)(k)) / ((float)(N));
   return 0.42 - 0.5 * cosf(2.f * M_PI * p) + 0.08 * cosf(4.f * M_PI * p);
@@ -634,8 +609,7 @@ blackman(int k, int N)
 * \param k bin number
 * \param N fft size
 */
-static float
-hanning(int k, int N)
+static float hanning(int k, int N)
 {
   float p = ((float)(k)) / ((float)(N));
   return 0.5 - 0.5 * cosf(2.f * M_PI * p);
@@ -646,8 +620,7 @@ hanning(int k, int N)
 * \param k bin number
 * \param N fft size
 */
-static float
-hamming(int k, int N)
+static float hamming(int k, int N)
 {
   float p = ((float)(k)) / ((float)(N));
   return 0.54 - 0.46 * cosf(2.f * M_PI * p);
@@ -660,8 +633,7 @@ hamming(int k, int N)
 * \param k bin number
 * \param N fft size
 */
-static float
-vorbis(int k, int N)
+static float vorbis(int k, int N)
 {
   float p = ((float)(k)) / ((float)(N));
   return sinf(M_PI / 2.f * powf(sinf(M_PI * p), 2.f));
@@ -673,8 +645,7 @@ vorbis(int k, int N)
 * \param N fft size
 * \param window_type type of window
 */
-static void
-fft_window(float *window, int N, int window_type)
+static void fft_window(float *window, int N, int window_type)
 {
   int k;
   for (k = 0; k < N; k++)
@@ -709,8 +680,7 @@ fft_window(float *window, int N, int window_type)
 * \param fft_size size of the fft
 * \param fft_buffer buffer with the complex spectrum of the fft transform
 */
-static void
-get_info_from_bins(float *fft_p2, float *fft_magnitude, float *fft_phase,
+static void get_info_from_bins(float *fft_p2, float *fft_magnitude, float *fft_phase,
                    int fft_size_2, int fft_size, float *fft_buffer)
 {
   int k;

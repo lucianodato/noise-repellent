@@ -62,15 +62,15 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 	bool transient_detected;
 
-	Mestimator *masking_estimation;
-	Tdetector *transient_detection;
-	Ssmoother *spectrum_smoothing;
-} Gestimator;
+	Masking_Estimator *masking_estimation;
+	Transient_Detector *transient_detection;
+	Spectral_Smoother *spectrum_smoothing;
+} Gain_Estimator;
 
 /**
 * Reset dynamic arrays to zero.
 */
-void g_e_reset(Gestimator *self)
+void g_e_reset(Gain_Estimator *self)
 {
 	//Reset all arrays
 	initialize_array(self->signal_spectrum, 0.f, self->half_fft_size + 1);
@@ -85,11 +85,11 @@ void g_e_reset(Gestimator *self)
 /**
 * Gain estimator initialization and configuration.
 */
-Gestimator *
+Gain_Estimator *
 g_e_init(int fft_size, int samp_rate, int hop)
 {
 	//Allocate object
-	Gestimator *self = (Gestimator *)malloc(sizeof(Gestimator));
+	Gain_Estimator *self = (Gain_Estimator *)malloc(sizeof(Gain_Estimator));
 
 	//Configuration
 	self->fft_size = fft_size;
@@ -119,7 +119,7 @@ g_e_init(int fft_size, int samp_rate, int hop)
 /**
 * Free allocated memory.
 */
-void g_e_free(Gestimator *self)
+void g_e_free(Gain_Estimator *self)
 {
 	free(self->noise_spectrum);
 	free(self->gain_spectrum);
@@ -137,7 +137,7 @@ void g_e_free(Gestimator *self)
 /**
 * Wiener substraction supression rule. Outputs the filter mirrored around nyquist.
 */
-void wiener_subtraction(Gestimator *self)
+void wiener_subtraction(Gain_Estimator *self)
 {
 	int k;
 
@@ -165,7 +165,7 @@ void wiener_subtraction(Gestimator *self)
 /**
 * Power substraction supression rule. Outputs the filter mirrored around nyquist.
 */
-void power_subtraction(Gestimator *self)
+void power_subtraction(Gain_Estimator *self)
 {
 	int k;
 
@@ -193,7 +193,7 @@ void power_subtraction(Gestimator *self)
 /**
 * Magnitude substraction supression rule. Outputs the filter mirrored around nyquist.
 */
-void magnitude_subtraction(Gestimator *self)
+void magnitude_subtraction(Gain_Estimator *self)
 {
 	int k;
 
@@ -221,7 +221,7 @@ void magnitude_subtraction(Gestimator *self)
 /**
 * Gating with hard knee supression rule. Outputs the filter mirrored around nyquist.
 */
-void spectral_gating(Gestimator *self)
+void spectral_gating(Gain_Estimator *self)
 {
 	int k;
 
@@ -252,7 +252,7 @@ void spectral_gating(Gestimator *self)
 /**
 * Generalized spectral subtraction supression rule. This version uses an array of alphas and betas. Outputs the filter mirrored around nyquist. GAMMA defines what type of spectral Subtraction is used. GAMMA1=GAMMA2=1 is magnitude substaction. GAMMA1=2 GAMMA2=0.5 is power Subtraction. GAMMA1=2 GAMMA2=1 is wiener filtering.
 */
-void denoise_gain_gss(Gestimator *self)
+void denoise_gain_gss(Gain_Estimator *self)
 {
 	int k;
 
@@ -288,7 +288,7 @@ void denoise_gain_gss(Gestimator *self)
 * users decide the amount of noise reduccion themselves and spectral flooring is tied to
 * that parameter instead of being setted automatically.
 */
-void compute_alpha_and_beta(Gestimator *self, float masking_ceiling_limit, float masking_floor_limit)
+void compute_alpha_and_beta(Gain_Estimator *self, float masking_ceiling_limit, float masking_floor_limit)
 {
   int k;
   float normalized_value;
@@ -334,7 +334,7 @@ void compute_alpha_and_beta(Gestimator *self, float masking_ceiling_limit, float
   }
 }
 
-void g_e_run(Gestimator *self, float *signal_spectrum, float *gain_spectrum, float transient_threshold,
+void g_e_run(Gain_Estimator *self, float *signal_spectrum, float *gain_spectrum, float transient_threshold,
 			 float masking_ceiling_limit, float release, float noise_rescale)
 {
 	int k;
