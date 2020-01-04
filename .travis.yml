@@ -2,38 +2,70 @@ sudo: false
 
 matrix:
   include:
-    - os: linux
-      dist: xenial
+    - name: "linux-amd64"
+      os: linux
+      dist: bionic
       sudo: required
-    - os: osx
-      osx_image: xcode8.3
+      arch: amd64
+    - name: "linux-arm64"
+      os: linux
+      dist: bionic
+      sudo: required
+      arch: arm64
+    - name: "linux-i386"
+      os: linux
+      services:
+        - docker
+    - name: osx-multiarch
+      os: osx
+      osx_image: xcode11.3
 
 language: c
 
 before_install:
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew update; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew cask uninstall oclint; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install lv2 fftw meson ninja pkg-config; fi
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get update -qq; fi
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo apt-get install -qq lv2-dev libfftw3-dev python3-pip ninja-build; fi
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo -H pip3 install --upgrade pip; fi
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo pip3 install meson; fi
+  - if [ "$TRAVIS_JOB_NAME" == "linux-amd64" ]; then 
+      sudo apt-get update -qq;
+      sudo apt-get install -qq lv2-dev libfftw3-dev python3-pip ninja-build python3-setuptools zip;
+      sudo -H pip3 install --upgrade pip;
+      sudo -H pip3 install meson;
+    fi
+  - if [ "$TRAVIS_JOB_NAME" == "linux-arm64" ]; then  
+      sudo apt-get update -qq;
+      sudo apt-get install -qq lv2-dev libfftw3-dev python3-pip ninja-build python3-setuptools zip;
+      sudo -H pip3 install --upgrade pip;
+      sudo -H pip3 install meson;
+    fi
+  - if [ "$TRAVIS_JOB_NAME" == "osx-multiarch" ]; then 
+      brew update;
+      pip3 install --upgrade pip;
+      pip3 install meson;
+      brew install lv2 fftw ninja pkg-config zip;
+    fi
 
 script:
-  - mkdir -p build
-  - cd build
-  - meson .. --buildtype release
-  - ninja -v
-  - sudo ninja install
-  
-# deploy:
-#   provider: releases
-#   api_key:
-#     secure: ${GH_TOKEN}
-#   file_glob: true
-#   file: bin/*
-#   skip_cleanup: true
-#   overwrite: true
-#   on:
-#     repo: lucianodato/noise-repellent
-#     tags: true
+  - if [ "$TRAVIS_JOB_NAME" == "linux-amd64" ]; then
+      chmod +x scripts/make-binaries; bash scripts/make-binaries;
+    fi
+  - if [ "$TRAVIS_JOB_NAME" == "linux-arm64" ]; then
+      chmod +x scripts/make-binaries; bash scripts/make-binaries;
+    fi
+  - if [ "$TRAVIS_JOB_NAME" == "linux-i386" ]; then
+      docker run -v `pwd`:/noise-repellent i386/ubuntu:latest /bin/bash -c "apt-get update -qq; apt-get install -qq pkg-config lv2-dev libfftw3-dev python3-pip ninja-build python3-setuptools zip; pip3 install --upgrade pip; pip install meson; cd /noise-repellent; bash ./scripts/make-binaries";
+    fi
+  - if [ "$TRAVIS_JOB_NAME" == "osx-multiarch" ]; then
+      chmod +x scripts/make-binaries; bash scripts/make-binaries;
+    fi
+  - mv noise-repellent.zip noise-repellent-$TRAVIS_TAG-$TRAVIS_JOB_NAME.zip
+
+deploy:
+  provider: releases
+  api_key:
+    secure: nix7UnjIKYVxiDYSi08UDezDk+YWwy0OtsYlSkxMm7l5LfyMznw51dB4mX2H1QwqzTb0wLZLRdcTLkeF+z+j3FlcDCiOAhsZOHUJWESQVLSdG90Wa2QzI15d3jqjv9SQBVvbzlgXeTF78zVzUbkvyeFIYWKnLTo/3vUTBsRp+BXqR7tg0ovPa4CnR7SB/K2IDIskMedMo8oJhbedggwMt+22iYAb6sY0NpbpffD8ZtP4mrei5KLD4sadMaVzrXj9H6Gn5ukxglfUPHnEitI3iUVdTybTmpbtUUF90lSs8SdzGiBWAvkXnPAVP2QpKGmhAVyUGdWQ+1juTcLgzuSVz/ApsU0cRs5W88sDgm5ZCLnjA0B83X7QvCPMHrtOdFNLXgPoY8LVcEnzX+eNFVcDEw1VIArhe/8iQd/36G2kF5OuwNKqPVCGuWIPvpIePNwY2ieGV0P/dpPNgTtnsMw/JVsoGIA3TNFqn218Y1TFSZN7T+gU9nvpnfAa4qMfdX7gsWhKzSGgCRBJGVfLe1OgHko2gefNV9CLguaeax+t9J1D/Xx4X0tUwhh+mbkfMiPQ4/kd1j4e0msvs5xfYKPSwEXJG4JjWlN9s8TY3s55Rf3Rc7R8RlwRaTYZmeC1zmHUGyDz8k7KvOMj3uw2jVRMy3TTG2lWeJHe4HWRfoJsUoA=
+  file: 
+    - noise-repellent-$TRAVIS_TAG-$TRAVIS_JOB_NAME.zip
+  skip_cleanup: true
+  overwrite: true
+  on:
+    repo: lucianodato/noise-repellent
+    tags: true
+    branch: master

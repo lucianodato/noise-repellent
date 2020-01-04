@@ -17,19 +17,36 @@ nr_dep = [m_dep,fftw_dep,lv2_dep]
 if meson.get_compiler('c').get_id() == 'clang'
   add_global_arguments('-mrecip', language : 'c')
 endif
-cflags = ['-msse','-msse2','-mfpmath=sse','-ffast-math','-fomit-frame-pointer','-fno-finite-math-only']
+cflags = ['-ffast-math','-fomit-frame-pointer','-fno-finite-math-only']
+cflags += ['-Wno-unused-function']
+
+#install folder
+install_folder = 'nrepel.lv2'
 
 #install folder
 install_folder = 'nrepellent.lv2'
 
 #get the build operating system and configure install path and shared object extension
 current_os = build_machine.system()
+current_arch = build_machine.cpu_family()
+
+# Add x86_64 optimization where appropriate (not for ARM)
+if current_arch != 'aarch64'
+    cflags += ['-msse','-msse2','-mfpmath=sse']
+endif
+
+# Add osx multiarch flags when appropriate
+if current_os == 'darwin'
+    cflags += ['-march=i386', '-march=x86-64','-mmacosx-version-min=10.5','-DMAC_OS_X_VERSION_MAX_ALLOWED=105']
+endif
+
+# Extension for library by os
 if current_os == 'darwin' #mac
     extension = '.dylib'
-else #unix like
+else #unix like    
     extension = '.so'
-endif
-if current_os == 'windows' #windows
+endif #windows
+if current_os == 'windows' or current_os == 'cygwin'
     extension = '.dll'
 endif
 
@@ -38,8 +55,8 @@ shared_library(lv2_name,src,name_prefix: '',dependencies: nr_dep,c_args: cflags,
 
 #Configure manifest ttl in order to replace the correct shared object extension
 manifest_conf = configuration_data()
-manifest_conf.set('LIB_EXT',extension)
-configure_file(input : 'lv2ttl/manifest.ttl.in',output : 'manifest.ttl',configuration : manifest_conf)
+manifest_conf.set('LIB_EXT', extension)
+manifest_ttl = configure_file(input : 'lv2ttl/manifest.ttl.in',output : 'manifest.ttl',configuration : manifest_conf)
 
 #add manifest.ttl and nrepel.ttl to be installed with the shared object
-install_data(['build/manifest.ttl', 'lv2ttl/nrepellent.ttl'],install_dir : install_folder)
+install_data([manifest_ttl, 'lv2ttl/nrepel.ttl'],install_dir : install_folder)

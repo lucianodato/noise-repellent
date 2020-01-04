@@ -1,8 +1,13 @@
 [![Build Status](https://travis-ci.org/lucianodato/noise-repellent.svg?branch=master)](https://travis-ci.org/lucianodato/noise-repellent)
+[![Build status](https://ci.appveyor.com/api/projects/status/aiwjt82ag7rdahqu?svg=true)](https://ci.appveyor.com/project/lucianodato/noise-repellent)
 
 noise-repellent
 -------
 An lv2 plug-in for broadband noise reduction.
+
+Short Demo
+-------
+[![](http://img.youtube.com/vi/iNVxCvgcnig/0.jpg)](http://www.youtube.com/watch?v=iNVxCvgcnig "")
 
 Features
 -------
@@ -24,18 +29,23 @@ Limitations
 
 Install
 -------
+Binaries for most platforms are provided with releases but if you are an experienced user you can go ahead an compile it from source. Just extract the adequate zip file for your platform to your lv2 plugins folder (normally /usr/local/lib/lv2 or $HOME/.lv2)
+
 To compile and install this plug-in you will need the LV2 SDK, Meson build system (use pip3 to install it), ninja compiler, git and fftw3 library (>= 3.3.5 is recommended to avoid threading issues).
 
-Installation (Use whatever --prefix folder your OS needs) for example in MacOS:
+Installation:
 ```bash
   git clone https://github.com/lucianodato/noise-repellent.git
-  meson build --buildtype release --prefix "/Library/Audio/Plug-Ins/LV2" && cd build
-  ninja && sudo ninja install
+  cd noise-repellent
+  meson build --buildtype release --prefix (your-os-appropriate-location-fullpath)
+  ninja -v -C build
+  sudo ninja -C build install
 ```
+Noise-repellent is on Arch community at https://www.archlinux.org/packages/community/x86_64/noise-repellent/.
 
-In linux prefix should be --prefix "/usr/local/lib/lv2" or something similar depending on your distro filesystem requirments.
-
-There is now an AUR package at https://aur.archlinux.org/packages/noise-repellent-git for Arch Users (Kindly done by CrocoDuck).
+Usage Instuctions
+-----
+Please refer to project's wiki https://github.com/lucianodato/noise-repellent/wiki
 
 Code Documentation
 -----
