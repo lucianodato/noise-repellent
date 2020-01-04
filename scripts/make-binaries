@@ -9,4 +9,5 @@ ninja -v -C build
 ninja -C build install
 
 # Compress build in a zip file
-zip -9 -r noise-repellent.zip /tmp/nrepel.lv2
+mv /tmp/nrepel.lv2 ./nrepel.lv2
+zip -9 -r noise-repellent.zip ./nrepel.lv2
