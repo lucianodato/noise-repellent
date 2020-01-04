@@ -60,14 +60,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 static float sanitize_denormal(float value)
 {
-	if (isnan(value))
-	{
-		return FLT_MIN; //to avoid log errors
-	}
-	else
-	{
-		return value;
-	}
+	return (isnan(value) ? FLT_MIN /*to avoid log errors*/ : value);
 }
 
 ///sign function.
@@ -88,19 +81,13 @@ static int next_pow_two(int x)
 ///gets the nearest odd number of a number x.
 static int nearest_odd(int x)
 {
-	if (x % 2 == 0)
-		return x + 1;
-	else
-		return x;
+	return((x % 2 == 0) ? x + 1 : x);
 }
 
 ///gets the nearest even number of a number x.
 static int nearest_even(int x)
 {
-	if (x % 2 == 0)
-		return x;
-	else
-		return x - 1;
+	return ((x % 2 == 0) ? x : x - 1);
 }
 
 ///converts a db value to linear scale.
