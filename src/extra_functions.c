@@ -44,11 +44,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define M_PI 3.14159265358979323846f
 #endif
 
-#define SP_MAX_NUM 100      //Max number of spectral peaks to find
-#define SP_THRESH 0.1f      //Threshold to discriminate peaks (high value to discard noise) Linear 0<>1
+#define SP_MAX_NUM 100		//Max number of spectral peaks to find
+#define SP_THRESH 0.1f		//Threshold to discriminate peaks (high value to discard noise) Linear 0<>1
 #define SP_USE_P_INTER true //Use parabolic interpolation
 #define SP_MAX_FREQ 16000.f //Highest frequency to search for peaks
-#define SP_MIN_FREQ 40.f    //Lowest frequency to search for peaks
+#define SP_MIN_FREQ 40.f	//Lowest frequency to search for peaks
 
 #define SE_RESOLUTION 100.f //Spectral envelope resolution
 
@@ -60,59 +60,59 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 static float sanitize_denormal(float value)
 {
-  if (isnan(value))
-  {
-    return FLT_MIN; //to avoid log errors
-  }
-  else
-  {
-    return value;
-  }
+	if (isnan(value))
+	{
+		return FLT_MIN; //to avoid log errors
+	}
+	else
+	{
+		return value;
+	}
 }
 
 ///sign function.
 static int sign(float x)
 {
-  return (x >= 0.f ? 1.f : -1.f);
+	return (x >= 0.f ? 1.f : -1.f);
 }
 
 ///gets the next power of two of a number x.
 static int next_pow_two(int x)
 {
-  int power = 2;
-  while (x >>= 1)
-    power <<= 1;
-  return power;
+	int power = 2;
+	while (x >>= 1)
+		power <<= 1;
+	return power;
 }
 
 ///gets the nearest odd number of a number x.
 static int nearest_odd(int x)
 {
-  if (x % 2 == 0)
-    return x + 1;
-  else
-    return x;
+	if (x % 2 == 0)
+		return x + 1;
+	else
+		return x;
 }
 
 ///gets the nearest even number of a number x.
 static int nearest_even(int x)
 {
-  if (x % 2 == 0)
-    return x;
-  else
-    return x - 1;
+	if (x % 2 == 0)
+		return x;
+	else
+		return x - 1;
 }
 
 ///converts a db value to linear scale.
 static float from_dB(float gdb)
 {
-  return (expf(gdb / 10.f * logf(10.f)));
+	return (expf(gdb / 10.f * logf(10.f)));
 }
 
 ///converts a linear value to db scale.
 static float to_dB(float g)
 {
-  return (10.f * log10f(g));
+	return (10.f * log10f(g));
 }
 
 /*Maps a bin number to a frequency
@@ -122,7 +122,7 @@ static float to_dB(float g)
 */
 static float bin_to_freq(int i, float samp_rate, int N)
 {
-  return (float)i * (samp_rate / N / 2.f);
+	return (float)i * (samp_rate / N / 2.f);
 }
 
 /*Maps a frequency to a bin number
@@ -132,7 +132,7 @@ static float bin_to_freq(int i, float samp_rate, int N)
 */
 static int freq_to_bin(float freq, float samp_rate, int N)
 {
-  return (int)(freq / (samp_rate / N / 2.f));
+	return (int)(freq / (samp_rate / N / 2.f));
 }
 
 //---------SPECTRAL METHODS-------------
@@ -142,8 +142,8 @@ static int freq_to_bin(float freq, float samp_rate, int N)
 */
 typedef struct
 {
-  float magnitude;
-  int position;
+	float magnitude;
+	int position;
 } FFTPeak;
 
 /**
@@ -157,11 +157,11 @@ typedef struct
 * \param result_val interpolation bin result
 */
 static void parabolic_interpolation(float left_val, float middle_val, float right_val,
-                        int current_bin, float *result_val, int *result_bin)
+									int current_bin, float *result_val, int *result_bin)
 {
-  float delta_x = 0.5 * ((left_val - right_val) / (left_val - 2.f * middle_val + right_val));
-  *result_bin = current_bin + (int)delta_x;
-  *result_val = middle_val - 0.25 * (left_val - right_val) * delta_x;
+	float delta_x = 0.5 * ((left_val - right_val) / (left_val - 2.f * middle_val + right_val));
+	*result_bin = current_bin + (int)delta_x;
+	*result_val = middle_val - 0.25 * (left_val - right_val) * delta_x;
 }
 
 /**
@@ -172,10 +172,10 @@ static void parabolic_interpolation(float left_val, float middle_val, float righ
 */
 static void initialize_array(float *array, float value, int size)
 {
-  for (int k = 0; k < size; k++)
-  {
-    array[k] = value;
-  }
+	for (int k = 0; k < size; k++)
+	{
+		array[k] = value;
+	}
 }
 
 /**
@@ -185,15 +185,15 @@ static void initialize_array(float *array, float value, int size)
 */
 static bool is_empty(float *spectrum, int N)
 {
-  int k;
-  for (k = 0; k <= N; k++)
-  {
-    if (spectrum[k] > FLT_MIN)
-    {
-      return false;
-    }
-  }
-  return true;
+	int k;
+	for (k = 0; k <= N; k++)
+	{
+		if (spectrum[k] > FLT_MIN)
+		{
+			return false;
+		}
+	}
+	return true;
 }
 
 /**
@@ -203,13 +203,13 @@ static bool is_empty(float *spectrum, int N)
 */
 static float max_spectral_value(float *spectrum, int N)
 {
-  int k;
-  float max = spectrum[0];
-  for (k = 0; k <= N; k++)
-  {
-    max = MAX(spectrum[k], max);
-  }
-  return max;
+	int k;
+	float max = spectrum[0];
+	for (k = 0; k <= N; k++)
+	{
+		max = MAX(spectrum[k], max);
+	}
+	return max;
 }
 
 /**
@@ -219,13 +219,13 @@ static float max_spectral_value(float *spectrum, int N)
 */
 static float min_spectral_value(float *spectrum, int N)
 {
-  int k;
-  float min = spectrum[0];
-  for (k = 0; k <= N; k++)
-  {
-    min = MIN(spectrum[k], min);
-  }
-  return min;
+	int k;
+	float min = spectrum[0];
+	for (k = 0; k <= N; k++)
+	{
+		min = MIN(spectrum[k], min);
+	}
+	return min;
 }
 
 /**
@@ -235,10 +235,10 @@ static float min_spectral_value(float *spectrum, int N)
 */
 static float spectral_mean(float *a, int m)
 {
-  float sum = 0.f;
-  for (int i = 0; i <= m; i++)
-    sum += a[i];
-  return (sum / (float)(m + 1));
+	float sum = 0.f;
+	for (int i = 0; i <= m; i++)
+		sum += a[i];
+	return (sum / (float)(m + 1));
 }
 
 /**
@@ -248,10 +248,10 @@ static float spectral_mean(float *a, int m)
 */
 static float spectral_addition(float *a, int m)
 {
-  float sum = 0.f;
-  for (int i = 0; i <= m; i++)
-    sum += a[i];
-  return sum;
+	float sum = 0.f;
+	for (int i = 0; i <= m; i++)
+		sum += a[i];
+	return sum;
 }
 
 /**
@@ -261,35 +261,35 @@ static float spectral_addition(float *a, int m)
 */
 static float spectral_median(float *x, int n)
 {
-  float temp;
-  int i, j;
-  float tmp[n + 1];
-  memcpy(tmp, x, sizeof(float) * (n + 1));
-  // the following two loops sort the array x in ascending order
-  for (i = 0; i < n; i++)
-  {
-    for (j = i + 1; j <= n; j++)
-    {
-      if (tmp[j] < tmp[i])
-      {
-        // swap elements
-        temp = tmp[i];
-        tmp[i] = tmp[j];
-        tmp[j] = temp;
-      }
-    }
-  }
+	float temp;
+	int i, j;
+	float tmp[n + 1];
+	memcpy(tmp, x, sizeof(float) * (n + 1));
+	// the following two loops sort the array x in ascending order
+	for (i = 0; i < n; i++)
+	{
+		for (j = i + 1; j <= n; j++)
+		{
+			if (tmp[j] < tmp[i])
+			{
+				// swap elements
+				temp = tmp[i];
+				tmp[i] = tmp[j];
+				tmp[j] = temp;
+			}
+		}
+	}
 
-  if (n % 2 == 0)
-  {
-    // if there is an even number of elements, return mean of the two elements in the middle
-    return ((tmp[n / 2] + tmp[n / 2 - 1]) / 2.f);
-  }
-  else
-  {
-    // else return the element in the middle
-    return tmp[n / 2];
-  }
+	if (n % 2 == 0)
+	{
+		// if there is an even number of elements, return mean of the two elements in the middle
+		return ((tmp[n / 2] + tmp[n / 2 - 1]) / 2.f);
+	}
+	else
+	{
+		// else return the element in the middle
+		return tmp[n / 2];
+	}
 }
 
 /**
@@ -299,35 +299,35 @@ static float spectral_median(float *x, int n)
 */
 static float spectral_moda(float *x, int n)
 {
-  float temp[n];
-  int i, j, pos_max;
-  float max;
+	float temp[n];
+	int i, j, pos_max;
+	float max;
 
-  for (i = 0; i < n; i++)
-  {
-    temp[i] = 0.f;
-  }
+	for (i = 0; i < n; i++)
+	{
+		temp[i] = 0.f;
+	}
 
-  for (i = 0; i < n; i++)
-  {
-    for (j = i; j < n; j++)
-    {
-      if (x[j] == x[i])
-        temp[i]++;
-    }
-  }
+	for (i = 0; i < n; i++)
+	{
+		for (j = i; j < n; j++)
+		{
+			if (x[j] == x[i])
+				temp[i]++;
+		}
+	}
 
-  max = temp[0];
-  pos_max = 0;
-  for (i = 0; i < n; i++)
-  {
-    if (temp[i] > max)
-    {
-      pos_max = i;
-      max = temp[i];
-    }
-  }
-  return x[pos_max];
+	max = temp[0];
+	pos_max = 0;
+	for (i = 0; i < n; i++)
+	{
+		if (temp[i] > max)
+		{
+			pos_max = i;
+			max = temp[i];
+		}
+	}
+	return x[pos_max];
 }
 
 /**
@@ -337,15 +337,15 @@ static float spectral_moda(float *x, int n)
 */
 static void get_normalized_spectum(float *spectrum, int N)
 {
-  int k;
-  float max_value = max_spectral_value(spectrum, N);
-  float min_value = min_spectral_value(spectrum, N);
+	int k;
+	float max_value = max_spectral_value(spectrum, N);
+	float min_value = min_spectral_value(spectrum, N);
 
-  //Normalizing the noise print
-  for (k = 0; k <= N; k++)
-  {
-    spectrum[k] = (spectrum[k] - min_value) / (max_value - min_value);
-  }
+	//Normalizing the noise print
+	for (k = 0; k <= N; k++)
+	{
+		spectrum[k] = (spectrum[k] - min_value) / (max_value - min_value);
+	}
 }
 
 /**
@@ -356,16 +356,16 @@ static void get_normalized_spectum(float *spectrum, int N)
 */
 static float spectral_flux(float *spectrum, float *spectrum_prev, float N)
 {
-  int i;
-  float spectral_flux = 0.f;
-  float temp;
+	int i;
+	float spectral_flux = 0.f;
+	float temp;
 
-  for (i = 0; i <= N; i++)
-  {
-    temp = sqrtf(spectrum[i]) - sqrtf(spectrum_prev[i]); //Recieves power spectrum uses magnitude
-    spectral_flux += (temp + fabs(temp)) / 2.f;
-  }
-  return spectral_flux;
+	for (i = 0; i <= N; i++)
+	{
+		temp = sqrtf(spectrum[i]) - sqrtf(spectrum_prev[i]); //Recieves power spectrum uses magnitude
+		spectral_flux += (temp + fabs(temp)) / 2.f;
+	}
+	return spectral_flux;
 }
 
 /**
@@ -375,14 +375,14 @@ static float spectral_flux(float *spectrum, float *spectrum_prev, float N)
 */
 static float high_frequency_content(float *spectrum, float N)
 {
-  int i;
-  float sum = 0.f;
+	int i;
+	float sum = 0.f;
 
-  for (i = 0; i <= N; i++)
-  {
-    sum += i * spectrum[i];
-  }
-  return sum / (float)(N + 1);
+	for (i = 0; i <= N; i++)
+	{
+		sum += i * spectrum[i];
+	}
+	return sum / (float)(N + 1);
 }
 
 /**
@@ -395,47 +395,47 @@ static float high_frequency_content(float *spectrum, float N)
 */
 static void spectral_envelope(int fft_size_2, float *fft_p2, int samp_rate, float *spectral_envelope_values)
 {
-  int k;
+	int k;
 
-  //compute envelope
-  int spec_size = fft_size_2 + 1;
-  float spectral_range = bin_to_freq(spec_size, samp_rate, fft_size_2 * 2);
-  int hop = (int)freq_to_bin(SE_RESOLUTION, samp_rate, fft_size_2 * 2); //Experimental
+	//compute envelope
+	int spec_size = fft_size_2 + 1;
+	float spectral_range = bin_to_freq(spec_size, samp_rate, fft_size_2 * 2);
+	int hop = (int)freq_to_bin(SE_RESOLUTION, samp_rate, fft_size_2 * 2); //Experimental
 
-  for (k = 0; k <= fft_size_2; k += hop)
-  {
-    float freq = bin_to_freq(k, samp_rate, fft_size_2 * 2);
+	for (k = 0; k <= fft_size_2; k += hop)
+	{
+		float freq = bin_to_freq(k, samp_rate, fft_size_2 * 2);
 
-    float bf = freq - MAX(50.0, freq * 0.34); // 0.66
-    float ef = freq + MAX(50.0, freq * 0.58); // 1.58
-    int b = (int)(bf / spectral_range * (spec_size - 1.0) + 0.5);
-    int e = (int)(ef / spectral_range * (spec_size - 1.0) + 0.5);
-    b = MAX(b, 0);
-    b = MIN(spec_size - 1, b);
-    e = MAX(e, b + 1);
-    e = MIN(spec_size, e);
-    float c = b / 2.0 + e / 2.0;
-    float half_window_length = e - c;
+		float bf = freq - MAX(50.0, freq * 0.34); // 0.66
+		float ef = freq + MAX(50.0, freq * 0.58); // 1.58
+		int b = (int)(bf / spectral_range * (spec_size - 1.0) + 0.5);
+		int e = (int)(ef / spectral_range * (spec_size - 1.0) + 0.5);
+		b = MAX(b, 0);
+		b = MIN(spec_size - 1, b);
+		e = MAX(e, b + 1);
+		e = MIN(spec_size, e);
+		float c = b / 2.0 + e / 2.0;
+		float half_window_length = e - c;
 
-    float n = 0.0;
-    float wavg = 0.0;
+		float n = 0.0;
+		float wavg = 0.0;
 
-    for (int i = b; i < e; ++i)
-    {
-      float weight = 1.0 - fabs((float)(i)-c) / half_window_length;
-      weight *= weight;
-      weight *= weight;
-      float spectrum_energy_val = fft_p2[i]; // * fft_p2[i];
-      weight *= spectrum_energy_val;
-      wavg += spectrum_energy_val * weight;
-      n += weight;
-    }
-    if (n != 0.0)
-      wavg /= n;
+		for (int i = b; i < e; ++i)
+		{
+			float weight = 1.0 - fabs((float)(i)-c) / half_window_length;
+			weight *= weight;
+			weight *= weight;
+			float spectrum_energy_val = fft_p2[i]; // * fft_p2[i];
+			weight *= spectrum_energy_val;
+			wavg += spectrum_energy_val * weight;
+			n += weight;
+		}
+		if (n != 0.0)
+			wavg /= n;
 
-    //final value
-    spectral_envelope_values[k] = wavg; //sqrtf(wavg);
-  }
+		//final value
+		spectral_envelope_values[k] = wavg; //sqrtf(wavg);
+	}
 }
 
 /**
@@ -448,129 +448,129 @@ static void spectral_envelope(int fft_size_2, float *fft_p2, int samp_rate, floa
 * \param samp_rate current sample rate of the host
 */
 static void spectral_peaks(int fft_size_2, float *fft_p2, FFTPeak *spectral_peaks, int *peak_pos,
-               int *peaks_count, int samp_rate)
+						   int *peaks_count, int samp_rate)
 {
-  int k;
-  float fft_magnitude_db[fft_size_2 + 1];
-  float peak_threshold_db = to_dB(SP_THRESH);
-  int max_bin = MIN(freq_to_bin(SP_MAX_FREQ, samp_rate, fft_size_2 * 2), fft_size_2 + 1);
-  int min_bin = MAX(freq_to_bin(SP_MIN_FREQ, samp_rate, fft_size_2 * 2), 0);
-  int result_bin;
-  float result_val;
+	int k;
+	float fft_magnitude_db[fft_size_2 + 1];
+	float peak_threshold_db = to_dB(SP_THRESH);
+	int max_bin = MIN(freq_to_bin(SP_MAX_FREQ, samp_rate, fft_size_2 * 2), fft_size_2 + 1);
+	int min_bin = MAX(freq_to_bin(SP_MIN_FREQ, samp_rate, fft_size_2 * 2), 0);
+	int result_bin;
+	float result_val;
 
-  //Get the magnitude spectrum in dB scale (twise as precise than using linear scale)
-  for (k = 0; k <= fft_size_2; k++)
-  {
-    fft_magnitude_db[k] = to_dB(sqrtf(fft_p2[k]));
-  }
+	//Get the magnitude spectrum in dB scale (twise as precise than using linear scale)
+	for (k = 0; k <= fft_size_2; k++)
+	{
+		fft_magnitude_db[k] = to_dB(sqrtf(fft_p2[k]));
+	}
 
-  //index for the magnitude array
-  int i = min_bin;
+	//index for the magnitude array
+	int i = min_bin;
 
-  //Index for peak array
-  k = 0;
+	//Index for peak array
+	k = 0;
 
-  //The zero bin could be a peak
-  if (i + 1 < fft_size_2 + 1 && fft_magnitude_db[i] > fft_magnitude_db[i + 1])
-  {
-    if (fft_magnitude_db[i] > peak_threshold_db)
-    {
-      spectral_peaks[k].position = i;
-      spectral_peaks[k].magnitude = sqrtf(from_dB(fft_magnitude_db[i]));
-      peak_pos[i] = 1;
-      k++;
-    }
-  }
+	//The zero bin could be a peak
+	if (i + 1 < fft_size_2 + 1 && fft_magnitude_db[i] > fft_magnitude_db[i + 1])
+	{
+		if (fft_magnitude_db[i] > peak_threshold_db)
+		{
+			spectral_peaks[k].position = i;
+			spectral_peaks[k].magnitude = sqrtf(from_dB(fft_magnitude_db[i]));
+			peak_pos[i] = 1;
+			k++;
+		}
+	}
 
-  //Peak finding loop
-  while (k < SP_MAX_NUM || i < max_bin)
-  {
-    //descending a peak
-    while (i + 1 < fft_size_2 && fft_magnitude_db[i] >= fft_magnitude_db[i + 1])
-    {
-      i++;
-    }
-    //ascending a peak
-    while (i + 1 < fft_size_2 && fft_magnitude_db[i] < fft_magnitude_db[i + 1])
-    {
-      i++;
-    }
+	//Peak finding loop
+	while (k < SP_MAX_NUM || i < max_bin)
+	{
+		//descending a peak
+		while (i + 1 < fft_size_2 && fft_magnitude_db[i] >= fft_magnitude_db[i + 1])
+		{
+			i++;
+		}
+		//ascending a peak
+		while (i + 1 < fft_size_2 && fft_magnitude_db[i] < fft_magnitude_db[i + 1])
+		{
+			i++;
+		}
 
-    //when reaching a peak verify that is one value peak or multiple values peak
-    int j = i;
-    while (j + 1 < fft_size_2 && (fft_magnitude_db[j] == fft_magnitude_db[j + 1]))
-    {
-      j++;
-    }
+		//when reaching a peak verify that is one value peak or multiple values peak
+		int j = i;
+		while (j + 1 < fft_size_2 && (fft_magnitude_db[j] == fft_magnitude_db[j + 1]))
+		{
+			j++;
+		}
 
-    //end of the flat peak if the peak decreases is really a peak otherwise it is not
-    if (j + 1 < fft_size_2 && fft_magnitude_db[j + 1] < fft_magnitude_db[j] && fft_magnitude_db[j] > peak_threshold_db)
-    {
-      result_bin = 0.0;
-      result_val = 0.0;
+		//end of the flat peak if the peak decreases is really a peak otherwise it is not
+		if (j + 1 < fft_size_2 && fft_magnitude_db[j + 1] < fft_magnitude_db[j] && fft_magnitude_db[j] > peak_threshold_db)
+		{
+			result_bin = 0.0;
+			result_val = 0.0;
 
-      if (j != i)
-      { //peak between i and j
-        if (SP_USE_P_INTER)
-        {
-          result_bin = (i + j) * 0.5; //center bin of the flat peak
-        }
-        else
-        {
-          result_bin = i;
-        }
-        result_val = fft_magnitude_db[i];
-      }
-      else
-      { //interpolate peak at i-1, i and i+1
-        if (SP_USE_P_INTER)
-        {
-          parabolic_interpolation(fft_magnitude_db[j - 1], fft_magnitude_db[j], fft_magnitude_db[j + 1], j, &result_val, &result_bin);
-        }
-        else
-        {
-          result_bin = j;
-          result_val = fft_magnitude_db[j];
-        }
-      }
+			if (j != i)
+			{ //peak between i and j
+				if (SP_USE_P_INTER)
+				{
+					result_bin = (i + j) * 0.5; //center bin of the flat peak
+				}
+				else
+				{
+					result_bin = i;
+				}
+				result_val = fft_magnitude_db[i];
+			}
+			else
+			{ //interpolate peak at i-1, i and i+1
+				if (SP_USE_P_INTER)
+				{
+					parabolic_interpolation(fft_magnitude_db[j - 1], fft_magnitude_db[j], fft_magnitude_db[j + 1], j, &result_val, &result_bin);
+				}
+				else
+				{
+					result_bin = j;
+					result_val = fft_magnitude_db[j];
+				}
+			}
 
-      spectral_peaks[k].position = result_bin;
-      spectral_peaks[k].magnitude = sqrtf(from_dB(result_val));
-      peak_pos[i] = 1;
-      k++;
-    }
+			spectral_peaks[k].position = result_bin;
+			spectral_peaks[k].magnitude = sqrtf(from_dB(result_val));
+			peak_pos[i] = 1;
+			k++;
+		}
 
-    //if turned out not to be a peak advance i
-    i = j;
+		//if turned out not to be a peak advance i
+		i = j;
 
-    //If it's the last position of the array
-    if (i + 1 >= fft_size_2)
-    {
-      if (i == fft_size_2 - 1 && fft_magnitude_db[i - 1] < fft_magnitude_db[i] &&
-          fft_magnitude_db[i + 1] < fft_magnitude_db[i] &&
-          fft_magnitude_db[i] > peak_threshold_db)
-      {
-        result_bin = 0.0;
-        result_val = 0.0;
-        if (SP_USE_P_INTER)
-        {
-          parabolic_interpolation(fft_magnitude_db[i - 1], fft_magnitude_db[i], fft_magnitude_db[i + 1], j, &result_val, &result_bin);
-        }
-        else
-        {
-          result_bin = i;
-          result_val = fft_magnitude_db[i];
-        }
-        spectral_peaks[k].position = result_bin;
-        spectral_peaks[k].magnitude = sqrtf(from_dB(result_val));
-        peak_pos[i] = 1;
-        k++;
-      }
-      break;
-    }
-  }
-  *peaks_count = k;
-  //printf("%i\n",k );
+		//If it's the last position of the array
+		if (i + 1 >= fft_size_2)
+		{
+			if (i == fft_size_2 - 1 && fft_magnitude_db[i - 1] < fft_magnitude_db[i] &&
+				fft_magnitude_db[i + 1] < fft_magnitude_db[i] &&
+				fft_magnitude_db[i] > peak_threshold_db)
+			{
+				result_bin = 0.0;
+				result_val = 0.0;
+				if (SP_USE_P_INTER)
+				{
+					parabolic_interpolation(fft_magnitude_db[i - 1], fft_magnitude_db[i], fft_magnitude_db[i + 1], j, &result_val, &result_bin);
+				}
+				else
+				{
+					result_bin = i;
+					result_val = fft_magnitude_db[i];
+				}
+				spectral_peaks[k].position = result_bin;
+				spectral_peaks[k].magnitude = sqrtf(from_dB(result_val));
+				peak_pos[i] = 1;
+				k++;
+			}
+			break;
+		}
+	}
+	*peaks_count = k;
+	//printf("%i\n",k );
 }
 
 /**
@@ -581,14 +581,14 @@ static void spectral_peaks(int fft_size_2, float *fft_p2, FFTPeak *spectral_peak
 */
 static float spectrum_p_norm(float *spectrum, float N, float p)
 {
-  float sum = 0.f;
+	float sum = 0.f;
 
-  for (int k = 0; k < N; k++)
-  {
-    sum += powf(spectrum[k], p);
-  }
+	for (int k = 0; k < N; k++)
+	{
+		sum += powf(spectrum[k], p);
+	}
 
-  return powf(sum, 1.f / p);
+	return powf(sum, 1.f / p);
 }
 
 //-----------WINDOW---------------
@@ -600,8 +600,8 @@ static float spectrum_p_norm(float *spectrum, float N, float p)
 */
 static float blackman(int k, int N)
 {
-  float p = ((float)(k)) / ((float)(N));
-  return 0.42 - 0.5 * cosf(2.f * M_PI * p) + 0.08 * cosf(4.f * M_PI * p);
+	float p = ((float)(k)) / ((float)(N));
+	return 0.42 - 0.5 * cosf(2.f * M_PI * p) + 0.08 * cosf(4.f * M_PI * p);
 }
 
 /**
@@ -611,8 +611,8 @@ static float blackman(int k, int N)
 */
 static float hanning(int k, int N)
 {
-  float p = ((float)(k)) / ((float)(N));
-  return 0.5 - 0.5 * cosf(2.f * M_PI * p);
+	float p = ((float)(k)) / ((float)(N));
+	return 0.5 - 0.5 * cosf(2.f * M_PI * p);
 }
 
 /**
@@ -622,8 +622,8 @@ static float hanning(int k, int N)
 */
 static float hamming(int k, int N)
 {
-  float p = ((float)(k)) / ((float)(N));
-  return 0.54 - 0.46 * cosf(2.f * M_PI * p);
+	float p = ((float)(k)) / ((float)(N));
+	return 0.54 - 0.46 * cosf(2.f * M_PI * p);
 }
 
 /**
@@ -635,8 +635,8 @@ static float hamming(int k, int N)
 */
 static float vorbis(int k, int N)
 {
-  float p = ((float)(k)) / ((float)(N));
-  return sinf(M_PI / 2.f * powf(sinf(M_PI * p), 2.f));
+	float p = ((float)(k)) / ((float)(N));
+	return sinf(M_PI / 2.f * powf(sinf(M_PI * p), 2.f));
 }
 
 /**
@@ -647,25 +647,25 @@ static float vorbis(int k, int N)
 */
 static void fft_window(float *window, int N, int window_type)
 {
-  int k;
-  for (k = 0; k < N; k++)
-  {
-    switch (window_type)
-    {
-    case BLACKMAN_WINDOW:
-      window[k] = blackman(k, N);
-      break;
-    case HANN_WINDOW:
-      window[k] = hanning(k, N);
-      break;
-    case HAMMING_WINDOW:
-      window[k] = hamming(k, N);
-      break;
-    case VORBIS_WINDOW:
-      window[k] = vorbis(k, N);
-      break;
-    }
-  }
+	int k;
+	for (k = 0; k < N; k++)
+	{
+		switch (window_type)
+		{
+		case BLACKMAN_WINDOW:
+			window[k] = blackman(k, N);
+			break;
+		case HANN_WINDOW:
+			window[k] = hanning(k, N);
+			break;
+		case HAMMING_WINDOW:
+			window[k] = hamming(k, N);
+			break;
+		case VORBIS_WINDOW:
+			window[k] = vorbis(k, N);
+			break;
+		}
+	}
 }
 
 /**
@@ -681,43 +681,43 @@ static void fft_window(float *window, int N, int window_type)
 * \param fft_buffer buffer with the complex spectrum of the fft transform
 */
 static void get_info_from_bins(float *fft_p2, float *fft_magnitude, float *fft_phase,
-                   int fft_size_2, int fft_size, float *fft_buffer)
+							   int fft_size_2, int fft_size, float *fft_buffer)
 {
-  int k;
-  float real_p, imag_n, mag, p2, phase;
+	int k;
+	float real_p, imag_n, mag, p2, phase;
 
-  //DC bin
-  real_p = fft_buffer[0];
-  imag_n = 0.f;
+	//DC bin
+	real_p = fft_buffer[0];
+	imag_n = 0.f;
 
-  fft_p2[0] = real_p * real_p;
-  fft_magnitude[0] = real_p;
-  fft_phase[0] = atan2f(real_p, 0.f); //Phase is 0 for DC and nyquist
+	fft_p2[0] = real_p * real_p;
+	fft_magnitude[0] = real_p;
+	fft_phase[0] = atan2f(real_p, 0.f); //Phase is 0 for DC and nyquist
 
-  //Get the rest of positive spectrum and compute the magnitude
-  for (k = 1; k <= fft_size_2; k++)
-  {
-    //Get the half complex spectrum reals and complex
-    real_p = fft_buffer[k];
-    imag_n = fft_buffer[fft_size - k];
+	//Get the rest of positive spectrum and compute the magnitude
+	for (k = 1; k <= fft_size_2; k++)
+	{
+		//Get the half complex spectrum reals and complex
+		real_p = fft_buffer[k];
+		imag_n = fft_buffer[fft_size - k];
 
-    //Get the magnitude, phase and power spectrum
-    if (k < fft_size_2)
-    {
-      p2 = (real_p * real_p + imag_n * imag_n);
-      mag = sqrtf(p2); //sqrt(real^2+imag^2)
-      phase = atan2f(real_p, imag_n);
-    }
-    else
-    {
-      //Nyquist - this is due to half complex transform
-      p2 = real_p * real_p;
-      mag = real_p;
-      phase = atan2f(real_p, 0.f); //Phase is 0 for DC and nyquist
-    }
-    //Store values in magnitude and power arrays (this stores the positive spectrum only)
-    fft_p2[k] = p2;
-    fft_magnitude[k] = mag; //This is not used but part of the STFT transform for generic use
-    fft_phase[k] = phase;   //This is not used but part of the STFT transform for generic use
-  }
+		//Get the magnitude, phase and power spectrum
+		if (k < fft_size_2)
+		{
+			p2 = (real_p * real_p + imag_n * imag_n);
+			mag = sqrtf(p2); //sqrt(real^2+imag^2)
+			phase = atan2f(real_p, imag_n);
+		}
+		else
+		{
+			//Nyquist - this is due to half complex transform
+			p2 = real_p * real_p;
+			mag = real_p;
+			phase = atan2f(real_p, 0.f); //Phase is 0 for DC and nyquist
+		}
+		//Store values in magnitude and power arrays (this stores the positive spectrum only)
+		fft_p2[k] = p2;
+		fft_magnitude[k] = mag; //This is not used but part of the STFT transform for generic use
+		fft_phase[k] = phase;   //This is not used but part of the STFT transform for generic use
+	}
 }

@@ -47,13 +47,13 @@ static const float relative_thresholds[N_BARK_BANDS] = {-16.f, -17.f, -18.f, -19
 */
 typedef struct
 {
-  //General parameters
-  int fft_size;
-  int fft_size_2;
-  int samp_rate;
-  int hop;
+	//General parameters
+	int fft_size;
+	int fft_size_2;
+	int samp_rate;
+	int hop;
 
-  //masking
+	//masking
 	float *bark_z;
 	float *absolute_thresholds; //absolute threshold of hearing
 	float *SSF;
@@ -66,8 +66,7 @@ typedef struct
 	float *output_fft_buffer_at;
 	fftwf_plan forward_at;
 
-} Masking_Estimator;
-
+} MaskingEstimator;
 
 /**
 * Fft to bark bilinear scale transform. This computes the corresponding bark band for
@@ -79,14 +78,14 @@ typedef struct
 */
 static void compute_bark_mapping(float *bark_z, int fft_size_2, int srate)
 {
-  int k;
-  float freq;
+	int k;
+	float freq;
 
-  for (k = 0; k <= fft_size_2; k++)
-  {
-    freq = (float)srate / (2.f * (float)(fft_size_2) * (float)k); //bin to freq
-    bark_z[k] = 1.f + 13.f * atanf(0.00076f * freq) + 3.5f * atanf(powf(freq / 7500.f, 2.f));
-  }
+	for (k = 0; k <= fft_size_2; k++)
+	{
+		freq = (float)srate / (2.f * (float)(fft_size_2) * (float)k); //bin to freq
+		bark_z[k] = 1.f + 13.f * atanf(0.00076f * freq) + 3.5f * atanf(powf(freq / 7500.f, 2.f));
+	}
 }
 
 /**
@@ -98,19 +97,19 @@ static void compute_bark_mapping(float *bark_z, int fft_size_2, int srate)
 */
 static void compute_SSF(float *SSF)
 {
-  int i, j;
-  float y;
-  for (i = 0; i < N_BARK_BANDS; i++)
-  {
-    for (j = 0; j < N_BARK_BANDS; j++)
-    {
-      y = (i + 1) - (j + 1);
-      //Spreading function (Schroeder)
-      ARRAYACCESS(SSF, i, j) = 15.81f + 7.5f * (y + 0.474f) - 17.5f * sqrtf(1.f + (y + 0.474f) * (y + 0.474f)); //dB scale
-      //db to Linear
-      ARRAYACCESS(SSF, i, j) = powf(10.f, ARRAYACCESS(SSF, i, j) / 10.f);
-    }
-  }
+	int i, j;
+	float y;
+	for (i = 0; i < N_BARK_BANDS; i++)
+	{
+		for (j = 0; j < N_BARK_BANDS; j++)
+		{
+			y = (i + 1) - (j + 1);
+			//Spreading function (Schroeder)
+			ARRAYACCESS(SSF, i, j) = 15.81f + 7.5f * (y + 0.474f) - 17.5f * sqrtf(1.f + (y + 0.474f) * (y + 0.474f)); //dB scale
+			//db to Linear
+			ARRAYACCESS(SSF, i, j) = powf(10.f, ARRAYACCESS(SSF, i, j) / 10.f);
+		}
+	}
 }
 
 /**
@@ -123,15 +122,15 @@ static void compute_SSF(float *SSF)
 */
 static void convolve_with_SSF(float *SSF, float *bark_spectrum, float *spreaded_spectrum)
 {
-  int i, j;
-  for (i = 0; i < N_BARK_BANDS; i++)
-  {
-    spreaded_spectrum[i] = 0.f;
-    for (j = 0; j < N_BARK_BANDS; j++)
-    {
-      spreaded_spectrum[i] += ARRAYACCESS(SSF, i, j) * bark_spectrum[j];
-    }
-  }
+	int i, j;
+	for (i = 0; i < N_BARK_BANDS; i++)
+	{
+		spreaded_spectrum[i] = 0.f;
+		for (j = 0; j < N_BARK_BANDS; j++)
+		{
+			spreaded_spectrum[i] += ARRAYACCESS(SSF, i, j) * bark_spectrum[j];
+		}
+	}
 }
 
 /**
@@ -144,31 +143,31 @@ static void convolve_with_SSF(float *SSF, float *bark_spectrum, float *spreaded_
 * \param n_bins_per_band holds the the number of bins in each band
 */
 static void compute_bark_spectrum(float *bark_z, float *bark_spectrum, float *spectrum,
-                      float *intermediate_band_bins, float *n_bins_per_band)
+								  float *intermediate_band_bins, float *n_bins_per_band)
 {
-  int j;
-  int last_position = 0;
+	int j;
+	int last_position = 0;
 
-  for (j = 0; j < N_BARK_BANDS; j++)
-  {
-    int cont = 0;
-    if (j == 0)
-      cont = 1; //Do not take into account the DC component
+	for (j = 0; j < N_BARK_BANDS; j++)
+	{
+		int cont = 0;
+		if (j == 0)
+			cont = 1; //Do not take into account the DC component
 
-    bark_spectrum[j] = 0.f;
-    //If we are on the same band for the bin
-    while (floor(bark_z[last_position + cont]) == (j + 1))
-    { //First bark band is 1
-      bark_spectrum[j] += spectrum[last_position + cont];
-      cont++;
-    }
-    //Move the position to the next group of bins from the upper bark band
-    last_position += cont;
+		bark_spectrum[j] = 0.f;
+		//If we are on the same band for the bin
+		while (floor(bark_z[last_position + cont]) == (j + 1))
+		{ //First bark band is 1
+			bark_spectrum[j] += spectrum[last_position + cont];
+			cont++;
+		}
+		//Move the position to the next group of bins from the upper bark band
+		last_position += cont;
 
-    //store bin information
-    n_bins_per_band[j] = cont;
-    intermediate_band_bins[j] = last_position;
-  }
+		//store bin information
+		n_bins_per_band[j] = cont;
+		intermediate_band_bins[j] = last_position;
+	}
 }
 
 /**
@@ -185,53 +184,53 @@ static void compute_bark_spectrum(float *bark_z, float *bark_spectrum, float *sp
 * \param output_fft_buffer_at output buffer for the reference sinewave fft transform
 * \param forward_at fftw plan for the reference sinewave fft transform
 */
-void spl_reference(float* spl_reference_values, int fft_size, int fft_size_2, int srate)
+void spl_reference(float *spl_reference_values, int fft_size, int fft_size_2, int srate)
 {
-  int k;
-  float *input_fft_buffer_at;
-  float *output_fft_buffer_at;
-  fftwf_plan forward_at;
-  float sinewave[fft_size];
-  float window[fft_size];
-  float fft_p2_at[fft_size_2 + 1];
-  float fft_magnitude_at[fft_size_2 + 1];
-  float fft_phase_at[fft_size_2 + 1];
-  float fft_p2_at_dbspl[fft_size_2 + 1];
+	int k;
+	float *input_fft_buffer_at;
+	float *output_fft_buffer_at;
+	fftwf_plan forward_at;
+	float sinewave[fft_size];
+	float window[fft_size];
+	float fft_p2_at[fft_size_2 + 1];
+	float fft_magnitude_at[fft_size_2 + 1];
+	float fft_phase_at[fft_size_2 + 1];
+	float fft_p2_at_dbspl[fft_size_2 + 1];
 
-  input_fft_buffer_at = (float *)calloc(fft_size, sizeof(float));
+	input_fft_buffer_at = (float *)calloc(fft_size, sizeof(float));
 	output_fft_buffer_at = (float *)calloc(fft_size, sizeof(float));
 	forward_at = fftwf_plan_r2r_1d(fft_size, input_fft_buffer_at, output_fft_buffer_at, FFTW_R2HC, FFTW_ESTIMATE);
 
-  //Generate a fullscale sine wave of 1 kHz
-  for (k = 0; k < fft_size; k++)
-  {
-    sinewave[k] = S_AMP * sinf((2.f * M_PI * k * AT_SINE_WAVE_FREQ) / (float)srate);
-  }
+	//Generate a fullscale sine wave of 1 kHz
+	for (k = 0; k < fft_size; k++)
+	{
+		sinewave[k] = S_AMP * sinf((2.f * M_PI * k * AT_SINE_WAVE_FREQ) / (float)srate);
+	}
 
-  //Windowing the sinewave
-  fft_window(window, fft_size, 0); //von-Hann window
-  for (k = 0; k < fft_size; k++)
-  {
-    input_fft_buffer_at[k] = sinewave[k] * window[k];
-  }
+	//Windowing the sinewave
+	fft_window(window, fft_size, 0); //von-Hann window
+	for (k = 0; k < fft_size; k++)
+	{
+		input_fft_buffer_at[k] = sinewave[k] * window[k];
+	}
 
-  //Do FFT
-  fftwf_execute(forward_at);
+	//Do FFT
+	fftwf_execute(forward_at);
 
-  //Get the magnitude
-  get_info_from_bins(fft_p2_at, fft_magnitude_at, fft_phase_at, fft_size_2, fft_size,
-                     output_fft_buffer_at);
+	//Get the magnitude
+	get_info_from_bins(fft_p2_at, fft_magnitude_at, fft_phase_at, fft_size_2, fft_size,
+					   output_fft_buffer_at);
 
-  //Convert to db and taking into account 90dbfs of reproduction loudness
-  for (k = 0; k <= fft_size_2; k++)
-  {
-    fft_p2_at_dbspl[k] = REFERENCE_LEVEL - 10.f * log10f(fft_p2_at[k]);
-  }
+	//Convert to db and taking into account 90dbfs of reproduction loudness
+	for (k = 0; k <= fft_size_2; k++)
+	{
+		fft_p2_at_dbspl[k] = REFERENCE_LEVEL - 10.f * log10f(fft_p2_at[k]);
+	}
 
-  memcpy(spl_reference_values, fft_p2_at_dbspl, sizeof(float)*(fft_size_2+1));
+	memcpy(spl_reference_values, fft_p2_at_dbspl, sizeof(float) * (fft_size_2 + 1));
 
-  fftwf_free(input_fft_buffer_at);
-  fftwf_free(output_fft_buffer_at);
+	fftwf_free(input_fft_buffer_at);
+	fftwf_free(output_fft_buffer_at);
 	fftwf_destroy_plan(forward_at);
 }
 
@@ -244,10 +243,10 @@ void spl_reference(float* spl_reference_values, int fft_size, int fft_size_2, in
 */
 static void convert_to_dbspl(float *spl_reference_values, float *masking_thresholds, int fft_size_2)
 {
-  for (int k = 0; k <= fft_size_2; k++)
-  {
-    masking_thresholds[k] += spl_reference_values[k];
-  }
+	for (int k = 0; k <= fft_size_2; k++)
+	{
+		masking_thresholds[k] += spl_reference_values[k];
+	}
 }
 
 /**
@@ -260,14 +259,14 @@ static void convert_to_dbspl(float *spl_reference_values, float *masking_thresho
 */
 static void compute_absolute_thresholds(float *absolute_thresholds, int fft_size_2, int srate)
 {
-  int k;
-  float freq;
+	int k;
+	float freq;
 
-  for (k = 1; k <= fft_size_2; k++)
-  {                                                                                                                                                     //As explained by thiemann
-    freq = bin_to_freq(k, srate, fft_size_2);                                                                                                           //bin to freq
-    absolute_thresholds[k] = 3.64f * powf((freq / 1000.f), -0.8f) - 6.5f * exp(-0.6f * powf((freq / 1000.f - 3.3f), 2.f)) + powf(10.f, -3.f) * powf((freq / 1000.f), 4.f); //dBSPL scale
-  }
+	for (k = 1; k <= fft_size_2; k++)
+	{																																										   //As explained by thiemann
+		freq = bin_to_freq(k, srate, fft_size_2);																															   //bin to freq
+		absolute_thresholds[k] = 3.64f * powf((freq / 1000.f), -0.8f) - 6.5f * exp(-0.6f * powf((freq / 1000.f - 3.3f), 2.f)) + powf(10.f, -3.f) * powf((freq / 1000.f), 4.f); //dBSPL scale
+	}
 }
 
 /**
@@ -281,39 +280,39 @@ static void compute_absolute_thresholds(float *absolute_thresholds, int fft_size
 * \param band the bark band given
 */
 static float compute_tonality_factor(float *spectrum, float *intermediate_band_bins,
-                        float *n_bins_per_band, int band)
+									 float *n_bins_per_band, int band)
 {
-  int k;
-  float SFM, tonality_factor;
-  float sum_p = 0.f, sum_log_p = 0.f;
-  int start_pos, end_pos = 0;
+	int k;
+	float SFM, tonality_factor;
+	float sum_p = 0.f, sum_log_p = 0.f;
+	int start_pos, end_pos = 0;
 
-  //Mapping to bark bands
-  if (band == 0)
-  {
-    start_pos = band;
-    end_pos = n_bins_per_band[band];
-  }
-  else
-  {
-    start_pos = intermediate_band_bins[band - 1];
-    end_pos = intermediate_band_bins[band - 1] + n_bins_per_band[band];
-  }
+	//Mapping to bark bands
+	if (band == 0)
+	{
+		start_pos = band;
+		end_pos = n_bins_per_band[band];
+	}
+	else
+	{
+		start_pos = intermediate_band_bins[band - 1];
+		end_pos = intermediate_band_bins[band - 1] + n_bins_per_band[band];
+	}
 
-  //Using power spectrum to compute the tonality factor
-  for (k = start_pos; k < end_pos; k++)
-  {
-    //For spectral flatness measures
-    sum_p += spectrum[k];
-    sum_log_p += log10f(spectrum[k]);
-  }
-  //spectral flatness measure using Geometric and Arithmetic means of the spectrum
-  SFM = 10.f * (sum_log_p / (float)(n_bins_per_band[band]) - log10f(sum_p / (float)(n_bins_per_band[band]))); //this value is in db scale
+	//Using power spectrum to compute the tonality factor
+	for (k = start_pos; k < end_pos; k++)
+	{
+		//For spectral flatness measures
+		sum_p += spectrum[k];
+		sum_log_p += log10f(spectrum[k]);
+	}
+	//spectral flatness measure using Geometric and Arithmetic means of the spectrum
+	SFM = 10.f * (sum_log_p / (float)(n_bins_per_band[band]) - log10f(sum_p / (float)(n_bins_per_band[band]))); //this value is in db scale
 
-  //Tonality factor in db scale
-  tonality_factor = MIN(SFM / -60.f, 1.f);
+	//Tonality factor in db scale
+	tonality_factor = MIN(SFM / -60.f, 1.f);
 
-  return tonality_factor;
+	return tonality_factor;
 }
 
 /**
@@ -332,74 +331,74 @@ static float compute_tonality_factor(float *spectrum, float *intermediate_band_b
 * \param spl_reference_values defines the reference values for each bin to convert from db to db SPL
 */
 static void compute_masking_thresholds(float *bark_z, float *absolute_thresholds, float *SSF,
-                           float *spectrum, int fft_size_2, float *masking_thresholds,
-                           float *spreaded_unity_gain_bark_spectrum,
-                           float *spl_reference_values)
+									   float *spectrum, int fft_size_2, float *masking_thresholds,
+									   float *spreaded_unity_gain_bark_spectrum,
+									   float *spl_reference_values)
 {
-  int k, j, start_pos, end_pos;
-  float intermediate_band_bins[N_BARK_BANDS];
-  float n_bins_per_band[N_BARK_BANDS];
-  float bark_spectrum[N_BARK_BANDS];
-  float threshold_j[N_BARK_BANDS];
-  float masking_offset[N_BARK_BANDS];
-  float spreaded_spectrum[N_BARK_BANDS];
-  float tonality_factor;
+	int k, j, start_pos, end_pos;
+	float intermediate_band_bins[N_BARK_BANDS];
+	float n_bins_per_band[N_BARK_BANDS];
+	float bark_spectrum[N_BARK_BANDS];
+	float threshold_j[N_BARK_BANDS];
+	float masking_offset[N_BARK_BANDS];
+	float spreaded_spectrum[N_BARK_BANDS];
+	float tonality_factor;
 
-  //First we get the energy in each bark band
-  compute_bark_spectrum(bark_z, bark_spectrum, spectrum, intermediate_band_bins,
-                        n_bins_per_band);
+	//First we get the energy in each bark band
+	compute_bark_spectrum(bark_z, bark_spectrum, spectrum, intermediate_band_bins,
+						  n_bins_per_band);
 
-  //Now that we have the bark spectrum
-  //Convolution bewtween the bark spectrum and SSF (Toepliz matrix multiplication)
-  convolve_with_SSF(SSF, bark_spectrum, spreaded_spectrum);
+	//Now that we have the bark spectrum
+	//Convolution bewtween the bark spectrum and SSF (Toepliz matrix multiplication)
+	convolve_with_SSF(SSF, bark_spectrum, spreaded_spectrum);
 
-  for (j = 0; j < N_BARK_BANDS; j++)
-  {
-    //Then we compute the tonality_factor for each band (1 tone like 0 noise like)
-    tonality_factor = compute_tonality_factor(spectrum, intermediate_band_bins, n_bins_per_band, j); //Uses power spectrum
+	for (j = 0; j < N_BARK_BANDS; j++)
+	{
+		//Then we compute the tonality_factor for each band (1 tone like 0 noise like)
+		tonality_factor = compute_tonality_factor(spectrum, intermediate_band_bins, n_bins_per_band, j); //Uses power spectrum
 
-    //Masking offset
-    masking_offset[j] = (tonality_factor * (14.5f + (float)(j + 1)) + 5.5f * (1.f - tonality_factor));
+		//Masking offset
+		masking_offset[j] = (tonality_factor * (14.5f + (float)(j + 1)) + 5.5f * (1.f - tonality_factor));
 
 #if BIAS
-    //Using offset proposed by Virag (an optimization not needed)
-    masking_offset[j] = relative_thresholds[j];
-    //Consider tonal noise in upper bands (j>15) due to musical noise of the power Sustraction that was used at First
-    if (j > 15)
-      masking_offset[j] += HIGH_FREQ_BIAS;
+		//Using offset proposed by Virag (an optimization not needed)
+		masking_offset[j] = relative_thresholds[j];
+		//Consider tonal noise in upper bands (j>15) due to musical noise of the power Sustraction that was used at First
+		if (j > 15)
+			masking_offset[j] += HIGH_FREQ_BIAS;
 #endif
 
-    //spread Masking threshold
-    threshold_j[j] = powf(10.f, log10f(spreaded_spectrum[j]) - (masking_offset[j] / 10.f));
+		//spread Masking threshold
+		threshold_j[j] = powf(10.f, log10f(spreaded_spectrum[j]) - (masking_offset[j] / 10.f));
 
-    //Renormalization
-    threshold_j[j] -= 10.f * log10f(spreaded_unity_gain_bark_spectrum[j]);
+		//Renormalization
+		threshold_j[j] -= 10.f * log10f(spreaded_unity_gain_bark_spectrum[j]);
 
-    //Relating the spread masking threshold to the critical band masking thresholds
-    //Border case
-    if (j == 0)
-    {
-      start_pos = 0;
-    }
-    else
-    {
-      start_pos = intermediate_band_bins[j - 1];
-    }
-    end_pos = intermediate_band_bins[j];
+		//Relating the spread masking threshold to the critical band masking thresholds
+		//Border case
+		if (j == 0)
+		{
+			start_pos = 0;
+		}
+		else
+		{
+			start_pos = intermediate_band_bins[j - 1];
+		}
+		end_pos = intermediate_band_bins[j];
 
-    for (k = start_pos; k < end_pos; k++)
-    {
-      masking_thresholds[k] = threshold_j[j];
-    }
-  }
+		for (k = start_pos; k < end_pos; k++)
+		{
+			masking_thresholds[k] = threshold_j[j];
+		}
+	}
 
-  //Masking thresholds need to be converted to db spl scale in order to be compared with
-  //absolute threshold of hearing
-  convert_to_dbspl(spl_reference_values, masking_thresholds, fft_size_2);
+	//Masking thresholds need to be converted to db spl scale in order to be compared with
+	//absolute threshold of hearing
+	convert_to_dbspl(spl_reference_values, masking_thresholds, fft_size_2);
 
-  //Take into account the absolute_thresholds of hearing
-  for (k = 0; k <= fft_size_2; k++)
-  {
-    masking_thresholds[k] = MAX(masking_thresholds[k], absolute_thresholds[k]);
-  }
+	//Take into account the absolute_thresholds of hearing
+	for (k = 0; k <= fft_size_2; k++)
+	{
+		masking_thresholds[k] = MAX(masking_thresholds[k], absolute_thresholds[k]);
+	}
 }

@@ -42,24 +42,24 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 typedef struct
 {
-    uint32_t child_size;
-    uint32_t child_type;
-    int np_size;
-    float *values;
+	uint32_t child_size;
+	uint32_t child_type;
+	int np_size;
+	float *values;
 } NoiseProfile;
 
-NoiseProfile*
+NoiseProfile *
 np_init(LV2_URID child_type, int np_size)
 {
-    //Allocate object
-    NoiseProfile *self = (NoiseProfile *)malloc(sizeof(NoiseProfile));
+	//Allocate object
+	NoiseProfile *self = (NoiseProfile *)malloc(sizeof(NoiseProfile));
 
-    self->child_type = child_type;
+	self->child_type = child_type;
 	self->child_size = sizeof(float);
-    self->np_size = np_size;
-    self->values = (float *)calloc((self->np_size), sizeof(float));
+	self->np_size = np_size;
+	self->values = (float *)calloc((self->np_size), sizeof(float));
 
-    return self;
+	return self;
 }
 
 /**
@@ -67,51 +67,51 @@ np_init(LV2_URID child_type, int np_size)
 */
 typedef struct
 {
-    //LV2 state URID (Save and restore noise profile)
-    LV2_URID_Map *map;
-    LV2_URID atom_Vector;
-    LV2_URID atom_Int;
-    LV2_URID atom_Float;
-    LV2_URID prop_fftsize;
-    LV2_URID prop_nwindow;
-    LV2_URID prop_FFTp2;
+	//LV2 state URID (Save and restore noise profile)
+	LV2_URID_Map *map;
+	LV2_URID atom_Vector;
+	LV2_URID atom_Int;
+	LV2_URID atom_Float;
+	LV2_URID prop_fftsize;
+	LV2_URID prop_nwindow;
+	LV2_URID prop_FFTp2;
 
-    NoiseProfile *noise_profile;
-} Plugin_State;
+	NoiseProfile *noise_profile;
+} PluginState;
 
-bool ps_configure(Plugin_State *self, const LV2_Feature *const *features, int np_size)
+bool ps_configure(PluginState *self, const LV2_Feature *const *features, int np_size)
 {
-    //Retrieve the URID map callback, and needed URIDs
-    for (int i = 0; features[i]; ++i)
-    {
-        if (!strcmp(features[i]->URI, LV2_URID__map))
-        {
-            self->map = (LV2_URID_Map *)features[i]->data;
-        }
-    }
-    if (!self->map)
-    {
-        return false; //host doesn't support states
-    }
+	//Retrieve the URID map callback, and needed URIDs
+	for (int i = 0; features[i]; ++i)
+	{
+		if (!strcmp(features[i]->URI, LV2_URID__map))
+		{
+			self->map = (LV2_URID_Map *)features[i]->data;
+		}
+	}
+	if (!self->map)
+	{
+		return false; //host doesn't support states
+	}
 
-    //For lv2 state (noise profile saving)
-    self->atom_Vector = self->map->map(self->map->handle, LV2_ATOM__Vector);
-    self->atom_Int = self->map->map(self->map->handle, LV2_ATOM__Int);
-    self->atom_Float = self->map->map(self->map->handle, LV2_ATOM__Float);
-    self->prop_fftsize = self->map->map(self->map->handle, NOISEREPELLENT_URI "#fftsize");
-    self->prop_nwindow = self->map->map(self->map->handle, NOISEREPELLENT_URI "#nwindow");
-    self->prop_FFTp2 = self->map->map(self->map->handle, NOISEREPELLENT_URI "#FFTp2");
+	//For lv2 state (noise profile saving)
+	self->atom_Vector = self->map->map(self->map->handle, LV2_ATOM__Vector);
+	self->atom_Int = self->map->map(self->map->handle, LV2_ATOM__Int);
+	self->atom_Float = self->map->map(self->map->handle, LV2_ATOM__Float);
+	self->prop_fftsize = self->map->map(self->map->handle, NOISEREPELLENT_URI "#fftsize");
+	self->prop_nwindow = self->map->map(self->map->handle, NOISEREPELLENT_URI "#nwindow");
+	self->prop_FFTp2 = self->map->map(self->map->handle, NOISEREPELLENT_URI "#FFTp2");
 
-    self->noise_profile = np_init(self->atom_Float,np_size);
+	self->noise_profile = np_init(self->atom_Float, np_size);
 
-    return true;
+	return true;
 }
 
-void ps_savestate(Plugin_State *self, LV2_State_Store_Function store, LV2_State_Handle handle,
-                  int *fft_size,float *noise_window_count,float *noise_profile)
+void ps_savestate(PluginState *self, LV2_State_Store_Function store, LV2_State_Handle handle,
+				  int *fft_size, float *noise_window_count, float *noise_profile)
 {
-    store(handle, self->prop_fftsize, &fft_size, sizeof(int), self->atom_Int,
-        LV2_STATE_IS_POD | LV2_STATE_IS_PORTABLE);
+	store(handle, self->prop_fftsize, &fft_size, sizeof(int), self->atom_Int,
+		  LV2_STATE_IS_POD | LV2_STATE_IS_PORTABLE);
 
 	store(handle, self->prop_nwindow, &noise_window_count, sizeof(float),
 		  self->atom_Float, LV2_STATE_IS_POD | LV2_STATE_IS_PORTABLE);
@@ -122,11 +122,11 @@ void ps_savestate(Plugin_State *self, LV2_State_Store_Function store, LV2_State_
 		  self->atom_Vector, LV2_STATE_IS_POD | LV2_STATE_IS_PORTABLE);
 }
 
-bool ps_restorestate(Plugin_State *self,  LV2_State_Retrieve_Function retrieve, LV2_State_Handle handle,
-                     float* noise_profile, float noise_window_count, int *fft_size,
-                     int fft_size_2)
+bool ps_restorestate(PluginState *self, LV2_State_Retrieve_Function retrieve, LV2_State_Handle handle,
+					 float *noise_profile, float noise_window_count, int *fft_size,
+					 int fft_size_2)
 {
-    size_t size;
+	size_t size;
 	uint32_t type;
 	uint32_t valflags;
 
@@ -157,5 +157,5 @@ bool ps_restorestate(Plugin_State *self,  LV2_State_Retrieve_Function retrieve, 
 	//Reactivate denoising with restored profile
 	//self->noise_thresholds_availables = true;
 
-    return true;
+	return true;
 }

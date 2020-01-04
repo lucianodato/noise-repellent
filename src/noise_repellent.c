@@ -46,7 +46,7 @@ typedef enum
 	NOISEREPELLENT_LATENCY = 10,
 	NOISEREPELLENT_INPUT = 11,
 	NOISEREPELLENT_OUTPUT = 12,
-} Port_Index;
+} PortIndex;
 
 /**
 * Struct for noise repellent instance, the host is going to use.
@@ -71,11 +71,11 @@ typedef struct
 	float *report_latency;		 //Latency necessary
 
 	//STFT processing instance
-	STFT_Denoiser *stft_denoiser; //The stft transform object
+	STFTDenoiser *stft_denoiser; //The stft transform object
 
 	//Plugin state instance
-	Plugin_State *plugin_state;
-} Noise_Repellent;
+	PluginState *plugin_state;
+} NoiseRepellent;
 
 /**
 * Instantiates the plugin.
@@ -84,7 +84,7 @@ static LV2_Handle instantiate(const LV2_Descriptor *descriptor, double rate, con
 							  const LV2_Feature *const *features)
 {
 	//Actual struct declaration
-	Noise_Repellent *self = (Noise_Repellent *)calloc(1, sizeof(Noise_Repellent));
+	NoiseRepellent *self = (NoiseRepellent *)calloc(1, sizeof(NoiseRepellent));
 
 	// //Plugin state initialization
 	// if (!ps_init(self->plugin_state, features))
@@ -108,9 +108,9 @@ static LV2_Handle instantiate(const LV2_Descriptor *descriptor, double rate, con
 */
 static void connect_port(LV2_Handle instance, uint32_t port, void *data)
 {
-	Noise_Repellent *self = (Noise_Repellent *)instance;
+	NoiseRepellent *self = (NoiseRepellent *)instance;
 
-	switch ((Port_Index)port)
+	switch ((PortIndex)port)
 	{
 	case NOISEREPELLENT_AMOUNT:
 		self->reduction_amount = (float *)data;
@@ -159,7 +159,7 @@ static void connect_port(LV2_Handle instance, uint32_t port, void *data)
 */
 static void run(LV2_Handle instance, uint32_t n_samples)
 {
-	Noise_Repellent *self = (Noise_Repellent *)instance;
+	NoiseRepellent *self = (NoiseRepellent *)instance;
 
 	//Inform latency at run call
 	*(self->report_latency) = (float)stft_d_get_latency(self->stft_denoiser);
@@ -186,7 +186,7 @@ static void run(LV2_Handle instance, uint32_t n_samples)
 */
 static void cleanup(LV2_Handle instance)
 {
-	Noise_Repellent *self = (Noise_Repellent *)instance;
+	NoiseRepellent *self = (NoiseRepellent *)instance;
 
 	stft_d_free(self->stft_denoiser);
 	free(instance);
@@ -198,7 +198,7 @@ static void cleanup(LV2_Handle instance)
 static LV2_State_Status savestate(LV2_Handle instance, LV2_State_Store_Function store, LV2_State_Handle handle,
 								  uint32_t flags, const LV2_Feature *const *features)
 {
-	//Noise_Repellent *self = (Noise_Repellent *)instance;
+	//NoiseRepellent *self = (NoiseRepellent *)instance;
 
 	// ps_savestate(self->plugin_state, store, handle, self->stft_denoiser->fft_size,
 	// 			 self->stft_denoiser->fft_processor->fft_denoiser->noise_estimation->noise_window_count,
@@ -214,7 +214,7 @@ static LV2_State_Status restorestate(LV2_Handle instance, LV2_State_Retrieve_Fun
 									 LV2_State_Handle handle, uint32_t flags,
 									 const LV2_Feature *const *features)
 {
-	//Noise_Repellent *self = (Noise_Repellent *)instance;
+	//NoiseRepellent *self = (NoiseRepellent *)instance;
 
 	// if(!ps_restorestate(self->plugin_state, retrieve, handle,
 	// 				self->stft_denoiser->fft_processor->fft_denoiser->noise_estimation->noise_profile,
