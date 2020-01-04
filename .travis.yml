@@ -55,8 +55,6 @@ script:
   - if [ "$TRAVIS_JOB_NAME" == "osx-multiarch" ]; then
       chmod +x scripts/make-binaries; bash scripts/make-binaries;
     fi
-
-after_script:
   - mv noise-repellent.zip noise-repellent-$TRAVIS_TAG-$TRAVIS_JOB_NAME.zip
 
 deploy:
