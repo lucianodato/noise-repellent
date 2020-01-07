@@ -12,7 +12,7 @@ install:
 
 build_script:   
     - xcopy /i /q /s C:\projects\noise-repellent C:\cygwin-root\home\appveyor\noise-repellent
-    - C:\cygwin-root\bin\bash -e -l -c "cd noise-repellent && chmod +x scripts/make-binaries && scripts/make-binaries"
+    - C:\cygwin-root\bin\bash -e -l -c "cd noise-repellent && chmod +x scripts/make-binaries.sh && scripts/make-binaries.sh"
 
 after_build:
     - ps: $tag_name = git describe --abbrev=0 --tags;$target_arch = C:\cygwin-root\bin\uname -m; Rename-Item -Path C:\cygwin-root\home\appveyor\noise-repellent\noise-repellent.zip -NewName noise-repellent-$tag_name-win-$target_arch.zip
