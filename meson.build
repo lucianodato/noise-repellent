@@ -15,19 +15,19 @@ lv2_dep = dependency('lv2', required : true)
 nr_dep = [m_dep,fftw_dep,lv2_dep]
 
 #compiler default flags
-add_global_arguments('-ffast-math','-fomit-frame-pointer','-fno-finite-math-only','-Wno-unused-function',language : 'c')
+add_global_arguments('-fomit-frame-pointer','-fno-finite-math-only','-Wno-unused-function',language : 'c')
 
 #install folder
 install_folder = join_paths(get_option('libdir'), 'lv2', meson.project_name())
 
-#get the build operating system and configure install path and shared object extension
-current_os = build_machine.system()
-current_arch = build_machine.cpu_family()
+#get the host operating system and configure install path and shared object extension
+current_os = host_machine.system()
+current_arch = host_machine.cpu_family()
 cflags = []
 
-# Add x86_64 optimization where appropriate (not for ARM)
-if current_arch != 'aarch64'
-    cflags += ['-msse','-msse2','-mfpmath=sse']
+# Add x86_64 optimization
+if current_arch == 'x86_64'
+    cflags += ['-ffast-math','-msse','-msse2','-mfpmath=sse']
 endif
 
 # Add osx multiarch flags when appropriate
