@@ -25,8 +25,8 @@ current_os = build_machine.system()
 current_arch = build_machine.cpu_family()
 cflags = []
 
-# Add x86_64 optimization where appropriate (not for ARM)
-if current_arch != 'aarch64'
+# Add x86_64 optimization where appropriate (not for ARM, not for riscv)
+if current_arch != 'aarch64' and current_arch != 'riscv64'
     cflags += ['-msse','-msse2','-mfpmath=sse']
 endif
 
