@@ -4,6 +4,6 @@
 <https://github.com/lucianodato/noise-repellent>
   a lv2:Plugin;
   lv2:minorVersion @MINOR_VERSION@ ;
-	lv2:microVersion @MICRO_VERSION@ ;
+  lv2:microVersion @MICRO_VERSION@ ;
   lv2:binary <nrepel@LIB_EXT@> ;
   rdfs:seeAlso <nrepel.ttl> .
