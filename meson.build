@@ -60,14 +60,14 @@ shared_library('nrepel',
         )
 
 #Getting version from github tags
-version = run_command('git', 'describe', '--tags HEAD').stdout().strip().split('.')
+version = run_command('git', 'describe').stdout().strip().split('.')
 
 #Configure manifest ttl in order to replace the correct shared object extension and install
 manifest_conf = configuration_data()
 manifest_conf.set('LIB_EXT', extension)
-manifest_conf.set('MAJOR_VERSION', version[0])
-manifest_conf.set('MINOR_VERSION', version[1])
-manifest_conf.set('MICRO_VERSION', version[2])
+manifest_conf.set('MAJOR_VERSION', version)
+manifest_conf.set('MINOR_VERSION', version)
+manifest_conf.set('MICRO_VERSION', version)
 manifest_ttl = configure_file(
     input : 'lv2ttl/manifest.ttl.in',
     output : 'manifest.ttl',
