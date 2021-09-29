@@ -1,6 +1,5 @@
 [![Build Status](https://travis-ci.org/lucianodato/noise-repellent.svg?branch=master)](https://travis-ci.org/lucianodato/noise-repellent)
-[![Build status](https://ci.appveyor.com/api/projects/status/aiwjt82ag7rdahqu?svg=true)](https://ci.appveyor.com/project/lucianodato/noise-repellent/branch/master)
-
+[![Build status](https://ci.appveyor.com/api/projects/status/l83vvg2l0b4x7s44/branch/master?svg=true)](https://ci.appveyor.com/project/lucianodato/noise-repellent-xcg0f/branch/master)
 noise-repellent
 -------
 An lv2 plug-in for broadband noise reduction.
