@@ -60,7 +60,7 @@ shared_library('nrepel',
         )
 
 #Getting version from github tags
-version = run_command('git', 'describe').stdout().strip().split('.')
+version = run_command('git', 'describe').stdout().strip()
 
 #Configure manifest ttl in order to replace the correct shared object extension and install
 manifest_conf = configuration_data()
