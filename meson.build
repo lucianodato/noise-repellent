@@ -25,9 +25,9 @@ current_os = host_machine.system()
 current_arch = host_machine.cpu_family()
 cflags = []
 
-# Add x86_64 optimization
-if current_arch == 'x86_64'
-    cflags += ['-ffast-math','-msse','-msse2','-mfpmath=sse']
+# Add x86_64 optimization where appropriate (not for ARM, not for riscv)
+if current_arch != 'aarch64' and current_arch != 'riscv64'
+    cflags += ['-ffast-math', '-msse','-msse2','-mfpmath=sse']
 endif
 
 # Add osx multiarch flags when appropriate
