@@ -11,7 +11,7 @@ install:
     - c:\cygwin-setup.exe --quiet-mode --no-shortcuts --no-startmenu --no-desktop --upgrade-also --only-site --site http://cygwin.mirror.constant.com/ --root c:\cygwin-root --local-package-dir c:\cygwin-setup-cache --packages gcc-g++,ninja,pkg-config,lv2-devel,libfftw3-devel,meson,zip
 
 build_script:   
-    - xcopy /i /q /s C:\projects\noise-repellent C:\cygwin-root\home\appveyor\noise-repellent
+    - xcopy /i /q /s C:\projects\noise-repellent-xcg0f C:\cygwin-root\home\appveyor\noise-repellent
     - C:\cygwin-root\bin\bash -e -l -c "cd noise-repellent && chmod +x scripts/make-binaries.sh && scripts/make-binaries.sh"
 
 after_build:
