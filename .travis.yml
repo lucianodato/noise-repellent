@@ -37,9 +37,7 @@ before_install:
     fi
   - if [ "$TRAVIS_JOB_NAME" == "osx-multiarch" ]; then 
       brew update;
-      pip3 install --upgrade pip;
-      pip3 install meson;
-      brew install lv2 fftw ninja pkg-config zip;
+      brew install meson git lv2 fftw ninja pkg-config zip;
     fi
 
 script:
