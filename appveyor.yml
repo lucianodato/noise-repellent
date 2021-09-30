@@ -8,7 +8,7 @@ environment:
 
 install:
     - ps: Invoke-WebRequest $env:cygwin -OutFile c:\cygwin-setup.exe
-    - c:\cygwin-setup.exe --quiet-mode --no-shortcuts --no-startmenu --no-desktop --upgrade-also --only-site --site http://cygwin.mirror.constant.com/ --root c:\cygwin-root --local-package-dir c:\cygwin-setup-cache --packages gcc-g++,ninja,pkg-config,lv2-devel,libfftw3-devel,meson,zip
+    - c:\cygwin-setup.exe --quiet-mode --no-shortcuts --no-startmenu --no-desktop --upgrade-also --only-site --site http://cygwin.mirror.constant.com/ --root c:\cygwin-root --local-package-dir c:\cygwin-setup-cache --packages git,gcc-g++,ninja,pkg-config,lv2-devel,libfftw3-devel,meson,zip
 
 build_script:   
     - xcopy /i /q /s C:\projects\noise-repellent-xcg0f C:\cygwin-root\home\appveyor\noise-repellent
