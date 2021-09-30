@@ -66,8 +66,8 @@ version_array = run_command('git', 'describe').stdout().strip().split('.')
 manifest_conf = configuration_data()
 manifest_conf.set('LIB_EXT', extension)
 manifest_conf.set('MAJOR_VERSION', version_array[0])
-manifest_conf.set('MINOR_VERSION', version_array[0])
-manifest_conf.set('MICRO_VERSION', version_array[0])
+manifest_conf.set('MINOR_VERSION', version_array[1])
+manifest_conf.set('MICRO_VERSION', version_array[2])
 manifest_ttl = configure_file(
     input : 'lv2ttl/manifest.ttl.in',
     output : 'manifest.ttl',
