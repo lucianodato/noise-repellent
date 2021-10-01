@@ -8,6 +8,7 @@ An lv2 plug-in for broadband noise reduction.
 Short Demo
 -------
 [![](http://img.youtube.com/vi/iNVxCvgcnig/0.jpg)](http://www.youtube.com/watch?v=iNVxCvgcnig "")
+[![](http://img.youtube.com/vi/LeKyGoAmbFE/0.jpg)](https://www.youtube.com/watch?v=LeKyGoAmbFE "")
 
 Features
 -------
@@ -42,6 +43,8 @@ Installation:
   sudo ninja -C build install
 ```
 Noise-repellent is on Arch community at https://www.archlinux.org/packages/community/x86_64/noise-repellent/.
+
+Noise-repellent is also available in KXStudios repositories https://kx.studio/Repositories:Plugins
 
 Usage Instuctions
 -----
