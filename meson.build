@@ -1,4 +1,4 @@
-project('nrepel.lv2','c',default_options: 'c_std=c99')
+project('nrepel.lv2','c',default_options: ['c_std=c99'])
 
 sord_validate = find_program('sord_validate', native : true, required : false)
 cp = find_program('cp')
@@ -60,7 +60,7 @@ shared_library('nrepel',
         )
 	
 #Getting version from github tags
-version_array = run_command('git', 'describe').stdout().strip().split('.')
+version_array = run_command('git', 'describe').stdout().strip().split('-')[0].split('.')
 
 #Configure manifest ttl in order to replace the correct shared object extension and install
 manifest_conf = configuration_data()
