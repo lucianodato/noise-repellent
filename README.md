@@ -5,7 +5,7 @@ noise-repellent
 -------
 An lv2 plug-in for broadband noise reduction.
 
-Short Demo
+Demo
 -------
 [![](http://img.youtube.com/vi/iNVxCvgcnig/0.jpg)](http://www.youtube.com/watch?v=iNVxCvgcnig "")
 [![](http://img.youtube.com/vi/LeKyGoAmbFE/0.jpg)](https://www.youtube.com/watch?v=LeKyGoAmbFE "")
