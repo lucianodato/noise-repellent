@@ -1,4 +1,4 @@
-project('nrepel.lv2','c',default_options: 'c_std=c99')
+project('nrepel.lv2','c',version: '0.1.5',default_options: ['c_std=c99'])
 
 sord_validate = find_program('sord_validate', native : true, required : false)
 cp = find_program('cp')
@@ -58,10 +58,21 @@ shared_library('nrepel',
         install: true,
         install_dir : install_folder
         )
+	
+#Getting version from github tags or projects version
+version_array = run_command('git', 'describe').stdout().strip().split('-')[0].split('.')
+if version_array.length() < 3
+    version_array = meson.project_version().split('.')
+endif
+
+
 
 #Configure manifest ttl in order to replace the correct shared object extension and install
 manifest_conf = configuration_data()
 manifest_conf.set('LIB_EXT', extension)
+manifest_conf.set('MAJOR_VERSION', version_array[0])
+manifest_conf.set('MINOR_VERSION', version_array[1])
+manifest_conf.set('MICRO_VERSION', version_array[2])
 manifest_ttl = configure_file(
     input : 'lv2ttl/manifest.ttl.in',
     output : 'manifest.ttl',
