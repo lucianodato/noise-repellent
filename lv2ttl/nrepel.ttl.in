@@ -23,9 +23,9 @@
   doap:name "Noise repellent",
     "Repelente de ruido"@es ,
     "Répulseur de bruit"@fr ;
-  doap:shortdesc "An LV2 plugin for broadband noise reduction"@en,
+  doap:shortdesc "An LV2 plugin for broadband noise reduction",
                "Un plugin LV2 para la reduccion de ruido"@es,
-               "Un plugin LV2 pour la réduction du bruit à large bande"@fr ; ;
+               "Un plugin LV2 pour la réduction du bruit à large bande"@fr ;
   lv2:project <https://github.com/lucianodato/noise-repellent> ;
   lv2:optionalFeature lv2:isLive, lv2:hardRTCapable ;
   lv2:extensionData state:interface ;
@@ -199,7 +199,7 @@
     lv2:name "Output" ;
     pg:group <https://github.com/lucianodato/noise-repellent#outputs> ;
   ];
-  rdfs:comment "An LV2 plugin for broadband noise reduction"@en,
+  rdfs:comment "An LV2 plugin for broadband noise reduction",
                "Un plugin LV2 para la reduccion de ruido"@es,
                "Un plugin LV2 pour la réduction du bruit à large bande"@fr ;
 .
