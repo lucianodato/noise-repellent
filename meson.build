@@ -1,4 +1,4 @@
-project('nrepel.lv2','c',version: '0.1.5',default_options: ['c_std=c99'])
+project('nrepel.lv2','c',version: '0.2.0',default_options: ['c_std=c99'])
 
 sord_validate = find_program('sord_validate', native : true, required : false)
 cp = find_program('cp')
@@ -51,43 +51,43 @@ endif
 
 #build of the shared object
 shared_library('nrepel',
-        src,
-        name_prefix: '',
-        dependencies: nr_dep,
-        c_args: cflags, 
-        install: true,
-        install_dir : install_folder
-        )
+    src,
+    name_prefix: '',
+    dependencies: nr_dep,
+    c_args: cflags, 
+    install: true,
+    install_dir : install_folder
+)
 	
-#Getting version from github tags or projects version
-version_array = run_command('git', 'describe').stdout().strip().split('-')[0].split('.')
-if version_array.length() < 3
-    version_array = meson.project_version().split('.')
+#Getting version from project configuration or from git tags
+version_array = meson.project_version().split('.')
+if version_array.length() == 0
+    version_array = run_command('git', 'describe').stdout().strip().split('-')[0].split('.')
 endif
 
-
-
-#Configure manifest ttl in order to replace the correct shared object extension and install
+#Configure manifest.ttl and install
 manifest_conf = configuration_data()
 manifest_conf.set('LIB_EXT', extension)
 manifest_conf.set('MAJOR_VERSION', version_array[0])
 manifest_conf.set('MINOR_VERSION', version_array[1])
 manifest_conf.set('MICRO_VERSION', version_array[2])
+
 manifest_ttl = configure_file(
     input : 'lv2ttl/manifest.ttl.in',
     output : 'manifest.ttl',
     configuration : manifest_conf,
     install : true,
 	install_dir : install_folder
-    )
+)
 
-#add nrepel.ttl to be installed with the shared object
-nrepel_ttl = custom_target('nrepel_ttl',
-	input : join_paths('lv2ttl', 'nrepel.ttl'),
-	output : 'nrepel.ttl',
-	command : clone,
-	install : true,
-	install_dir : install_folder)
+#Configure nrepel.ttl and install
+nrepel_ttl = configure_file(
+    input : join_paths('lv2ttl', 'nrepel.ttl.in'),
+    output : 'nrepel.ttl',
+    configuration : manifest_conf,
+    install : true,
+	install_dir : install_folder
+)
 
 # testing ttls
 if sord_validate.found()
