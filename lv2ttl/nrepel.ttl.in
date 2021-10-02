@@ -20,12 +20,8 @@
   a lv2:Plugin, lv2:SpectralPlugin, lv2:UtilityPlugin, doap:Project ;
   doap:maintainer <http://example.com/lucianodato#me> ;
   doap:license <https://opensource.org/licenses/LGPL-3.0> ;
-  doap:name "Noise repellent",
-    "Repelente de ruido"@es ,
-    "Répulseur de bruit"@fr ;
-  doap:shortdesc "An LV2 plugin for broadband noise reduction",
-               "Un plugin LV2 para la reduccion de ruido"@es,
-               "Un plugin LV2 pour la réduction du bruit à large bande"@fr ;
+  doap:name "Noise repellent" ;
+  doap:shortdesc "An LV2 plugin for broadband noise reduction" ;
   lv2:project <https://github.com/lucianodato/noise-repellent> ;
   lv2:optionalFeature lv2:isLive, lv2:hardRTCapable ;
   lv2:extensionData state:interface ;
@@ -39,9 +35,7 @@
       lv2:InputPort ;
     lv2:index 0 ;
     lv2:symbol "reduction" ;
-    lv2:name "Reduction amount",
-      "Cantidad de reduccion"@es ,
-      "Quantité de réduction"@fr ;
+    lv2:name "Reduction amount" ;
     lv2:minimum 0.0 ;
     lv2:maximum 48.0 ;
     lv2:default 10.0 ;
@@ -52,9 +46,7 @@
       lv2:InputPort ;
     lv2:index 1 ;
     lv2:symbol "offset" ;
-    lv2:name "Thresholds offset",
-      "Compensacion de umbrales"@es ,
-      "Décalage des seuils"@fr ;
+    lv2:name "Thresholds offset" ;
     lv2:minimum -12.0 ;
     lv2:maximum 12.0 ;
     lv2:default 0.0 ;
@@ -65,9 +57,7 @@
       lv2:InputPort ;
     lv2:index 2 ;
     lv2:symbol "release" ;
-    lv2:name "Release",
-      "Relevo"@es ,
-      "Relâchement"@fr ;
+    lv2:name "Release" ;
     lv2:minimum 0.0 ;
     lv2:maximum 1000.0 ;
     lv2:default 150.0 ;
@@ -78,9 +68,7 @@
       lv2:InputPort ;
     lv2:index 3 ;
     lv2:symbol "masking" ;
-    lv2:name "Masking",
-      "Enmascaramiento"@es,
-      "Masquage"@fr;
+    lv2:name "Masking" ;
     lv2:minimum 1.0 ;
     lv2:maximum 10.0 ;
     lv2:default 5.0 ;
@@ -90,9 +78,7 @@
     lv2:ControlPort ;
     lv2:index 4 ;
     lv2:symbol "transient_protection" ;
-    lv2:name "Protect Transients",
-      "Proteger transientes"@es ,
-      "Protéger les transitoires"@fr ;
+    lv2:name "Protect Transients" ;
     lv2:default 1.0 ;
     lv2:minimum 1.0 ;
     lv2:maximum 6.0 ;
@@ -102,9 +88,7 @@
       lv2:InputPort ;
     lv2:index 5 ;
     lv2:symbol "whitening" ;
-    lv2:name "Residual whitening",
-      "Blanqueo de residuo"@es ,
-      "Blanchissement du bruit"@fr ;
+    lv2:name "Residual whitening" ;
     lv2:minimum 0.0 ;
     lv2:maximum 100.0 ;
     lv2:default 0.0 ;
@@ -115,9 +99,7 @@
       lv2:InputPort ;
     lv2:index 6 ;
     lv2:symbol "noise_learn" ;
-    lv2:name "Learn noise profile",
-      "Aprender perfil de ruido"@es ,
-      "Apprendre le profil du bruit"@fr ;
+    lv2:name "Learn noise profile" ;
     lv2:minimum 0 ;
     lv2:maximum 1 ;
     lv2:default 0 ;
@@ -128,9 +110,7 @@
       lv2:InputPort ;
     lv2:index 7 ;
     lv2:symbol "adaptive_noise_learn" ;
-    lv2:name "Adaptive noise learn",
-      "Adaptar perfil de ruido"@es ,
-      "Apprentissage adaptatif du bruit"@fr ;
+    lv2:name "Adaptive noise learn" ;
     lv2:minimum 0 ;
     lv2:maximum 1 ;
     lv2:default 0 ;
@@ -141,9 +121,7 @@
     lv2:ControlPort ;
     lv2:index 8 ;
     lv2:symbol "reset_noise_profile" ;
-    lv2:name "Reset noise profile",
-      "Reiniciar perfil de ruido"@es ,
-      "Réinitialiser le profil de bruit"@fr ;
+    lv2:name "Reset noise profile" ;
     lv2:default 0 ;
     lv2:minimum 0 ;
     lv2:maximum 1 ;
@@ -154,9 +132,7 @@
     lv2:ControlPort ;
     lv2:index 9 ;
     lv2:symbol "Residual_listen" ;
-    lv2:name "Residual listen",
-      "Escuchar Residuo"@es ,
-      "Écoute résiduelle"@fr ;
+    lv2:name "Residual listen" ;
     lv2:default 0 ;
     lv2:minimum 0 ;
     lv2:maximum 1 ;
@@ -199,7 +175,5 @@
     lv2:name "Output" ;
     pg:group <https://github.com/lucianodato/noise-repellent#outputs> ;
   ];
-  rdfs:comment "An LV2 plugin for broadband noise reduction",
-               "Un plugin LV2 para la reduccion de ruido"@es,
-               "Un plugin LV2 pour la réduction du bruit à large bande"@fr ;
+  rdfs:comment "An LV2 plugin for broadband noise reduction" ;
 .
