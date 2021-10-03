@@ -1,7 +1,8 @@
-project('noise-repellent','c',default_options: 'c_std=c99')
+project('nrepel.lv2','c',version: '0.2.0',default_options: ['c_std=c99'])
 
-#shared object name
-lv2_name = 'nrepellent'
+sord_validate = find_program('sord_validate', native : true, required : false)
+cp = find_program('cp')
+clone = [cp, '@INPUT@', '@OUTPUT@']
 
 #source to compile
 src = 'src/noise_repellent.c'
@@ -12,23 +13,29 @@ fftw_dep = dependency('fftw3f', required : true)
 lv2_dep = dependency('lv2', required : true)
 nr_dep = [m_dep,fftw_dep,lv2_dep]
 
-#get the build operating system and configure install path and shared object extension
-current_os = build_machine.system()
-current_arch = build_machine.cpu_family()
+#compiler default flags
+add_global_arguments('-fomit-frame-pointer','-fno-finite-math-only','-Wno-unused-function',language : 'c')
 
-#compiler global flags
-add_global_arguments('-Wno-unused-function', '-ffast-math','-fomit-frame-pointer','-fno-finite-math-only', language : 'c')
+#install folder
+install_folder = join_paths(get_option('libdir'), 'lv2', meson.project_name())
 
-#specific cflags
+#get the host operating system and configure install path and shared object extension
+current_os = host_machine.system()
+current_arch = host_machine.cpu_family()
 cflags = []
 
-if current_os == 'darwin' #mac
-    cflags += ['-mrecip', '-march=i386', '-march=x86-64','-mmacosx-version-min=10.5','-DMAC_OS_X_VERSION_MAX_ALLOWED=105']
+# Add x86_64 optimization where appropriate (not for ARM, not for riscv)
+if current_arch != 'aarch64' and current_arch != 'riscv64'
+    cflags += ['-ffast-math', '-msse','-msse2','-mfpmath=sse']
 endif
 
-# Add x86_64 optimization where appropriate (not for ARM)
-if current_arch != 'aarch64'
-    cflags += ['-msse','-msse2','-mfpmath=sse']
+# Add osx multiarch flags when appropriate
+if current_os == 'darwin'
+    cflags += ['-mrecip',
+            '-march=i386',
+            '-march=x86-64',
+            '-mmacosx-version-min=10.5',
+            '-DMAC_OS_X_VERSION_MAX_ALLOWED=105']
 endif
 
 # Extension for library by os
@@ -45,12 +52,47 @@ endif
 install_folder = 'nrepellent.lv2'
 
 #build of the shared object
-shared_library(lv2_name,src,name_prefix: '',dependencies: nr_dep,c_args: cflags,install: true,install_dir : install_folder)
+shared_library('nrepel',
+    src,
+    name_prefix: '',
+    dependencies: nr_dep,
+    c_args: cflags, 
+    install: true,
+    install_dir : install_folder
+)
+	
+#Getting version from project configuration or from git tags
+version_array = meson.project_version().split('.')
+if version_array.length() == 0
+    version_array = run_command('git', 'describe').stdout().strip().split('-')[0].split('.')
+endif
 
-#Configure manifest ttl in order to replace the correct shared object extension
+#Configure manifest.ttl and install
 manifest_conf = configuration_data()
 manifest_conf.set('LIB_EXT', extension)
-manifest_ttl = configure_file(input : 'lv2ttl/manifest.ttl.in',output : 'manifest.ttl',configuration : manifest_conf)
+manifest_conf.set('MAJOR_VERSION', version_array[0])
+manifest_conf.set('MINOR_VERSION', version_array[1])
+manifest_conf.set('MICRO_VERSION', version_array[2])
 
-#add manifest.ttl and nrepel.ttl to be installed with the shared object
-install_data([manifest_ttl, 'lv2ttl/nrepellent.ttl'],install_dir : install_folder)
+manifest_ttl = configure_file(
+    input : 'lv2ttl/manifest.ttl.in',
+    output : 'manifest.ttl',
+    configuration : manifest_conf,
+    install : true,
+	install_dir : install_folder
+)
+
+#Configure nrepel.ttl and install
+nrepel_ttl = configure_file(
+    input : join_paths('lv2ttl', 'nrepel.ttl.in'),
+    output : 'nrepel.ttl',
+    configuration : manifest_conf,
+    install : true,
+	install_dir : install_folder
+)
+
+# testing ttls
+if sord_validate.found()
+	test('LV2 validation', sord_validate,
+		args : [run_command('find','./lv2 -name "*.ttl"').stdout(), run_command('find','. -name "*.ttl"').stdout()])
+endif

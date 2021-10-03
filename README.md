@@ -1,13 +1,14 @@
-[![Build Status](https://travis-ci.org/lucianodato/noise-repellent.svg?branch=master)](https://travis-ci.org/lucianodato/noise-repellent)
-[![Build status](https://ci.appveyor.com/api/projects/status/aiwjt82ag7rdahqu?svg=true)](https://ci.appveyor.com/project/lucianodato/noise-repellent)
+[![Build Status](https://app.travis-ci.com/lucianodato/noise-repellent.svg?branch=master)](https://app.travis-ci.com/lucianodato/noise-repellent)
+[![Build status](https://ci.appveyor.com/api/projects/status/l83vvg2l0b4x7s44/branch/master?svg=true)](https://ci.appveyor.com/project/lucianodato/noise-repellent-xcg0f/branch/master)
 
 noise-repellent
 -------
 An lv2 plug-in for broadband noise reduction.
 
-Short Demo
+Demo
 -------
 [![](http://img.youtube.com/vi/iNVxCvgcnig/0.jpg)](http://www.youtube.com/watch?v=iNVxCvgcnig "")
+[![](http://img.youtube.com/vi/LeKyGoAmbFE/0.jpg)](https://www.youtube.com/watch?v=LeKyGoAmbFE "")
 
 Features
 -------
@@ -42,6 +43,8 @@ Installation:
   sudo ninja -C build install
 ```
 Noise-repellent is on Arch community at https://www.archlinux.org/packages/community/x86_64/noise-repellent/.
+
+Noise-repellent is also available in KXStudios repositories https://kx.studio/Repositories:Plugins
 
 Usage Instuctions
 -----

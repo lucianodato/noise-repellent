@@ -37,23 +37,21 @@ before_install:
     fi
   - if [ "$TRAVIS_JOB_NAME" == "osx-multiarch" ]; then 
       brew update;
-      pip3 install --upgrade pip;
-      pip3 install meson;
-      brew install lv2 fftw ninja pkg-config zip;
+      brew install meson git lv2 fftw ninja pkg-config zip;
     fi
 
 script:
   - if [ "$TRAVIS_JOB_NAME" == "linux-amd64" ]; then
-      chmod +x scripts/make-binaries; bash scripts/make-binaries;
+      chmod +x scripts/make-binaries.sh; bash scripts/make-binaries.sh;
     fi
   - if [ "$TRAVIS_JOB_NAME" == "linux-arm64" ]; then
-      chmod +x scripts/make-binaries; bash scripts/make-binaries;
+      chmod +x scripts/make-binaries.sh; bash scripts/make-binaries.sh;
     fi
   - if [ "$TRAVIS_JOB_NAME" == "linux-i386" ]; then
-      docker run -v `pwd`:/noise-repellent i386/ubuntu:latest /bin/bash -c "apt-get update -qq; apt-get install -qq pkg-config lv2-dev libfftw3-dev python3-pip ninja-build python3-setuptools zip; pip3 install --upgrade pip; pip install meson; cd /noise-repellent; bash ./scripts/make-binaries";
+      docker run -v `pwd`:/noise-repellent i386/ubuntu:latest /bin/bash -c "apt-get update -qq; apt-get install -qq git pkg-config lv2-dev libfftw3-dev python3-pip ninja-build python3-setuptools zip; pip3 install --upgrade pip; pip install meson; cd /noise-repellent; bash ./scripts/make-binaries.sh";
     fi
   - if [ "$TRAVIS_JOB_NAME" == "osx-multiarch" ]; then
-      chmod +x scripts/make-binaries; bash scripts/make-binaries;
+      chmod +x scripts/make-binaries.sh; bash scripts/make-binaries.sh;
     fi
   - mv noise-repellent.zip noise-repellent-$TRAVIS_TAG-$TRAVIS_JOB_NAME.zip
 
