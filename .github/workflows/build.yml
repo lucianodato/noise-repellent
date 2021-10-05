@@ -37,10 +37,10 @@ jobs:
     - name: Set sha8
       id: slug
       run: echo "::set-output name=sha8::$(echo ${{ github.sha }} | cut -c1-8)"
-    - name: Build jack2 packages
+    - name: Build noise-repellent
       shell: bash
       run: |
-        chmod +x scripts/make-binaries.sh; bash scripts/make-binaries.sh;
+        chmod +x scripts/make-binaries.sh; bash scripts/make-binaries.sh
         mv noise-repellent.zip noise-repellent-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}.zip
     - uses: actions/upload-artifact@v2
       with:
