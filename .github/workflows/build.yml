@@ -6,6 +6,12 @@ on:
   pull_request:
     branches: 
     - '*'
+
+env:
+  PAWPAW_VERSION: 8c69660ab10b75cd7a488f41386dbcb4c8802c5a
+  DEBIAN_FRONTEND: noninteractive
+  HOMEBREW_NO_AUTO_UPDATE: 1
+
 jobs:
   ubuntu_20_04:
     runs-on: ubuntu-20.04
@@ -27,7 +33,7 @@ jobs:
     - name: Set up dependencies
       run: |
         sudo apt-get update -qq
-        sudo apt-get install -qq lv2-dev libfftw3-dev python3-pip ninja-build python3-setuptools zip
+        sudo apt-get install -qq lv2-dev libfftw3-dev python3-pip ninja-build python3-setuptools
         sudo -H pip3 install --upgrade pip
         sudo -H pip3 install meson
     - name: Cache debian packages
@@ -40,8 +46,103 @@ jobs:
     - name: Build noise-repellent
       shell: bash
       run: |
-        chmod +x scripts/make-binaries.sh; bash scripts/make-binaries.sh
+        meson build --buildtype release --prefix /tmp --libdir /tmp
+        minja -v -C build
+        ninja -C build install
+        mv /tmp/lv2/nrepel.lv2 ./nrepel.lv2
     - uses: actions/upload-artifact@v2
       with:
-        name: noise-repellent-20.04-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
-        path: ~/work/noise-repellent/noise-repellent/*.zip
+        name: noise-repellent-ubuntu-20.04-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
+        path: ~/work/noise-repellent/noise-repellent/nrepel.lv2
+  
+  macos_universal:
+    runs-on: macos-10.15
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: recursive
+    - name: Set up cache
+      uses: actions/cache@v2
+      with:
+        path: |
+          ~/PawPawBuilds/builds
+          ~/PawPawBuilds/downloads
+          ~/PawPawBuilds/targets
+        key: macos-universal
+    - name: Set up dependencies
+      run: |
+        brew install meson lv2 fftw ninja pkg-config
+    - name: Fix up Xcode
+      run: |
+        sudo rm -Rf /Library/Developer/CommandLineTools/SDKs/*
+        sudo xcode-select -s /Applications/Xcode_12.3.app
+    - name: Bootstrap macOS universal
+      shell: bash
+      run: |
+        if [ ! -d PawPaw ]; then
+          git clone https://github.com/DISTRHO/PawPaw.git
+          git -C PawPaw checkout ${PAWPAW_VERSION}
+        fi
+        ./PawPaw/bootstrap-plugins.sh  macos-universal && ./PawPaw/.cleanup.sh macos-universal
+    - name: Build noise-repellent
+      shell: bash
+      run: |
+        pushd PawPaw && source local.env macos-universal && popd
+        meson build --buildtype release --prefix /usr/local --libdir /usr/local
+        minja -v -C build
+        ninja -C build install --destdir=$(pwd)/destdir
+    - name: Set sha8
+      id: slug
+      run: echo "::set-output name=sha8::$(echo ${{ github.sha }} | cut -c1-8)"
+    - name: Generate macOS package
+      shell: bash
+      run: |
+        ./macosx/generate-pkg.sh $(pwd)/destdir/usr/local ${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
+    - uses: actions/upload-artifact@v2
+      with:
+        name: noise-repellent-macOS-universal-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
+        path: macosx/noise-repellent-osx-*.pkg
+
+  macos:
+    runs-on: macos-10.15
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: recursive
+    - name: Set up cache
+      uses: actions/cache@v2
+      with:
+        path: |
+          ~/PawPawBuilds/builds
+          ~/PawPawBuilds/downloads
+          ~/PawPawBuilds/targets
+        key: macos
+    - name: Set up dependencies
+      run: |
+        brew install meson lv2 fftw ninja pkg-config zip
+    - name: Bootstrap macOS intel
+      shell: bash
+      run: |
+        if [ ! -d PawPaw ]; then
+          git clone https://github.com/DISTRHO/PawPaw.git
+          git -C PawPaw checkout ${PAWPAW_VERSION}
+        fi
+        ./PawPaw/bootstrap-plugins.sh macos && ./PawPaw/.cleanup.sh macos
+    - name: Build noise-repellent
+      shell: bash
+      run: |
+        pushd PawPaw && source local.env macos && popd
+        meson build --buildtype release --prefix /usr/local --libdir /usr/local
+        minja -v -C build
+        ninja -C build install --destdir=$(pwd)/destdir
+    - name: Set sha8
+      id: slug
+      run: echo "::set-output name=sha8::$(echo ${{ github.sha }} | cut -c1-8)"
+    - name: Generate macOS package
+      shell: bash
+      run: |
+        ./macosx/generate-pkg.sh $(pwd)/destdir/usr/local ${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
+    - uses: actions/upload-artifact@v2
+      with:
+        name: jack2-macOS-intel-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
+        path: macosx/noise-repellent-osx-*.pkg
