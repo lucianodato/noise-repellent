@@ -41,8 +41,7 @@ jobs:
       shell: bash
       run: |
         chmod +x scripts/make-binaries.sh; bash scripts/make-binaries.sh
-        mv noise-repellent.zip noise-repellent-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}.zip
     - uses: actions/upload-artifact@v2
       with:
         name: noise-repellent-20.04-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
-        path: ~/work/noise-repellent/*.zip
+        path: ~/work/noise-repellent/noise-repellent/*.zip
