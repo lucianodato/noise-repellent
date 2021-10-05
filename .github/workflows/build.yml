@@ -1,0 +1,50 @@
+name: build
+on:
+  # Triggers the workflow on push or pull request events but only for the master branch
+  push:
+    branches: 
+    - '*'
+  pull_request:
+    branches: 
+    - '*'
+jobs:
+ # ubuntu-20.04
+  ubuntu_20_04:
+    runs-on: ubuntu-20.04
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: recursive
+    - name: Set up cache
+      uses: actions/cache@v2
+      with:
+        path: |
+          ~/debs
+        key: ubuntu-20.04
+    - name: Restore debian packages cache
+      run: |
+        if [ -d ~/debs ] && [ "$(ls ~/debs | wc -l)" -ne 0 ]; then \
+          sudo cp ~/debs/*.deb /var/cache/apt/archives/; \
+        fi
+    - name: Set up dependencies
+      run: |
+        sudo apt-get update -qq
+        sudo apt-get install -qq lv2-dev libfftw3-dev python3-pip ninja-build python3-setuptools zip
+        sudo -H pip3 install --upgrade pip
+        sudo -H pip3 install meson
+    - name: Cache debian packages
+      run: |
+        mkdir -p ~/debs && \
+        sudo mv /var/cache/apt/archives/*.deb ~/debs/
+    - name: Set sha8
+      id: slug
+      run: echo "::set-output name=sha8::$(echo ${{ github.sha }} | cut -c1-8)"
+    - name: Build jack2 packages
+      shell: bash
+      run: |
+        chmod +x scripts/make-binaries.sh; bash scripts/make-binaries.sh;
+        mv noise-repellent.zip noise-repellent-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}.zip
+    - uses: actions/upload-artifact@v2
+      with:
+        name: noise-repellent-20.04-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
+        path: ~/work/noise-repellent/*.zip
