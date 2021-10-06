@@ -33,8 +33,6 @@ endif
 # Add osx multiarch flags when appropriate
 if current_os == 'darwin'
     cflags += ['-mrecip',
-            '-march=i386',
-            '-march=x86_64',
             '-mmacosx-version-min=10.5',
             '-DMAC_OS_X_VERSION_MAX_ALLOWED=105']
 endif
