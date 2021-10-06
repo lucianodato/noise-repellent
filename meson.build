@@ -32,7 +32,7 @@ endif
 
 # Add osx multiarch flags when appropriate
 if current_os == 'darwin'
-    cflags += ['-mrecip', '-mcpu=x86-64', '-mcpu=i386']
+    cflags += ['-mrecip', '-mcpu=x86-64']
 endif
 
 # Extension for library by os
