@@ -1,4 +1,4 @@
-project('nrepel.lv2','c',version: '0.2.0',default_options: ['c_std=c99'])
+project('nrepel.lv2','c',version: '0.1.6',default_options: ['c_std=c99'])
 
 sord_validate = find_program('sord_validate', native : true, required : false)
 cp = find_program('cp')
@@ -41,7 +41,7 @@ if current_os == 'darwin' #mac
 else #unix like    
     extension = '.so'
 endif #windows
-if current_os == 'windows' or current_os == 'cygwin'
+if current_os == 'windows'
     extension = '.dll'
 endif
 
