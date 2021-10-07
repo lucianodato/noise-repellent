@@ -24,6 +24,7 @@ install_folder = join_paths(get_option('libdir'), 'lv2', meson.project_name())
 current_os = host_machine.system()
 current_arch = host_machine.cpu_family()
 cflags = []
+exe_wrapper = false
 
 # Add x86_64 optimization where appropriate (not for ARM, not for riscv)
 if current_arch != 'aarch64' and current_arch != 'riscv64' and current_os != 'darwin' 
@@ -42,6 +43,7 @@ else #unix like
 endif 
 if current_os == 'windows' #windows
     extension = '.dll'
+    exe_wrapper = true
 endif
 
 #build of the shared object
@@ -50,6 +52,7 @@ library('nrepel',
     name_prefix: '',
     dependencies: nr_dep,
     c_args: cflags, 
+    needs_exe_wrapper: exe_wrapper,
     install: true,
     install_dir : install_folder
 )
