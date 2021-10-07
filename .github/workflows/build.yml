@@ -52,7 +52,7 @@ jobs:
     - uses: actions/upload-artifact@v2
       with:
         name: noise-repellent-ubuntu-20.04-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
-        path: ~/work/noise-repellent/noise-repellent/nrepel.lv2/tmp/./lv2/nrepel.lv2
+        path: ~/work/noise-repellent/noise-repellent/nrepel.lv2/tmp/lv2/nrepel.lv2
   
   # macos_universal:
   #   runs-on: macos-10.15
