@@ -46,7 +46,7 @@ jobs:
     - name: Build noise-repellent
       shell: bash
       run: |
-        meson build --buildtype release
+        meson build --buildtype release --prefix ./ --libdir ./
         ninja -v -C build
         DESTDIR=./nrepel.lv2 ninja -C build install
     - uses: actions/upload-artifact@v2
@@ -87,7 +87,7 @@ jobs:
       shell: bash
       run: |
         pushd PawPaw && source local.env macos-universal && popd
-        meson build --buildtype release
+        meson build --buildtype release --prefix ./ --libdir ./
         ninja -v -C build
         DESTDIR=./nrepel.lv2 ninja -C build install
     - name: Set sha8
