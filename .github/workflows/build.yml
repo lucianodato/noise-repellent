@@ -123,3 +123,79 @@ jobs:
       with:
         name: noise-repellent-macOS-intel-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
         path: ~/work/noise-repellent/noise-repellent/nrepel.lv2
+
+  win32:
+    runs-on: ubuntu-20.04
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: recursive
+    - name: Set up cache
+      uses: actions/cache@v2
+      with:
+        path: |
+          ~/PawPawBuilds/builds
+          ~/PawPawBuilds/debs
+          ~/PawPawBuilds/downloads
+          ~/PawPawBuilds/targets
+        key: win32
+    - name: Restore debian packages cache
+      run: |
+        if [ -d ~/PawPawBuilds/debs ] && [ "$(ls ~/PawPawBuilds/debs | wc -l)" -ne 0 ]; then \
+          sudo cp ~/PawPawBuilds/debs/*.deb /var/cache/apt/archives/; \
+        fi
+    - name: Set up dependencies
+      run: |
+        wget -qO- https://dl.winehq.org/wine-builds/winehq.key | sudo apt-key add -
+        sudo dpkg --add-architecture i386
+        sudo apt-add-repository -y 'deb https://dl.winehq.org/wine-builds/ubuntu/ focal main'
+        sudo apt-get install -y autopoint build-essential curl meson ninja-build llvm mingw-w64 qttools5-dev-tools winehq-stable xvfb \
+          binutils-mingw-w64-i686 g++-mingw-w64-i686
+    - name: Cache debian packages
+      run: |
+        mkdir -p ~/PawPawBuilds/debs && \
+        sudo mv /var/cache/apt/archives/*.deb ~/PawPawBuilds/debs/
+    - name: Bootstrap win32 cross-compiled
+      shell: bash
+      run: |
+        if [ ! -d PawPaw ]; then
+          git clone https://github.com/DISTRHO/PawPaw.git
+          git -C PawPaw checkout ${PAWPAW_VERSION}
+        fi
+        ./PawPaw/bootstrap-plugins.sh win32 && ./PawPaw/.cleanup.sh win32
+    - name: Build noise-repellent
+      shell: bash
+      run: |
+        pushd PawPaw && source local.env win32 && popd
+        meson build --buildtype release --prefix /tmp --libdir /tmp --default-library static
+        ninja -v -C build
+        ninja -C build install
+        mv /tmp/lv2/nrepel.lv2 ./nrepel.lv2
+    # - name: Generate MSVC lib files
+    #   shell: bash
+    #   run: |
+    #     pushd ./nrepel.lv2
+    #     llvm-dlltool -m i386 -D nrepel.dll -d nrepel.def -l nrepel.lib
+    #     popd
+    - name: Set sha8
+      id: slug
+      run: echo "::set-output name=sha8::$(echo ${{ github.sha }} | cut -c1-8)"
+    # - name: Generate Windows installer
+    #   shell: bash
+    #   run: |
+    #     # Setup wine
+    #     export WINEPREFIX=$(pwd)/innosetup
+    #     wineboot -u
+    #     # Download and install innosetup
+    #     curl -L https://jrsoftware.org/download.php/is.exe?site=2 -o is.exe
+    #     xvfb-run wine is.exe /allusers /dir=C:\\InnoSeup /nocancel /norestart /verysilent
+    #     # create installer
+    #     ln -sf $(pwd)/destdir windows/inno/win32
+    #     pushd windows/inno
+    #     echo "#define VERSION \"${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}\"" > version.iss
+    #     xvfb-run wine ${WINEPREFIX}/drive_c/InnoSeup/ISCC.exe win32-mini.iss
+    #     popd
+    - uses: actions/upload-artifact@v2
+      with:
+        name: noise-repellent-win32-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
+        path: ~/work/noise-repellent/noise-repellent/nrepel.lv2
