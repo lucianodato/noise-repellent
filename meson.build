@@ -23,14 +23,13 @@ install_folder = join_paths(get_option('libdir'), 'lv2', meson.project_name())
 #get the host operating system and configure install path and shared object extension
 current_os = host_machine.system()
 current_arch = host_machine.cpu_family()
-current_compiler = meson.get_compiler('c')
+current_compiler = meson.get_compiler('c').version()
 cflags = []
 
 # Add x86_64 optimization where appropriate (not for ARM, not for riscv)
 if current_arch != 'aarch64' and current_arch != 'riscv64' and current_os != 'darwin' 
     cflags += ['-ffast-math', '-msse','-msse2','-mfpmath=sse']
 endif
-
 # Add osx multiarch flags when appropriate
 if current_os == 'darwin'
     cflags += ['-mrecip']
@@ -41,8 +40,8 @@ if current_os == 'darwin' #mac
     extension = '.dylib'
 else #unix like    
     extension = '.so'
-endif #windows
-if current_compiler.contains('mingw')
+endif 
+if current_compiler.to_lower().contains('mingw') #windows
     extension = '.dll'
 endif
 
