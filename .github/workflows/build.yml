@@ -22,7 +22,7 @@ jobs:
     - name: Set up dependencies
       run: |
         sudo apt-get update -qq
-        sudo apt-get install -qq meson lv2-dev libfftw3-dev ninja-build zip
+        sudo apt-get install -qq meson lv2-dev libfftw3-dev ninja-build
     - name: Set sha8
       id: slug
       run: echo "::set-output name=sha8::$(echo ${{ github.sha }} | cut -c1-8)"
@@ -33,11 +33,10 @@ jobs:
         ninja -v -C build
         ninja -C build install
         mv /tmp/lv2/nrepel.lv2 ./nrepel.lv2
-        zip -9 -r noise-repellent.zip ./nrepel.lv2
     - uses: actions/upload-artifact@v2
       with:
         name: noise-repellent-ubuntu-20.04-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
-        path: ~/work/noise-repellent/noise-repellent/*.zip
+        path: ~/work/noise-repellent/noise-repellent/nrepel.lv2
   
   # macos_universal:
   #   runs-on: macos-10.15
