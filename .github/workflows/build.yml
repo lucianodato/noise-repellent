@@ -82,3 +82,44 @@ jobs:
       with:
         name: noise-repellent-macOS-universal-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
         path: ~/work/noise-repellent/noise-repellent/nrepel.lv2
+
+  macos:
+    runs-on: macos-10.15
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        submodules: recursive
+    - name: Set up cache
+      uses: actions/cache@v2
+      with:
+        path: |
+          ~/PawPawBuilds/builds
+          ~/PawPawBuilds/downloads
+          ~/PawPawBuilds/targets
+        key: macos
+    - name: Set up dependencies
+      run: |
+        brew install meson ninja
+    - name: Bootstrap macOS intel
+      shell: bash
+      run: |
+        if [ ! -d PawPaw ]; then
+          git clone https://github.com/DISTRHO/PawPaw.git
+          git -C PawPaw checkout ${PAWPAW_VERSION}
+        fi
+        ./PawPaw/bootstrap-plugins.sh macos && ./PawPaw/.cleanup.sh macos
+    - name: Build noise-repellent
+      shell: bash
+      run: |
+        pushd PawPaw && source local.env macos && popd
+        meson build --buildtype release --prefix /tmp --libdir /tmp
+        ninja -v -C build
+        ninja -C build install
+        mv /tmp/lv2/nrepel.lv2 ./nrepel.lv2
+    - name: Set sha8
+      id: slug
+      run: echo "::set-output name=sha8::$(echo ${{ github.sha }} | cut -c1-8)"
+    - uses: actions/upload-artifact@v2
+      with:
+        name: noise-repellent-macOS-intel-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
+        path: ~/work/noise-repellent/noise-repellent/nrepel.lv2
