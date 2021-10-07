@@ -46,9 +46,9 @@ jobs:
     - name: Build noise-repellent
       shell: bash
       run: |
-        meson build --buildtype release --prefix ./ --libdir ./
+        meson build --buildtype release --prefix /tmp --libdir /tmp
         ninja -v -C build
-        DESTDIR=./nrepel.lv2 ninja -C build install
+        DESTDIR=/nrepel.lv2 ninja -C build install
     - uses: actions/upload-artifact@v2
       with:
         name: noise-repellent-ubuntu-20.04-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
@@ -87,9 +87,9 @@ jobs:
       shell: bash
       run: |
         pushd PawPaw && source local.env macos-universal && popd
-        meson build --buildtype release --prefix ./ --libdir ./
+        meson build --buildtype release --prefix /tmp --libdir /tmp
         ninja -v -C build
-        DESTDIR=./nrepel.lv2 ninja -C build install
+        DESTDIR=/nrepel.lv2 ninja -C build install
     - name: Set sha8
       id: slug
       run: echo "::set-output name=sha8::$(echo ${{ github.sha }} | cut -c1-8)"
