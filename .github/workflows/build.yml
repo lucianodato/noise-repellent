@@ -163,14 +163,14 @@ jobs:
           git -C PawPaw checkout ${PAWPAW_VERSION}
         fi
         ./PawPaw/bootstrap-plugins.sh win32 && ./PawPaw/.cleanup.sh win32
-    - name: Build noise-repellent
-      shell: bash
-      run: |
-        pushd PawPaw && source local.env win32 && popd
-        meson build --buildtype release --prefix /tmp --libdir /tmp --default-library static
-        ninja -v -C build
-        ninja -C build install
-        mv /tmp/lv2/nrepel.lv2 ./nrepel.lv2
+    # - name: Build noise-repellent
+    #   shell: bash
+    #   run: |
+    #     pushd PawPaw && source local.env win32 && popd
+    #     meson build --buildtype release --prefix /tmp --libdir /tmp --default-library static
+    #     ninja -v -C build
+    #     ninja -C build install
+    #     mv /tmp/lv2/nrepel.lv2 ./nrepel.lv2
     # - name: Generate MSVC lib files
     #   shell: bash
     #   run: |
@@ -195,7 +195,7 @@ jobs:
     #     echo "#define VERSION \"${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}\"" > version.iss
     #     xvfb-run wine ${WINEPREFIX}/drive_c/InnoSeup/ISCC.exe win32-mini.iss
     #     popd
-    - uses: actions/upload-artifact@v2
-      with:
-        name: noise-repellent-win32-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
-        path: ~/work/noise-repellent/noise-repellent/nrepel.lv2
+    # - uses: actions/upload-artifact@v2
+    #   with:
+    #     name: noise-repellent-win32-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
+    #     path: ~/work/noise-repellent/noise-repellent/nrepel.lv2
