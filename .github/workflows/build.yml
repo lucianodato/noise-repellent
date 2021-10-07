@@ -32,7 +32,7 @@ jobs:
         meson build --buildtype release --prefix /tmp --libdir /tmp
         ninja -v -C build
         ninja -C build install
-        mv ./tmp/lv2/nrepel.lv2 ./nrepel.lv2
+        mv /tmp/lv2/nrepel.lv2 ./nrepel.lv2
         zip -9 -r noise-repellent.zip ./nrepel.lv2
     - uses: actions/upload-artifact@v2
       with:
