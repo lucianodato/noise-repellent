@@ -23,7 +23,6 @@ install_folder = join_paths(get_option('libdir'), 'lv2', meson.project_name())
 #get the host operating system and configure install path and shared object extension
 current_os = host_machine.system()
 current_arch = host_machine.cpu_family()
-current_compiler = meson.get_compiler('c').version()
 cflags = []
 
 # Add x86_64 optimization where appropriate (not for ARM, not for riscv)
@@ -41,7 +40,7 @@ if current_os == 'darwin' #mac
 else #unix like    
     extension = '.so'
 endif 
-if current_compiler.to_lower().contains('mingw') #windows
+if current_os == 'windows' #windows
     extension = '.dll'
 endif
 
