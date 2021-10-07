@@ -46,7 +46,7 @@ if current_os == 'windows'
 endif
 
 #build of the shared object
-shared_library('nrepel',
+library('nrepel',
     src,
     name_prefix: '',
     dependencies: nr_dep,
