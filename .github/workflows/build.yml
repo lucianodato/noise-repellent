@@ -90,7 +90,7 @@ jobs:
         pushd PawPaw && source local.env macos-universal && popd
         meson build --buildtype release --prefix /usr/local --libdir /usr/local
         ninja -v -C build
-        ninja -C build install --destdir=$(pwd)/destdir
+        DESTDIR=$(pwd)/destdir ninja -C build install
     - name: Set sha8
       id: slug
       run: echo "::set-output name=sha8::$(echo ${{ github.sha }} | cut -c1-8)"

@@ -25,15 +25,15 @@ current_os = host_machine.system()
 current_arch = host_machine.cpu_family()
 cflags = []
 
-# # Add x86_64 optimization where appropriate (not for ARM, not for riscv)
-# if current_arch != 'aarch64' and current_arch != 'riscv64'
-#     cflags += ['-ffast-math', '-msse','-msse2','-mfpmath=sse']
-# endif
+# Add x86_64 optimization where appropriate (not for ARM, not for riscv)
+if current_arch != 'aarch64' and current_arch != 'riscv64' and os != 'darwin' 
+    cflags += ['-ffast-math', '-msse','-msse2','-mfpmath=sse']
+endif
 
-# # Add osx multiarch flags when appropriate
-# if current_os == 'darwin'
-#     cflags += ['-mrecip', '-arch', 'arm64', '-arch', 'x86_64']
-# endif
+# Add osx multiarch flags when appropriate
+if current_os == 'darwin'
+    cflags += ['-mrecip']
+endif
 
 # Extension for library by os
 if current_os == 'darwin' #mac
