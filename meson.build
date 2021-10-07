@@ -26,7 +26,7 @@ current_arch = host_machine.cpu_family()
 cflags = []
 
 # Add x86_64 optimization where appropriate (not for ARM, not for riscv)
-if current_arch != 'aarch64' and current_arch != 'riscv64' and os != 'darwin' 
+if current_arch != 'aarch64' and current_arch != 'riscv64' and current_os != 'darwin' 
     cflags += ['-ffast-math', '-msse','-msse2','-mfpmath=sse']
 endif
 
