@@ -74,7 +74,7 @@ jobs:
         meson build --buildtype release --prefix /tmp --libdir /tmp
         ninja -v -C build
         DESTDIR=./destdir ninja -C build install
-        mv ./destdir/tmp/lv2/nrepel.lv2 ./nrepel.lv2
+        mv ./destdir/tmp/./lv2/nrepel.lv2 ./nrepel.lv2
     - name: Set sha8
       id: slug
       run: echo "::set-output name=sha8::$(echo ${{ github.sha }} | cut -c1-8)"
