@@ -146,11 +146,9 @@ jobs:
         fi
     - name: Set up dependencies
       run: |
-        wget -qO- https://dl.winehq.org/wine-builds/winehq.key | sudo apt-key add -
         sudo dpkg --add-architecture i386
-        sudo apt-add-repository -y 'deb https://dl.winehq.org/wine-builds/ubuntu/ focal main'
-        sudo apt-get install -y autopoint build-essential curl meson ninja-build llvm mingw-w64 winehq-stable xvfb \
-          binutils-mingw-w64-i686 g++-mingw-w64-i686
+        sudo apt-get install -y autopoint build-essential curl jq meson mingw-w64 wine-stable:i386 \
+          binutils-mingw-w64-i686 g++-mingw-w64-i686 
     - name: Cache debian packages
       run: |
         mkdir -p ~/PawPawBuilds/debs && \
@@ -171,12 +169,6 @@ jobs:
         ninja -v -C build
         ninja -C build install
         mv /tmp/lv2/nrepel.lv2 ./nrepel.lv2
-    # - name: Generate MSVC lib files
-    #   shell: bash
-    #   run: |
-    #     pushd ./nrepel.lv2
-    #     llvm-dlltool -m i386 -D nrepel.dll -d nrepel.def -l nrepel.lib
-    #     popd
     - name: Set sha8
       id: slug
       run: echo "::set-output name=sha8::$(echo ${{ github.sha }} | cut -c1-8)"
