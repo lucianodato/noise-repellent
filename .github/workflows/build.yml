@@ -147,7 +147,7 @@ jobs:
     - name: Set up dependencies
       run: |
         sudo dpkg --add-architecture i386
-        sudo apt-get install -y autopoint build-essential curl jq meson mingw-w64 wine-stable:i386 \
+        sudo apt-get install -qy autopoint build-essential meson mingw-w64 wine-stable:i386 \
           binutils-mingw-w64-i686 g++-mingw-w64-i686 
     - name: Cache debian packages
       run: |
@@ -165,7 +165,8 @@ jobs:
       shell: bash
       run: |
         pushd PawPaw && source local.env win32 && popd
-        meson build --buildtype release --prefix /tmp --libdir /tmp --default-library shared
+        wineboot -u
+        meson build --buildtype release --prefix /tmp --libdir /tmp --default-library static
         ninja -v -C build
         ninja -C build install
         mv /tmp/lv2/nrepel.lv2 ./nrepel.lv2
