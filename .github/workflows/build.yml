@@ -147,8 +147,9 @@ jobs:
     - name: Set up dependencies
       run: |
         sudo dpkg --add-architecture i386
-        sudo apt-get install -qy autopoint build-essential meson mingw-w64 wine32 \
-          binutils-mingw-w64-i686 g++-mingw-w64-i686 
+        sudo apt-get install -qy autopoint build-essential meson mingw-w64 \
+          binutils-mingw-w64-i686 g++-mingw-w64-i686 libpcre2-8-0=10.34-7 \
+          libssl1.1=1.1.1f-1ubuntu2.1 libssl1.1:i386=1.1.1f-1ubuntu2.1 wine32 \
     - name: Cache debian packages
       run: |
         mkdir -p ~/PawPawBuilds/debs && \
