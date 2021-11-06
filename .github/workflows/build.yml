@@ -147,7 +147,7 @@ jobs:
     - name: Set up dependencies
       run: |
         sudo dpkg --add-architecture i386
-        sudo apt-get install -qy autopoint build-essential meson mingw-w64 wine-stable:i386 \
+        sudo apt-get install -qy autopoint build-essential meson mingw-w64 wine32 \
           binutils-mingw-w64-i686 g++-mingw-w64-i686 
     - name: Cache debian packages
       run: |
