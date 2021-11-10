@@ -148,8 +148,8 @@ jobs:
       run: |
         sudo dpkg --add-architecture i386
         sudo apt update
-        sudo apt-get install -qy autopoint build-essential meson mingw-w64 \
-          binutils-mingw-w64-i686 g++-mingw-w64-i686 wine32:i386 \
+        sudo apt-get install -qy autopoint build-essential meson mingw-w64 wine-stable:i386 \
+          binutils-mingw-w64-i686 g++-mingw-w64-i686 
     - name: Cache debian packages
       run: |
         mkdir -p ~/PawPawBuilds/debs && \
