@@ -1,5 +1,4 @@
-[![Build Status](https://app.travis-ci.com/lucianodato/noise-repellent.svg?branch=master)](https://app.travis-ci.com/lucianodato/noise-repellent)
-[![Build status](https://ci.appveyor.com/api/projects/status/l83vvg2l0b4x7s44/branch/master?svg=true)](https://ci.appveyor.com/project/lucianodato/noise-repellent-xcg0f/branch/master)
+[![build](https://github.com/lucianodato/noise-repellent/actions/workflows/build.yml/badge.svg)](https://github.com/lucianodato/noise-repellent/actions/workflows/build.yml)
 
 noise-repellent
 -------

@@ -1,4 +1,4 @@
-project('nrepel.lv2','c',version: '0.2.0',default_options: ['c_std=c99'])
+project('nrepel.lv2','c',version: '0.1.6',default_options: ['c_std=c99'])
 
 sord_validate = find_program('sord_validate', native : true, required : false)
 cp = find_program('cp')
@@ -25,17 +25,12 @@ current_arch = host_machine.cpu_family()
 cflags = []
 
 # Add x86_64 optimization where appropriate (not for ARM, not for riscv)
-if current_arch != 'aarch64' and current_arch != 'riscv64'
+if current_arch != 'aarch64' and current_arch != 'riscv64' and current_os != 'darwin' 
     cflags += ['-ffast-math', '-msse','-msse2','-mfpmath=sse']
 endif
-
 # Add osx multiarch flags when appropriate
 if current_os == 'darwin'
-    cflags += ['-mrecip',
-            '-march=i386',
-            '-march=x86-64',
-            '-mmacosx-version-min=10.5',
-            '-DMAC_OS_X_VERSION_MAX_ALLOWED=105']
+    cflags += ['-mrecip']
 endif
 
 # Extension for library by os
@@ -43,16 +38,17 @@ if current_os == 'darwin' #mac
     extension = '.dylib'
 else #unix like    
     extension = '.so'
-endif #windows
-if current_os == 'windows' or current_os == 'cygwin'
+endif 
+if current_os == 'windows' #windows
     extension = '.dll'
+    exe_wrapper = true
 endif
 
 #install folder
 install_folder = 'nrepellent.lv2'
 
 #build of the shared object
-shared_library('nrepel',
+library('nrepel',
     src,
     name_prefix: '',
     dependencies: nr_dep,
