@@ -48,7 +48,7 @@ endif
 install_folder = 'nrepellent.lv2'
 
 #build of the shared object
-library('nrepel',
+library('nrepellent',
     src,
     name_prefix: '',
     dependencies: nr_dep,
@@ -80,8 +80,8 @@ manifest_ttl = configure_file(
 
 #Configure nrepel.ttl and install
 nrepel_ttl = configure_file(
-    input : join_paths('lv2ttl', 'nrepel.ttl.in'),
-    output : 'nrepel.ttl',
+    input : join_paths('lv2ttl', 'nrepellent.ttl.in'),
+    output : 'nrepellent.ttl',
     configuration : manifest_conf,
     install : true,
 	install_dir : install_folder
