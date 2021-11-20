@@ -24,7 +24,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
 /**
-* Gain estimation struct.
+* Spectrum smoother struct.
 */
 typedef struct
 {
@@ -99,46 +99,46 @@ void spectrum_adaptive_time_smoothing(int fft_size_2, float *spectrum_prev, floa
 	}
 }
 
-void get_release_coeff(FFTDenoiser *self, float release)
-{
-	//Parameters values
-	/*exponential decay coefficients for envelopes and adaptive noise profiling
-        These must take into account the hop size as explained in the following paper
-        FFT-BASED DYNAMIC RANGE COMPRESSION*/
-	if (release != 0.f) //This allows to turn off smoothing with 0 ms in order to use masking only
-	{
-		self->release_coeff = expf(-1000.f / (((release)*self->samp_rate) / self->hop));
-	}
-	else
-	{
-		self->release_coeff = 0.f; //This avoids incorrect results when moving sliders rapidly
-	}
-}
+// void get_release_coeff(FFTProcessor *self, float release)
+// {
+// 	//Parameters values
+// 	/*exponential decay coefficients for envelopes and adaptive noise profiling
+//         These must take into account the hop size as explained in the following paper
+//         FFT-BASED DYNAMIC RANGE COMPRESSION*/
+// 	if (release != 0.f) //This allows to turn off smoothing with 0 ms in order to use masking only
+// 	{
+// 		self->release_coeff = expf(-1000.f / (((release)*self->samp_rate) / self->hop));
+// 	}
+// 	else
+// 	{
+// 		self->release_coeff = 0.f; //This avoids incorrect results when moving sliders rapidly
+// 	}
+// }
 
-/**
-* Spectral time smoothing by applying a release envelope. This seems to work better than * using time smoothing directly or McAulay & Malpass modification.
-* \param spectrum the current power spectrum
-* \param spectrum_prev the previous power spectrum
-* \param N half of the fft size
-* \param release_coeff release coefficient
-*/
-void apply_time_envelope(float *spectrum, float *spectrum_prev, float N, float release_coeff)
-{
-	int k;
+// /**
+// * Spectral time smoothing by applying a release envelope. This seems to work better than * using time smoothing directly or McAulay & Malpass modification.
+// * \param spectrum the current power spectrum
+// * \param spectrum_prev the previous power spectrum
+// * \param N half of the fft size
+// * \param release_coeff release coefficient
+// */
+// void apply_time_envelope(float *spectrum, float *spectrum_prev, float N, float release_coeff)
+// {
+// 	int k;
 
-	for (k = 0; k <= N; k++)
-	{
-		//It doesn't make much sense to have an attack slider when there is time smoothing
-		if (spectrum[k] > spectrum_prev[k])
-		{
-			//Release (when signal is incrementing in amplitude)
-			spectrum[k] = release_coeff * spectrum_prev[k] + (1.f - release_coeff) * spectrum[k];
-		}
-	}
-}
+// 	for (k = 0; k <= N; k++)
+// 	{
+// 		//It doesn't make much sense to have an attack slider when there is time smoothing
+// 		if (spectrum[k] > spectrum_prev[k])
+// 		{
+// 			//Release (when signal is incrementing in amplitude)
+// 			spectrum[k] = release_coeff * spectrum_prev[k] + (1.f - release_coeff) * spectrum[k];
+// 		}
+// 	}
+// }
 
-memcpy(smoothed_spectrum, self->signal_spectrum, sizeof(float) * (self->half_fft_size + 1));
+// memcpy(smoothed_spectrum, self->signal_spectrum, sizeof(float) * (self->half_fft_size + 1));
 
-apply_time_envelope(smoothed_spectrum, smoothed_spectrum_prev, half_fft_size, release_coeff);
+// apply_time_envelope(smoothed_spectrum, smoothed_spectrum_prev, half_fft_size, release_coeff);
 
-memcpy(smoothed_spectrum_prev, smoothed_spectrum, sizeof(float) * (half_fft_size + 1));
+// memcpy(smoothed_spectrum_prev, smoothed_spectrum, sizeof(float) * (half_fft_size + 1));

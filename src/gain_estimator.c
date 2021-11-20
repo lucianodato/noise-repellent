@@ -63,8 +63,8 @@ typedef struct
 	bool transient_detected;
 
 	MaskingEstimator *masking_estimation;
-	TransientDetector *transient_detection;
-	SpectralSmoother *spectrum_smoothing;
+	// TransientDetector *transient_detection;
+	// SpectralSmoother *spectrum_smoothing;
 } GainEstimator;
 
 /**
@@ -109,9 +109,9 @@ g_e_init(int fft_size, int samp_rate, int hop)
 	//Reset all values
 	g_e_reset(self);
 
-	self->masking_estimation = m_e_init();
-	self->transient_detection = t_d_init();
-	self->spectrum_smoothing = s_s_init();
+	self->masking_estimation = m_e_init(self->fft_size, self->samp_rate);
+	// self->transient_detection = t_d_init();
+	// self->spectrum_smoothing = s_s_init();
 
 	return self;
 }
@@ -129,8 +129,8 @@ void g_e_free(GainEstimator *self)
 	free(self->masking_thresholds);
 	free(self->clean_signal_estimation);
 	m_e_free(self->masking_estimation);
-	s_s_free(self->spectrum_smoothing);
-	t_d_free(self->transient_detection);
+	// s_s_free(self->spectrum_smoothing);
+	// t_d_free(self->transient_detection);
 	free(self);
 }
 
@@ -250,7 +250,11 @@ void spectral_gating(GainEstimator *self)
 }
 
 /**
-* Generalized spectral subtraction supression rule. This version uses an array of alphas and betas. Outputs the filter mirrored around nyquist. GAMMA defines what type of spectral Subtraction is used. GAMMA1=GAMMA2=1 is magnitude substaction. GAMMA1=2 GAMMA2=0.5 is power Subtraction. GAMMA1=2 GAMMA2=1 is wiener filtering.
+* Generalized spectral subtraction supression rule. This version uses an array of alphas and betas. Outputs the filter mirrored around nyquist. 
+* GAMMA defines what type of spectral Subtraction is used. 
+* GAMMA1=GAMMA2=1 is magnitude substaction. 
+* GAMMA1=2 GAMMA2=0.5 is power Subtraction. 
+* GAMMA1=2 GAMMA2=1 is wiener filtering.
 */
 void denoise_gain_gss(GainEstimator *self)
 {
@@ -305,6 +309,7 @@ void compute_alpha_and_beta(GainEstimator *self, float masking_ceiling_limit, fl
 
 	//Now we can compute noise masking threshold
 	//then we copy the masking thresholds values to this object masking threshold array
+	compute_masking_thresholds(self->masking_estimation, self->signal_spectrum, self->masking_thresholds);
 
 	//First we need the maximun and the minimun value of the masking threshold
 	float max_masked_tmp = max_spectral_value(self->masking_thresholds, self->half_fft_size);
@@ -345,10 +350,10 @@ void g_e_run(GainEstimator *self, float *signal_spectrum, float *gain_spectrum, 
 
 	//------TRANSIENT DETECTION------
 
-	if (transient_threshold > 1.f)
-	{
-		self->transient_detected = t_d_run(self->transient_detection, transient_threshold);
-	}
+	// if (transient_threshold > 1.f)
+	// {
+	// 	self->transient_detected = t_d_run(self->transient_detection, transient_threshold);
+	// }
 
 	//COMPUTING OF ALPHA WITH MASKING THRESHOLDS USING VIRAGS METHOD
 	if (masking_ceiling_limit > 1.f)
@@ -370,7 +375,7 @@ void g_e_run(GainEstimator *self, float *signal_spectrum, float *gain_spectrum, 
 
 	//------SMOOTHING DETECTOR------
 
-	s_s_run(self->spectrum_smoothing, release);
+	// s_s_run(self->spectrum_smoothing, release);
 
 	//------REDUCTION GAINS------
 

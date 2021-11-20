@@ -18,13 +18,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
 /**
-* \file stft_denoiser.c
+* \file stft_processor.c
 * \author Luciano Dato
 * \brief Contains an STFT denoiser abstraction
 */
 
 #include <fftw3.h>
-#include "fft_denoiser.c"
+#include "fft_processor.c"
 
 //STFT default values (Hardcoded for now)
 #define FFT_SIZE 2048		 //Size of the fft transform
@@ -56,20 +56,20 @@ typedef struct
 	float *output_fft_buffer;
 
 	//FFT processor instance
-	FFTDenoiser *fft_denoiser;
-} STFTDenoiser;
+	FFTProcessor *fft_processor;
+} STFTProcessor;
 
 /**
 * Wrapper for getting the pre and post processing windows and adequate scaling factor.
 */
-void stft_d_pre_and_post_window(STFTDenoiser *self)
+void stft_d_pre_and_post_window(STFTProcessor *self)
 {
 	float sum = 0.f;
 
 	//Input window
 	switch (self->window_option_input)
 	{
-	case 0:												   // HANN
+	case 0:												   //HANN
 		fft_window(self->input_window, self->fft_size, 0); //STFT input window
 		break;
 	case 1:												   //HAMMING
@@ -86,7 +86,7 @@ void stft_d_pre_and_post_window(STFTDenoiser *self)
 	//Output window
 	switch (self->window_option_output)
 	{
-	case 0:													// HANN
+	case 0:													//HANN
 		fft_window(self->output_window, self->fft_size, 0); //STFT input window
 		break;
 	case 1:													//HAMMING
@@ -111,7 +111,7 @@ void stft_d_pre_and_post_window(STFTDenoiser *self)
 /**
 * Initializes all dynamics arrays with zeros.
 */
-void stft_d_reset(STFTDenoiser *self)
+void stft_d_reset(STFTProcessor *self)
 {
 	//Reset all arrays
 	initialize_array(self->input_fft_buffer, 0.f, self->fft_size);
@@ -126,10 +126,10 @@ void stft_d_reset(STFTDenoiser *self)
 /**
 * STFT processor initialization and configuration.
 */
-STFTDenoiser *stft_d_init(int sample_rate)
+STFTProcessor *stft_d_init(int sample_rate)
 {
 	//Allocate object
-	STFTDenoiser *self = (STFTDenoiser *)malloc(sizeof(STFTDenoiser));
+	STFTProcessor *self = (STFTProcessor *)malloc(sizeof(STFTProcessor));
 
 	//self configuration
 	self->fft_size = FFT_SIZE;
@@ -170,7 +170,7 @@ STFTDenoiser *stft_d_init(int sample_rate)
 	stft_d_pre_and_post_window(self);
 
 	//Spectral processor related
-	self->fft_denoiser = fft_d_init(self->fft_size, sample_rate, self->hop);
+	self->fft_processor = fft_d_init(self->fft_size, sample_rate, self->hop);
 
 	return self;
 }
@@ -178,7 +178,7 @@ STFTDenoiser *stft_d_init(int sample_rate)
 /**
 * Free allocated memory.
 */
-void stft_d_free(STFTDenoiser *self)
+void stft_d_free(STFTProcessor *self)
 {
 	fftwf_free(self->input_fft_buffer);
 	fftwf_free(self->output_fft_buffer);
@@ -189,14 +189,14 @@ void stft_d_free(STFTDenoiser *self)
 	free(self->in_fifo);
 	free(self->out_fifo);
 	free(self->output_accum);
-	fft_d_free(self->fft_denoiser);
+	fft_d_free(self->fft_processor);
 	free(self);
 }
 
 /**
 * Does the analysis part of the stft for current block.
 */
-void stft_d_analysis(STFTDenoiser *self)
+void stft_d_analysis(STFTProcessor *self)
 {
 	int k;
 
@@ -214,7 +214,7 @@ void stft_d_analysis(STFTDenoiser *self)
 * Does the synthesis part of the stft for current block and then does the OLA method to
 * enable the final output.
 */
-void stft_d_synthesis(STFTDenoiser *self)
+void stft_d_synthesis(STFTProcessor *self)
 {
 	int k;
 
@@ -260,7 +260,7 @@ void stft_d_synthesis(STFTDenoiser *self)
 /**
 * Returns the latency needed to be reported to the host.
 */
-int stft_d_get_latency(STFTDenoiser *self)
+int stft_d_get_latency(STFTProcessor *self)
 {
 	return self->input_latency;
 }
@@ -268,7 +268,7 @@ int stft_d_get_latency(STFTDenoiser *self)
 /**
 * Runs the STFT processing for the given signal by the host.
 */
-void stft_d_run(STFTDenoiser *self, int n_samples, const float *input, float *output,
+void stft_d_run(STFTProcessor *self, int n_samples, const float *input, float *output,
 				int enable, int learn_noise, float whitening_factor, float reduction_amount,
 				bool residual_listen, float transient_threshold, float masking_ceiling_limit,
 				float release, float noise_rescale)
@@ -295,7 +295,7 @@ void stft_d_run(STFTDenoiser *self, int n_samples, const float *input, float *ou
 
 			//Call processing  with the obtained fft transform
 			//when stft analysis is applied fft transform values reside in output_fft_buffer
-			fft_d_run(self->fft_denoiser, self->output_fft_buffer, enable, learn_noise, whitening_factor,
+			fft_d_run(self->fft_processor, self->output_fft_buffer, enable, learn_noise, whitening_factor,
 					  reduction_amount, residual_listen, transient_threshold, masking_ceiling_limit,
 					  release, noise_rescale);
 
