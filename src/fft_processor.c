@@ -26,8 +26,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define WHITENING_DECAY_RATE 1000.f //Deacay in ms for max spectrum for whitening
 #define WHITENING_FLOOR 0.02f		//Minumum max value posible
 
-#include "noise_estimator.c"
 #include "gain_estimator.c"
+#include "noise_estimator.c"
 
 /**
 * FFT processor struct.
@@ -67,94 +67,6 @@ typedef struct
 	float max_decay_rate;
 	float whitening_window_count;
 } FFTProcessor;
-
-/**
-* Reset dynamic arrays to zero.
-*/
-void fft_d_reset(FFTProcessor *self)
-{
-	//Reset all arrays
-	initialize_array(self->fft_spectrum, 0.f, self->fft_size);
-	initialize_array(self->processed_fft_spectrum, 0.f, self->fft_size);
-	initialize_array(self->gain_spectrum, 1.f, self->fft_size);
-
-	initialize_array(self->power_spectrum, 0.f, self->fft_size_2 + 1);
-	initialize_array(self->magnitude_spectrum, 0.f, self->fft_size_2 + 1);
-	initialize_array(self->phase_spectrum, 0.f, self->fft_size_2 + 1);
-
-	initialize_array(self->residual_max_spectrum, 0.f, self->fft_size);
-	initialize_array(self->denoised_spectrum, 0.f, self->fft_size);
-	initialize_array(self->residual_spectrum, 0.f, self->fft_size);
-	initialize_array(self->whitened_residual_spectrum, 0.f, self->fft_size);
-	initialize_array(self->gain_spectrum, 0.f, self->fft_size);
-
-	self->whitening_window_count = 0.f;
-}
-
-/**
-* FFT processor initialization and configuration.
-*/
-FFTProcessor *fft_d_init(int fft_size, int samp_rate, int hop)
-{
-	//Allocate object
-	FFTProcessor *self = (FFTProcessor *)malloc(sizeof(FFTProcessor));
-
-	//Configuration
-	self->fft_size = fft_size;
-	self->fft_size_2 = self->fft_size / 2;
-	self->samp_rate = samp_rate;
-	self->hop = hop;
-
-	//spectrum allocation
-	self->fft_spectrum = (float *)calloc((self->fft_size), sizeof(float));
-	self->processed_fft_spectrum = (float *)calloc((self->fft_size), sizeof(float));
-
-	//soft bypass
-	self->tau = (1.f - expf(-2.f * M_PI * 25.f * 64.f / self->samp_rate));
-	self->wet_dry = 0.f;
-
-	//whitening related
-	self->residual_max_spectrum = (float *)calloc((self->fft_size), sizeof(float));
-	self->max_decay_rate = expf(-1000.f / (((WHITENING_DECAY_RATE)*self->samp_rate) / self->hop));
-
-	//final ensemble related
-	self->residual_spectrum = (float *)calloc((self->fft_size), sizeof(float));
-	self->denoised_spectrum = (float *)calloc((self->fft_size), sizeof(float));
-	self->gain_spectrum = (float *)calloc((self->fft_size), sizeof(float));
-	self->whitened_residual_spectrum = (float *)calloc((self->fft_size), sizeof(float));
-
-	//Arrays for getting bins info
-	self->power_spectrum = (float *)malloc((self->fft_size_2 + 1) * sizeof(float));
-	self->magnitude_spectrum = (float *)malloc((self->fft_size_2 + 1) * sizeof(float));
-	self->phase_spectrum = (float *)malloc((self->fft_size_2 + 1) * sizeof(float));
-
-	//Reset all values
-	fft_d_reset(self);
-
-	//Noise estimator related
-	self->noise_estimation = n_e_init(self->fft_size);
-
-	return self;
-}
-
-/**
-* Free allocated memory.
-*/
-void fft_d_free(FFTProcessor *self)
-{
-	free(self->fft_spectrum);
-	free(self->processed_fft_spectrum);
-	free(self->power_spectrum);
-	free(self->magnitude_spectrum);
-	free(self->phase_spectrum);
-	free(self->gain_spectrum);
-	free(self->residual_spectrum);
-	free(self->whitened_residual_spectrum);
-	free(self->denoised_spectrum);
-	free(self->residual_max_spectrum);
-	n_e_free(self->noise_estimation);
-	free(self);
-}
 
 /**
 * Updates the wet/dry mixing coefficient.
@@ -334,4 +246,92 @@ void fft_d_run(FFTProcessor *self, float *fft_spectrum, int enable, bool learn_n
 
 	//Copy the processed spectrum to fft_spectrum
 	memcpy(fft_spectrum, self->processed_fft_spectrum, sizeof(float) * self->fft_size);
+}
+
+/**
+* Reset dynamic arrays to zero.
+*/
+void fft_d_reset(FFTProcessor *self)
+{
+	//Reset all arrays
+	initialize_array(self->fft_spectrum, 0.f, self->fft_size);
+	initialize_array(self->processed_fft_spectrum, 0.f, self->fft_size);
+	initialize_array(self->gain_spectrum, 1.f, self->fft_size);
+
+	initialize_array(self->power_spectrum, 0.f, self->fft_size_2 + 1);
+	initialize_array(self->magnitude_spectrum, 0.f, self->fft_size_2 + 1);
+	initialize_array(self->phase_spectrum, 0.f, self->fft_size_2 + 1);
+
+	initialize_array(self->residual_max_spectrum, 0.f, self->fft_size);
+	initialize_array(self->denoised_spectrum, 0.f, self->fft_size);
+	initialize_array(self->residual_spectrum, 0.f, self->fft_size);
+	initialize_array(self->whitened_residual_spectrum, 0.f, self->fft_size);
+	initialize_array(self->gain_spectrum, 0.f, self->fft_size);
+
+	self->whitening_window_count = 0.f;
+}
+
+/**
+* FFT processor initialization and configuration.
+*/
+FFTProcessor *fft_d_init(int fft_size, int samp_rate, int hop)
+{
+	//Allocate object
+	FFTProcessor *self = (FFTProcessor *)malloc(sizeof(FFTProcessor));
+
+	//Configuration
+	self->fft_size = fft_size;
+	self->fft_size_2 = self->fft_size / 2;
+	self->samp_rate = samp_rate;
+	self->hop = hop;
+
+	//spectrum allocation
+	self->fft_spectrum = (float *)calloc((self->fft_size), sizeof(float));
+	self->processed_fft_spectrum = (float *)calloc((self->fft_size), sizeof(float));
+
+	//soft bypass
+	self->tau = (1.f - expf(-2.f * M_PI * 25.f * 64.f / self->samp_rate));
+	self->wet_dry = 0.f;
+
+	//whitening related
+	self->residual_max_spectrum = (float *)calloc((self->fft_size), sizeof(float));
+	self->max_decay_rate = expf(-1000.f / (((WHITENING_DECAY_RATE)*self->samp_rate) / self->hop));
+
+	//final ensemble related
+	self->residual_spectrum = (float *)calloc((self->fft_size), sizeof(float));
+	self->denoised_spectrum = (float *)calloc((self->fft_size), sizeof(float));
+	self->gain_spectrum = (float *)calloc((self->fft_size), sizeof(float));
+	self->whitened_residual_spectrum = (float *)calloc((self->fft_size), sizeof(float));
+
+	//Arrays for getting bins info
+	self->power_spectrum = (float *)malloc((self->fft_size_2 + 1) * sizeof(float));
+	self->magnitude_spectrum = (float *)malloc((self->fft_size_2 + 1) * sizeof(float));
+	self->phase_spectrum = (float *)malloc((self->fft_size_2 + 1) * sizeof(float));
+
+	//Reset all values
+	fft_d_reset(self);
+
+	//Noise estimator related
+	self->noise_estimation = n_e_init(self->fft_size);
+
+	return self;
+}
+
+/**
+* Free allocated memory.
+*/
+void fft_d_free(FFTProcessor *self)
+{
+	free(self->fft_spectrum);
+	free(self->processed_fft_spectrum);
+	free(self->power_spectrum);
+	free(self->magnitude_spectrum);
+	free(self->phase_spectrum);
+	free(self->gain_spectrum);
+	free(self->residual_spectrum);
+	free(self->whitened_residual_spectrum);
+	free(self->denoised_spectrum);
+	free(self->residual_max_spectrum);
+	n_e_free(self->noise_estimation);
+	free(self);
 }

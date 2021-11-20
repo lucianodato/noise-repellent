@@ -40,7 +40,7 @@ typedef struct
 	float *signal_spectrum;
 
 	//smoothing related
-	float *smoothed_spectrum;	  //power spectrum to be smoothed
+	float *smoothed_spectrum;	   //power spectrum to be smoothed
 	float *smoothed_spectrum_prev; //previous frame smoothed power spectrum for envelopes
 } SpectralSmoother;
 

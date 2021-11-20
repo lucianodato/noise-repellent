@@ -23,12 +23,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 * \brief Contains a the reduction gain estimator abstraction
 */
 
+#include "masking_estimator.c"
+#include "spectrum_smoother.c"
+#include "transient_detector.c"
 #include <float.h>
 #include <math.h>
 #include <stdbool.h>
-#include "masking_estimator.c"
-#include "transient_detector.c"
-#include "spectrum_smoother.c"
 
 //General spectral subtraction configuration
 #define GAMMA1 2.f
@@ -66,73 +66,6 @@ typedef struct
 	TransientDetector *transient_detection;
 	// SpectralSmoother *spectrum_smoothing;
 } GainEstimator;
-
-/**
-* Reset dynamic arrays to zero.
-*/
-void g_e_reset(GainEstimator *self)
-{
-	//Reset all arrays
-	initialize_array(self->signal_spectrum, 0.f, self->half_fft_size + 1);
-	initialize_array(self->noise_spectrum, 0.f, self->half_fft_size + 1);
-	initialize_array(self->gain_spectrum, 1.f, self->half_fft_size + 1);
-	initialize_array(self->alpha, 1.f, self->half_fft_size + 1);
-	initialize_array(self->beta, 0.f, self->half_fft_size + 1);
-	initialize_array(self->masking_thresholds, 0.f, self->half_fft_size + 1);
-	initialize_array(self->clean_signal_estimation, 0.f, self->half_fft_size + 1);
-}
-
-/**
-* Gain estimator initialization and configuration.
-*/
-GainEstimator *
-g_e_init(int fft_size, int samp_rate, int hop)
-{
-	//Allocate object
-	GainEstimator *self = (GainEstimator *)malloc(sizeof(GainEstimator));
-
-	//Configuration
-	self->fft_size = fft_size;
-	self->half_fft_size = self->fft_size / 2;
-	self->samp_rate = samp_rate;
-	self->hop = hop;
-
-	//spectrum allocation
-	self->signal_spectrum = (float *)calloc((self->half_fft_size + 1), sizeof(float));
-	self->gain_spectrum = (float *)calloc((self->half_fft_size + 1), sizeof(float));
-	self->noise_spectrum = (float *)calloc((self->half_fft_size + 1), sizeof(float));
-	self->alpha = (float *)calloc((self->half_fft_size + 1), sizeof(float));
-	self->beta = (float *)calloc((self->half_fft_size + 1), sizeof(float));
-	self->masking_thresholds = (float *)calloc((self->half_fft_size + 1), sizeof(float));
-	self->clean_signal_estimation = (float *)calloc((self->half_fft_size + 1), sizeof(float));
-
-	//Reset all values
-	g_e_reset(self);
-
-	self->masking_estimation = m_e_init(self->fft_size, self->samp_rate);
-	self->transient_detection = t_d_init(self->fft_size);
-	// self->spectrum_smoothing = s_s_init();
-
-	return self;
-}
-
-/**
-* Free allocated memory.
-*/
-void g_e_free(GainEstimator *self)
-{
-	free(self->noise_spectrum);
-	free(self->gain_spectrum);
-	free(self->signal_spectrum);
-	free(self->alpha);
-	free(self->beta);
-	free(self->masking_thresholds);
-	free(self->clean_signal_estimation);
-	m_e_free(self->masking_estimation);
-	t_d_free(self->transient_detection);
-	// s_s_free(self->spectrum_smoothing);
-	free(self);
-}
 
 /**
 * Wiener substraction supression rule. Outputs the filter mirrored around nyquist.
@@ -395,4 +328,71 @@ void g_e_run(GainEstimator *self, float *signal_spectrum, float *gain_spectrum, 
 	{
 		gain_spectrum[(2 * self->half_fft_size) - k] = self->gain_spectrum[k];
 	}
+}
+
+/**
+* Reset dynamic arrays to zero.
+*/
+void g_e_reset(GainEstimator *self)
+{
+	//Reset all arrays
+	initialize_array(self->signal_spectrum, 0.f, self->half_fft_size + 1);
+	initialize_array(self->noise_spectrum, 0.f, self->half_fft_size + 1);
+	initialize_array(self->gain_spectrum, 1.f, self->half_fft_size + 1);
+	initialize_array(self->alpha, 1.f, self->half_fft_size + 1);
+	initialize_array(self->beta, 0.f, self->half_fft_size + 1);
+	initialize_array(self->masking_thresholds, 0.f, self->half_fft_size + 1);
+	initialize_array(self->clean_signal_estimation, 0.f, self->half_fft_size + 1);
+}
+
+/**
+* Gain estimator initialization and configuration.
+*/
+GainEstimator *
+g_e_init(int fft_size, int samp_rate, int hop)
+{
+	//Allocate object
+	GainEstimator *self = (GainEstimator *)malloc(sizeof(GainEstimator));
+
+	//Configuration
+	self->fft_size = fft_size;
+	self->half_fft_size = self->fft_size / 2;
+	self->samp_rate = samp_rate;
+	self->hop = hop;
+
+	//spectrum allocation
+	self->signal_spectrum = (float *)calloc((self->half_fft_size + 1), sizeof(float));
+	self->gain_spectrum = (float *)calloc((self->half_fft_size + 1), sizeof(float));
+	self->noise_spectrum = (float *)calloc((self->half_fft_size + 1), sizeof(float));
+	self->alpha = (float *)calloc((self->half_fft_size + 1), sizeof(float));
+	self->beta = (float *)calloc((self->half_fft_size + 1), sizeof(float));
+	self->masking_thresholds = (float *)calloc((self->half_fft_size + 1), sizeof(float));
+	self->clean_signal_estimation = (float *)calloc((self->half_fft_size + 1), sizeof(float));
+
+	//Reset all values
+	g_e_reset(self);
+
+	self->masking_estimation = m_e_init(self->fft_size, self->samp_rate);
+	self->transient_detection = t_d_init(self->fft_size);
+	// self->spectrum_smoothing = s_s_init();
+
+	return self;
+}
+
+/**
+* Free allocated memory.
+*/
+void g_e_free(GainEstimator *self)
+{
+	free(self->noise_spectrum);
+	free(self->gain_spectrum);
+	free(self->signal_spectrum);
+	free(self->alpha);
+	free(self->beta);
+	free(self->masking_thresholds);
+	free(self->clean_signal_estimation);
+	m_e_free(self->masking_estimation);
+	t_d_free(self->transient_detection);
+	// s_s_free(self->spectrum_smoothing);
+	free(self);
 }

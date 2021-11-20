@@ -23,13 +23,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 * \brief Extra methods used by others. This keeps clean other files.
 */
 
-#include <math.h>
 #include <float.h>
+#include <math.h>
 #include <stdbool.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include <stdio.h>
 
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
@@ -81,7 +81,7 @@ static int next_pow_two(int x)
 ///gets the nearest odd number of a number x.
 static int nearest_odd(int x)
 {
-	return((x % 2 == 0) ? x + 1 : x);
+	return ((x % 2 == 0) ? x + 1 : x);
 }
 
 ///gets the nearest even number of a number x.
@@ -668,6 +668,6 @@ static void get_info_from_bins(float *fft_p2, float *fft_magnitude, float *fft_p
 		//Store values in magnitude and power arrays (this stores the positive spectrum only)
 		fft_p2[k] = p2;
 		fft_magnitude[k] = mag; //This is not used but part of the STFT transform for generic use
-		fft_phase[k] = phase;   //This is not used but part of the STFT transform for generic use
+		fft_phase[k] = phase;	//This is not used but part of the STFT transform for generic use
 	}
 }

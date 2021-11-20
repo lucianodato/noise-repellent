@@ -23,8 +23,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 * \brief Abstraction noise spectrum estimation
 */
 
-#include <math.h>
 #include <float.h>
+#include <math.h>
 
 #include "extra_functions.c"
 
@@ -42,33 +42,6 @@ typedef struct
 	bool noise_spectrum_available; //indicate whether a noise profile is available or no
 	float noise_block_count;	   //Count windows for mean computing
 } NoiseEstimator;
-
-void n_e_reset(NoiseEstimator *self)
-{
-	self->noise_spectrum_available = false;
-	initialize_array(self->noise_spectrum, 0.f, self->half_fft_size + 1);
-}
-
-NoiseEstimator *n_e_init(int fft_size)
-{
-	NoiseEstimator *self = (NoiseEstimator *)malloc(sizeof(NoiseEstimator));
-
-	//Configuration
-	self->fft_size = fft_size;
-	self->half_fft_size = self->fft_size / 2;
-
-	self->noise_spectrum = (float *)calloc((self->half_fft_size + 1), sizeof(float));
-
-	n_e_reset(self);
-
-	return self;
-}
-
-void n_e_free(NoiseEstimator *self)
-{
-	free(self->noise_spectrum);
-	free(self);
-}
 
 bool n_e_available(NoiseEstimator *self)
 {
@@ -100,4 +73,31 @@ void n_e_run(NoiseEstimator *self, float *spectrum)
 
 	//Now we have an estimated noise spectrum
 	self->noise_spectrum_available = true;
+}
+
+void n_e_reset(NoiseEstimator *self)
+{
+	self->noise_spectrum_available = false;
+	initialize_array(self->noise_spectrum, 0.f, self->half_fft_size + 1);
+}
+
+NoiseEstimator *n_e_init(int fft_size)
+{
+	NoiseEstimator *self = (NoiseEstimator *)malloc(sizeof(NoiseEstimator));
+
+	//Configuration
+	self->fft_size = fft_size;
+	self->half_fft_size = self->fft_size / 2;
+
+	self->noise_spectrum = (float *)calloc((self->half_fft_size + 1), sizeof(float));
+
+	n_e_reset(self);
+
+	return self;
+}
+
+void n_e_free(NoiseEstimator *self)
+{
+	free(self->noise_spectrum);
+	free(self);
 }

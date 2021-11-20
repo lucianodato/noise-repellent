@@ -55,7 +55,7 @@ typedef struct
 {
 	const float *input; //input of samples from host (changing size)
 	float *output;		//output of samples to host (changing size)
-	float sample_rate;  //Sample rate received from the host
+	float sample_rate;	//Sample rate received from the host
 
 	//Parameters for the algorithm (user input)
 	float *reduction_amount;	 //Amount of noise to reduce in dB

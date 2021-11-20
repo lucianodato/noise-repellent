@@ -23,10 +23,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 * \brief Methods for masking threshold estimation
 */
 
+#include <fftw3.h>
 #include <float.h>
-#include <fftw3.h>
 #include <math.h>
-#include <fftw3.h>
 
 //extra values
 #define N_BARK_BANDS 25
@@ -66,69 +65,6 @@ typedef struct
 } MaskingEstimator;
 
 /**
-* Reset dynamic arrays to zero.
-*/
-void m_e_reset(MaskingEstimator *self)
-{
-	//Reset all arrays
-	initialize_array(self->absolute_thresholds, 0.f, self->half_fft_size + 1);
-	initialize_array(self->bark_z, 0.f, self->half_fft_size + 1);
-	initialize_array(self->spl_reference_values, 0.f, self->half_fft_size + 1);
-	initialize_array(self->input_fft_buffer_at, 0.f, self->half_fft_size + 1);
-	initialize_array(self->output_fft_buffer_at, 0.f, self->half_fft_size + 1);
-	initialize_array(self->SSF, 0.f, N_BARK_BANDS);
-	initialize_array(self->unity_gain_bark_spectrum, 0.f, N_BARK_BANDS);
-	initialize_array(self->spreaded_unity_gain_bark_spectrum, 0.f, N_BARK_BANDS);
-}
-
-/**
-* Masking estimator initialization and configuration.
-*/
-MaskingEstimator *
-m_e_init(int fft_size, int samp_rate)
-{
-	//Allocate object
-	MaskingEstimator *self = (MaskingEstimator *)malloc(sizeof(MaskingEstimator));
-
-	//Configuration
-	self->fft_size = fft_size;
-	self->half_fft_size = self->fft_size / 2;
-	self->samp_rate = samp_rate;
-
-	//spectrum allocation
-	self->absolute_thresholds = (float *)calloc((self->half_fft_size + 1), sizeof(float));
-	self->bark_z = (float *)calloc((self->half_fft_size + 1), sizeof(float));
-	self->spl_reference_values = (float *)calloc((self->half_fft_size + 1), sizeof(float));
-	self->input_fft_buffer_at = (float *)calloc((self->half_fft_size + 1), sizeof(float));
-	self->output_fft_buffer_at = (float *)calloc((self->half_fft_size + 1), sizeof(float));
-	self->SSF = (float *)calloc((N_BARK_BANDS), sizeof(float));
-	self->unity_gain_bark_spectrum = (float *)calloc((N_BARK_BANDS), sizeof(float));
-	self->spreaded_unity_gain_bark_spectrum = (float *)calloc((N_BARK_BANDS), sizeof(float));
-
-	//Reset all values
-	m_e_reset(self);
-
-	return self;
-}
-
-/**
-* Free allocated memory.
-*/
-void m_e_free(MaskingEstimator *self)
-{
-	free(self->absolute_thresholds);
-	free(self->bark_z);
-	free(self->spl_reference_values);
-	free(self->input_fft_buffer_at);
-	free(self->output_fft_buffer_at);
-	free(self->SSF);
-	free(self->unity_gain_bark_spectrum);
-	free(self->spreaded_unity_gain_bark_spectrum);
-	free(self);
-}
-
-
-/**
 * Fft to bark bilinear scale transform. This computes the corresponding bark band for
 * each fft bin and generates an array that
 * inicates this mapping.
@@ -136,7 +72,7 @@ void m_e_free(MaskingEstimator *self)
 * \param fft_size_2 is half of the fft size
 * \param srate current sample rate of the host
 */
-static void compute_bark_mapping(MaskingEstimator *self)
+void compute_bark_mapping(MaskingEstimator *self)
 {
 	int k;
 	float freq;
@@ -149,13 +85,81 @@ static void compute_bark_mapping(MaskingEstimator *self)
 }
 
 /**
+* Computes the absolute thresholds of hearing to contrast with the masking thresholds.
+* This formula is explained in Thiemann thesis 'Acoustic Noise Suppression for Speech
+* Signals using Auditory Masking Effects'
+* \param absolute_thresholds defines the absolute thresholds of hearing for current spectrum config
+* \param fft_size_2 is half of the fft size
+* \param srate current sample rate of the host
+*/
+void compute_absolute_thresholds(MaskingEstimator *self)
+{
+	int k;
+	float freq;
+
+	for (k = 1; k <= self->half_fft_size; k++)
+	{
+		//As explained by thiemann
+		freq = bin_to_freq(k, self->samp_rate, self->half_fft_size);																												 //bin to freq
+		self->absolute_thresholds[k] = 3.64f * powf((freq / 1000.f), -0.8f) - 6.5f * exp(-0.6f * powf((freq / 1000.f - 3.3f), 2.f)) + powf(10.f, -3.f) * powf((freq / 1000.f), 4.f); //dBSPL scale
+	}
+}
+
+/**
+* Computes the reference spectrum to perform the db to dbSPL conversion. It uses
+* a full scale 1khz sine wave as the reference signal and performs an fft transform over
+* it to get the magnitude spectrum and then scales it using a reference dbSPL level. This
+* is used because the absolute thresholds of hearing are obtained in SPL scale so it's
+* necessary to compare this thresholds with obtained masking thresholds using the same
+* scale.
+*/
+void spl_reference(MaskingEstimator *self)
+{
+	int k;
+	float sinewave[self->fft_size];
+	float window[self->fft_size];
+	float fft_p2_at[self->half_fft_size];
+	float fft_magnitude_at[self->half_fft_size];
+	float fft_phase_at[self->half_fft_size];
+	float fft_p2_at_dbspl[self->half_fft_size];
+
+	//Generate a fullscale sine wave of 1 kHz
+	for (k = 0; k < self->fft_size; k++)
+	{
+		sinewave[k] = S_AMP * sinf((2.f * M_PI * k * AT_SINE_WAVE_FREQ) / (float)self->samp_rate);
+	}
+
+	//Windowing the sinewave
+	fft_window(window, self->fft_size, 0); //von-Hann window
+	for (k = 0; k < self->fft_size; k++)
+	{
+		self->input_fft_buffer_at[k] = sinewave[k] * window[k];
+	}
+
+	//Do FFT
+	fftwf_execute(self->forward_at);
+
+	//Get the magnitude
+	get_info_from_bins(fft_p2_at, fft_magnitude_at, fft_phase_at, self->half_fft_size, self->fft_size,
+					   self->output_fft_buffer_at);
+
+	//Convert to db and taking into account 90dbfs of reproduction loudness
+	for (k = 0; k <= self->half_fft_size; k++)
+	{
+		fft_p2_at_dbspl[k] = REFERENCE_LEVEL - 10.f * log10f(fft_p2_at[k]);
+	}
+
+	memcpy(self->spl_reference_values, fft_p2_at_dbspl, sizeof(float) * (self->half_fft_size + 1));
+}
+
+/**
 * Computes the spectral spreading function of Schroeder as a matrix using bark scale.
 * This is to perform a convolution between this function and a bark spectrum. The
 * complete explanation for this is in Robinsons master thesis 'Perceptual model for
 * assessment of coded audio'.
 * \param SSF defines the spreading function matrix
 */
-static void compute_SSF(MaskingEstimator* self)
+void compute_SSF(MaskingEstimator *self)
 {
 	int i, j;
 	float y;
@@ -180,7 +184,7 @@ static void compute_SSF(MaskingEstimator* self)
 * \param bark_spectrum the bark spectrum values of current power spectrum
 * \param spreaded_spectrum result of the convolution bewtween SSF and the bark spectrum
 */
-static void convolve_with_SSF(MaskingEstimator *self, float *bark_spectrum, float *spreaded_spectrum)
+void convolve_with_SSF(MaskingEstimator *self, float *bark_spectrum, float *spreaded_spectrum)
 {
 	int i, j;
 	for (i = 0; i < N_BARK_BANDS; i++)
@@ -202,8 +206,8 @@ static void convolve_with_SSF(MaskingEstimator *self, float *bark_spectrum, floa
 * \param intermediate_band_bins holds the bin numbers that are limits of each band
 * \param n_bins_per_band holds the the number of bins in each band
 */
-static void compute_bark_spectrum(MaskingEstimator *self, float *bark_spectrum, float *spectrum,
-								  float *intermediate_band_bins, float *n_bins_per_band)
+void compute_bark_spectrum(MaskingEstimator *self, float *bark_spectrum, float *spectrum,
+						   float *intermediate_band_bins, float *n_bins_per_band)
 {
 	int j;
 	int last_position = 0;
@@ -231,102 +235,17 @@ static void compute_bark_spectrum(MaskingEstimator *self, float *bark_spectrum, 
 }
 
 /**
-* Computes the reference spectrum to perform the db to dbSPL conversion. It uses
-* a full scale 1khz sine wave as the reference signal and performs an fft transform over
-* it to get the magnitude spectrum and then scales it using a reference dbSPL level. This
-* is used because the absolute thresholds of hearing are obtained in SPL scale so it's
-* necessary to compare this thresholds with obtained masking thresholds using the same
-* scale.
-* \param spl_reference_values defines the reference values for each bin to convert from db to db SPL
-* \param fft_size_2 is half of the fft size
-* \param srate current sample rate of the host
-* \param input_fft_buffer_at input buffer for the reference sinewave fft transform
-* \param output_fft_buffer_at output buffer for the reference sinewave fft transform
-* \param forward_at fftw plan for the reference sinewave fft transform
-*/
-void spl_reference(float *spl_reference_values, int fft_size, int fft_size_2, int srate)
-{
-	int k;
-	float *input_fft_buffer_at;
-	float *output_fft_buffer_at;
-	fftwf_plan forward_at;
-	float sinewave[fft_size];
-	float window[fft_size];
-	float fft_p2_at[fft_size_2 + 1];
-	float fft_magnitude_at[fft_size_2 + 1];
-	float fft_phase_at[fft_size_2 + 1];
-	float fft_p2_at_dbspl[fft_size_2 + 1];
-
-	input_fft_buffer_at = (float *)calloc(fft_size, sizeof(float));
-	output_fft_buffer_at = (float *)calloc(fft_size, sizeof(float));
-	forward_at = fftwf_plan_r2r_1d(fft_size, input_fft_buffer_at, output_fft_buffer_at, FFTW_R2HC, FFTW_ESTIMATE);
-
-	//Generate a fullscale sine wave of 1 kHz
-	for (k = 0; k < fft_size; k++)
-	{
-		sinewave[k] = S_AMP * sinf((2.f * M_PI * k * AT_SINE_WAVE_FREQ) / (float)srate);
-	}
-
-	//Windowing the sinewave
-	fft_window(window, fft_size, 0); //von-Hann window
-	for (k = 0; k < fft_size; k++)
-	{
-		input_fft_buffer_at[k] = sinewave[k] * window[k];
-	}
-
-	//Do FFT
-	fftwf_execute(forward_at);
-
-	//Get the magnitude
-	get_info_from_bins(fft_p2_at, fft_magnitude_at, fft_phase_at, fft_size_2, fft_size,
-					   output_fft_buffer_at);
-
-	//Convert to db and taking into account 90dbfs of reproduction loudness
-	for (k = 0; k <= fft_size_2; k++)
-	{
-		fft_p2_at_dbspl[k] = REFERENCE_LEVEL - 10.f * log10f(fft_p2_at[k]);
-	}
-
-	memcpy(spl_reference_values, fft_p2_at_dbspl, sizeof(float) * (fft_size_2 + 1));
-
-	fftwf_free(input_fft_buffer_at);
-	fftwf_free(output_fft_buffer_at);
-	fftwf_destroy_plan(forward_at);
-}
-
-/**
 * dB scale to dBSPL conversion. This is to convert masking thresholds from db to dbSPL
 * scale to then compare them to absolute threshold of hearing.
 * \param spl_reference_values defines the reference values for each bin to convert from db to db SPL
 * \param masking_thresholds the masking thresholds obtained in db scale
 * \param fft_size_2 is half of the fft size
 */
-static void convert_to_dbspl(MaskingEstimator *self, float *masking_thresholds)
+void convert_to_dbspl(MaskingEstimator *self, float *masking_thresholds)
 {
 	for (int k = 0; k <= self->half_fft_size; k++)
 	{
 		masking_thresholds[k] += self->spl_reference_values[k];
-	}
-}
-
-/**
-* Computes the absolute thresholds of hearing to contrast with the masking thresholds.
-* This formula is explained in Thiemann thesis 'Acoustic Noise Suppression for Speech
-* Signals using Auditory Masking Effects'
-* \param absolute_thresholds defines the absolute thresholds of hearing for current spectrum config
-* \param fft_size_2 is half of the fft size
-* \param srate current sample rate of the host
-*/
-static void compute_absolute_thresholds(MaskingEstimator *self)
-{
-	int k;
-	float freq;
-
-	for (k = 1; k <= self->half_fft_size; k++)
-	{																																										   
-		//As explained by thiemann
-		freq = bin_to_freq(k, self->samp_rate, self->half_fft_size); //bin to freq
-		self->absolute_thresholds[k] = 3.64f * powf((freq / 1000.f), -0.8f) - 6.5f * exp(-0.6f * powf((freq / 1000.f - 3.3f), 2.f)) + powf(10.f, -3.f) * powf((freq / 1000.f), 4.f); //dBSPL scale
 	}
 }
 
@@ -340,8 +259,8 @@ static void compute_absolute_thresholds(MaskingEstimator *self)
 * \param n_bins_per_band holds the the number of bins in each band
 * \param band the bark band given
 */
-static float compute_tonality_factor(float *spectrum, float *intermediate_band_bins,
-									 float *n_bins_per_band, int band)
+float compute_tonality_factor(float *spectrum, float *intermediate_band_bins,
+							  float *n_bins_per_band, int band)
 {
 	int k;
 	float SFM, tonality_factor;
@@ -391,7 +310,7 @@ static float compute_tonality_factor(float *spectrum, float *intermediate_band_b
 * \param spreaded_unity_gain_bark_spectrum correction to be applied to SSF convolution
 * \param spl_reference_values defines the reference values for each bin to convert from db to db SPL
 */
-static void compute_masking_thresholds(MaskingEstimator *self, float *spectrum, float *masking_thresholds)
+void compute_masking_thresholds(MaskingEstimator *self, float *spectrum, float *masking_thresholds)
 {
 	int k, j, start_pos, end_pos;
 	float intermediate_band_bins[N_BARK_BANDS];
@@ -459,4 +378,79 @@ static void compute_masking_thresholds(MaskingEstimator *self, float *spectrum, 
 	{
 		masking_thresholds[k] = MAX(masking_thresholds[k], self->absolute_thresholds[k]);
 	}
+}
+
+/**
+* Reset dynamic arrays to zero.
+*/
+void m_e_reset(MaskingEstimator *self)
+{
+	//Reset all arrays
+	initialize_array(self->absolute_thresholds, 0.f, self->half_fft_size + 1);
+	initialize_array(self->bark_z, 0.f, self->half_fft_size + 1);
+	initialize_array(self->spl_reference_values, 0.f, self->half_fft_size + 1);
+	initialize_array(self->input_fft_buffer_at, 0.f, self->half_fft_size + 1);
+	initialize_array(self->output_fft_buffer_at, 0.f, self->half_fft_size + 1);
+	initialize_array(self->SSF, 0.f, N_BARK_BANDS);
+	initialize_array(self->unity_gain_bark_spectrum, 1.f, N_BARK_BANDS); //Initializing unity gain values for offset normalization
+	initialize_array(self->spreaded_unity_gain_bark_spectrum, 0.f, N_BARK_BANDS);
+}
+
+/**
+* Masking estimator initialization and configuration.
+*/
+MaskingEstimator *
+m_e_init(int fft_size, int samp_rate)
+{
+	//Allocate object
+	MaskingEstimator *self = (MaskingEstimator *)malloc(sizeof(MaskingEstimator));
+
+	//Configuration
+	self->fft_size = fft_size;
+	self->half_fft_size = self->fft_size / 2;
+	self->samp_rate = samp_rate;
+
+	//spectrum allocation
+	self->absolute_thresholds = (float *)calloc((self->half_fft_size + 1), sizeof(float));
+	self->bark_z = (float *)calloc((self->half_fft_size + 1), sizeof(float));
+	self->spl_reference_values = (float *)calloc((self->half_fft_size + 1), sizeof(float));
+	self->input_fft_buffer_at = (float *)calloc((self->half_fft_size + 1), sizeof(float));
+	self->output_fft_buffer_at = (float *)calloc((self->half_fft_size + 1), sizeof(float));
+	self->SSF = (float *)calloc(N_BARK_BANDS, sizeof(float));
+	self->unity_gain_bark_spectrum = (float *)calloc(N_BARK_BANDS, sizeof(float));
+	self->spreaded_unity_gain_bark_spectrum = (float *)calloc(N_BARK_BANDS, sizeof(float));
+
+	//Reset all values
+	m_e_reset(self);
+
+	self->forward_at = fftwf_plan_r2r_1d(self->fft_size, self->input_fft_buffer_at, self->output_fft_buffer_at, FFTW_R2HC, FFTW_ESTIMATE);
+
+	compute_bark_mapping(self);
+	compute_absolute_thresholds(self);
+	spl_reference(self);
+	compute_SSF(self);
+	//Convolve unitary energy bark spectrum with SSF
+	convolve_with_SSF(self, self->unity_gain_bark_spectrum,
+					  self->spreaded_unity_gain_bark_spectrum);
+
+	return self;
+}
+
+/**
+* Free allocated memory.
+*/
+void m_e_free(MaskingEstimator *self)
+{
+	free(self->absolute_thresholds);
+	free(self->bark_z);
+	free(self->spl_reference_values);
+	free(self->input_fft_buffer_at);
+	free(self->output_fft_buffer_at);
+	free(self->SSF);
+	free(self->unity_gain_bark_spectrum);
+	free(self->spreaded_unity_gain_bark_spectrum);
+	fftwf_free(self->input_fft_buffer_at);
+	fftwf_free(self->output_fft_buffer_at);
+	fftwf_destroy_plan(self->forward_at);
+	free(self);
 }

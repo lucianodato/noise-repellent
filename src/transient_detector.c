@@ -23,6 +23,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 * \brief Contains a transient detector abstraction
 */
 
+#include <stdbool.h>
+
 #define TP_UPPER_LIMIT 5.f //This correspond to the upper limit of the adaptive threshold multiplier. Should be the same as the ttl configured one
 
 /**
@@ -44,60 +46,12 @@ typedef struct
 } TransientDetector;
 
 /**
-* Reset dynamic arrays to zero.
-*/
-void t_d_reset(TransientDetector *self)
-{
-	//Reset all arrays
-	initialize_array(self->spectrum, 0.f, self->half_fft_size + 1);
-	initialize_array(self->transient_preserv_prev, 0.f, self->half_fft_size + 1);
-
-	self->tp_window_count = 0.f;
-	self->tp_r_mean = 0.f;
-	self->transient_present = false;
-
-}
-
-/**
-* Masking estimator initialization and configuration.
-*/
-TransientDetector *
-t_d_init(int fft_size)
-{
-	//Allocate object
-	TransientDetector *self = (TransientDetector *)malloc(sizeof(TransientDetector));
-
-	//Configuration
-	self->fft_size = fft_size;
-	self->half_fft_size = self->fft_size / 2;
-
-	//spectrum allocation
-	self->spectrum = (float *)calloc((self->half_fft_size + 1), sizeof(float));
-	self->transient_preserv_prev = (float *)calloc((self->half_fft_size + 1), sizeof(float));
-
-	//Reset all values
-	t_d_reset(self);
-
-	return self;
-}
-
-/**
-* Free allocated memory.
-*/
-void t_d_free(TransientDetector *self)
-{
-	free(self->spectrum);
-	free(self->transient_preserv_prev);
-	free(self);
-}
-
-/**
 * Outputs the spectral flux between two spectrums.
 * \param spectrum the current power spectrum
 * \param spectrum_prev the previous power spectrum
 * \param N the size of the spectrum (half the fft size plus 1)
 */
-static float spectral_flux(float *spectrum, float *spectrum_prev, float N)
+float spectral_flux(float *spectrum, float *spectrum_prev, float N)
 {
 	int i;
 	float spectral_flux = 0.f;
@@ -116,7 +70,7 @@ static float spectral_flux(float *spectrum, float *spectrum_prev, float N)
 * \param spectrum the current power spectrum
 * \param N the size of the spectrum (half the fft size plus 1)
 */
-static float high_frequency_content(float *spectrum, float N)
+float high_frequency_content(float *spectrum, float N)
 {
 	int i;
 	float sum = 0.f;
@@ -165,4 +119,51 @@ bool t_d_run(TransientDetector *self, float transient_threshold)
 	{
 		return false;
 	}
+}
+
+/**
+* Reset dynamic arrays to zero.
+*/
+void t_d_reset(TransientDetector *self)
+{
+	//Reset all arrays
+	initialize_array(self->spectrum, 0.f, self->half_fft_size + 1);
+	initialize_array(self->transient_preserv_prev, 0.f, self->half_fft_size + 1);
+
+	self->tp_window_count = 0.f;
+	self->tp_r_mean = 0.f;
+	self->transient_present = false;
+}
+
+/**
+* Masking estimator initialization and configuration.
+*/
+TransientDetector *
+t_d_init(int fft_size)
+{
+	//Allocate object
+	TransientDetector *self = (TransientDetector *)malloc(sizeof(TransientDetector));
+
+	//Configuration
+	self->fft_size = fft_size;
+	self->half_fft_size = self->fft_size / 2;
+
+	//spectrum allocation
+	self->spectrum = (float *)calloc((self->half_fft_size + 1), sizeof(float));
+	self->transient_preserv_prev = (float *)calloc((self->half_fft_size + 1), sizeof(float));
+
+	//Reset all values
+	t_d_reset(self);
+
+	return self;
+}
+
+/**
+* Free allocated memory.
+*/
+void t_d_free(TransientDetector *self)
+{
+	free(self->spectrum);
+	free(self->transient_preserv_prev);
+	free(self);
 }
