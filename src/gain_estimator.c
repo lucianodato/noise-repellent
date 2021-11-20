@@ -63,7 +63,7 @@ typedef struct
 	bool transient_detected;
 
 	MaskingEstimator *masking_estimation;
-	// TransientDetector *transient_detection;
+	TransientDetector *transient_detection;
 	// SpectralSmoother *spectrum_smoothing;
 } GainEstimator;
 
@@ -110,7 +110,7 @@ g_e_init(int fft_size, int samp_rate, int hop)
 	g_e_reset(self);
 
 	self->masking_estimation = m_e_init(self->fft_size, self->samp_rate);
-	// self->transient_detection = t_d_init();
+	self->transient_detection = t_d_init(self->fft_size);
 	// self->spectrum_smoothing = s_s_init();
 
 	return self;
@@ -129,8 +129,8 @@ void g_e_free(GainEstimator *self)
 	free(self->masking_thresholds);
 	free(self->clean_signal_estimation);
 	m_e_free(self->masking_estimation);
+	t_d_free(self->transient_detection);
 	// s_s_free(self->spectrum_smoothing);
-	// t_d_free(self->transient_detection);
 	free(self);
 }
 
@@ -350,10 +350,10 @@ void g_e_run(GainEstimator *self, float *signal_spectrum, float *gain_spectrum, 
 
 	//------TRANSIENT DETECTION------
 
-	// if (transient_threshold > 1.f)
-	// {
-	// 	self->transient_detected = t_d_run(self->transient_detection, transient_threshold);
-	// }
+	if (transient_threshold > 1.f)
+	{
+		self->transient_detected = t_d_run(self->transient_detection, transient_threshold);
+	}
 
 	//COMPUTING OF ALPHA WITH MASKING THRESHOLDS USING VIRAGS METHOD
 	if (masking_ceiling_limit > 1.f)

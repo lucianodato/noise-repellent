@@ -336,43 +336,6 @@ static void get_normalized_spectum(float *spectrum, int N)
 }
 
 /**
-* Outputs the spectral flux between two spectrums.
-* \param spectrum the current power spectrum
-* \param spectrum_prev the previous power spectrum
-* \param N the size of the spectrum (half the fft size plus 1)
-*/
-static float spectral_flux(float *spectrum, float *spectrum_prev, float N)
-{
-	int i;
-	float spectral_flux = 0.f;
-	float temp;
-
-	for (i = 0; i <= N; i++)
-	{
-		temp = sqrtf(spectrum[i]) - sqrtf(spectrum_prev[i]); //Recieves power spectrum uses magnitude
-		spectral_flux += (temp + fabs(temp)) / 2.f;
-	}
-	return spectral_flux;
-}
-
-/**
-* Outputs the high frequency content of the spectrum.
-* \param spectrum the current power spectrum
-* \param N the size of the spectrum (half the fft size plus 1)
-*/
-static float high_frequency_content(float *spectrum, float N)
-{
-	int i;
-	float sum = 0.f;
-
-	for (i = 0; i <= N; i++)
-	{
-		sum += i * spectrum[i];
-	}
-	return sum / (float)(N + 1);
-}
-
-/**
 * Computes the spectral envelope like Robel 'Efficient Spectral Envelope Estimation and its
 * application to pitch shifting and envelope preservation' indicates.
 * \param fft_size_2 half of the fft size

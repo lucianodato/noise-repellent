@@ -323,8 +323,9 @@ static void compute_absolute_thresholds(MaskingEstimator *self)
 	float freq;
 
 	for (k = 1; k <= self->half_fft_size; k++)
-	{																																										   //As explained by thiemann
-		freq = bin_to_freq(k, self->samp_rate, self->half_fft_size);																															   //bin to freq
+	{																																										   
+		//As explained by thiemann
+		freq = bin_to_freq(k, self->samp_rate, self->half_fft_size); //bin to freq
 		self->absolute_thresholds[k] = 3.64f * powf((freq / 1000.f), -0.8f) - 6.5f * exp(-0.6f * powf((freq / 1000.f - 3.3f), 2.f)) + powf(10.f, -3.f) * powf((freq / 1000.f), 4.f); //dBSPL scale
 	}
 }
