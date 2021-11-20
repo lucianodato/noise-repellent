@@ -105,7 +105,26 @@ m_e_init(int fft_size, int samp_rate)
 	self->unity_gain_bark_spectrum = (float *)calloc((N_BARK_BANDS), sizeof(float));
 	self->spreaded_unity_gain_bark_spectrum = (float *)calloc((N_BARK_BANDS), sizeof(float));
 
+	//Reset all values
+	m_e_reset(self);
+
 	return self;
+}
+
+/**
+* Free allocated memory.
+*/
+void m_e_free(MaskingEstimator *self)
+{
+	free(self->absolute_thresholds);
+	free(self->bark_z);
+	free(self->spl_reference_values);
+	free(self->input_fft_buffer_at);
+	free(self->output_fft_buffer_at);
+	free(self->SSF);
+	free(self->unity_gain_bark_spectrum);
+	free(self->spreaded_unity_gain_bark_spectrum);
+	free(self);
 }
 
 
@@ -383,12 +402,12 @@ static void compute_masking_thresholds(MaskingEstimator *self, float *spectrum, 
 	float tonality_factor;
 
 	//First we get the energy in each bark band
-	compute_bark_spectrum(self->bark_z, bark_spectrum, spectrum, intermediate_band_bins,
+	compute_bark_spectrum(self, bark_spectrum, spectrum, intermediate_band_bins,
 						  n_bins_per_band);
 
 	//Now that we have the bark spectrum
 	//Convolution bewtween the bark spectrum and SSF (Toepliz matrix multiplication)
-	convolve_with_SSF(self->SSF, bark_spectrum, spreaded_spectrum);
+	convolve_with_SSF(self, bark_spectrum, spreaded_spectrum);
 
 	for (j = 0; j < N_BARK_BANDS; j++)
 	{
