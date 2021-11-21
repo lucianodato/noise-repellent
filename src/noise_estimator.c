@@ -23,10 +23,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 * \brief Abstraction noise spectrum estimation
 */
 
+// #include "extra_functions.c"
+#include "extra_functions.h"
 #include <float.h>
 #include <math.h>
-
-#include "extra_functions.c"
 
 /**
 * Noise estimator struct.

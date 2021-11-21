@@ -23,6 +23,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 * \brief Contains an STFT denoiser abstraction
 */
 
+#include "extra_functions.h"
 #include "fft_processor.c"
 #include <fftw3.h>
 

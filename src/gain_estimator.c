@@ -23,6 +23,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 * \brief Contains a the reduction gain estimator abstraction
 */
 
+#include "extra_functions.h"
 #include "masking_estimator.c"
 #include "spectrum_smoother.c"
 #include "transient_detector.c"
@@ -64,7 +65,7 @@ typedef struct
 
 	MaskingEstimator *masking_estimation;
 	TransientDetector *transient_detection;
-	// SpectralSmoother *spectrum_smoothing;
+	SpectralSmoother *spectrum_smoothing;
 } GainEstimator;
 
 /**
@@ -308,7 +309,7 @@ void g_e_run(GainEstimator *self, float *signal_spectrum, float *gain_spectrum, 
 
 	//------SMOOTHING DETECTOR------
 
-	// s_s_run(self->spectrum_smoothing, release);
+	s_s_run(self->spectrum_smoothing, release);
 
 	//------REDUCTION GAINS------
 
@@ -374,7 +375,7 @@ g_e_init(int fft_size, int samp_rate, int hop)
 
 	self->masking_estimation = m_e_init(self->fft_size, self->samp_rate);
 	self->transient_detection = t_d_init(self->fft_size);
-	// self->spectrum_smoothing = s_s_init();
+	self->spectrum_smoothing = s_s_init(self->fft_size, self->samp_rate, self->hop);
 
 	return self;
 }
@@ -393,6 +394,6 @@ void g_e_free(GainEstimator *self)
 	free(self->clean_signal_estimation);
 	m_e_free(self->masking_estimation);
 	t_d_free(self->transient_detection);
-	// s_s_free(self->spectrum_smoothing);
+	s_s_free(self->spectrum_smoothing);
 	free(self);
 }

@@ -26,6 +26,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define WHITENING_DECAY_RATE 1000.f //Deacay in ms for max spectrum for whitening
 #define WHITENING_FLOOR 0.02f		//Minumum max value posible
 
+#include "extra_functions.h"
 #include "gain_estimator.c"
 #include "noise_estimator.c"
 

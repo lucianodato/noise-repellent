@@ -23,6 +23,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 * \brief Extra methods used by others. This keeps clean other files.
 */
 
+#ifndef EXTRA_FUNCTIONS_H
+#define EXTRA_FUNCTIONS_H
+
 #include <float.h>
 #include <math.h>
 #include <stdbool.h>
@@ -671,3 +674,5 @@ static void get_info_from_bins(float *fft_p2, float *fft_magnitude, float *fft_p
 		fft_phase[k] = phase;	//This is not used but part of the STFT transform for generic use
 	}
 }
+
+#endif

@@ -23,6 +23,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 * \brief Contains a transient detector abstraction
 */
 
+#include "extra_functions.h"
 #include <stdbool.h>
 
 #define TP_UPPER_LIMIT 5.f //This correspond to the upper limit of the adaptive threshold multiplier. Should be the same as the ttl configured one
