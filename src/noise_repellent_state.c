@@ -44,20 +44,20 @@ typedef struct
 {
 	uint32_t child_size;
 	uint32_t child_type;
-	int np_size;
+	int noise_profile_size;
 	float *values;
 } NoiseProfile;
 
 NoiseProfile *
-noise_profile_initialize(LV2_URID child_type, int np_size)
+noise_profile_initialize(LV2_URID child_type, int noise_profile_size)
 {
 	//Allocate object
 	NoiseProfile *self = (NoiseProfile *)malloc(sizeof(NoiseProfile));
 
 	self->child_type = child_type;
 	self->child_size = sizeof(float);
-	self->np_size = np_size;
-	self->values = (float *)calloc((self->np_size), sizeof(float));
+	self->noise_profile_size = noise_profile_size;
+	self->values = (float *)calloc((self->noise_profile_size), sizeof(float));
 
 	return self;
 }
@@ -72,14 +72,14 @@ typedef struct
 	LV2_URID atom_Vector;
 	LV2_URID atom_Int;
 	LV2_URID atom_Float;
-	LV2_URID prop_fftsize;
-	LV2_URID prop_nwindow;
-	LV2_URID prop_FFTp2;
+	LV2_URID property_fft_size;
+	LV2_URID property_block_count;
+	LV2_URID property_saved_noise_profile;
 
 	NoiseProfile *noise_profile;
 } PluginState;
 
-bool plugin_state_configure(PluginState *self, const LV2_Feature *const *features, int np_size)
+bool plugin_state_configure(PluginState *self, const LV2_Feature *const *features, int noise_profile_size)
 {
 	//Retrieve the URID map callback, and needed URIDs
 	for (int i = 0; features[i]; ++i)
@@ -98,46 +98,46 @@ bool plugin_state_configure(PluginState *self, const LV2_Feature *const *feature
 	self->atom_Vector = self->map->map(self->map->handle, LV2_ATOM__Vector);
 	self->atom_Int = self->map->map(self->map->handle, LV2_ATOM__Int);
 	self->atom_Float = self->map->map(self->map->handle, LV2_ATOM__Float);
-	self->prop_fftsize = self->map->map(self->map->handle, NOISEREPELLENT_URI "#fftsize");
-	self->prop_nwindow = self->map->map(self->map->handle, NOISEREPELLENT_URI "#nwindow");
-	self->prop_FFTp2 = self->map->map(self->map->handle, NOISEREPELLENT_URI "#FFTp2");
+	self->property_fft_size = self->map->map(self->map->handle, NOISEREPELLENT_URI "#fftsize");
+	self->property_block_count = self->map->map(self->map->handle, NOISEREPELLENT_URI "#blockcount");
+	self->property_saved_noise_profile = self->map->map(self->map->handle, NOISEREPELLENT_URI "#savednoiseprofile");
 
-	self->noise_profile = noise_profile_initialize(self->atom_Float, np_size);
+	self->noise_profile = noise_profile_initialize(self->atom_Float, noise_profile_size);
 
 	return true;
 }
 
 void plugin_state_savestate(PluginState *self, LV2_State_Store_Function store, LV2_State_Handle handle,
-							int *fft_size, float *noise_window_count, float *noise_profile)
+							int fft_size, float *noise_window_count, float *noise_profile)
 {
-	store(handle, self->prop_fftsize, &fft_size, sizeof(int), self->atom_Int,
+	store(handle, self->property_fft_size, &fft_size, sizeof(int), self->atom_Int,
 		  LV2_STATE_IS_POD | LV2_STATE_IS_PORTABLE);
 
-	store(handle, self->prop_nwindow, &noise_window_count, sizeof(float),
+	store(handle, self->property_block_count, &noise_window_count, sizeof(float),
 		  self->atom_Float, LV2_STATE_IS_POD | LV2_STATE_IS_PORTABLE);
 
-	memcpy(self->noise_profile->values, noise_profile, sizeof(self->noise_profile->np_size));
+	memcpy(self->noise_profile->values, noise_profile, sizeof(self->noise_profile->noise_profile_size));
 
-	store(handle, self->prop_FFTp2, (void *)self->noise_profile, sizeof(NoiseProfile),
+	store(handle, self->property_saved_noise_profile, (void *)self->noise_profile, sizeof(NoiseProfile),
 		  self->atom_Vector, LV2_STATE_IS_POD | LV2_STATE_IS_PORTABLE);
 }
 
 bool plugin_state_restorestate(PluginState *self, LV2_State_Retrieve_Function retrieve, LV2_State_Handle handle,
-							   float *noise_profile, float noise_window_count, int *fft_size,
-							   int fft_size_2)
+							   float *noise_profile, float noise_window_count, int fft_size,
+							   int half_fft_size)
 {
 	size_t size;
 	uint32_t type;
 	uint32_t valflags;
 
-	const int32_t *fftsize = retrieve(handle, self->prop_fftsize, &size, &type, &valflags);
-	if (!fftsize || type != self->atom_Int || *fftsize != fft_size_2)
+	const int *fftsize = retrieve(handle, self->property_fft_size, &size, &type, &valflags);
+	if (!fftsize || type != self->atom_Int || *fftsize != half_fft_size)
 	{
 		return false;
 	}
 
-	const void *vecFFTp2 = retrieve(handle, self->prop_FFTp2, &size, &type, &valflags);
-	if (!vecFFTp2 || size != sizeof(NoiseProfile) || type != self->atom_Vector)
+	const void *saved_noise_profile = retrieve(handle, self->property_saved_noise_profile, &size, &type, &valflags);
+	if (!saved_noise_profile || size != sizeof(NoiseProfile) || type != self->atom_Vector)
 	{
 		return false;
 	}
@@ -146,12 +146,12 @@ bool plugin_state_restorestate(PluginState *self, LV2_State_Retrieve_Function re
 	//self->noise_thresholds_availables = false;
 
 	//Copy to local variables
-	memcpy(self->noise_profile, (float *)LV2_ATOM_BODY(vecFFTp2), (fft_size_2 + 1) * sizeof(float));
+	memcpy(self->noise_profile, (float *)LV2_ATOM_BODY(saved_noise_profile), (half_fft_size + 1) * sizeof(float));
 
-	const float *wincount = retrieve(handle, self->prop_nwindow, &size, &type, &valflags);
+	const float *block_count = retrieve(handle, self->property_block_count, &size, &type, &valflags);
 	if (fftsize && type == self->atom_Float)
 	{
-		noise_window_count = *wincount;
+		noise_window_count = *block_count;
 	}
 
 	//Reactivate denoising with restored profile

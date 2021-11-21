@@ -37,7 +37,7 @@ typedef struct
 {
 	//General parameters
 	int fft_size;
-	int fft_size_2;
+	int half_fft_size;
 	int samp_rate;
 	int hop;
 
@@ -211,11 +211,11 @@ void fft_processor_run(FFTProcessor *self, float *fft_spectrum, int enable, bool
 
 	//First get the power, magnitude and phase spectrum
 	get_info_from_bins(self->power_spectrum, self->magnitude_spectrum,
-					   self->phase_spectrum, self->fft_size_2,
+					   self->phase_spectrum, self->half_fft_size,
 					   self->fft_size, self->fft_spectrum);
 
 	//If the spectrum is not silence
-	if (!is_empty(self->power_spectrum, self->fft_size_2))
+	if (!is_empty(self->power_spectrum, self->half_fft_size))
 	{
 		/*If selected estimate noise spectrum is based on selected portion of signal
         *do not process the signal
@@ -259,9 +259,9 @@ void fft_processor_reset(FFTProcessor *self)
 	initialize_array(self->processed_fft_spectrum, 0.f, self->fft_size);
 	initialize_array(self->gain_spectrum, 1.f, self->fft_size);
 
-	initialize_array(self->power_spectrum, 0.f, self->fft_size_2 + 1);
-	initialize_array(self->magnitude_spectrum, 0.f, self->fft_size_2 + 1);
-	initialize_array(self->phase_spectrum, 0.f, self->fft_size_2 + 1);
+	initialize_array(self->power_spectrum, 0.f, self->half_fft_size + 1);
+	initialize_array(self->magnitude_spectrum, 0.f, self->half_fft_size + 1);
+	initialize_array(self->phase_spectrum, 0.f, self->half_fft_size + 1);
 
 	initialize_array(self->residual_max_spectrum, 0.f, self->fft_size);
 	initialize_array(self->denoised_spectrum, 0.f, self->fft_size);
@@ -283,7 +283,7 @@ fft_processor_initialize(int fft_size, int samp_rate, int hop)
 
 	//Configuration
 	self->fft_size = fft_size;
-	self->fft_size_2 = self->fft_size / 2;
+	self->half_fft_size = self->fft_size / 2;
 	self->samp_rate = samp_rate;
 	self->hop = hop;
 
@@ -306,9 +306,9 @@ fft_processor_initialize(int fft_size, int samp_rate, int hop)
 	self->whitened_residual_spectrum = (float *)calloc((self->fft_size), sizeof(float));
 
 	//Arrays for getting bins info
-	self->power_spectrum = (float *)malloc((self->fft_size_2 + 1) * sizeof(float));
-	self->magnitude_spectrum = (float *)malloc((self->fft_size_2 + 1) * sizeof(float));
-	self->phase_spectrum = (float *)malloc((self->fft_size_2 + 1) * sizeof(float));
+	self->power_spectrum = (float *)malloc((self->half_fft_size + 1) * sizeof(float));
+	self->magnitude_spectrum = (float *)malloc((self->half_fft_size + 1) * sizeof(float));
+	self->phase_spectrum = (float *)malloc((self->half_fft_size + 1) * sizeof(float));
 
 	//Reset all values
 	fft_processor_reset(self);
