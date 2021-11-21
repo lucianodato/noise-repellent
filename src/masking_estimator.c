@@ -58,7 +58,7 @@ typedef struct
 	float *spl_reference_values;
 	float *input_fft_buffer_at;
 	float *output_fft_buffer_at;
-	float *SSF;
+	float *spectral_spreading_function;
 	float *unity_gain_bark_spectrum;
 	float *spreaded_unity_gain_bark_spectrum;
 	fftwf_plan forward_at;
@@ -158,9 +158,9 @@ void spl_reference(MaskingEstimator *self)
 * This is to perform a convolution between this function and a bark spectrum. The
 * complete explanation for this is in Robinsons master thesis 'Perceptual model for
 * assessment of coded audio'.
-* \param SSF defines the spreading function matrix
+* \param spectral_spreading_function defines the spreading function matrix
 */
-void compute_SSF(MaskingEstimator *self)
+void compute_spectral_spreading_function(MaskingEstimator *self)
 {
 	int i, j;
 	float y;
@@ -170,9 +170,9 @@ void compute_SSF(MaskingEstimator *self)
 		{
 			y = (i + 1) - (j + 1);
 			//Spreading function (Schroeder)
-			ARRAYACCESS(self->SSF, i, j) = 15.81f + 7.5f * (y + 0.474f) - 17.5f * sqrtf(1.f + (y + 0.474f) * (y + 0.474f)); //dB scale
+			ARRAYACCESS(self->spectral_spreading_function, i, j) = 15.81f + 7.5f * (y + 0.474f) - 17.5f * sqrtf(1.f + (y + 0.474f) * (y + 0.474f)); //dB scale
 			//db to Linear
-			ARRAYACCESS(self->SSF, i, j) = powf(10.f, ARRAYACCESS(self->SSF, i, j) / 10.f);
+			ARRAYACCESS(self->spectral_spreading_function, i, j) = powf(10.f, ARRAYACCESS(self->spectral_spreading_function, i, j) / 10.f);
 		}
 	}
 }
@@ -181,11 +181,11 @@ void compute_SSF(MaskingEstimator *self)
 * Convolution between the spreading function by multiplication of a Toepliz matrix
 * to a bark spectrum. The complete explanation for this is in Robinsons master thesis
 * 'Perceptual model for assessment of coded audio'.
-* \param SSF defines the spreading function matrix
+* \param spectral_spreading_function defines the spreading function matrix
 * \param bark_spectrum the bark spectrum values of current power spectrum
-* \param spreaded_spectrum result of the convolution bewtween SSF and the bark spectrum
+* \param spreaded_spectrum result of the convolution bewtween spectral_spreading_function and the bark spectrum
 */
-void convolve_with_SSF(MaskingEstimator *self, float *bark_spectrum, float *spreaded_spectrum)
+void convolve_with_spectral_spreading_function(MaskingEstimator *self, float *bark_spectrum, float *spreaded_spectrum)
 {
 	int i, j;
 	for (i = 0; i < N_BARK_BANDS; i++)
@@ -193,7 +193,7 @@ void convolve_with_SSF(MaskingEstimator *self, float *bark_spectrum, float *spre
 		spreaded_spectrum[i] = 0.f;
 		for (j = 0; j < N_BARK_BANDS; j++)
 		{
-			spreaded_spectrum[i] += ARRAYACCESS(self->SSF, i, j) * bark_spectrum[j];
+			spreaded_spectrum[i] += ARRAYACCESS(self->spectral_spreading_function, i, j) * bark_spectrum[j];
 		}
 	}
 }
@@ -304,11 +304,11 @@ float compute_tonality_factor(float *spectrum, float *intermediate_band_bins,
 * age computers.
 * \param bark_z defines the bark to linear mapping for current spectrum config
 * \param absolute_thresholds defines the absolute thresholds of hearing for current spectrum config
-* \param SSF defines the spreading function matrix
+* \param spectral_spreading_function defines the spreading function matrix
 * \param spectrum is the power spectum array
 * \param fft_size_2 is half of the fft size
 * \param masking_thresholds the masking thresholds obtained in db scale
-* \param spreaded_unity_gain_bark_spectrum correction to be applied to SSF convolution
+* \param spreaded_unity_gain_bark_spectrum correction to be applied to spectral_spreading_function convolution
 * \param spl_reference_values defines the reference values for each bin to convert from db to db SPL
 */
 void compute_masking_thresholds(MaskingEstimator *self, float *spectrum, float *masking_thresholds)
@@ -327,8 +327,8 @@ void compute_masking_thresholds(MaskingEstimator *self, float *spectrum, float *
 						  n_bins_per_band);
 
 	//Now that we have the bark spectrum
-	//Convolution bewtween the bark spectrum and SSF (Toepliz matrix multiplication)
-	convolve_with_SSF(self, bark_spectrum, spreaded_spectrum);
+	//Convolution bewtween the bark spectrum and spectral_spreading_function (Toepliz matrix multiplication)
+	convolve_with_spectral_spreading_function(self, bark_spectrum, spreaded_spectrum);
 
 	for (j = 0; j < N_BARK_BANDS; j++)
 	{
@@ -384,7 +384,7 @@ void compute_masking_thresholds(MaskingEstimator *self, float *spectrum, float *
 /**
 * Reset dynamic arrays to zero.
 */
-void m_e_reset(MaskingEstimator *self)
+void masking_estimation_reset(MaskingEstimator *self)
 {
 	//Reset all arrays
 	initialize_array(self->absolute_thresholds, 0.f, self->half_fft_size + 1);
@@ -392,7 +392,7 @@ void m_e_reset(MaskingEstimator *self)
 	initialize_array(self->spl_reference_values, 0.f, self->half_fft_size + 1);
 	initialize_array(self->input_fft_buffer_at, 0.f, self->half_fft_size + 1);
 	initialize_array(self->output_fft_buffer_at, 0.f, self->half_fft_size + 1);
-	initialize_array(self->SSF, 0.f, N_BARK_BANDS);
+	initialize_array(self->spectral_spreading_function, 0.f, N_BARK_BANDS);
 	initialize_array(self->unity_gain_bark_spectrum, 1.f, N_BARK_BANDS); //Initializing unity gain values for offset normalization
 	initialize_array(self->spreaded_unity_gain_bark_spectrum, 0.f, N_BARK_BANDS);
 }
@@ -401,7 +401,7 @@ void m_e_reset(MaskingEstimator *self)
 * Masking estimator initialization and configuration.
 */
 MaskingEstimator *
-m_e_init(int fft_size, int samp_rate)
+masking_estimation_initialize(int fft_size, int samp_rate)
 {
 	//Allocate object
 	MaskingEstimator *self = (MaskingEstimator *)malloc(sizeof(MaskingEstimator));
@@ -417,22 +417,22 @@ m_e_init(int fft_size, int samp_rate)
 	self->spl_reference_values = (float *)calloc((self->half_fft_size + 1), sizeof(float));
 	self->input_fft_buffer_at = (float *)calloc((self->half_fft_size + 1), sizeof(float));
 	self->output_fft_buffer_at = (float *)calloc((self->half_fft_size + 1), sizeof(float));
-	self->SSF = (float *)calloc(N_BARK_BANDS, sizeof(float));
+	self->spectral_spreading_function = (float *)calloc(N_BARK_BANDS, sizeof(float));
 	self->unity_gain_bark_spectrum = (float *)calloc(N_BARK_BANDS, sizeof(float));
 	self->spreaded_unity_gain_bark_spectrum = (float *)calloc(N_BARK_BANDS, sizeof(float));
 
 	//Reset all values
-	m_e_reset(self);
+	masking_estimation_reset(self);
 
 	self->forward_at = fftwf_plan_r2r_1d(self->fft_size, self->input_fft_buffer_at, self->output_fft_buffer_at, FFTW_R2HC, FFTW_ESTIMATE);
 
 	compute_bark_mapping(self);
 	compute_absolute_thresholds(self);
 	spl_reference(self);
-	compute_SSF(self);
-	//Convolve unitary energy bark spectrum with SSF
-	convolve_with_SSF(self, self->unity_gain_bark_spectrum,
-					  self->spreaded_unity_gain_bark_spectrum);
+	compute_spectral_spreading_function(self);
+	//Convolve unitary energy bark spectrum with spectral_spreading_function
+	convolve_with_spectral_spreading_function(self, self->unity_gain_bark_spectrum,
+											  self->spreaded_unity_gain_bark_spectrum);
 
 	return self;
 }
@@ -440,14 +440,14 @@ m_e_init(int fft_size, int samp_rate)
 /**
 * Free allocated memory.
 */
-void m_e_free(MaskingEstimator *self)
+void masking_estimation_free(MaskingEstimator *self)
 {
 	free(self->absolute_thresholds);
 	free(self->bark_z);
 	free(self->spl_reference_values);
 	free(self->input_fft_buffer_at);
 	free(self->output_fft_buffer_at);
-	free(self->SSF);
+	free(self->spectral_spreading_function);
 	free(self->unity_gain_bark_spectrum);
 	free(self->spreaded_unity_gain_bark_spectrum);
 	fftwf_free(self->input_fft_buffer_at);

@@ -43,7 +43,7 @@ typedef struct
 	float noise_block_count;	   //Count windows for mean computing
 } NoiseEstimator;
 
-bool n_e_available(NoiseEstimator *self)
+bool is_noise_estimation_available(NoiseEstimator *self)
 {
 	return self->noise_spectrum_available;
 }
@@ -51,7 +51,7 @@ bool n_e_available(NoiseEstimator *self)
 /**
 * Noise estimation using a rolling mean over user selected noise section.
 */
-void n_e_run(NoiseEstimator *self, float *spectrum)
+void noise_estimation_run(NoiseEstimator *self, float *spectrum)
 {
 	int k;
 
@@ -75,13 +75,14 @@ void n_e_run(NoiseEstimator *self, float *spectrum)
 	self->noise_spectrum_available = true;
 }
 
-void n_e_reset(NoiseEstimator *self)
+void noise_estimation_reset(NoiseEstimator *self)
 {
 	self->noise_spectrum_available = false;
 	initialize_array(self->noise_spectrum, 0.f, self->half_fft_size + 1);
 }
 
-NoiseEstimator *n_e_init(int fft_size)
+NoiseEstimator *
+noise_estimation_initialize(int fft_size)
 {
 	NoiseEstimator *self = (NoiseEstimator *)malloc(sizeof(NoiseEstimator));
 
@@ -91,12 +92,12 @@ NoiseEstimator *n_e_init(int fft_size)
 
 	self->noise_spectrum = (float *)calloc((self->half_fft_size + 1), sizeof(float));
 
-	n_e_reset(self);
+	noise_estimation_reset(self);
 
 	return self;
 }
 
-void n_e_free(NoiseEstimator *self)
+void noise_estimation_free(NoiseEstimator *self)
 {
 	free(self->noise_spectrum);
 	free(self);

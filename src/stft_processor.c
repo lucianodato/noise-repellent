@@ -112,7 +112,7 @@ void stft_processor_pre_and_post_window(STFTProcessor *self)
 /**
 * Does the analysis part of the stft for current block.
 */
-void stft_d_analysis(STFTProcessor *self)
+void stft_processor_analysis(STFTProcessor *self)
 {
 	int k;
 
@@ -130,7 +130,7 @@ void stft_d_analysis(STFTProcessor *self)
 * Does the synthesis part of the stft for current block and then does the OLA method to
 * enable the final output.
 */
-void stft_d_synthesis(STFTProcessor *self)
+void stft_processor_synthesis(STFTProcessor *self)
 {
 	int k;
 
@@ -176,7 +176,7 @@ void stft_d_synthesis(STFTProcessor *self)
 /**
 * Returns the latency needed to be reported to the host.
 */
-int stft_d_get_latency(STFTProcessor *self)
+int stft_processor_get_latency(STFTProcessor *self)
 {
 	return self->input_latency;
 }
@@ -184,10 +184,10 @@ int stft_d_get_latency(STFTProcessor *self)
 /**
 * Runs the STFT processing for the given signal by the host.
 */
-void stft_d_run(STFTProcessor *self, int n_samples, const float *input, float *output,
-				int enable, int learn_noise, float whitening_factor, float reduction_amount,
-				bool residual_listen, float transient_threshold, float masking_ceiling_limit,
-				float release, float noise_rescale)
+void stft_processor_run(STFTProcessor *self, int n_samples, const float *input, float *output,
+						int enable, int learn_noise, float whitening_factor, float reduction_amount,
+						bool residual_listen, float transient_threshold, float masking_ceiling_limit,
+						float release, float noise_rescale)
 {
 	int k;
 
@@ -207,16 +207,16 @@ void stft_d_run(STFTProcessor *self, int n_samples, const float *input, float *o
 			memcpy(self->input_fft_buffer, self->in_fifo, sizeof(float) * self->fft_size);
 
 			//Do analysis
-			stft_d_analysis(self);
+			stft_processor_analysis(self);
 
 			//Call processing  with the obtained fft transform
 			//when stft analysis is applied fft transform values reside in output_fft_buffer
-			fft_d_run(self->fft_processor, self->output_fft_buffer, enable, learn_noise, whitening_factor,
-					  reduction_amount, residual_listen, transient_threshold, masking_ceiling_limit,
-					  release, noise_rescale);
+			fft_processor_run(self->fft_processor, self->output_fft_buffer, enable, learn_noise, whitening_factor,
+							  reduction_amount, residual_listen, transient_threshold, masking_ceiling_limit,
+							  release, noise_rescale);
 
 			//Do synthesis
-			stft_d_synthesis(self);
+			stft_processor_synthesis(self);
 		}
 	}
 }
@@ -224,7 +224,7 @@ void stft_d_run(STFTProcessor *self, int n_samples, const float *input, float *o
 /**
 * Initializes all dynamics arrays with zeros.
 */
-void stft_d_reset(STFTProcessor *self)
+void stft_processor_reset(STFTProcessor *self)
 {
 	//Reset all arrays
 	initialize_array(self->input_fft_buffer, 0.f, self->fft_size);
@@ -239,7 +239,8 @@ void stft_d_reset(STFTProcessor *self)
 /**
 * STFT processor initialization and configuration.
 */
-STFTProcessor *stft_d_init(int sample_rate)
+STFTProcessor *
+stft_processor_initialize(int sample_rate)
 {
 	//Allocate object
 	STFTProcessor *self = (STFTProcessor *)malloc(sizeof(STFTProcessor));
@@ -277,13 +278,13 @@ STFTProcessor *stft_d_init(int sample_rate)
 									   FFTW_ESTIMATE);
 
 	//Initialize all arrays with zeros
-	stft_d_reset(self);
+	stft_processor_reset(self);
 
 	//Window combination initialization (pre processing window post processing window)
 	stft_processor_pre_and_post_window(self);
 
 	//Spectral processor related
-	self->fft_processor = fft_d_init(self->fft_size, sample_rate, self->hop);
+	self->fft_processor = fft_processor_initialize(self->fft_size, sample_rate, self->hop);
 
 	return self;
 }
@@ -291,7 +292,7 @@ STFTProcessor *stft_d_init(int sample_rate)
 /**
 * Free allocated memory.
 */
-void stft_d_free(STFTProcessor *self)
+void stft_processor_free(STFTProcessor *self)
 {
 	fftwf_free(self->input_fft_buffer);
 	fftwf_free(self->output_fft_buffer);
@@ -302,6 +303,6 @@ void stft_d_free(STFTProcessor *self)
 	free(self->in_fifo);
 	free(self->out_fifo);
 	free(self->output_accum);
-	fft_d_free(self->fft_processor);
+	fft_processor_free(self->fft_processor);
 	free(self);
 }

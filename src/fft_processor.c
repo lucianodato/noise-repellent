@@ -72,7 +72,7 @@ typedef struct
 /**
 * Updates the wet/dry mixing coefficient.
 */
-void fft_d_update_wetdry_target(FFTProcessor *self, bool enable)
+void fft_processor_update_wetdry_target(FFTProcessor *self, bool enable)
 {
 	//Softbypass targets in case of disabled or enabled
 	if (enable)
@@ -90,7 +90,7 @@ void fft_d_update_wetdry_target(FFTProcessor *self, bool enable)
 /**
 * Mixes unprocessed and processed signal to bypass softly.
 */
-void fft_d_soft_bypass(FFTProcessor *self)
+void fft_processor_soft_bypass(FFTProcessor *self)
 {
 	int k;
 
@@ -201,11 +201,11 @@ void get_final_spectrum(FFTProcessor *self, bool residual_listen, float reductio
 /**
 * Runs the fft processing for current block.
 */
-void fft_d_run(FFTProcessor *self, float *fft_spectrum, int enable, bool learn_noise, float whitening_factor,
-			   float reduction_amount, bool residual_listen, float transient_threshold,
-			   float masking_ceiling_limit, float release, float noise_rescale)
+void fft_processor_run(FFTProcessor *self, float *fft_spectrum, int enable, bool learn_noise, float whitening_factor,
+					   float reduction_amount, bool residual_listen, float transient_threshold,
+					   float masking_ceiling_limit, float release, float noise_rescale)
 {
-	fft_d_update_wetdry_target(self, enable);
+	fft_processor_update_wetdry_target(self, enable);
 
 	memcpy(self->fft_spectrum, fft_spectrum, sizeof(float) * self->fft_size);
 
@@ -223,15 +223,15 @@ void fft_d_run(FFTProcessor *self, float *fft_spectrum, int enable, bool learn_n
 		if (learn_noise)
 		{
 			//LEARN NOISE (Using power spectrum)
-			n_e_run(self->noise_estimation, self->power_spectrum);
+			noise_estimation_run(self->noise_estimation, self->power_spectrum);
 		}
 		else
 		{
 			//REDUCE NOISE OR LISTEN TO THE RESIDUAL
-			if (n_e_available(self->noise_estimation))
+			if (is_noise_estimation_available(self->noise_estimation))
 			{
-				g_e_run(self->gain_estimation, self->power_spectrum, self->gain_spectrum, transient_threshold,
-						masking_ceiling_limit, release, noise_rescale);
+				gain_estimation_run(self->gain_estimation, self->power_spectrum, self->gain_spectrum, transient_threshold,
+									masking_ceiling_limit, release, noise_rescale);
 
 				get_denoised_spectrum(self);
 
@@ -243,7 +243,7 @@ void fft_d_run(FFTProcessor *self, float *fft_spectrum, int enable, bool learn_n
 	}
 
 	//If bypassed mix unprocessed and processed signal softly
-	fft_d_soft_bypass(self);
+	fft_processor_soft_bypass(self);
 
 	//Copy the processed spectrum to fft_spectrum
 	memcpy(fft_spectrum, self->processed_fft_spectrum, sizeof(float) * self->fft_size);
@@ -252,7 +252,7 @@ void fft_d_run(FFTProcessor *self, float *fft_spectrum, int enable, bool learn_n
 /**
 * Reset dynamic arrays to zero.
 */
-void fft_d_reset(FFTProcessor *self)
+void fft_processor_reset(FFTProcessor *self)
 {
 	//Reset all arrays
 	initialize_array(self->fft_spectrum, 0.f, self->fft_size);
@@ -275,7 +275,8 @@ void fft_d_reset(FFTProcessor *self)
 /**
 * FFT processor initialization and configuration.
 */
-FFTProcessor *fft_d_init(int fft_size, int samp_rate, int hop)
+FFTProcessor *
+fft_processor_initialize(int fft_size, int samp_rate, int hop)
 {
 	//Allocate object
 	FFTProcessor *self = (FFTProcessor *)malloc(sizeof(FFTProcessor));
@@ -310,10 +311,10 @@ FFTProcessor *fft_d_init(int fft_size, int samp_rate, int hop)
 	self->phase_spectrum = (float *)malloc((self->fft_size_2 + 1) * sizeof(float));
 
 	//Reset all values
-	fft_d_reset(self);
+	fft_processor_reset(self);
 
 	//Noise estimator related
-	self->noise_estimation = n_e_init(self->fft_size);
+	self->noise_estimation = noise_estimation_initialize(self->fft_size);
 
 	return self;
 }
@@ -321,7 +322,7 @@ FFTProcessor *fft_d_init(int fft_size, int samp_rate, int hop)
 /**
 * Free allocated memory.
 */
-void fft_d_free(FFTProcessor *self)
+void fft_processor_free(FFTProcessor *self)
 {
 	free(self->fft_spectrum);
 	free(self->processed_fft_spectrum);
@@ -333,6 +334,6 @@ void fft_d_free(FFTProcessor *self)
 	free(self->whitened_residual_spectrum);
 	free(self->denoised_spectrum);
 	free(self->residual_max_spectrum);
-	n_e_free(self->noise_estimation);
+	noise_estimation_free(self->noise_estimation);
 	free(self);
 }

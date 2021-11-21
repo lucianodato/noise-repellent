@@ -98,7 +98,7 @@ static LV2_Handle instantiate(const LV2_Descriptor *descriptor, double rate, con
 	self->sample_rate = (float)rate;
 
 	//STFT related
-	self->stft_processor = stft_d_init(self->sample_rate);
+	self->stft_processor = stft_processor_initialize(self->sample_rate);
 
 	return (LV2_Handle)self;
 }
@@ -162,7 +162,7 @@ static void run(LV2_Handle instance, uint32_t n_samples)
 	NoiseRepellent *self = (NoiseRepellent *)instance;
 
 	//Inform latency at run call
-	*(self->report_latency) = (float)stft_d_get_latency(self->stft_processor);
+	*(self->report_latency) = (float)stft_processor_get_latency(self->stft_processor);
 
 	//Temporary variables
 	float whitening_factor = (*self->whitening_factor / 100.f);
@@ -176,9 +176,9 @@ static void run(LV2_Handle instance, uint32_t n_samples)
 	float noise_rescale = *self->noise_rescale;
 
 	//Run the stft denoiser to process samples
-	stft_d_run(self->stft_processor, n_samples, self->input, self->output, enable, learn_noise,
-			   whitening_factor, reduction_amount, residual_listen, transient_threshold,
-			   masking_ceiling_limit, release_time, noise_rescale);
+	stft_processor_run(self->stft_processor, n_samples, self->input, self->output, enable, learn_noise,
+					   whitening_factor, reduction_amount, residual_listen, transient_threshold,
+					   masking_ceiling_limit, release_time, noise_rescale);
 }
 
 /**
@@ -188,7 +188,7 @@ static void cleanup(LV2_Handle instance)
 {
 	NoiseRepellent *self = (NoiseRepellent *)instance;
 
-	stft_d_free(self->stft_processor);
+	stft_processor_free(self->stft_processor);
 	free(instance);
 }
 
@@ -200,7 +200,7 @@ static LV2_State_Status savestate(LV2_Handle instance, LV2_State_Store_Function 
 {
 	//NoiseRepellent *self = (NoiseRepellent *)instance;
 
-	// ps_savestate(self->plugin_state, store, handle, self->stft_processor->fft_size,
+	// plugin_state_savestate(self->plugin_state, store, handle, self->stft_processor->fft_size,
 	// 			 self->stft_processor->fft_processor->fft_processor->noise_estimation->noise_window_count,
 	// 			 self->stft_processor->fft_processor->fft_processor->noise_estimation->noise_profile);
 
@@ -216,7 +216,7 @@ static LV2_State_Status restorestate(LV2_Handle instance, LV2_State_Retrieve_Fun
 {
 	//NoiseRepellent *self = (NoiseRepellent *)instance;
 
-	// if(!ps_restorestate(self->plugin_state, retrieve, handle,
+	// if(!plugin_state_restorestate(self->plugin_state, retrieve, handle,
 	// 				self->stft_processor->fft_processor->fft_processor->noise_estimation->noise_profile,
 	// 				self->stft_processor->fft_processor->fft_processor->noise_estimation->noise_window_count,
 	// 				self->stft_processor->fft_size, self->stft_processor->fft_size_2))

@@ -89,7 +89,7 @@ float high_frequency_content(float *spectrum, float N)
 * anylised by Dixon in 'Simple Spectrum-Based Onset Detection' would be better. Onset
 * detection is explained thoroughly in 'A tutorial on onset detection in music signals' * by Bello.
 */
-bool t_d_run(TransientDetector *self, float transient_threshold)
+bool transient_detector_run(TransientDetector *self, float transient_threshold)
 {
 	float adapted_threshold, reduction_function;
 
@@ -125,7 +125,7 @@ bool t_d_run(TransientDetector *self, float transient_threshold)
 /**
 * Reset dynamic arrays to zero.
 */
-void t_d_reset(TransientDetector *self)
+void transient_detector_reset(TransientDetector *self)
 {
 	//Reset all arrays
 	initialize_array(self->spectrum, 0.f, self->half_fft_size + 1);
@@ -140,7 +140,7 @@ void t_d_reset(TransientDetector *self)
 * Masking estimator initialization and configuration.
 */
 TransientDetector *
-t_d_init(int fft_size)
+transient_detector_initialize(int fft_size)
 {
 	//Allocate object
 	TransientDetector *self = (TransientDetector *)malloc(sizeof(TransientDetector));
@@ -154,7 +154,7 @@ t_d_init(int fft_size)
 	self->transient_preserv_prev = (float *)calloc((self->half_fft_size + 1), sizeof(float));
 
 	//Reset all values
-	t_d_reset(self);
+	transient_detector_reset(self);
 
 	return self;
 }
@@ -162,7 +162,7 @@ t_d_init(int fft_size)
 /**
 * Free allocated memory.
 */
-void t_d_free(TransientDetector *self)
+void transient_detector_free(TransientDetector *self)
 {
 	free(self->spectrum);
 	free(self->transient_preserv_prev);

@@ -190,7 +190,7 @@ void spectral_gating(GainEstimator *self)
 * GAMMA1=2 GAMMA2=0.5 is power Subtraction. 
 * GAMMA1=2 GAMMA2=1 is wiener filtering.
 */
-void denoise_gain_gss(GainEstimator *self)
+void denoise_gain_generalized_spectral_substraction(GainEstimator *self)
 {
 	int k;
 
@@ -273,8 +273,8 @@ void compute_alpha_and_beta(GainEstimator *self, float masking_ceiling_limit, fl
 	}
 }
 
-void g_e_run(GainEstimator *self, float *signal_spectrum, float *gain_spectrum, float transient_threshold,
-			 float masking_ceiling_limit, float release, float noise_rescale)
+void gain_estimation_run(GainEstimator *self, float *signal_spectrum, float *gain_spectrum, float transient_threshold,
+						 float masking_ceiling_limit, float release, float noise_rescale)
 {
 	int k;
 
@@ -286,7 +286,7 @@ void g_e_run(GainEstimator *self, float *signal_spectrum, float *gain_spectrum, 
 
 	if (transient_threshold > 1.f)
 	{
-		self->transient_detected = t_d_run(self->transient_detection, transient_threshold);
+		self->transient_detected = transient_detector_run(self->transient_detection, transient_threshold);
 	}
 
 	//COMPUTING OF ALPHA WITH MASKING THRESHOLDS USING VIRAGS METHOD
@@ -309,7 +309,7 @@ void g_e_run(GainEstimator *self, float *signal_spectrum, float *gain_spectrum, 
 
 	//------SMOOTHING DETECTOR------
 
-	s_s_run(self->spectrum_smoothing, release);
+	spectral_smoothing_run(self->spectrum_smoothing, release);
 
 	//------REDUCTION GAINS------
 
@@ -334,7 +334,7 @@ void g_e_run(GainEstimator *self, float *signal_spectrum, float *gain_spectrum, 
 /**
 * Reset dynamic arrays to zero.
 */
-void g_e_reset(GainEstimator *self)
+void gain_estimation_reset(GainEstimator *self)
 {
 	//Reset all arrays
 	initialize_array(self->signal_spectrum, 0.f, self->half_fft_size + 1);
@@ -350,7 +350,7 @@ void g_e_reset(GainEstimator *self)
 * Gain estimator initialization and configuration.
 */
 GainEstimator *
-g_e_init(int fft_size, int samp_rate, int hop)
+gain_estimation_initialize(int fft_size, int samp_rate, int hop)
 {
 	//Allocate object
 	GainEstimator *self = (GainEstimator *)malloc(sizeof(GainEstimator));
@@ -371,11 +371,11 @@ g_e_init(int fft_size, int samp_rate, int hop)
 	self->clean_signal_estimation = (float *)calloc((self->half_fft_size + 1), sizeof(float));
 
 	//Reset all values
-	g_e_reset(self);
+	gain_estimation_reset(self);
 
-	self->masking_estimation = m_e_init(self->fft_size, self->samp_rate);
-	self->transient_detection = t_d_init(self->fft_size);
-	self->spectrum_smoothing = s_s_init(self->fft_size, self->samp_rate, self->hop);
+	self->masking_estimation = masking_estimation_initialize(self->fft_size, self->samp_rate);
+	self->transient_detection = transient_detector_initialize(self->fft_size);
+	self->spectrum_smoothing = spectral_smoothing_initialize(self->fft_size, self->samp_rate, self->hop);
 
 	return self;
 }
@@ -383,7 +383,7 @@ g_e_init(int fft_size, int samp_rate, int hop)
 /**
 * Free allocated memory.
 */
-void g_e_free(GainEstimator *self)
+void gain_estimation_free(GainEstimator *self)
 {
 	free(self->noise_spectrum);
 	free(self->gain_spectrum);
@@ -392,8 +392,8 @@ void g_e_free(GainEstimator *self)
 	free(self->beta);
 	free(self->masking_thresholds);
 	free(self->clean_signal_estimation);
-	m_e_free(self->masking_estimation);
-	t_d_free(self->transient_detection);
-	s_s_free(self->spectrum_smoothing);
+	masking_estimation_free(self->masking_estimation);
+	transient_detector_free(self->transient_detection);
+	spectral_smoothing_free(self->spectrum_smoothing);
 	free(self);
 }

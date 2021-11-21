@@ -49,7 +49,7 @@ typedef struct
 } NoiseProfile;
 
 NoiseProfile *
-np_init(LV2_URID child_type, int np_size)
+noise_profile_initialize(LV2_URID child_type, int np_size)
 {
 	//Allocate object
 	NoiseProfile *self = (NoiseProfile *)malloc(sizeof(NoiseProfile));
@@ -79,7 +79,7 @@ typedef struct
 	NoiseProfile *noise_profile;
 } PluginState;
 
-bool ps_configure(PluginState *self, const LV2_Feature *const *features, int np_size)
+bool plugin_state_configure(PluginState *self, const LV2_Feature *const *features, int np_size)
 {
 	//Retrieve the URID map callback, and needed URIDs
 	for (int i = 0; features[i]; ++i)
@@ -102,13 +102,13 @@ bool ps_configure(PluginState *self, const LV2_Feature *const *features, int np_
 	self->prop_nwindow = self->map->map(self->map->handle, NOISEREPELLENT_URI "#nwindow");
 	self->prop_FFTp2 = self->map->map(self->map->handle, NOISEREPELLENT_URI "#FFTp2");
 
-	self->noise_profile = np_init(self->atom_Float, np_size);
+	self->noise_profile = noise_profile_initialize(self->atom_Float, np_size);
 
 	return true;
 }
 
-void ps_savestate(PluginState *self, LV2_State_Store_Function store, LV2_State_Handle handle,
-				  int *fft_size, float *noise_window_count, float *noise_profile)
+void plugin_state_savestate(PluginState *self, LV2_State_Store_Function store, LV2_State_Handle handle,
+							int *fft_size, float *noise_window_count, float *noise_profile)
 {
 	store(handle, self->prop_fftsize, &fft_size, sizeof(int), self->atom_Int,
 		  LV2_STATE_IS_POD | LV2_STATE_IS_PORTABLE);
@@ -122,9 +122,9 @@ void ps_savestate(PluginState *self, LV2_State_Store_Function store, LV2_State_H
 		  self->atom_Vector, LV2_STATE_IS_POD | LV2_STATE_IS_PORTABLE);
 }
 
-bool ps_restorestate(PluginState *self, LV2_State_Retrieve_Function retrieve, LV2_State_Handle handle,
-					 float *noise_profile, float noise_window_count, int *fft_size,
-					 int fft_size_2)
+bool plugin_state_restorestate(PluginState *self, LV2_State_Retrieve_Function retrieve, LV2_State_Handle handle,
+							   float *noise_profile, float noise_window_count, int *fft_size,
+							   int fft_size_2)
 {
 	size_t size;
 	uint32_t type;
