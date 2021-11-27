@@ -23,7 +23,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 * \brief Methods for masking threshold estimation
 */
 
-#include "spectral_helper.h"
+#ifndef MASKING_ESTIMATOR_C
+#define MASKING_ESTIMATOR_C
+
 #include <fftw3.h>
 #include <float.h>
 #include <math.h>
@@ -38,6 +40,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define S_AMP 1.f
 
 #define ARRAYACCESS(a, i, j) ((a)[(i)*N_BARK_BANDS + (j)]) //This is for SSF Matrix recall
+#define MAX(a, b) (((a) > (b)) ? (a) : (b))
+#define MIN(a, b) (((a) < (b)) ? (a) : (b))
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846f
+#endif
 
 //Proposed by Sinha and Tewfik and explained by Virag
 static const float relative_thresholds[N_BARK_BANDS] = {-16.f, -17.f, -18.f, -19.f, -20.f, -21.f, -22.f, -23.f, -24.f, -25.f, -25.f, -25.f, -25.f, -25.f, -25.f, -24.f, -23.f, -22.f, -19.f, -18.f, -18.f, -18.f, -18.f, -18.f, -18.f};
@@ -117,6 +125,67 @@ void compute_absolute_thresholds(MaskingEstimator *self)
 }
 
 /**
+* Compute Hanning windows values.
+* \param window array for window values
+* \param N fft size
+* \param window_type type of window
+*/
+void hanning_window(float *window, int N)
+{
+	int k;
+	for (k = 0; k < N; k++)
+	{
+		float p = ((float)(k)) / ((float)(N));
+		window[k] = 0.5 - 0.5 * cosf(2.f * M_PI * p);
+	}
+}
+
+void get_power_spectrum(MaskingEstimator *self, float *window, float *signal, float *power_spectrum)
+{
+	int k;
+	float real_p, imag_n, p2;
+
+	//Windowing the sinewave
+	hanning_window(window, self->fft_size);
+	for (k = 0; k < self->fft_size; k++)
+	{
+		self->input_fft_buffer_at[k] = signal[k] * window[k];
+	}
+
+	//Do FFT
+	fftwf_execute(self->forward_at);
+
+	//Get the power spectrum
+
+	//DC bin
+	real_p = self->output_fft_buffer_at[0];
+	imag_n = 0.f;
+
+	power_spectrum[0] = real_p * real_p;
+
+	//Get the rest of positive spectrum and compute the magnitude
+	for (k = 1; k <= self->half_fft_size; k++)
+	{
+		//Get the half complex spectrum reals and complex
+		real_p = self->output_fft_buffer_at[k];
+		imag_n = self->output_fft_buffer_at[self->fft_size - k];
+
+		//Get the magnitude, phase and power spectrum
+		if (k < self->half_fft_size)
+		{
+			p2 = (real_p * real_p + imag_n * imag_n);
+		}
+		else
+		{
+			//Nyquist - this is due to half complex transform
+			p2 = real_p * real_p;
+		}
+		//Store values in magnitude and power arrays (this stores the positive spectrum only)
+		power_spectrum[k] = p2;
+	}
+}
+
+/**
 * Computes the reference spectrum to perform the db to dbSPL conversion. It uses
 * a full scale 1khz sine wave as the reference signal and performs an fft transform over
 * it to get the magnitude spectrum and then scales it using a reference dbSPL level. This
@@ -130,8 +199,6 @@ void spl_reference(MaskingEstimator *self)
 	float sinewave[self->fft_size];
 	float window[self->fft_size];
 	float fft_p2_at[self->half_fft_size];
-	float fft_magnitude_at[self->half_fft_size];
-	float fft_phase_at[self->half_fft_size];
 	float fft_p2_at_dbspl[self->half_fft_size];
 
 	//Generate a fullscale sine wave of 1 kHz
@@ -140,19 +207,7 @@ void spl_reference(MaskingEstimator *self)
 		sinewave[k] = S_AMP * sinf((2.f * M_PI * k * AT_SINE_WAVE_FREQ) / (float)self->samp_rate);
 	}
 
-	//Windowing the sinewave
-	fft_window(window, self->fft_size, 0); //von-Hann window
-	for (k = 0; k < self->fft_size; k++)
-	{
-		self->input_fft_buffer_at[k] = sinewave[k] * window[k];
-	}
-
-	//Do FFT
-	fftwf_execute(self->forward_at);
-
-	//Get the magnitude
-	get_info_from_bins(fft_p2_at, fft_magnitude_at, fft_phase_at, self->half_fft_size, self->fft_size,
-					   self->output_fft_buffer_at);
+	get_power_spectrum(self, window, sinewave, fft_p2_at);
 
 	//Convert to db and taking into account 90dbfs of reproduction loudness
 	for (k = 0; k <= self->half_fft_size; k++)
@@ -397,14 +452,14 @@ void compute_masking_thresholds(MaskingEstimator *self, float *spectrum, float *
 void masking_estimation_reset(MaskingEstimator *self)
 {
 	//Reset all arrays
-	initialize_spectrum(self->absolute_thresholds, 0.f, self->half_fft_size + 1);
-	initialize_spectrum(self->bark_z, 0.f, self->half_fft_size + 1);
-	initialize_spectrum(self->spl_reference_values, 0.f, self->half_fft_size + 1);
-	initialize_spectrum(self->input_fft_buffer_at, 0.f, self->half_fft_size + 1);
-	initialize_spectrum(self->output_fft_buffer_at, 0.f, self->half_fft_size + 1);
-	initialize_spectrum(self->spectral_spreading_function, 0.f, N_BARK_BANDS);
-	initialize_spectrum(self->unity_gain_bark_spectrum, 1.f, N_BARK_BANDS); //Initializing unity gain values for offset normalization
-	initialize_spectrum(self->spreaded_unity_gain_bark_spectrum, 0.f, N_BARK_BANDS);
+	memset(self->absolute_thresholds, 0.f, self->half_fft_size + 1);
+	memset(self->bark_z, 0.f, self->half_fft_size + 1);
+	memset(self->spl_reference_values, 0.f, self->half_fft_size + 1);
+	memset(self->input_fft_buffer_at, 0.f, self->half_fft_size + 1);
+	memset(self->output_fft_buffer_at, 0.f, self->half_fft_size + 1);
+	memset(self->spectral_spreading_function, 0.f, N_BARK_BANDS);
+	memset(self->unity_gain_bark_spectrum, 1.f, N_BARK_BANDS); //Initializing unity gain values for offset normalization
+	memset(self->spreaded_unity_gain_bark_spectrum, 0.f, N_BARK_BANDS);
 }
 
 /**
@@ -465,3 +520,5 @@ void masking_estimation_free(MaskingEstimator *self)
 	fftwf_destroy_plan(self->forward_at);
 	free(self);
 }
+
+#endif

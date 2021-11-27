@@ -23,6 +23,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 * \brief The plugin state abstraction
 */
 
+#ifndef NOISE_REPELLENT_STATE_C
+#define NOISE_REPELLENT_STATE_C
+
 #include "lv2/lv2plug.in/ns/ext/atom/atom.h"
 #include "lv2/lv2plug.in/ns/ext/state/state.h"
 #include "lv2/lv2plug.in/ns/ext/urid/urid.h"
@@ -159,3 +162,5 @@ bool plugin_state_restorestate(PluginState *self, LV2_State_Retrieve_Function re
 
 	return true;
 }
+
+#endif

@@ -23,12 +23,20 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 * \brief Contains an abstraction for a single fft spectrum denoising
 */
 
+#ifndef FFT_DENOISER_C
+#define FFT_DENOISER_C
+
 #define WHITENING_DECAY_RATE 1000.f //Deacay in ms for max spectrum for whitening
 #define WHITENING_FLOOR 0.02f		//Minumum max value posible
 
+#define MAX(a, b) (((a) > (b)) ? (a) : (b))
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846f
+#endif
+
 #include "gain_estimator.c"
 #include "noise_estimator.c"
-#include "spectral_helper.h"
 
 /**
 * FFT processor struct.
@@ -68,6 +76,60 @@ typedef struct
 	float max_decay_rate;
 	float whitening_window_count;
 } FFTDenoiser;
+
+/**
+* Gets the magnitude and phase spectrum of the complex spectrum. Takimg into account that
+* the half complex fft was used half of the spectrum contains the real part the other
+* the imaginary. Look at http://www.fftw.org/doc/The-Halfcomplex_002dformat-DFT.html for
+* more info. DC bin was treated as suggested in http://www.fftw.org/fftw2_doc/fftw_2.html
+* \param fft_p2 the current power spectrum
+* \param fft_magnitude the current magnitude spectrum
+* \param fft_phase the current phase spectrum
+* \param fft_size_2 half of the fft size
+* \param fft_size size of the fft
+* \param fft_buffer buffer with the complex spectrum of the fft transform
+*/
+static void get_info_from_bins(float *fft_p2, float *fft_magnitude, float *fft_phase,
+							   int fft_size_2, int fft_size, float *fft_buffer)
+{
+	int k;
+	float real_p, imag_n, mag, p2, phase;
+
+	//DC bin
+	real_p = fft_buffer[0];
+	imag_n = 0.f;
+
+	fft_p2[0] = real_p * real_p;
+	fft_magnitude[0] = real_p;
+	fft_phase[0] = atan2f(real_p, 0.f); //Phase is 0 for DC and nyquist
+
+	//Get the rest of positive spectrum and compute the magnitude
+	for (k = 1; k <= fft_size_2; k++)
+	{
+		//Get the half complex spectrum reals and complex
+		real_p = fft_buffer[k];
+		imag_n = fft_buffer[fft_size - k];
+
+		//Get the magnitude, phase and power spectrum
+		if (k < fft_size_2)
+		{
+			p2 = (real_p * real_p + imag_n * imag_n);
+			mag = sqrtf(p2); //sqrt(real^2+imag^2)
+			phase = atan2f(real_p, imag_n);
+		}
+		else
+		{
+			//Nyquist - this is due to half complex transform
+			p2 = real_p * real_p;
+			mag = real_p;
+			phase = atan2f(real_p, 0.f); //Phase is 0 for DC and nyquist
+		}
+		//Store values in magnitude and power arrays (this stores the positive spectrum only)
+		fft_p2[k] = p2;
+		fft_magnitude[k] = mag; //This is not used but part of the STFT transform for generic use
+		fft_phase[k] = phase;	//This is not used but part of the STFT transform for generic use
+	}
+}
 
 /**
 * Verifies if the spectrum is full of zeros.
@@ -273,19 +335,19 @@ void fft_processor_run(FFTDenoiser *self, float *fft_spectrum, int enable, bool 
 void fft_processor_reset(FFTDenoiser *self)
 {
 	//Reset all arrays
-	initialize_spectrum(self->fft_spectrum, 0.f, self->fft_size);
-	initialize_spectrum(self->processed_fft_spectrum, 0.f, self->fft_size);
-	initialize_spectrum(self->gain_spectrum, 1.f, self->fft_size);
+	memset(self->fft_spectrum, 0.f, self->fft_size);
+	memset(self->processed_fft_spectrum, 0.f, self->fft_size);
+	memset(self->gain_spectrum, 1.f, self->fft_size);
 
-	initialize_spectrum(self->power_spectrum, 0.f, self->half_fft_size + 1);
-	initialize_spectrum(self->magnitude_spectrum, 0.f, self->half_fft_size + 1);
-	initialize_spectrum(self->phase_spectrum, 0.f, self->half_fft_size + 1);
+	memset(self->power_spectrum, 0.f, self->half_fft_size + 1);
+	memset(self->magnitude_spectrum, 0.f, self->half_fft_size + 1);
+	memset(self->phase_spectrum, 0.f, self->half_fft_size + 1);
 
-	initialize_spectrum(self->residual_max_spectrum, 0.f, self->fft_size);
-	initialize_spectrum(self->denoised_spectrum, 0.f, self->fft_size);
-	initialize_spectrum(self->residual_spectrum, 0.f, self->fft_size);
-	initialize_spectrum(self->whitened_residual_spectrum, 0.f, self->fft_size);
-	initialize_spectrum(self->gain_spectrum, 0.f, self->fft_size);
+	memset(self->residual_max_spectrum, 0.f, self->fft_size);
+	memset(self->denoised_spectrum, 0.f, self->fft_size);
+	memset(self->residual_spectrum, 0.f, self->fft_size);
+	memset(self->whitened_residual_spectrum, 0.f, self->fft_size);
+	memset(self->gain_spectrum, 0.f, self->fft_size);
 
 	self->whitening_window_count = 0.f;
 }
@@ -355,3 +417,5 @@ void fft_processor_free(FFTDenoiser *self)
 	noise_estimation_free(self->noise_estimation);
 	free(self);
 }
+
+#endif

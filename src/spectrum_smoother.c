@@ -23,7 +23,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 * \brief Contains a spectrum smoother abstraction
 */
 
-#include "spectral_helper.h"
+#ifndef SPECTRUM_SMOOTHER_C
+#define SPECTRUM_SMOOTHER_C
 
 /**
 * Spectrum smoother struct.
@@ -100,10 +101,10 @@ void spectral_smoothing_run(SpectralSmoother *self, float release)
 void spectral_smoothing_reset(SpectralSmoother *self)
 {
 	//Reset all arrays
-	initialize_spectrum(self->signal_spectrum, 0.f, self->half_fft_size + 1);
-	initialize_spectrum(self->noise_spectrum, 0.f, self->half_fft_size + 1);
-	initialize_spectrum(self->smoothed_spectrum, 0.f, self->half_fft_size + 1);
-	initialize_spectrum(self->smoothed_spectrum_prev, 0.f, self->half_fft_size + 1);
+	memset(self->signal_spectrum, 0.f, self->half_fft_size + 1);
+	memset(self->noise_spectrum, 0.f, self->half_fft_size + 1);
+	memset(self->smoothed_spectrum, 0.f, self->half_fft_size + 1);
+	memset(self->smoothed_spectrum_prev, 0.f, self->half_fft_size + 1);
 
 	self->release_coefficient = 0.f;
 }
@@ -146,3 +147,5 @@ void spectral_smoothing_free(SpectralSmoother *self)
 	free(self->smoothed_spectrum_prev);
 	free(self);
 }
+
+#endif

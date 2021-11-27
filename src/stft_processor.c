@@ -23,15 +23,27 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 * \brief Contains an STFT denoiser abstraction
 */
 
+#ifndef STFT_PROCESSOR_C
+#define STFT_PROCESSOR_C
+
 #include "fft_denoiser.c"
-#include "spectral_helper.h"
 #include <fftw3.h>
+
+//Window types
+#define HANN_WINDOW 0
+#define HAMMING_WINDOW 1
+#define BLACKMAN_WINDOW 2
+#define VORBIS_WINDOW 3
 
 //STFT default values (Hardcoded for now)
 #define FFT_SIZE 2048		 //Size of the fft transform
-#define INPUT_WINDOW_TYPE 3	 //0 HANN 1 HAMMING 2 BLACKMAN 3 VORBIS Input windows for STFT algorithm
-#define OUTPUT_WINDOW_TYPE 3 //0 HANN 1 HAMMING 2 BLACKMAN 3 VORBIS Output windows for STFT algorithm
+#define INPUT_WINDOW_TYPE 3	 //Input windows for STFT algorithm
+#define OUTPUT_WINDOW_TYPE 3 //Output windows for STFT algorithm
 #define OVERLAP_FACTOR 4	 //4 is 75% overlap Values bigger than 4 will rescale correctly (if Vorbis windows is not used)
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846f
+#endif
 
 /**
 * STFT processor struct.
@@ -59,6 +71,81 @@ typedef struct
 	//FFT processor instance
 	FFTDenoiser *fft_denoiser;
 } STFTProcessor;
+
+/**
+* blackman window values computing.
+* \param k bin number
+* \param N fft size
+*/
+static float blackman(int k, int N)
+{
+	float p = ((float)(k)) / ((float)(N));
+	return 0.42 - 0.5 * cosf(2.f * M_PI * p) + 0.08 * cosf(4.f * M_PI * p);
+}
+
+/**
+* hanning window values computing.
+* \param k bin number
+* \param N fft size
+*/
+static float hanning(int k, int N)
+{
+	float p = ((float)(k)) / ((float)(N));
+	return 0.5 - 0.5 * cosf(2.f * M_PI * p);
+}
+
+/**
+* hamming window values computing.
+* \param k bin number
+* \param N fft size
+*/
+static float hamming(int k, int N)
+{
+	float p = ((float)(k)) / ((float)(N));
+	return 0.54 - 0.46 * cosf(2.f * M_PI * p);
+}
+
+/**
+* Vorbis window values computing. It satisfies Princen-Bradley criterion so perfect
+* reconstruction could be achieved with 50% overlap when used both in Analysis and
+* Synthesis
+* \param k bin number
+* \param N fft size
+*/
+static float vorbis(int k, int N)
+{
+	float p = ((float)(k)) / ((float)(N));
+	return sinf(M_PI / 2.f * powf(sinf(M_PI * p), 2.f));
+}
+
+/**
+* Wrapper to compute windows values.
+* \param window array for window values
+* \param N fft size
+* \param window_type type of window
+*/
+static void fft_window(float *window, int N, int window_type)
+{
+	int k;
+	for (k = 0; k < N; k++)
+	{
+		switch (window_type)
+		{
+		case BLACKMAN_WINDOW:
+			window[k] = blackman(k, N);
+			break;
+		case HANN_WINDOW:
+			window[k] = hanning(k, N);
+			break;
+		case HAMMING_WINDOW:
+			window[k] = hamming(k, N);
+			break;
+		case VORBIS_WINDOW:
+			window[k] = vorbis(k, N);
+			break;
+		}
+	}
+}
 
 /**
 * Wrapper for getting the pre and post processing windows and adequate scaling factor.
@@ -227,13 +314,13 @@ void stft_processor_run(STFTProcessor *self, int n_samples, const float *input, 
 void stft_processor_reset(STFTProcessor *self)
 {
 	//Reset all arrays
-	initialize_spectrum(self->input_fft_buffer, 0.f, self->fft_size);
-	initialize_spectrum(self->output_fft_buffer, 0.f, self->fft_size);
-	initialize_spectrum(self->input_window, 0.f, self->fft_size);
-	initialize_spectrum(self->output_window, 0.f, self->fft_size);
-	initialize_spectrum(self->in_fifo, 0.f, self->fft_size);
-	initialize_spectrum(self->out_fifo, 0.f, self->fft_size);
-	initialize_spectrum(self->output_accum, 0.f, self->fft_size * 2);
+	memset(self->input_fft_buffer, 0.f, self->fft_size);
+	memset(self->output_fft_buffer, 0.f, self->fft_size);
+	memset(self->input_window, 0.f, self->fft_size);
+	memset(self->output_window, 0.f, self->fft_size);
+	memset(self->in_fifo, 0.f, self->fft_size);
+	memset(self->out_fifo, 0.f, self->fft_size);
+	memset(self->output_accum, 0.f, self->fft_size * 2);
 }
 
 /**
@@ -306,3 +393,5 @@ void stft_processor_free(STFTProcessor *self)
 	fft_processor_free(self->fft_denoiser);
 	free(self);
 }
+
+#endif

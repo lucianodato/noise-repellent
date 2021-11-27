@@ -23,7 +23,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 * \brief Contains a transient detector abstraction
 */
 
-#include "spectral_helper.h"
+#ifndef TRANSIENT_DETECTOR_C
+#define TRANSIENT_DETECTOR_C
+
 #include <stdbool.h>
 
 #define TP_UPPER_LIMIT 5.f //This correspond to the upper limit of the adaptive threshold multiplier. Should be the same as the ttl configured one
@@ -111,8 +113,8 @@ bool transient_detector_run(TransientDetector *self, float transient_threshold)
 void transient_detector_reset(TransientDetector *self)
 {
 	//Reset all arrays
-	initialize_spectrum(self->spectrum, 0.f, self->half_fft_size + 1);
-	initialize_spectrum(self->transient_preserv_prev, 0.f, self->half_fft_size + 1);
+	memset(self->spectrum, 0.f, self->half_fft_size + 1);
+	memset(self->transient_preserv_prev, 0.f, self->half_fft_size + 1);
 
 	self->tp_window_count = 0.f;
 	self->tp_r_mean = 0.f;
@@ -151,3 +153,5 @@ void transient_detector_free(TransientDetector *self)
 	free(self->transient_preserv_prev);
 	free(self);
 }
+
+#endif

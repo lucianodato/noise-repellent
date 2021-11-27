@@ -23,8 +23,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 * \brief Abstraction noise spectrum estimation
 */
 
+#ifndef NOISE_ESTIMATOR_C
+#define NOISE_ESTIMATOR_C
+
 // #include "extra_functions.c"
-#include "spectral_helper.h"
 #include <float.h>
 #include <math.h>
 
@@ -78,7 +80,7 @@ void noise_estimation_run(NoiseEstimator *self, float *spectrum)
 void noise_estimation_reset(NoiseEstimator *self)
 {
 	self->noise_spectrum_available = false;
-	initialize_spectrum(self->noise_spectrum, 0.f, self->half_fft_size + 1);
+	memset(self->noise_spectrum, 0.f, self->half_fft_size + 1);
 }
 
 NoiseEstimator *
@@ -102,3 +104,5 @@ void noise_estimation_free(NoiseEstimator *self)
 	free(self->noise_spectrum);
 	free(self);
 }
+
+#endif

@@ -23,8 +23,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 * \brief Contains a the reduction gain estimator abstraction
 */
 
+#ifndef GAIN_ESTIMATOR_C
+#define GAIN_ESTIMATOR_C
+
 #include "masking_estimator.c"
-#include "spectral_helper.h"
 #include "spectrum_smoother.c"
 #include "transient_detector.c"
 #include <float.h>
@@ -40,6 +42,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define ALPHA_MIN 1.f
 #define BETA_MAX 0.02f
 #define BETA_MIN 0.0f
+
+#define MAX(a, b) (((a) > (b)) ? (a) : (b))
+#define MIN(a, b) (((a) < (b)) ? (a) : (b))
 
 /**
 * Gain estimation struct.
@@ -272,7 +277,7 @@ void gain_estimation_run(GainEstimator *self, float *signal_spectrum, float *gai
 	}
 	else
 	{
-		initialize_spectrum(self->alpha, 1.f, self->half_fft_size + 1); //This avoids incorrect results when moving sliders rapidly
+		memset(self->alpha, 1.f, self->half_fft_size + 1); //This avoids incorrect results when moving sliders rapidly
 	}
 
 	//------OVERSUBTRACTION------
@@ -313,13 +318,13 @@ void gain_estimation_run(GainEstimator *self, float *signal_spectrum, float *gai
 void gain_estimation_reset(GainEstimator *self)
 {
 	//Reset all arrays
-	initialize_spectrum(self->signal_spectrum, 0.f, self->half_fft_size + 1);
-	initialize_spectrum(self->noise_spectrum, 0.f, self->half_fft_size + 1);
-	initialize_spectrum(self->gain_spectrum, 1.f, self->half_fft_size + 1);
-	initialize_spectrum(self->alpha, 1.f, self->half_fft_size + 1);
-	initialize_spectrum(self->beta, 0.f, self->half_fft_size + 1);
-	initialize_spectrum(self->masking_thresholds, 0.f, self->half_fft_size + 1);
-	initialize_spectrum(self->clean_signal_estimation, 0.f, self->half_fft_size + 1);
+	memset(self->signal_spectrum, 0.f, self->half_fft_size + 1);
+	memset(self->noise_spectrum, 0.f, self->half_fft_size + 1);
+	memset(self->gain_spectrum, 1.f, self->half_fft_size + 1);
+	memset(self->alpha, 1.f, self->half_fft_size + 1);
+	memset(self->beta, 0.f, self->half_fft_size + 1);
+	memset(self->masking_thresholds, 0.f, self->half_fft_size + 1);
+	memset(self->clean_signal_estimation, 0.f, self->half_fft_size + 1);
 }
 
 /**
@@ -373,3 +378,5 @@ void gain_estimation_free(GainEstimator *self)
 	spectral_smoothing_free(self->spectrum_smoothing);
 	free(self);
 }
+
+#endif

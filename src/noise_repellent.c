@@ -23,6 +23,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 * \brief The main file for host interaction
 */
 
+#ifndef NOISE_REPELLENT_C
+#define NOISE_REPELLENT_C
+
 #include "noise_repellent_state.c"
 #include "stft_processor.c"
 
@@ -269,3 +272,5 @@ LV2_SYMBOL_EXPORT const LV2_Descriptor *lv2_descriptor(uint32_t index)
 		return NULL;
 	}
 }
+
+#endif
