@@ -29,6 +29,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <fftw3.h>
 #include <float.h>
 #include <math.h>
+#include <stdlib.h>
 
 //extra values
 #define N_BARK_BANDS 25
@@ -38,14 +39,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define BIAS 0
 #define HIGH_FREQ_BIAS 20.f
 #define S_AMP 1.f
-
-#define ARRAYACCESS(a, i, j) ((a)[(i)*N_BARK_BANDS + (j)]) //This is for SSF Matrix recall
-#define MAX(a, b) (((a) > (b)) ? (a) : (b))
-#define MIN(a, b) (((a) < (b)) ? (a) : (b))
-
-#ifndef M_PI
-#define M_PI 3.14159265358979323846f
-#endif
 
 //Proposed by Sinha and Tewfik and explained by Virag
 static const float relative_thresholds[N_BARK_BANDS] = {-16.f, -17.f, -18.f, -19.f, -20.f, -21.f, -22.f, -23.f, -24.f, -25.f, -25.f, -25.f, -25.f, -25.f, -25.f, -24.f, -23.f, -22.f, -19.f, -18.f, -18.f, -18.f, -18.f, -18.f, -18.f};
@@ -235,9 +228,9 @@ void compute_spectral_spreading_function(MaskingEstimator *self)
 		{
 			y = (i + 1) - (j + 1);
 			//Spreading function (Schroeder)
-			ARRAYACCESS(self->spectral_spreading_function, i, j) = 15.81f + 7.5f * (y + 0.474f) - 17.5f * sqrtf(1.f + (y + 0.474f) * (y + 0.474f)); //dB scale
+			self->spectral_spreading_function[i * N_BARK_BANDS + j] = 15.81f + 7.5f * (y + 0.474f) - 17.5f * sqrtf(1.f + (y + 0.474f) * (y + 0.474f)); //dB scale
 			//db to Linear
-			ARRAYACCESS(self->spectral_spreading_function, i, j) = powf(10.f, ARRAYACCESS(self->spectral_spreading_function, i, j) / 10.f);
+			self->spectral_spreading_function[i * N_BARK_BANDS + j] = powf(10.f, self->spectral_spreading_function[i * N_BARK_BANDS + j] / 10.f);
 		}
 	}
 }
@@ -258,7 +251,7 @@ void convolve_with_spectral_spreading_function(MaskingEstimator *self, float *ba
 		spreaded_spectrum[i] = 0.f;
 		for (j = 0; j < N_BARK_BANDS; j++)
 		{
-			spreaded_spectrum[i] += ARRAYACCESS(self->spectral_spreading_function, i, j) * bark_spectrum[j];
+			spreaded_spectrum[i] += self->spectral_spreading_function[i * N_BARK_BANDS + j] * bark_spectrum[j];
 		}
 	}
 }
@@ -356,7 +349,7 @@ float compute_tonality_factor(float *spectrum, float *intermediate_band_bins,
 	SFM = 10.f * (sum_log_p / (float)(n_bins_per_band[band]) - log10f(sum_p / (float)(n_bins_per_band[band]))); //this value is in db scale
 
 	//Tonality factor in db scale
-	tonality_factor = MIN(SFM / -60.f, 1.f);
+	tonality_factor = fminf(SFM / -60.f, 1.f);
 
 	return tonality_factor;
 }
@@ -442,7 +435,7 @@ void compute_masking_thresholds(MaskingEstimator *self, float *spectrum, float *
 	//Take into account the absolute_thresholds of hearing
 	for (k = 0; k <= self->half_fft_size; k++)
 	{
-		masking_thresholds[k] = MAX(masking_thresholds[k], self->absolute_thresholds[k]);
+		masking_thresholds[k] = fmaxf(masking_thresholds[k], self->absolute_thresholds[k]);
 	}
 }
 

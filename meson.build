@@ -1,4 +1,4 @@
-project('nrepel.lv2','c',version: '0.1.6',default_options: ['c_std=c99'])
+project('nrepel.lv2','c',version: '0.1.6',default_options: ['c_std=gnu11'])
 
 sord_validate = find_program('sord_validate', native : true, required : false)
 cp = find_program('cp')

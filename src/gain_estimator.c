@@ -32,6 +32,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <float.h>
 #include <math.h>
 #include <stdbool.h>
+#include <stdlib.h>
 
 //General spectral subtraction configuration
 #define GAMMA1 2.f
@@ -42,9 +43,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define ALPHA_MIN 1.f
 #define BETA_MAX 0.02f
 #define BETA_MIN 0.0f
-
-#define MAX(a, b) (((a) > (b)) ? (a) : (b))
-#define MIN(a, b) (((a) < (b)) ? (a) : (b))
 
 /**
 * Gain estimation struct.
@@ -84,7 +82,7 @@ static float max_spectral_value(float *spectrum, int N)
 	float max = spectrum[0];
 	for (k = 0; k <= N; k++)
 	{
-		max = MAX(spectrum[k], max);
+		max = fmaxf(spectrum[k], max);
 	}
 	return max;
 }
@@ -100,7 +98,7 @@ static float min_spectral_value(float *spectrum, int N)
 	float min = spectrum[0];
 	for (k = 0; k <= N; k++)
 	{
-		min = MIN(spectrum[k], min);
+		min = fminf(spectrum[k], min);
 	}
 	return min;
 }
@@ -181,11 +179,11 @@ void denoise_gain_generalized_spectral_substraction(GainEstimator *self)
 		{
 			if (powf((self->noise_spectrum[k] / self->signal_spectrum[k]), GAMMA1) < (1.f / (self->alpha[k] + self->beta[k])))
 			{
-				self->gain_spectrum[k] = MAX(powf(1.f - (self->alpha[k] * powf((self->noise_spectrum[k] / self->signal_spectrum[k]), GAMMA1)), GAMMA2), 0.f);
+				self->gain_spectrum[k] = fmaxf(powf(1.f - (self->alpha[k] * powf((self->noise_spectrum[k] / self->signal_spectrum[k]), GAMMA1)), GAMMA2), 0.f);
 			}
 			else
 			{
-				self->gain_spectrum[k] = MAX(powf(self->beta[k] * powf((self->noise_spectrum[k] / self->signal_spectrum[k]), GAMMA1), GAMMA2), 0.f);
+				self->gain_spectrum[k] = fmaxf(powf(self->beta[k] * powf((self->noise_spectrum[k] / self->signal_spectrum[k]), GAMMA1), GAMMA2), 0.f);
 			}
 		}
 		else
@@ -219,7 +217,7 @@ void compute_alpha_and_beta(GainEstimator *self, float masking_ceiling_limit, fl
 	//basic Power Sustraction to estimate clean signal
 	for (k = 0; k <= self->half_fft_size; k++)
 	{
-		self->clean_signal_estimation[k] = MAX(self->signal_spectrum[k] - self->noise_spectrum[k], FLT_MIN);
+		self->clean_signal_estimation[k] = fmaxf(self->signal_spectrum[k] - self->noise_spectrum[k], FLT_MIN);
 	}
 
 	//Now we can compute noise masking threshold

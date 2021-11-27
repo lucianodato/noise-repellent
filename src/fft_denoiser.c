@@ -29,14 +29,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define WHITENING_DECAY_RATE 1000.f //Deacay in ms for max spectrum for whitening
 #define WHITENING_FLOOR 0.02f		//Minumum max value posible
 
-#define MAX(a, b) (((a) > (b)) ? (a) : (b))
-
-#ifndef M_PI
-#define M_PI 3.14159265358979323846f
-#endif
-
 #include "gain_estimator.c"
 #include "noise_estimator.c"
+#include <math.h>
+#include <stdlib.h>
 
 /**
 * FFT processor struct.
@@ -195,11 +191,11 @@ void residual_spectrum_whitening(FFTDenoiser *self, float whitening_factor)
 	{
 		if (self->whitening_window_count > 1.f)
 		{
-			self->residual_max_spectrum[k] = MAX(MAX(self->residual_spectrum[k], WHITENING_FLOOR), self->residual_max_spectrum[k] * self->max_decay_rate);
+			self->residual_max_spectrum[k] = fmaxf(fmaxf(self->residual_spectrum[k], WHITENING_FLOOR), self->residual_max_spectrum[k] * self->max_decay_rate);
 		}
 		else
 		{
-			self->residual_max_spectrum[k] = MAX(self->residual_spectrum[k], WHITENING_FLOOR);
+			self->residual_max_spectrum[k] = fmaxf(self->residual_spectrum[k], WHITENING_FLOOR);
 		}
 	}
 
