@@ -23,8 +23,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 * \brief Contains an STFT denoiser abstraction
 */
 
-#include "extra_functions.h"
 #include "fft_processor.c"
+#include "spectral_helper.h"
 #include <fftw3.h>
 
 //STFT default values (Hardcoded for now)
@@ -227,13 +227,13 @@ void stft_processor_run(STFTProcessor *self, int n_samples, const float *input, 
 void stft_processor_reset(STFTProcessor *self)
 {
 	//Reset all arrays
-	initialize_array(self->input_fft_buffer, 0.f, self->fft_size);
-	initialize_array(self->output_fft_buffer, 0.f, self->fft_size);
-	initialize_array(self->input_window, 0.f, self->fft_size);
-	initialize_array(self->output_window, 0.f, self->fft_size);
-	initialize_array(self->in_fifo, 0.f, self->fft_size);
-	initialize_array(self->out_fifo, 0.f, self->fft_size);
-	initialize_array(self->output_accum, 0.f, self->fft_size * 2);
+	initialize_spectrum(self->input_fft_buffer, 0.f, self->fft_size);
+	initialize_spectrum(self->output_fft_buffer, 0.f, self->fft_size);
+	initialize_spectrum(self->input_window, 0.f, self->fft_size);
+	initialize_spectrum(self->output_window, 0.f, self->fft_size);
+	initialize_spectrum(self->in_fifo, 0.f, self->fft_size);
+	initialize_spectrum(self->out_fifo, 0.f, self->fft_size);
+	initialize_spectrum(self->output_accum, 0.f, self->fft_size * 2);
 }
 
 /**

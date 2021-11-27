@@ -26,9 +26,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define WHITENING_DECAY_RATE 1000.f //Deacay in ms for max spectrum for whitening
 #define WHITENING_FLOOR 0.02f		//Minumum max value posible
 
-#include "extra_functions.h"
 #include "gain_estimator.c"
 #include "noise_estimator.c"
+#include "spectral_helper.h"
 
 /**
 * FFT processor struct.
@@ -68,6 +68,24 @@ typedef struct
 	float max_decay_rate;
 	float whitening_window_count;
 } FFTProcessor;
+
+/**
+* Verifies if the spectrum is full of zeros.
+* \param spectrum the array to check
+* \param N the size of the array (half the fft size plus 1)
+*/
+static bool is_empty(float *spectrum, int N)
+{
+	int k;
+	for (k = 0; k <= N; k++)
+	{
+		if (spectrum[k] > FLT_MIN)
+		{
+			return false;
+		}
+	}
+	return true;
+}
 
 /**
 * Updates the wet/dry mixing coefficient.
@@ -255,19 +273,19 @@ void fft_processor_run(FFTProcessor *self, float *fft_spectrum, int enable, bool
 void fft_processor_reset(FFTProcessor *self)
 {
 	//Reset all arrays
-	initialize_array(self->fft_spectrum, 0.f, self->fft_size);
-	initialize_array(self->processed_fft_spectrum, 0.f, self->fft_size);
-	initialize_array(self->gain_spectrum, 1.f, self->fft_size);
+	initialize_spectrum(self->fft_spectrum, 0.f, self->fft_size);
+	initialize_spectrum(self->processed_fft_spectrum, 0.f, self->fft_size);
+	initialize_spectrum(self->gain_spectrum, 1.f, self->fft_size);
 
-	initialize_array(self->power_spectrum, 0.f, self->half_fft_size + 1);
-	initialize_array(self->magnitude_spectrum, 0.f, self->half_fft_size + 1);
-	initialize_array(self->phase_spectrum, 0.f, self->half_fft_size + 1);
+	initialize_spectrum(self->power_spectrum, 0.f, self->half_fft_size + 1);
+	initialize_spectrum(self->magnitude_spectrum, 0.f, self->half_fft_size + 1);
+	initialize_spectrum(self->phase_spectrum, 0.f, self->half_fft_size + 1);
 
-	initialize_array(self->residual_max_spectrum, 0.f, self->fft_size);
-	initialize_array(self->denoised_spectrum, 0.f, self->fft_size);
-	initialize_array(self->residual_spectrum, 0.f, self->fft_size);
-	initialize_array(self->whitened_residual_spectrum, 0.f, self->fft_size);
-	initialize_array(self->gain_spectrum, 0.f, self->fft_size);
+	initialize_spectrum(self->residual_max_spectrum, 0.f, self->fft_size);
+	initialize_spectrum(self->denoised_spectrum, 0.f, self->fft_size);
+	initialize_spectrum(self->residual_spectrum, 0.f, self->fft_size);
+	initialize_spectrum(self->whitened_residual_spectrum, 0.f, self->fft_size);
+	initialize_spectrum(self->gain_spectrum, 0.f, self->fft_size);
 
 	self->whitening_window_count = 0.f;
 }

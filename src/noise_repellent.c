@@ -26,6 +26,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include "noise_repellent_state.c"
 #include "stft_processor.c"
 
+#define FROM_DB(gain_db) (expf(gain_db / 10.f * logf(10.f))) // converts a db value to linear scale.
+
 ///---------------------------------------------------------------------
 
 /**
@@ -168,7 +170,7 @@ static void run(LV2_Handle instance, uint32_t n_samples)
 	float whitening_factor = (*self->whitening_factor / 100.f);
 	bool enable = (bool)*self->enable;
 	bool learn_noise = (bool)*self->learn_noise;
-	float reduction_amount = from_dB(-1.f * *self->reduction_amount);
+	float reduction_amount = FROM_DB(-1.f * *self->reduction_amount);
 	bool residual_listen = (bool)*self->residual_listen;
 	float release_time = *self->release;
 	float masking_ceiling_limit = *self->masking;

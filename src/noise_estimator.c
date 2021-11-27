@@ -24,7 +24,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
 // #include "extra_functions.c"
-#include "extra_functions.h"
+#include "spectral_helper.h"
 #include <float.h>
 #include <math.h>
 
@@ -78,7 +78,7 @@ void noise_estimation_run(NoiseEstimator *self, float *spectrum)
 void noise_estimation_reset(NoiseEstimator *self)
 {
 	self->noise_spectrum_available = false;
-	initialize_array(self->noise_spectrum, 0.f, self->half_fft_size + 1);
+	initialize_spectrum(self->noise_spectrum, 0.f, self->half_fft_size + 1);
 }
 
 NoiseEstimator *

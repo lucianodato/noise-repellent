@@ -23,8 +23,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 * \brief Contains a the reduction gain estimator abstraction
 */
 
-#include "extra_functions.h"
 #include "masking_estimator.c"
+#include "spectral_helper.h"
 #include "spectrum_smoother.c"
 #include "transient_detector.c"
 #include <float.h>
@@ -67,6 +67,38 @@ typedef struct
 	TransientDetector *transient_detection;
 	SpectralSmoother *spectrum_smoothing;
 } GainEstimator;
+
+/**
+* Finds the max value of the spectrum.
+* \param spectrum the array to check
+* \param N the size of the array (half the fft size plus 1)
+*/
+static float max_spectral_value(float *spectrum, int N)
+{
+	int k;
+	float max = spectrum[0];
+	for (k = 0; k <= N; k++)
+	{
+		max = MAX(spectrum[k], max);
+	}
+	return max;
+}
+
+/**
+* Finds the min value of the spectrum.
+* \param spectrum the array to check
+* \param N the size of the array (half the fft size plus 1)
+*/
+static float min_spectral_value(float *spectrum, int N)
+{
+	int k;
+	float min = spectrum[0];
+	for (k = 0; k <= N; k++)
+	{
+		min = MIN(spectrum[k], min);
+	}
+	return min;
+}
 
 /**
 * Wiener substraction supression rule. Outputs the filter mirrored around nyquist.
@@ -296,7 +328,7 @@ void gain_estimation_run(GainEstimator *self, float *signal_spectrum, float *gai
 	}
 	else
 	{
-		initialize_array(self->alpha, 1.f, self->half_fft_size + 1); //This avoids incorrect results when moving sliders rapidly
+		initialize_spectrum(self->alpha, 1.f, self->half_fft_size + 1); //This avoids incorrect results when moving sliders rapidly
 	}
 
 	//------OVERSUBTRACTION------
@@ -337,13 +369,13 @@ void gain_estimation_run(GainEstimator *self, float *signal_spectrum, float *gai
 void gain_estimation_reset(GainEstimator *self)
 {
 	//Reset all arrays
-	initialize_array(self->signal_spectrum, 0.f, self->half_fft_size + 1);
-	initialize_array(self->noise_spectrum, 0.f, self->half_fft_size + 1);
-	initialize_array(self->gain_spectrum, 1.f, self->half_fft_size + 1);
-	initialize_array(self->alpha, 1.f, self->half_fft_size + 1);
-	initialize_array(self->beta, 0.f, self->half_fft_size + 1);
-	initialize_array(self->masking_thresholds, 0.f, self->half_fft_size + 1);
-	initialize_array(self->clean_signal_estimation, 0.f, self->half_fft_size + 1);
+	initialize_spectrum(self->signal_spectrum, 0.f, self->half_fft_size + 1);
+	initialize_spectrum(self->noise_spectrum, 0.f, self->half_fft_size + 1);
+	initialize_spectrum(self->gain_spectrum, 1.f, self->half_fft_size + 1);
+	initialize_spectrum(self->alpha, 1.f, self->half_fft_size + 1);
+	initialize_spectrum(self->beta, 0.f, self->half_fft_size + 1);
+	initialize_spectrum(self->masking_thresholds, 0.f, self->half_fft_size + 1);
+	initialize_spectrum(self->clean_signal_estimation, 0.f, self->half_fft_size + 1);
 }
 
 /**

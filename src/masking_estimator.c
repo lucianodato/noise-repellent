@@ -23,7 +23,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 * \brief Methods for masking threshold estimation
 */
 
-#include "extra_functions.h"
+#include "spectral_helper.h"
 #include <fftw3.h>
 #include <float.h>
 #include <math.h>
@@ -64,6 +64,16 @@ typedef struct
 	fftwf_plan forward_at;
 
 } MaskingEstimator;
+
+/*Maps a bin number to a frequency
+* \param i bin number
+* \param samp_rate current sample rate of the host
+* \param N size of the fft
+*/
+static float bin_to_freq(int i, float samp_rate, int N)
+{
+	return (float)i * (samp_rate / N / 2.f);
+}
 
 /**
 * Fft to bark bilinear scale transform. This computes the corresponding bark band for
@@ -387,14 +397,14 @@ void compute_masking_thresholds(MaskingEstimator *self, float *spectrum, float *
 void masking_estimation_reset(MaskingEstimator *self)
 {
 	//Reset all arrays
-	initialize_array(self->absolute_thresholds, 0.f, self->half_fft_size + 1);
-	initialize_array(self->bark_z, 0.f, self->half_fft_size + 1);
-	initialize_array(self->spl_reference_values, 0.f, self->half_fft_size + 1);
-	initialize_array(self->input_fft_buffer_at, 0.f, self->half_fft_size + 1);
-	initialize_array(self->output_fft_buffer_at, 0.f, self->half_fft_size + 1);
-	initialize_array(self->spectral_spreading_function, 0.f, N_BARK_BANDS);
-	initialize_array(self->unity_gain_bark_spectrum, 1.f, N_BARK_BANDS); //Initializing unity gain values for offset normalization
-	initialize_array(self->spreaded_unity_gain_bark_spectrum, 0.f, N_BARK_BANDS);
+	initialize_spectrum(self->absolute_thresholds, 0.f, self->half_fft_size + 1);
+	initialize_spectrum(self->bark_z, 0.f, self->half_fft_size + 1);
+	initialize_spectrum(self->spl_reference_values, 0.f, self->half_fft_size + 1);
+	initialize_spectrum(self->input_fft_buffer_at, 0.f, self->half_fft_size + 1);
+	initialize_spectrum(self->output_fft_buffer_at, 0.f, self->half_fft_size + 1);
+	initialize_spectrum(self->spectral_spreading_function, 0.f, N_BARK_BANDS);
+	initialize_spectrum(self->unity_gain_bark_spectrum, 1.f, N_BARK_BANDS); //Initializing unity gain values for offset normalization
+	initialize_spectrum(self->spreaded_unity_gain_bark_spectrum, 0.f, N_BARK_BANDS);
 }
 
 /**
