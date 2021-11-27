@@ -48,52 +48,6 @@ typedef struct
 	float release_coefficient; //reference smoothing value
 } SpectralSmoother;
 
-/**
-* Spectral smoothing proposed in 'Spectral subtraction with adaptive averaging of
-* the gain function' but is not used yet.
-*/
-void spectrum_adaptive_time_smoothing(SpectralSmoother *self, float *prev_beta, float coeff)
-{
-	int k;
-	float discrepancy, numerator = 0.f, denominator = 0.f;
-	float beta_ts;
-	float beta_smooth;
-	float gamma_ts;
-
-	for (k = 0; k <= self->half_fft_size; k++)
-	{
-		//These has to be magnitude spectrums
-		numerator += fabs(self->signal_spectrum[k] - self->noise_spectrum[k]);
-		denominator += self->noise_spectrum[k];
-	}
-	//this is the discrepancy of the spectum
-	discrepancy = numerator / denominator;
-	//beta is the adaptive coefficient
-	beta_ts = MIN(discrepancy, 1.f);
-
-	//Gamma is the smoothing coefficient of the adaptive factor beta
-	if (*prev_beta < beta_ts)
-	{
-		gamma_ts = 0.f;
-	}
-	else
-	{
-		gamma_ts = coeff;
-	}
-
-	//Smoothing beta
-	beta_smooth = gamma_ts * *(prev_beta) + (1.f - gamma_ts) * beta_ts;
-
-	//copy current value to previous
-	*prev_beta = beta_smooth;
-
-	//Apply the adaptive smoothed beta over the signal
-	for (k = 0; k <= self->half_fft_size; k++)
-	{
-		self->smoothed_spectrum[k] = (1.f - beta_smooth) * self->smoothed_spectrum_prev[k] + beta_smooth * self->smoothed_spectrum[k];
-	}
-}
-
 /*
 * Exponential decay coefficients for envelopes and adaptive noise profiling
 * These must take into account the hop size as explained in the following paper

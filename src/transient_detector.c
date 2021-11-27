@@ -67,23 +67,6 @@ float spectral_flux(float *spectrum, float *spectrum_prev, float N)
 }
 
 /**
-* Outputs the high frequency content of the spectrum.
-* \param spectrum the current power spectrum
-* \param N the size of the spectrum (half the fft size plus 1)
-*/
-float high_frequency_content(float *spectrum, float N)
-{
-	int i;
-	float sum = 0.f;
-
-	for (i = 0; i <= N; i++)
-	{
-		sum += i * spectrum[i];
-	}
-	return sum / (float)(N + 1);
-}
-
-/**
 * Transient detection using a rolling mean thresholding over the spectral flux of
 * the signal. Using more heuristics like high frequency content and others like the ones
 * anylised by Dixon in 'Simple Spectrum-Based Onset Detection' would be better. Onset

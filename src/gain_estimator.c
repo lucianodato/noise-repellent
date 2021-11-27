@@ -129,62 +129,6 @@ void wiener_subtraction(GainEstimator *self)
 }
 
 /**
-* Power substraction supression rule. Outputs the filter mirrored around nyquist.
-*/
-void power_subtraction(GainEstimator *self)
-{
-	int k;
-
-	for (k = 0; k <= self->half_fft_size; k++)
-	{
-		if (self->noise_spectrum[k] > FLT_MIN)
-		{
-			if (self->signal_spectrum[k] > self->noise_spectrum[k])
-			{
-				self->gain_spectrum[k] = sqrtf((self->signal_spectrum[k] - self->noise_spectrum[k]) / self->signal_spectrum[k]);
-			}
-			else
-			{
-				self->gain_spectrum[k] = 0.f;
-			}
-		}
-		else
-		{
-			//Otherwise we keep everything as is
-			self->gain_spectrum[k] = 1.f;
-		}
-	}
-}
-
-/**
-* Magnitude substraction supression rule. Outputs the filter mirrored around nyquist.
-*/
-void magnitude_subtraction(GainEstimator *self)
-{
-	int k;
-
-	for (k = 0; k <= self->half_fft_size; k++)
-	{
-		if (self->noise_spectrum[k] > FLT_MIN)
-		{
-			if (self->signal_spectrum[k] > self->noise_spectrum[k])
-			{
-				self->gain_spectrum[k] = (sqrtf(self->signal_spectrum[k]) - sqrtf(self->noise_spectrum[k])) / sqrtf(self->signal_spectrum[k]);
-			}
-			else
-			{
-				self->gain_spectrum[k] = 0.f;
-			}
-		}
-		else
-		{
-			//Otherwise we keep everything as is
-			self->gain_spectrum[k] = 1.f;
-		}
-	}
-}
-
-/**
 * Gating with hard knee supression rule. Outputs the filter mirrored around nyquist.
 */
 void spectral_gating(GainEstimator *self)
