@@ -148,7 +148,7 @@ static bool is_empty(float *spectrum, int N)
 /**
 * Updates the wet/dry mixing coefficient.
 */
-void fft_processor_update_wetdry_target(FFTDenoiser *self, bool enable)
+void fft_denoiser_update_wetdry_target(FFTDenoiser *self, bool enable)
 {
 	//Softbypass targets in case of disabled or enabled
 	if (enable)
@@ -166,7 +166,7 @@ void fft_processor_update_wetdry_target(FFTDenoiser *self, bool enable)
 /**
 * Mixes unprocessed and processed signal to bypass softly.
 */
-void fft_processor_soft_bypass(FFTDenoiser *self)
+void fft_denoiser_soft_bypass(FFTDenoiser *self)
 {
 	int k;
 
@@ -277,11 +277,11 @@ void get_final_spectrum(FFTDenoiser *self, bool residual_listen, float reduction
 /**
 * Runs the fft processing for current block.
 */
-void fft_processor_run(FFTDenoiser *self, float *fft_spectrum, int enable, bool learn_noise, float whitening_factor,
-					   float reduction_amount, bool residual_listen, float transient_threshold,
-					   float masking_ceiling_limit, float release, float noise_rescale)
+void fft_denoiser_run(FFTDenoiser *self, float *fft_spectrum, int enable, bool learn_noise, float whitening_factor,
+					  float reduction_amount, bool residual_listen, float transient_threshold,
+					  float masking_ceiling_limit, float release, float noise_rescale)
 {
-	fft_processor_update_wetdry_target(self, enable);
+	fft_denoiser_update_wetdry_target(self, enable);
 
 	memcpy(self->fft_spectrum, fft_spectrum, sizeof(float) * self->fft_size);
 
@@ -319,7 +319,7 @@ void fft_processor_run(FFTDenoiser *self, float *fft_spectrum, int enable, bool 
 	}
 
 	//If bypassed mix unprocessed and processed signal softly
-	fft_processor_soft_bypass(self);
+	fft_denoiser_soft_bypass(self);
 
 	//Copy the processed spectrum to fft_spectrum
 	memcpy(fft_spectrum, self->processed_fft_spectrum, sizeof(float) * self->fft_size);
@@ -328,7 +328,7 @@ void fft_processor_run(FFTDenoiser *self, float *fft_spectrum, int enable, bool 
 /**
 * Reset dynamic arrays to zero.
 */
-void fft_processor_reset(FFTDenoiser *self)
+void fft_denoiser_reset(FFTDenoiser *self)
 {
 	//Reset all arrays
 	memset(self->fft_spectrum, 0.f, self->fft_size);
@@ -352,7 +352,7 @@ void fft_processor_reset(FFTDenoiser *self)
 * FFT processor initialization and configuration.
 */
 FFTDenoiser *
-fft_processor_initialize(int fft_size, int samp_rate, int hop)
+fft_denoiser_initialize(int fft_size, int samp_rate, int hop)
 {
 	//Allocate object
 	FFTDenoiser *self = (FFTDenoiser *)malloc(sizeof(FFTDenoiser));
@@ -387,7 +387,7 @@ fft_processor_initialize(int fft_size, int samp_rate, int hop)
 	self->phase_spectrum = (float *)malloc((self->half_fft_size + 1) * sizeof(float));
 
 	//Reset all values
-	fft_processor_reset(self);
+	fft_denoiser_reset(self);
 
 	//Noise estimator related
 	self->noise_estimation = noise_estimation_initialize(self->fft_size);
@@ -398,7 +398,7 @@ fft_processor_initialize(int fft_size, int samp_rate, int hop)
 /**
 * Free allocated memory.
 */
-void fft_processor_free(FFTDenoiser *self)
+void fft_denoiser_free(FFTDenoiser *self)
 {
 	free(self->fft_spectrum);
 	free(self->processed_fft_spectrum);

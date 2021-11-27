@@ -295,9 +295,9 @@ void stft_processor_run(STFTProcessor *self, int n_samples, const float *input, 
 
 			//Call processing  with the obtained fft transform
 			//when stft analysis is applied fft transform values reside in output_fft_buffer
-			fft_processor_run(self->fft_denoiser, self->output_fft_buffer, enable, learn_noise, whitening_factor,
-							  reduction_amount, residual_listen, transient_threshold, masking_ceiling_limit,
-							  release, noise_rescale);
+			fft_denoiser_run(self->fft_denoiser, self->output_fft_buffer, enable, learn_noise, whitening_factor,
+							 reduction_amount, residual_listen, transient_threshold, masking_ceiling_limit,
+							 release, noise_rescale);
 
 			//Do synthesis
 			stft_processor_synthesis(self);
@@ -368,7 +368,7 @@ stft_processor_initialize(int sample_rate)
 	stft_processor_pre_and_post_window(self);
 
 	//Spectral processor related
-	self->fft_denoiser = fft_processor_initialize(self->fft_size, sample_rate, self->hop);
+	self->fft_denoiser = fft_denoiser_initialize(self->fft_size, sample_rate, self->hop);
 
 	return self;
 }
@@ -387,7 +387,7 @@ void stft_processor_free(STFTProcessor *self)
 	free(self->in_fifo);
 	free(self->out_fifo);
 	free(self->output_accum);
-	fft_processor_free(self->fft_denoiser);
+	fft_denoiser_free(self->fft_denoiser);
 	free(self);
 }
 
