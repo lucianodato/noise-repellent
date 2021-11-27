@@ -89,7 +89,7 @@ static LV2_Handle instantiate(const LV2_Descriptor *descriptor, double rate, con
 	NoiseRepellent *self = (NoiseRepellent *)calloc(1, sizeof(NoiseRepellent));
 
 	//Plugin state initialization
-	if (!plugin_state_configure(self->plugin_state, features, self->stft_processor->fft_processor->half_fft_size))
+	if (!plugin_state_configure(self->plugin_state, features, self->stft_processor->fft_denoiser->half_fft_size))
 	{
 		//bail out: host does not support urid:map
 		free(self);
@@ -203,8 +203,8 @@ static LV2_State_Status savestate(LV2_Handle instance, LV2_State_Store_Function 
 	NoiseRepellent *self = (NoiseRepellent *)instance;
 
 	plugin_state_savestate(self->plugin_state, store, handle, self->stft_processor->fft_size,
-						   self->stft_processor->fft_processor->noise_estimation->noise_block_count,
-						   self->stft_processor->fft_processor->noise_estimation->noise_spectrum);
+						   self->stft_processor->fft_denoiser->noise_estimation->noise_block_count,
+						   self->stft_processor->fft_denoiser->noise_estimation->noise_spectrum);
 
 	return LV2_STATE_SUCCESS;
 }
@@ -219,9 +219,9 @@ static LV2_State_Status restorestate(LV2_Handle instance, LV2_State_Retrieve_Fun
 	NoiseRepellent *self = (NoiseRepellent *)instance;
 
 	if (!plugin_state_restorestate(self->plugin_state, retrieve, handle,
-								   self->stft_processor->fft_processor->noise_estimation->noise_spectrum,
-								   *self->stft_processor->fft_processor->noise_estimation->noise_block_count,
-								   self->stft_processor->fft_size, self->stft_processor->fft_processor->half_fft_size))
+								   self->stft_processor->fft_denoiser->noise_estimation->noise_spectrum,
+								   *self->stft_processor->fft_denoiser->noise_estimation->noise_block_count,
+								   self->stft_processor->fft_size, self->stft_processor->fft_denoiser->half_fft_size))
 	{
 		return LV2_STATE_ERR_NO_PROPERTY;
 	}

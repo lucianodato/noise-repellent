@@ -18,7 +18,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
 /**
-* \file fft_processor.c
+* \file fft_denoiser.c
 * \author Luciano Dato
 * \brief Contains an abstraction for a single fft spectrum denoising
 */
@@ -67,7 +67,7 @@ typedef struct
 	float *residual_max_spectrum;
 	float max_decay_rate;
 	float whitening_window_count;
-} FFTProcessor;
+} FFTDenoiser;
 
 /**
 * Verifies if the spectrum is full of zeros.
@@ -90,7 +90,7 @@ static bool is_empty(float *spectrum, int N)
 /**
 * Updates the wet/dry mixing coefficient.
 */
-void fft_processor_update_wetdry_target(FFTProcessor *self, bool enable)
+void fft_processor_update_wetdry_target(FFTDenoiser *self, bool enable)
 {
 	//Softbypass targets in case of disabled or enabled
 	if (enable)
@@ -108,7 +108,7 @@ void fft_processor_update_wetdry_target(FFTProcessor *self, bool enable)
 /**
 * Mixes unprocessed and processed signal to bypass softly.
 */
-void fft_processor_soft_bypass(FFTProcessor *self)
+void fft_processor_soft_bypass(FFTDenoiser *self)
 {
 	int k;
 
@@ -125,7 +125,7 @@ void fft_processor_soft_bypass(FFTProcessor *self)
 * It uses a temporal max value for each bin and a decay factor as the memory regulator of
 * that maximun value.
 */
-void residual_spectrum_whitening(FFTProcessor *self, float whitening_factor)
+void residual_spectrum_whitening(FFTDenoiser *self, float whitening_factor)
 {
 	self->whitening_window_count++;
 
@@ -157,7 +157,7 @@ void residual_spectrum_whitening(FFTProcessor *self, float whitening_factor)
 /**
 * Applies the filter to the complex spectrum and gets the clean signal.
 */
-void get_denoised_spectrum(FFTProcessor *self)
+void get_denoised_spectrum(FFTDenoiser *self)
 {
 	int k;
 
@@ -171,7 +171,7 @@ void get_denoised_spectrum(FFTProcessor *self)
 /**
 * Gets the residual signal of the reduction.
 */
-void get_residual_spectrum(FFTProcessor *self, float whitening_factor)
+void get_residual_spectrum(FFTDenoiser *self, float whitening_factor)
 {
 	int k;
 
@@ -192,7 +192,7 @@ void get_residual_spectrum(FFTProcessor *self, float whitening_factor)
 * Mixes the cleaned signal with the residual taking into account the reduction configured
 * by the user. Outputs the final signal or the residual only.
 */
-void get_final_spectrum(FFTProcessor *self, bool residual_listen, float reduction_amount)
+void get_final_spectrum(FFTDenoiser *self, bool residual_listen, float reduction_amount)
 {
 	int k;
 
@@ -219,7 +219,7 @@ void get_final_spectrum(FFTProcessor *self, bool residual_listen, float reductio
 /**
 * Runs the fft processing for current block.
 */
-void fft_processor_run(FFTProcessor *self, float *fft_spectrum, int enable, bool learn_noise, float whitening_factor,
+void fft_processor_run(FFTDenoiser *self, float *fft_spectrum, int enable, bool learn_noise, float whitening_factor,
 					   float reduction_amount, bool residual_listen, float transient_threshold,
 					   float masking_ceiling_limit, float release, float noise_rescale)
 {
@@ -270,7 +270,7 @@ void fft_processor_run(FFTProcessor *self, float *fft_spectrum, int enable, bool
 /**
 * Reset dynamic arrays to zero.
 */
-void fft_processor_reset(FFTProcessor *self)
+void fft_processor_reset(FFTDenoiser *self)
 {
 	//Reset all arrays
 	initialize_spectrum(self->fft_spectrum, 0.f, self->fft_size);
@@ -293,11 +293,11 @@ void fft_processor_reset(FFTProcessor *self)
 /**
 * FFT processor initialization and configuration.
 */
-FFTProcessor *
+FFTDenoiser *
 fft_processor_initialize(int fft_size, int samp_rate, int hop)
 {
 	//Allocate object
-	FFTProcessor *self = (FFTProcessor *)malloc(sizeof(FFTProcessor));
+	FFTDenoiser *self = (FFTDenoiser *)malloc(sizeof(FFTDenoiser));
 
 	//Configuration
 	self->fft_size = fft_size;
@@ -340,7 +340,7 @@ fft_processor_initialize(int fft_size, int samp_rate, int hop)
 /**
 * Free allocated memory.
 */
-void fft_processor_free(FFTProcessor *self)
+void fft_processor_free(FFTDenoiser *self)
 {
 	free(self->fft_spectrum);
 	free(self->processed_fft_spectrum);
