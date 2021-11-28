@@ -4,8 +4,17 @@ sord_validate = find_program('sord_validate', native : true, required : false)
 cp = find_program('cp')
 clone = [cp, '@INPUT@', '@OUTPUT@']
 
-#source to compile
-src = 'src/noise_repellent.c'
+#sources to compile
+stft_processor = 'src/stft_processor.c' 
+fft_denoiser = 'src/fft_denoiser.c'
+masking_estimator = 'src/masking_estimator.c'
+gain_estimator = 'src/gain_estimator.c'
+noise_estimator = 'src/noise_estimator.c'
+spectrum_smoother = 'src/spectrum_smoother.c'
+transient_detector = 'src/transient_detector.c'
+noise_profile = 'src/noise_profile.c' 
+plugin_state = 'src/plugin_state.c'
+plugin = 'src/plugin.c'
 
 #dependencies for noise repellent
 m_dep = meson.get_compiler('c').find_library('m', required : true)
@@ -49,7 +58,16 @@ install_folder = 'nrepellent.lv2'
 
 #build of the shared object
 library('nrepellent',
-    src,
+    transient_detector,
+    masking_estimator,
+    spectrum_smoother,
+    gain_estimator,
+    noise_estimator,
+    fft_denoiser,
+    stft_processor,
+    noise_profile,
+    plugin_state,
+    plugin,
     name_prefix: '',
     dependencies: nr_dep,
     c_args: cflags, 

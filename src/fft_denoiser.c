@@ -23,21 +23,17 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 * \brief Contains an abstraction for a single fft spectrum denoising
 */
 
-#ifndef FFT_DENOISER_C
-#define FFT_DENOISER_C
+#include "fft_denoiser.h"
+#include "gain_estimator.h"
+#include "noise_estimator.h"
+#include <float.h>
+#include <math.h>
+#include <stdlib.h>
 
 #define WHITENING_DECAY_RATE 1000.f //Deacay in ms for max spectrum for whitening
 #define WHITENING_FLOOR 0.02f		//Minumum max value posible
 
-#include "gain_estimator.c"
-#include "noise_estimator.c"
-#include <math.h>
-#include <stdlib.h>
-
-/**
-* FFT processor struct.
-*/
-typedef struct
+struct FFTDenoiser
 {
 	//General parameters
 	int fft_size;
@@ -71,7 +67,7 @@ typedef struct
 	float *residual_max_spectrum;
 	float max_decay_rate;
 	float whitening_window_count;
-} FFTDenoiser;
+};
 
 /**
 * Gets the magnitude and phase spectrum of the complex spectrum. Takimg into account that
@@ -85,8 +81,8 @@ typedef struct
 * \param fft_size size of the fft
 * \param fft_buffer buffer with the complex spectrum of the fft transform
 */
-static void get_info_from_bins(float *fft_p2, float *fft_magnitude, float *fft_phase,
-							   int fft_size_2, int fft_size, float *fft_buffer)
+void get_info_from_bins(float *fft_p2, float *fft_magnitude, float *fft_phase,
+						int fft_size_2, int fft_size, float *fft_buffer)
 {
 	int k;
 	float real_p, imag_n, mag, p2, phase;
@@ -132,7 +128,7 @@ static void get_info_from_bins(float *fft_p2, float *fft_magnitude, float *fft_p
 * \param spectrum the array to check
 * \param N the size of the array (half the fft size plus 1)
 */
-static bool is_empty(float *spectrum, int N)
+bool is_empty(float *spectrum, int N)
 {
 	int k;
 	for (k = 0; k <= N; k++)
@@ -413,5 +409,3 @@ void fft_denoiser_free(FFTDenoiser *self)
 	noise_estimation_free(self->noise_estimation);
 	free(self);
 }
-
-#endif

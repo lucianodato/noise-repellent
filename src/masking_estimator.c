@@ -23,11 +23,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 * \brief Methods for masking threshold estimation
 */
 
-#ifndef MASKING_ESTIMATOR_C
-#define MASKING_ESTIMATOR_C
-
+#include "masking_estimator.h"
 #include <fftw3.h>
-#include <float.h>
 #include <math.h>
 #include <stdlib.h>
 
@@ -43,10 +40,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 //Proposed by Sinha and Tewfik and explained by Virag
 static const float relative_thresholds[N_BARK_BANDS] = {-16.f, -17.f, -18.f, -19.f, -20.f, -21.f, -22.f, -23.f, -24.f, -25.f, -25.f, -25.f, -25.f, -25.f, -25.f, -24.f, -23.f, -22.f, -19.f, -18.f, -18.f, -18.f, -18.f, -18.f, -18.f};
 
-/**
-* Masking estimator struct.
-*/
-typedef struct
+struct MaskingEstimator
 {
 	//General parameters
 	int fft_size;
@@ -63,15 +57,14 @@ typedef struct
 	float *unity_gain_bark_spectrum;
 	float *spreaded_unity_gain_bark_spectrum;
 	fftwf_plan forward_at;
-
-} MaskingEstimator;
+};
 
 /*Maps a bin number to a frequency
 * \param i bin number
 * \param samp_rate current sample rate of the host
 * \param N size of the fft
 */
-static float bin_to_freq(int i, float samp_rate, int N)
+float bin_to_freq(int i, float samp_rate, int N)
 {
 	return (float)i * (samp_rate / N / 2.f);
 }
@@ -513,5 +506,3 @@ void masking_estimation_free(MaskingEstimator *self)
 	fftwf_destroy_plan(self->forward_at);
 	free(self);
 }
-
-#endif

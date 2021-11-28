@@ -23,12 +23,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 * \brief Contains a the reduction gain estimator abstraction
 */
 
-#ifndef GAIN_ESTIMATOR_C
-#define GAIN_ESTIMATOR_C
-
-#include "masking_estimator.c"
-#include "spectrum_smoother.c"
-#include "transient_detector.c"
+#include "gain_estimator.h"
+#include "masking_estimator.h"
+#include "spectrum_smoother.h"
+#include "transient_detector.h"
 #include <float.h>
 #include <math.h>
 #include <stdbool.h>
@@ -44,10 +42,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define BETA_MAX 0.02f
 #define BETA_MIN 0.0f
 
-/**
-* Gain estimation struct.
-*/
-typedef struct
+struct GainEstimator
 {
 	//General parameters
 	int fft_size;
@@ -69,14 +64,14 @@ typedef struct
 	MaskingEstimator *masking_estimation;
 	TransientDetector *transient_detection;
 	SpectralSmoother *spectrum_smoothing;
-} GainEstimator;
+};
 
 /**
 * Finds the max value of the spectrum.
 * \param spectrum the array to check
 * \param N the size of the array (half the fft size plus 1)
 */
-static float max_spectral_value(float *spectrum, int N)
+float max_spectral_value(float *spectrum, int N)
 {
 	int k;
 	float max = spectrum[0];
@@ -92,7 +87,7 @@ static float max_spectral_value(float *spectrum, int N)
 * \param spectrum the array to check
 * \param N the size of the array (half the fft size plus 1)
 */
-static float min_spectral_value(float *spectrum, int N)
+float min_spectral_value(float *spectrum, int N)
 {
 	int k;
 	float min = spectrum[0];
@@ -376,5 +371,3 @@ void gain_estimation_free(GainEstimator *self)
 	spectral_smoothing_free(self->spectrum_smoothing);
 	free(self);
 }
-
-#endif

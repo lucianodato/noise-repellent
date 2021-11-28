@@ -23,13 +23,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 * \brief Contains a spectrum smoother abstraction
 */
 
-#ifndef SPECTRUM_SMOOTHER_C
-#define SPECTRUM_SMOOTHER_C
+#include "spectrum_smoother.h"
 
-/**
-* Spectrum smoother struct.
-*/
-typedef struct
+struct SpectralSmoother
 {
 	//General parameters
 	int fft_size;
@@ -47,7 +43,7 @@ typedef struct
 	float *smoothed_spectrum_prev; //previous frame smoothed power spectrum for envelopes
 
 	float release_coefficient; //reference smoothing value
-} SpectralSmoother;
+};
 
 /*
 * Exponential decay coefficients for envelopes and adaptive noise profiling
@@ -147,5 +143,3 @@ void spectral_smoothing_free(SpectralSmoother *self)
 	free(self->smoothed_spectrum_prev);
 	free(self);
 }
-
-#endif

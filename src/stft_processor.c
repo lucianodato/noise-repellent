@@ -23,10 +23,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 * \brief Contains an STFT denoiser abstraction
 */
 
-#ifndef STFT_PROCESSOR_C
-#define STFT_PROCESSOR_C
-
-#include "fft_denoiser.c"
+#include "stft_processor.h"
+#include "fft_denoiser.h"
 #include <fftw3.h>
 #include <math.h>
 
@@ -42,10 +40,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define OUTPUT_WINDOW_TYPE 3 //Output windows for STFT algorithm
 #define OVERLAP_FACTOR 4	 //4 is 75% overlap Values bigger than 4 will rescale correctly (if Vorbis windows is not used)
 
-/**
-* STFT processor struct.
-*/
-typedef struct
+struct STFTProcessor
 {
 	int fft_size;
 	fftwf_plan forward;
@@ -67,14 +62,20 @@ typedef struct
 
 	//FFT processor instance
 	FFTDenoiser *fft_denoiser;
-} STFTProcessor;
+};
+
+int getSpectrumSize(STFTProcessor *self)
+{
+	return self->fft_size / 2;
+}
 
 /**
 * blackman window values computing.
 * \param k bin number
 * \param N fft size
 */
-static float blackman(int k, int N)
+static float
+blackman(int k, int N)
 {
 	float p = ((float)(k)) / ((float)(N));
 	return 0.42 - 0.5 * cosf(2.f * M_PI * p) + 0.08 * cosf(4.f * M_PI * p);
@@ -121,7 +122,7 @@ static float vorbis(int k, int N)
 * \param N fft size
 * \param window_type type of window
 */
-static void fft_window(float *window, int N, int window_type)
+void fft_window(float *window, int N, int window_type)
 {
 	int k;
 	for (k = 0; k < N; k++)
@@ -390,5 +391,3 @@ void stft_processor_free(STFTProcessor *self)
 	fft_denoiser_free(self->fft_denoiser);
 	free(self);
 }
-
-#endif

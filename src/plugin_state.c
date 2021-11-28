@@ -23,52 +23,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 * \brief The plugin state abstraction
 */
 
-#ifndef NOISE_REPELLENT_STATE_C
-#define NOISE_REPELLENT_STATE_C
-
-#include "lv2/lv2plug.in/ns/ext/atom/atom.h"
-#include "lv2/lv2plug.in/ns/ext/state/state.h"
-#include "lv2/lv2plug.in/ns/ext/urid/urid.h"
-#include "lv2/lv2plug.in/ns/lv2core/lv2.h"
-#include <float.h>
+#include "plugin_state.h"
 #include <math.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <time.h>
 
-#define NOISEREPELLENT_URI "https://github.com/lucianodato/noise-repellent"
-
-/**
-* Noise Profile state.
-*/
-typedef struct
-{
-	uint32_t child_size;
-	uint32_t child_type;
-	int noise_profile_size;
-	float *values;
-} NoiseProfile;
-
-NoiseProfile *
-noise_profile_initialize(LV2_URID child_type, int noise_profile_size)
-{
-	//Allocate object
-	NoiseProfile *self = (NoiseProfile *)malloc(sizeof(NoiseProfile));
-
-	self->child_type = child_type;
-	self->child_size = sizeof(float);
-	self->noise_profile_size = noise_profile_size;
-	self->values = (float *)calloc((self->noise_profile_size), sizeof(float));
-
-	return self;
-}
-
-/**
-* Struct for the plugin state.
-*/
-typedef struct
+struct PluginState
 {
 	//LV2 state URID (Save and restore noise profile)
 	LV2_URID_Map *map;
@@ -80,7 +42,7 @@ typedef struct
 	LV2_URID property_saved_noise_profile;
 
 	NoiseProfile *noise_profile;
-} PluginState;
+};
 
 bool plugin_state_configure(PluginState *self, const LV2_Feature *const *features, int noise_profile_size)
 {
@@ -119,10 +81,10 @@ void plugin_state_savestate(PluginState *self, LV2_State_Store_Function store, L
 	store(handle, self->property_block_count, &noise_window_count, sizeof(float),
 		  self->atom_Float, LV2_STATE_IS_POD | LV2_STATE_IS_PORTABLE);
 
-	memcpy(self->noise_profile->values, noise_profile, sizeof(self->noise_profile->noise_profile_size));
+	// memcpy(self->noise_profile->values, noise_profile, sizeof(self->noise_profile->noise_profile_size));
 
-	store(handle, self->property_saved_noise_profile, (void *)self->noise_profile, sizeof(NoiseProfile),
-		  self->atom_Vector, LV2_STATE_IS_POD | LV2_STATE_IS_PORTABLE);
+	// store(handle, self->property_saved_noise_profile, (void *)self->noise_profile, sizeof(NoiseProfile),
+	// 	  self->atom_Vector, LV2_STATE_IS_POD | LV2_STATE_IS_PORTABLE);
 }
 
 bool plugin_state_restorestate(PluginState *self, LV2_State_Retrieve_Function retrieve, LV2_State_Handle handle,
@@ -140,10 +102,10 @@ bool plugin_state_restorestate(PluginState *self, LV2_State_Retrieve_Function re
 	}
 
 	const void *saved_noise_profile = retrieve(handle, self->property_saved_noise_profile, &size, &type, &valflags);
-	if (!saved_noise_profile || size != sizeof(NoiseProfile) || type != self->atom_Vector)
-	{
-		return false;
-	}
+	// if (!saved_noise_profile || size != sizeof(NoiseProfile) || type != self->atom_Vector)
+	// {
+	// 	return false;
+	// }
 
 	//Deactivate any denoising before loading any noise profile
 	//self->noise_thresholds_availables = false;
@@ -162,5 +124,3 @@ bool plugin_state_restorestate(PluginState *self, LV2_State_Retrieve_Function re
 
 	return true;
 }
-
-#endif

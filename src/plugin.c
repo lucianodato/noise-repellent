@@ -23,11 +23,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 * \brief The main file for host interaction
 */
 
-#ifndef NOISE_REPELLENT_C
-#define NOISE_REPELLENT_C
-
-#include "noise_repellent_state.c"
-#include "stft_processor.c"
+#include "plugin_state.h"
+#include "stft_processor.h"
+#include <math.h>
+#include <stdlib.h>
+#include <string.h>
 
 #define FROM_DB(gain_db) (expf(gain_db / 10.f * logf(10.f))) // converts a db value to linear scale.
 
@@ -92,12 +92,12 @@ static LV2_Handle instantiate(const LV2_Descriptor *descriptor, double rate, con
 	NoiseRepellent *self = (NoiseRepellent *)calloc(1, sizeof(NoiseRepellent));
 
 	//Plugin state initialization
-	if (!plugin_state_configure(self->plugin_state, features, self->stft_processor->fft_denoiser->half_fft_size))
-	{
-		//bail out: host does not support urid:map
-		free(self);
-		return NULL;
-	}
+	// if (!plugin_state_configure(self->plugin_state, features, getSpectrumSize(self->stft_processor)))
+	// {
+	// 	//bail out: host does not support urid:map
+	// 	free(self);
+	// 	return NULL;
+	// }
 
 	//Sampling related
 	self->sample_rate = (float)rate;
@@ -203,11 +203,11 @@ static void cleanup(LV2_Handle instance)
 static LV2_State_Status savestate(LV2_Handle instance, LV2_State_Store_Function store, LV2_State_Handle handle,
 								  uint32_t flags, const LV2_Feature *const *features)
 {
-	NoiseRepellent *self = (NoiseRepellent *)instance;
+	// NoiseRepellent *self = (NoiseRepellent *)instance;
 
-	plugin_state_savestate(self->plugin_state, store, handle, self->stft_processor->fft_size,
-						   self->stft_processor->fft_denoiser->noise_estimation->noise_block_count,
-						   self->stft_processor->fft_denoiser->noise_estimation->noise_spectrum);
+	// plugin_state_savestate(self->plugin_state, store, handle, self->stft_processor->fft_size,
+	// 					   self->stft_processor->fft_denoiser->noise_estimation->noise_block_count,
+	// 					   self->stft_processor->fft_denoiser->noise_estimation->noise_spectrum);
 
 	return LV2_STATE_SUCCESS;
 }
@@ -219,15 +219,15 @@ static LV2_State_Status restorestate(LV2_Handle instance, LV2_State_Retrieve_Fun
 									 LV2_State_Handle handle, uint32_t flags,
 									 const LV2_Feature *const *features)
 {
-	NoiseRepellent *self = (NoiseRepellent *)instance;
+	// NoiseRepellent *self = (NoiseRepellent *)instance;
 
-	if (!plugin_state_restorestate(self->plugin_state, retrieve, handle,
-								   self->stft_processor->fft_denoiser->noise_estimation->noise_spectrum,
-								   *self->stft_processor->fft_denoiser->noise_estimation->noise_block_count,
-								   self->stft_processor->fft_size, self->stft_processor->fft_denoiser->half_fft_size))
-	{
-		return LV2_STATE_ERR_NO_PROPERTY;
-	}
+	// if (!plugin_state_restorestate(self->plugin_state, retrieve, handle,
+	// 							   self->stft_processor->fft_denoiser->noise_estimation->noise_spectrum,
+	// 							   *self->stft_processor->fft_denoiser->noise_estimation->noise_block_count,
+	// 							   self->stft_processor->fft_size, self->stft_processor->fft_denoiser->half_fft_size))
+	// {
+	// 	return LV2_STATE_ERR_NO_PROPERTY;
+	// }
 
 	return LV2_STATE_SUCCESS;
 }
@@ -272,5 +272,3 @@ LV2_SYMBOL_EXPORT const LV2_Descriptor *lv2_descriptor(uint32_t index)
 		return NULL;
 	}
 }
-
-#endif

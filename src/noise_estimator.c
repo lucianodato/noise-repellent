@@ -23,17 +23,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 * \brief Abstraction noise spectrum estimation
 */
 
-#ifndef NOISE_ESTIMATOR_C
-#define NOISE_ESTIMATOR_C
-
-// #include "extra_functions.c"
-#include <float.h>
+#include "noise_estimator.h"
 #include <math.h>
+#include <stdlib.h>
+#include <string.h>
 
-/**
-* Noise estimator struct.
-*/
-typedef struct
+struct NoiseEstimator
 {
 	//General parameters
 	int fft_size;
@@ -43,7 +38,7 @@ typedef struct
 	float *noise_spectrum;		   //captured noise profile power spectrum
 	bool noise_spectrum_available; //indicate whether a noise profile is available or no
 	float *noise_block_count;	   //Count windows for mean computing
-} NoiseEstimator;
+};
 
 bool is_noise_estimation_available(NoiseEstimator *self)
 {
@@ -104,5 +99,3 @@ void noise_estimation_free(NoiseEstimator *self)
 	free(self->noise_spectrum);
 	free(self);
 }
-
-#endif

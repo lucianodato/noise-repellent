@@ -23,17 +23,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 * \brief Contains a transient detector abstraction
 */
 
-#ifndef TRANSIENT_DETECTOR_C
-#define TRANSIENT_DETECTOR_C
-
-#include <stdbool.h>
+#include "transient_detector.h"
 
 #define TP_UPPER_LIMIT 5.f //This correspond to the upper limit of the adaptive threshold multiplier. Should be the same as the ttl configured one
 
-/**
-* Gain estimation struct.
-*/
-typedef struct
+struct TransientDetector
 {
 	//General parameters
 	int fft_size;
@@ -46,7 +40,7 @@ typedef struct
 	float tp_r_mean;
 	bool transient_present;
 	float tp_window_count;
-} TransientDetector;
+};
 
 /**
 * Outputs the spectral flux between two spectrums.
@@ -153,5 +147,3 @@ void transient_detector_free(TransientDetector *self)
 	free(self->transient_preserv_prev);
 	free(self);
 }
-
-#endif
