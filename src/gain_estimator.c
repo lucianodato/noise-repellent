@@ -323,8 +323,7 @@ void gain_estimation_reset(GainEstimator *self)
 /**
 * Gain estimator initialization and configuration.
 */
-GainEstimator *
-gain_estimation_initialize(int fft_size, int samp_rate, int hop)
+GainEstimator *gain_estimation_initialize(int fft_size, int samp_rate, int hop)
 {
 	//Allocate object
 	GainEstimator *self = (GainEstimator *)malloc(sizeof(GainEstimator));

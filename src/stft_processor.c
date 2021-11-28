@@ -27,6 +27,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include "fft_denoiser.h"
 #include <fftw3.h>
 #include <math.h>
+#include <stdlib.h>
+#include <string.h>
 
 //Window types
 #define HANN_WINDOW 0
@@ -43,6 +45,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 struct STFTProcessor
 {
 	int fft_size;
+	int half_fft_size;
 	fftwf_plan forward;
 	fftwf_plan backward;
 	int window_option_input;	//Type of input Window for the STFT
@@ -63,11 +66,6 @@ struct STFTProcessor
 	//FFT processor instance
 	FFTDenoiser *fft_denoiser;
 };
-
-int getSpectrumSize(STFTProcessor *self)
-{
-	return self->fft_size / 2;
-}
 
 /**
 * blackman window values computing.
@@ -324,14 +322,13 @@ void stft_processor_reset(STFTProcessor *self)
 /**
 * STFT processor initialization and configuration.
 */
-STFTProcessor *
-stft_processor_initialize(int sample_rate)
+STFTProcessor *stft_processor_initialize(int sample_rate)
 {
 	//Allocate object
 	STFTProcessor *self = (STFTProcessor *)malloc(sizeof(STFTProcessor));
 
 	//self configuration
-	self->fft_size = FFT_SIZE;
+
 	self->window_option_input = INPUT_WINDOW_TYPE;
 	self->window_option_output = OUTPUT_WINDOW_TYPE;
 	self->overlap_factor = OVERLAP_FACTOR;
@@ -369,7 +366,7 @@ stft_processor_initialize(int sample_rate)
 	stft_processor_pre_and_post_window(self);
 
 	//Spectral processor related
-	self->fft_denoiser = fft_denoiser_initialize(self->fft_size, sample_rate, self->hop);
+	self->fft_denoiser = fft_denoiser_initialize(self->fft_size, self->fft_size, sample_rate, self->hop);
 
 	return self;
 }
@@ -390,4 +387,26 @@ void stft_processor_free(STFTProcessor *self)
 	free(self->output_accum);
 	fft_denoiser_free(self->fft_denoiser);
 	free(self);
+}
+
+int getHalfSpectralSize(STFTProcessor *self)
+{
+	return self->half_fft_size;
+}
+
+int getSpectralSize(STFTProcessor *self)
+{
+	return self->fft_size;
+}
+
+void setSpectralSize(STFTProcessor *self, int fft_size)
+{
+	if (!fft_size)
+	{
+		self->fft_size = FFT_SIZE;
+		self->half_fft_size = self->fft_size / 2;
+	}
+
+	self->fft_size = fft_size;
+	self->half_fft_size = self->fft_size / 2;
 }

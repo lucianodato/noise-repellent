@@ -29,6 +29,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <float.h>
 #include <math.h>
 #include <stdlib.h>
+#include <string.h>
 
 #define WHITENING_DECAY_RATE 1000.f //Deacay in ms for max spectrum for whitening
 #define WHITENING_FLOOR 0.02f		//Minumum max value posible
@@ -66,7 +67,7 @@ struct FFTDenoiser
 	//whitening related
 	float *residual_max_spectrum;
 	float max_decay_rate;
-	float whitening_window_count;
+	int whitening_window_count;
 };
 
 /**
@@ -347,15 +348,14 @@ void fft_denoiser_reset(FFTDenoiser *self)
 /**
 * FFT processor initialization and configuration.
 */
-FFTDenoiser *
-fft_denoiser_initialize(int fft_size, int samp_rate, int hop)
+FFTDenoiser *fft_denoiser_initialize(int fft_size, int half_fft_size, int samp_rate, int hop)
 {
 	//Allocate object
 	FFTDenoiser *self = (FFTDenoiser *)malloc(sizeof(FFTDenoiser));
 
 	//Configuration
 	self->fft_size = fft_size;
-	self->half_fft_size = self->fft_size / 2;
+	self->half_fft_size = half_fft_size;
 	self->samp_rate = samp_rate;
 	self->hop = hop;
 

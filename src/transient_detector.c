@@ -24,6 +24,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
 #include "transient_detector.h"
+#include <math.h>
+#include <stdlib.h>
+#include <string.h>
 
 #define TP_UPPER_LIMIT 5.f //This correspond to the upper limit of the adaptive threshold multiplier. Should be the same as the ttl configured one
 
@@ -118,8 +121,7 @@ void transient_detector_reset(TransientDetector *self)
 /**
 * Masking estimator initialization and configuration.
 */
-TransientDetector *
-transient_detector_initialize(int fft_size)
+TransientDetector *transient_detector_initialize(int fft_size)
 {
 	//Allocate object
 	TransientDetector *self = (TransientDetector *)malloc(sizeof(TransientDetector));

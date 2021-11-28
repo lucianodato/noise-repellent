@@ -30,7 +30,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 typedef struct NoiseProfile NoiseProfile;
 
-NoiseProfile *
-noise_profile_initialize(LV2_URID child_type, int noise_profile_size);
+void noise_profile_reset(NoiseProfile *self);
+NoiseProfile *noise_profile_initialize(int noise_profile_size);
+void noise_profile_free(NoiseProfile *self);
 
 #endif

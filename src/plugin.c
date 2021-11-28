@@ -23,6 +23,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 * \brief The main file for host interaction
 */
 
+#include "noise_profile.h"
 #include "plugin_state.h"
 #include "stft_processor.h"
 #include <math.h>
@@ -75,11 +76,10 @@ typedef struct
 	float *enable;				 //For soft bypass (click free bypass)
 	float *report_latency;		 //Latency necessary
 
-	//STFT processing instance
+	//Objects instances
 	STFTProcessor *stft_processor; //The stft transform object
-
-	//Plugin state instance
 	PluginState *plugin_state;
+	NoiseProfile *noise_profile;
 } NoiseRepellent;
 
 /**
@@ -91,19 +91,23 @@ static LV2_Handle instantiate(const LV2_Descriptor *descriptor, double rate, con
 	//Actual struct declaration
 	NoiseRepellent *self = (NoiseRepellent *)calloc(1, sizeof(NoiseRepellent));
 
-	//Plugin state initialization
-	// if (!plugin_state_configure(self->plugin_state, features, getSpectrumSize(self->stft_processor)))
-	// {
-	// 	//bail out: host does not support urid:map
-	// 	free(self);
-	// 	return NULL;
-	// }
-
 	//Sampling related
 	self->sample_rate = (float)rate;
 
 	//STFT related
 	self->stft_processor = stft_processor_initialize(self->sample_rate);
+	self->noise_profile = noise_profile_initialize(getHalfSpectralSize(self->stft_processor));
+
+	//Plugin state initialization
+	if (!plugin_state_initialize(self->plugin_state, features))
+	{
+		//bail out: host does not support urid:map
+		noise_profile_free(self->noise_profile);
+		stft_processor_free(self->stft_processor);
+		plugin_state_free(self->plugin_state);
+		free(self);
+		return NULL;
+	}
 
 	return (LV2_Handle)self;
 }
@@ -193,7 +197,9 @@ static void cleanup(LV2_Handle instance)
 {
 	NoiseRepellent *self = (NoiseRepellent *)instance;
 
+	noise_profile_free(self->noise_profile);
 	stft_processor_free(self->stft_processor);
+	plugin_state_free(self->plugin_state);
 	free(instance);
 }
 
@@ -203,11 +209,10 @@ static void cleanup(LV2_Handle instance)
 static LV2_State_Status savestate(LV2_Handle instance, LV2_State_Store_Function store, LV2_State_Handle handle,
 								  uint32_t flags, const LV2_Feature *const *features)
 {
-	// NoiseRepellent *self = (NoiseRepellent *)instance;
+	NoiseRepellent *self = (NoiseRepellent *)instance;
 
-	// plugin_state_savestate(self->plugin_state, store, handle, self->stft_processor->fft_size,
-	// 					   self->stft_processor->fft_denoiser->noise_estimation->noise_block_count,
-	// 					   self->stft_processor->fft_denoiser->noise_estimation->noise_spectrum);
+	plugin_state_savestate(self->plugin_state, store, handle, getSpectralSize(self->stft_processor),
+						   self->noise_profile);
 
 	return LV2_STATE_SUCCESS;
 }
@@ -219,15 +224,15 @@ static LV2_State_Status restorestate(LV2_Handle instance, LV2_State_Retrieve_Fun
 									 LV2_State_Handle handle, uint32_t flags,
 									 const LV2_Feature *const *features)
 {
-	// NoiseRepellent *self = (NoiseRepellent *)instance;
+	NoiseRepellent *self = (NoiseRepellent *)instance;
 
-	// if (!plugin_state_restorestate(self->plugin_state, retrieve, handle,
-	// 							   self->stft_processor->fft_denoiser->noise_estimation->noise_spectrum,
-	// 							   *self->stft_processor->fft_denoiser->noise_estimation->noise_block_count,
-	// 							   self->stft_processor->fft_size, self->stft_processor->fft_denoiser->half_fft_size))
-	// {
-	// 	return LV2_STATE_ERR_NO_PROPERTY;
-	// }
+	int fft_size;
+	if (!plugin_state_restorestate(self->plugin_state, retrieve, handle,
+								   self->noise_profile, &fft_size))
+	{
+		setSpectralSize(self->stft_processor, fft_size);
+		return LV2_STATE_ERR_NO_PROPERTY;
+	}
 
 	return LV2_STATE_SUCCESS;
 }

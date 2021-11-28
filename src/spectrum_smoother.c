@@ -24,6 +24,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
 #include "spectrum_smoother.h"
+#include <math.h>
+#include <stdlib.h>
+#include <string.h>
 
 struct SpectralSmoother
 {
@@ -108,8 +111,7 @@ void spectral_smoothing_reset(SpectralSmoother *self)
 /**
 * Gain estimator initialization and configuration.
 */
-SpectralSmoother *
-spectral_smoothing_initialize(int fft_size, int samp_rate, int hop)
+SpectralSmoother *spectral_smoothing_initialize(int fft_size, int samp_rate, int hop)
 {
 	//Allocate object
 	SpectralSmoother *self = (SpectralSmoother *)malloc(sizeof(SpectralSmoother));

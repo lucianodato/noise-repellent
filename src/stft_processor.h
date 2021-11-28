@@ -30,7 +30,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 typedef struct STFTProcessor STFTProcessor;
 
-int getSpectrumSize(STFTProcessor *self);
+int getHalfSpectralSize(STFTProcessor *self);
+int getSpectralSize(STFTProcessor *self);
+void setSpectralSize(STFTProcessor *self, int fft_size);
 void fft_window(float *window, int N, int window_type);
 void stft_processor_pre_and_post_window(STFTProcessor *self);
 void stft_processor_analysis(STFTProcessor *self);

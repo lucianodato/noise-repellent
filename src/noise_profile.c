@@ -24,25 +24,35 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
 #include "noise_profile.h"
+#include <stdlib.h>
+#include <string.h>
 
 struct NoiseProfile
 {
-	uint32_t child_size;
-	uint32_t child_type;
 	int noise_profile_size;
 	float *values;
 };
 
-NoiseProfile *
-noise_profile_initialize(LV2_URID child_type, int noise_profile_size)
+void noise_profile_reset(NoiseProfile *self)
+{
+	memset(self->values, 0.f, self->noise_profile_size + 1);
+}
+
+NoiseProfile *noise_profile_initialize(int noise_profile_size)
 {
 	//Allocate object
 	NoiseProfile *self = (NoiseProfile *)malloc(sizeof(NoiseProfile));
 
-	self->child_type = child_type;
-	self->child_size = sizeof(float);
 	self->noise_profile_size = noise_profile_size;
 	self->values = (float *)calloc((self->noise_profile_size), sizeof(float));
 
+	noise_profile_reset(self);
+
 	return self;
+}
+
+void noise_profile_free(NoiseProfile *self)
+{
+	free(self->values);
+	free(self);
 }

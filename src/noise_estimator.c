@@ -78,8 +78,7 @@ void noise_estimation_reset(NoiseEstimator *self)
 	memset(self->noise_spectrum, 0.f, self->half_fft_size + 1);
 }
 
-NoiseEstimator *
-noise_estimation_initialize(int fft_size)
+NoiseEstimator *noise_estimation_initialize(int fft_size)
 {
 	NoiseEstimator *self = (NoiseEstimator *)malloc(sizeof(NoiseEstimator));
 

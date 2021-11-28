@@ -27,6 +27,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <fftw3.h>
 #include <math.h>
 #include <stdlib.h>
+#include <string.h>
 
 //extra values
 #define N_BARK_BANDS 25
@@ -451,8 +452,7 @@ void masking_estimation_reset(MaskingEstimator *self)
 /**
 * Masking estimator initialization and configuration.
 */
-MaskingEstimator *
-masking_estimation_initialize(int fft_size, int samp_rate)
+MaskingEstimator *masking_estimation_initialize(int fft_size, int samp_rate)
 {
 	//Allocate object
 	MaskingEstimator *self = (MaskingEstimator *)malloc(sizeof(MaskingEstimator));
