@@ -30,8 +30,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 typedef struct FFTDenoiser FFTDenoiser;
 
-void get_info_from_bins(float *fft_p2, float *fft_magnitude, float *fft_phase,
-						int fft_size_2, int fft_size, float *fft_buffer);
 bool is_empty(float *spectrum, int N);
 void fft_denoiser_update_wetdry_target(FFTDenoiser *self, bool enable);
 void fft_denoiser_soft_bypass(FFTDenoiser *self);

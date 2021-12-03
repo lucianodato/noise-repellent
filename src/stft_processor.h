@@ -45,5 +45,7 @@ void stft_processor_run(STFTProcessor *self, int n_samples, const float *input, 
 void stft_processor_reset(STFTProcessor *self);
 STFTProcessor *stft_processor_initialize(int sample_rate);
 void stft_processor_free(STFTProcessor *self);
+void get_info_from_bins(float *fft_p2, float *fft_magnitude, float *fft_phase,
+						int fft_size_2, int fft_size, float *fft_buffer);
 
 #endif
