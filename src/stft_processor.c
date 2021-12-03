@@ -395,7 +395,8 @@ STFTProcessor *stft_processor_initialize(int sample_rate)
 	STFTProcessor *self = (STFTProcessor *)malloc(sizeof(STFTProcessor));
 
 	//self configuration
-
+	self->fft_size = FFT_SIZE;
+	self->half_fft_size = self->fft_size / 2;
 	self->window_option_input = INPUT_WINDOW_TYPE;
 	self->window_option_output = OUTPUT_WINDOW_TYPE;
 	self->overlap_factor = OVERLAP_FACTOR;
