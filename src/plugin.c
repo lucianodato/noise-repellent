@@ -81,10 +81,10 @@ typedef struct
 	float *report_latency;		 //Latency necessary
 
 	//Objects instances
-	STFTProcessor *stft_processor; //The stft transform object
-	PluginState *plugin_state;
 	NoiseProfile *noise_profile;
 	FFTDenoiser *fft_denoiser;
+	STFTProcessor *stft_processor; //The stft transform object
+	PluginState *plugin_state;
 } NoiseRepellent;
 
 /**
