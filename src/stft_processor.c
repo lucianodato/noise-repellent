@@ -392,7 +392,7 @@ STFTProcessor *stft_processor_initialize(FFTDenoiser *fft_denoiser, int sample_r
 	STFTProcessor *self = (STFTProcessor *)malloc(sizeof(STFTProcessor));
 
 	//self configuration
-	setSpectralSize(self, fft_size);
+	set_spectral_size(self, fft_size);
 	self->window_option_input = INPUT_WINDOW_TYPE;
 	self->window_option_output = OUTPUT_WINDOW_TYPE;
 	self->overlap_factor = overlap_factor;
@@ -460,7 +460,7 @@ void stft_processor_free(STFTProcessor *self)
 	free(self);
 }
 
-void setSpectralSize(STFTProcessor *self, int fft_size)
+void set_spectral_size(STFTProcessor *self, int fft_size)
 {
 	self->fft_size = fft_size;
 	self->half_fft_size = self->fft_size / 2;

@@ -239,9 +239,9 @@ static LV2_State_Status restorestate(LV2_Handle instance, LV2_State_Retrieve_Fun
 								   self->noise_profile, &fft_size))
 	{
 		if (!fft_size)
-			setSpectralSize(self->stft_processor, FFT_SIZE);
+			set_spectral_size(self->stft_processor, FFT_SIZE);
 		else
-			setSpectralSize(self->stft_processor, fft_size);
+			set_spectral_size(self->stft_processor, fft_size);
 
 		return LV2_STATE_ERR_NO_PROPERTY;
 	}
