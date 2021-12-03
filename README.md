@@ -48,12 +48,3 @@ Noise-repellent is also available in KXStudios repositories https://kx.studio/Re
 Usage Instuctions
 -----
 Please refer to project's wiki https://github.com/lucianodato/noise-repellent/wiki
-
-Code Documentation
------
-Code is documented using doxygen. To read it be sure to install doxygen in your system and run the following command:
-
-```bash
-  doxygen -s doc/doxygen.conf
-```
-This will generate an html folder inside doc folder. Accessing index.html you can read the documentation.
