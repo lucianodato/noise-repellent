@@ -48,7 +48,7 @@ bool is_noise_estimation_available(NoiseEstimator *self)
 /**
 * Noise estimation using a rolling mean over user selected noise section.
 */
-void noise_estimation_run(NoiseEstimator *self, float *spectrum)
+float *noise_estimation_run(NoiseEstimator *self, float *spectrum)
 {
 	int k;
 
@@ -70,6 +70,8 @@ void noise_estimation_run(NoiseEstimator *self, float *spectrum)
 
 	//Now we have an estimated noise spectrum
 	self->noise_spectrum_available = true;
+
+	return self->noise_spectrum;
 }
 
 void noise_estimation_reset(NoiseEstimator *self)

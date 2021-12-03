@@ -33,6 +33,19 @@ struct NoiseProfile
 	float *values;
 };
 
+void set_noise_profile(NoiseProfile *self, float *noise_profile)
+{
+	if (*noise_profile)
+	{
+		memcpy(self->values, noise_profile, self->noise_profile_size);
+	}
+}
+
+float *get_noise_profile(NoiseProfile *self)
+{
+	return self->values;
+}
+
 void noise_profile_reset(NoiseProfile *self)
 {
 	memset(self->values, 0.f, self->noise_profile_size + 1);

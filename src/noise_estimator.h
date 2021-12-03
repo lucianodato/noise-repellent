@@ -31,7 +31,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 typedef struct NoiseEstimator NoiseEstimator;
 
 bool is_noise_estimation_available(NoiseEstimator *self);
-void noise_estimation_run(NoiseEstimator *self, float *spectrum);
+float *noise_estimation_run(NoiseEstimator *self, float *spectrum);
 void noise_estimation_reset(NoiseEstimator *self);
 NoiseEstimator *noise_estimation_initialize(int fft_size);
 void noise_estimation_free(NoiseEstimator *self);

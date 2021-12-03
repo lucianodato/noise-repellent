@@ -26,7 +26,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include "fft_denoiser.h"
 #include "gain_estimator.h"
 #include "noise_estimator.h"
-#include <float.h>
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
@@ -58,6 +57,7 @@ struct FFTDenoiser
 
 	GainEstimator *gain_estimation;
 	NoiseEstimator *noise_estimation;
+	NoiseProfile *noise_profile;
 
 	//whitening related
 	float *residual_max_spectrum;
@@ -232,14 +232,14 @@ void fft_denoiser_run(FFTDenoiser *self, float *fft_spectrum, int enable, bool l
 		if (learn_noise)
 		{
 			//LEARN NOISE (Using power spectrum)
-			noise_estimation_run(self->noise_estimation, self->fft_spectrum);
+			set_noise_profile(self->noise_profile, noise_estimation_run(self->noise_estimation, self->fft_spectrum));
 		}
 		else
 		{
 			//REDUCE NOISE OR LISTEN TO THE RESIDUAL
 			if (is_noise_estimation_available(self->noise_estimation))
 			{
-				gain_estimation_run(self->gain_estimation, self->fft_spectrum, self->gain_spectrum, transient_threshold,
+				gain_estimation_run(self->gain_estimation, self->fft_spectrum, get_noise_profile(self->noise_profile), self->gain_spectrum, transient_threshold,
 									masking_ceiling_limit, release, noise_rescale);
 
 				get_denoised_spectrum(self);
@@ -280,7 +280,7 @@ void fft_denoiser_reset(FFTDenoiser *self)
 /**
 * FFT processor initialization and configuration.
 */
-FFTDenoiser *fft_denoiser_initialize(int samp_rate, int fft_size, int overlap_factor)
+FFTDenoiser *fft_denoiser_initialize(NoiseProfile *noise_profile, int samp_rate, int fft_size, int overlap_factor)
 {
 	//Allocate object
 	FFTDenoiser *self = (FFTDenoiser *)malloc(sizeof(FFTDenoiser));
@@ -314,6 +314,9 @@ FFTDenoiser *fft_denoiser_initialize(int samp_rate, int fft_size, int overlap_fa
 
 	//Noise estimator related
 	self->noise_estimation = noise_estimation_initialize(self->fft_size);
+
+	//Noise profile related
+	self->noise_profile = noise_profile;
 
 	return self;
 }

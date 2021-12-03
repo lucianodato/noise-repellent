@@ -101,8 +101,8 @@ bool plugin_state_restorestate(PluginState *self, LV2_State_Retrieve_Function re
 		return false;
 	}
 
-	fft_size = fftsize;
-	noise_profile = saved_noise_profile;
+	memcpy(fft_size, fftsize, sizeof(int));
+	memcpy(noise_profile, (float *)LV2_ATOM_BODY(saved_noise_profile), (*fftsize / 2 + 1) * sizeof(float));
 
 	return true;
 }

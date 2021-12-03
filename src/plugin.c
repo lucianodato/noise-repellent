@@ -99,16 +99,17 @@ static LV2_Handle instantiate(const LV2_Descriptor *descriptor, double rate, con
 	//Sampling related
 	self->sample_rate = (float)rate;
 
-	//STFT related
-	self->fft_denoiser = fft_denoiser_initialize(self->sample_rate, FFT_SIZE, OVERLAP_FACTOR);
-	self->stft_processor = stft_processor_initialize(self->fft_denoiser, self->sample_rate, FFT_SIZE, OVERLAP_FACTOR);
+	//Initialize objects
 	self->noise_profile = noise_profile_initialize(FFT_SIZE / 2);
+	self->fft_denoiser = fft_denoiser_initialize(self->noise_profile, self->sample_rate, FFT_SIZE, OVERLAP_FACTOR);
+	self->stft_processor = stft_processor_initialize(self->fft_denoiser, self->sample_rate, FFT_SIZE, OVERLAP_FACTOR);
 
 	//Plugin state initialization
 	if (!plugin_state_initialize(self->plugin_state, features))
 	{
 		//bail out: host does not support urid:map
 		noise_profile_free(self->noise_profile);
+		fft_denoiser_free(self->fft_denoiser);
 		stft_processor_free(self->stft_processor);
 		plugin_state_free(self->plugin_state);
 		free(self);
