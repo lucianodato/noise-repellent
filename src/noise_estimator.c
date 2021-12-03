@@ -17,12 +17,6 @@ You should have received a copy of the GNU Lesser General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
-/**
-* \file estimate_noise_spectrum.c
-* \author Luciano Dato
-* \brief Abstraction noise spectrum estimation
-*/
-
 #include "noise_estimator.h"
 #include <math.h>
 #include <stdlib.h>
@@ -30,14 +24,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 struct NoiseEstimator
 {
-	//General parameters
 	int fft_size;
 	int half_fft_size;
 
-	//noise related
-	float *noise_spectrum;		   //captured noise profile power spectrum
-	bool noise_spectrum_available; //indicate whether a noise profile is available or no
-	float *noise_blocks_count;	   //Count windows for mean computing
+	float *noise_spectrum;
+	bool noise_spectrum_available;
+	float *noise_blocks_count;
 };
 
 bool is_noise_estimation_available(NoiseEstimator *self)
@@ -45,17 +37,12 @@ bool is_noise_estimation_available(NoiseEstimator *self)
 	return self->noise_spectrum_available;
 }
 
-/**
-* Noise estimation using a rolling mean over user selected noise section.
-*/
 float *noise_estimation_run(NoiseEstimator *self, float *spectrum)
 {
 	int k;
 
-	//Increase window count for rolling mean
 	self->noise_blocks_count++;
 
-	//Get noise thresholds based on averageing the input noise signal between frames
 	for (k = 0; k <= self->half_fft_size; k++)
 	{
 		if (*self->noise_blocks_count <= 1.f)
@@ -68,7 +55,6 @@ float *noise_estimation_run(NoiseEstimator *self, float *spectrum)
 		}
 	}
 
-	//Now we have an estimated noise spectrum
 	self->noise_spectrum_available = true;
 
 	return self->noise_spectrum;
@@ -84,7 +70,6 @@ NoiseEstimator *noise_estimation_initialize(int fft_size)
 {
 	NoiseEstimator *self = (NoiseEstimator *)malloc(sizeof(NoiseEstimator));
 
-	//Configuration
 	self->fft_size = fft_size;
 	self->half_fft_size = self->fft_size / 2;
 

@@ -17,12 +17,6 @@ You should have received a copy of the GNU Lesser General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
-/**
-* \file plugin.c
-* \author Luciano Dato
-* \brief The main file for host interaction
-*/
-
 #include "fft_denoiser.h"
 #include "noise_profile.h"
 #include "plugin_state.h"
@@ -31,16 +25,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <stdlib.h>
 #include <string.h>
 
-#define FFT_SIZE 2048	 //Size of the fft transform
-#define OVERLAP_FACTOR 4 //4 is 75% overlap Values bigger than 4 will rescale correctly (if Vorbis windows is not used)
+#define FFT_SIZE 2048
+#define OVERLAP_FACTOR 4
 
-#define FROM_DB(gain_db) (expf(gain_db / 10.f * logf(10.f))) // converts a db value to linear scale.
+#define FROM_DB_TO_CV(gain_db) (expf(gain_db / 10.f * logf(10.f)))
 
-///---------------------------------------------------------------------
-
-/**
-* Enumeration of LV2 ports.
-*/
 typedef enum
 {
 	NOISEREPELLENT_AMOUNT = 0,
@@ -58,56 +47,44 @@ typedef enum
 	NOISEREPELLENT_OUTPUT = 12,
 } PortIndex;
 
-/**
-* Struct for noise repellent instance, the host is going to use.
-*/
 typedef struct
 {
-	const float *input; //input of samples from host (changing size)
-	float *output;		//output of samples to host (changing size)
-	float sample_rate;	//Sample rate received from the host
+	const float *input;
+	float *output;
+	float sample_rate;
 
-	//Parameters for the algorithm (user input)
-	float *reduction_amount;	 //Amount of noise to reduce in dB
-	float *noise_rescale;		 //This is to scale the noise profile (over subtraction factor)
-	float *release;				 //Release time
-	float *masking;				 //Masking scaling
-	float *whitening_factor;	 //Whitening amount of the reduction percentage
-	float *learn_noise;			 //Learn Noise state (Manual-Off-Auto)
-	float *reset_profile;		 //Reset Noise switch
-	float *residual_listen;		 //For noise only listening
-	float *transient_protection; //Multiplier for thresholding onsets with rolling mean
-	float *enable;				 //For soft bypass (click free bypass)
-	float *report_latency;		 //Latency necessary
+	float *reduction_amount;
+	float *noise_rescale;
+	float *release;
+	float *masking;
+	float *whitening_factor;
+	float *learn_noise;
+	float *reset_profile;
+	float *residual_listen;
+	float *transient_protection;
+	float *enable;
+	float *report_latency;
 
-	//Objects instances
 	NoiseProfile *noise_profile;
 	FFTDenoiser *fft_denoiser;
-	STFTProcessor *stft_processor; //The stft transform object
+	STFTProcessor *stft_processor;
 	PluginState *plugin_state;
 } NoiseRepellent;
 
-/**
-* Instantiates the plugin.
-*/
 static LV2_Handle instantiate(const LV2_Descriptor *descriptor, double rate, const char *bundle_path,
 							  const LV2_Feature *const *features)
 {
-	//Actual struct declaration
+
 	NoiseRepellent *self = (NoiseRepellent *)calloc(1, sizeof(NoiseRepellent));
 
-	//Sampling related
 	self->sample_rate = (float)rate;
 
-	//Initialize objects
 	self->noise_profile = noise_profile_initialize(FFT_SIZE / 2);
 	self->fft_denoiser = fft_denoiser_initialize(self->noise_profile, self->sample_rate, FFT_SIZE, OVERLAP_FACTOR);
 	self->stft_processor = stft_processor_initialize(self->fft_denoiser, self->sample_rate, FFT_SIZE, OVERLAP_FACTOR);
 
-	//Plugin state initialization
 	if (!plugin_state_initialize(self->plugin_state, features))
 	{
-		//bail out: host does not support urid:map
 		noise_profile_free(self->noise_profile);
 		fft_denoiser_free(self->fft_denoiser);
 		stft_processor_free(self->stft_processor);
@@ -119,9 +96,6 @@ static LV2_Handle instantiate(const LV2_Descriptor *descriptor, double rate, con
 	return (LV2_Handle)self;
 }
 
-/**
-* Used by the host to connect the ports of this plugin.
-*/
 static void connect_port(LV2_Handle instance, uint32_t port, void *data)
 {
 	NoiseRepellent *self = (NoiseRepellent *)instance;
@@ -170,36 +144,27 @@ static void connect_port(LV2_Handle instance, uint32_t port, void *data)
 	}
 }
 
-/**
-* Main process function of the plugin.
-*/
 static void run(LV2_Handle instance, uint32_t n_samples)
 {
 	NoiseRepellent *self = (NoiseRepellent *)instance;
 
-	//Inform latency at run call
 	*(self->report_latency) = (float)stft_processor_get_latency(self->stft_processor);
 
-	//Temporary variables
 	float whitening_factor = (*self->whitening_factor / 100.f);
 	bool enable = (bool)*self->enable;
 	bool learn_noise = (bool)*self->learn_noise;
-	float reduction_amount = FROM_DB(-1.f * *self->reduction_amount);
+	float reduction_amount = FROM_DB_TO_CV(-1.f * *self->reduction_amount);
 	bool residual_listen = (bool)*self->residual_listen;
 	float release_time = *self->release;
 	float masking_ceiling_limit = *self->masking;
 	float transient_threshold = *self->transient_protection;
 	float noise_rescale = *self->noise_rescale;
 
-	//Run the stft denoiser to process samples
 	stft_processor_run(self->stft_processor, n_samples, self->input, self->output, enable, learn_noise,
 					   whitening_factor, reduction_amount, residual_listen, transient_threshold,
 					   masking_ceiling_limit, release_time, noise_rescale);
 }
 
-/**
-* Cleanup and freeing memory.
-*/
 static void cleanup(LV2_Handle instance)
 {
 	NoiseRepellent *self = (NoiseRepellent *)instance;
@@ -211,9 +176,6 @@ static void cleanup(LV2_Handle instance)
 	free(instance);
 }
 
-/**
-* State saving of the noise profile.
-*/
 static LV2_State_Status savestate(LV2_Handle instance, LV2_State_Store_Function store, LV2_State_Handle handle,
 								  uint32_t flags, const LV2_Feature *const *features)
 {
@@ -225,9 +187,6 @@ static LV2_State_Status savestate(LV2_Handle instance, LV2_State_Store_Function 
 	return LV2_STATE_SUCCESS;
 }
 
-/**
-* State restoration of the noise profile.
-*/
 static LV2_State_Status restorestate(LV2_Handle instance, LV2_State_Retrieve_Function retrieve,
 									 LV2_State_Handle handle, uint32_t flags,
 									 const LV2_Feature *const *features)
@@ -249,9 +208,6 @@ static LV2_State_Status restorestate(LV2_Handle instance, LV2_State_Retrieve_Fun
 	return LV2_STATE_SUCCESS;
 }
 
-/**
-* extension for additional interfaces.
-*/
 static const void *extension_data(const char *uri)
 {
 	static const LV2_State_Interface state = {savestate, restorestate};
@@ -262,9 +218,6 @@ static const void *extension_data(const char *uri)
 	return NULL;
 }
 
-/**
-* Descriptor for linking methods.
-*/
 static const LV2_Descriptor descriptor =
 	{
 		NOISEREPELLENT_URI,
@@ -276,9 +229,6 @@ static const LV2_Descriptor descriptor =
 		cleanup,
 		extension_data};
 
-/**
-* Symbol export using the descriptor above.
-*/
 LV2_SYMBOL_EXPORT const LV2_Descriptor *lv2_descriptor(uint32_t index)
 {
 	switch (index)

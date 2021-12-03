@@ -17,12 +17,6 @@ You should have received a copy of the GNU Lesser General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
-/**
-* \file plugin_state.h
-* \author Luciano Dato
-* \brief The plugin state abstraction
-*/
-
 #ifndef PLUGIN_STATE_H
 #define PLUGIN_STATE_H
 

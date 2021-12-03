@@ -17,12 +17,6 @@ You should have received a copy of the GNU Lesser General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
-/**
-* \file plugin_state.c
-* \author Luciano Dato
-* \brief The plugin state abstraction
-*/
-
 #include "plugin_state.h"
 #include <math.h>
 #include <stdbool.h>
@@ -33,7 +27,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 struct PluginState
 {
-	//LV2 state URID (Save and restore noise profile)
 	LV2_URID_Map *map;
 	LV2_URID atom_Vector;
 	LV2_URID atom_Int;
@@ -44,7 +37,6 @@ struct PluginState
 
 bool plugin_state_initialize(PluginState *self, const LV2_Feature *const *features)
 {
-	//Retrieve the URID map callback, and needed URIDs
 	for (int i = 0; features[i]; ++i)
 	{
 		if (!strcmp(features[i]->URI, LV2_URID__map))
@@ -54,7 +46,7 @@ bool plugin_state_initialize(PluginState *self, const LV2_Feature *const *featur
 	}
 	if (!self->map)
 	{
-		return false; //host doesn't support statesnoise_window_count
+		return false;
 	}
 
 	//For lv2 state (noise profile saving)

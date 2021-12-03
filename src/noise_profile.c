@@ -17,12 +17,6 @@ You should have received a copy of the GNU Lesser General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
-/**
-* \file noise_profile.c
-* \author Luciano Dato
-* \brief The plugin state abstraction
-*/
-
 #include "noise_profile.h"
 #include <stdlib.h>
 #include <string.h>
@@ -53,7 +47,6 @@ void noise_profile_reset(NoiseProfile *self)
 
 NoiseProfile *noise_profile_initialize(int noise_profile_size)
 {
-	//Allocate object
 	NoiseProfile *self = (NoiseProfile *)malloc(sizeof(NoiseProfile));
 
 	self->noise_profile_size = noise_profile_size;

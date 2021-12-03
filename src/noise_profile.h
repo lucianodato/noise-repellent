@@ -17,12 +17,6 @@ You should have received a copy of the GNU Lesser General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
-/**
-* \file noise_profile.h
-* \author Luciano Dato
-* \brief The plugin state abstraction
-*/
-
 #ifndef NOISE_PROFILE_H
 #define NOISE_PROFILE_H
 

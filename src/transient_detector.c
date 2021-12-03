@@ -41,7 +41,7 @@ struct TransientDetector
 	//Transient preservation related
 	float *previous_spectrum; //previous frame smoothed power spectrum for envelopes
 	float r_mean;
-	bool is_transient_present;
+	bool transient_present;
 	float window_count;
 };
 
@@ -115,7 +115,7 @@ void transient_detector_reset(TransientDetector *self)
 
 	self->window_count = 0.f;
 	self->r_mean = 0.f;
-	self->is_transient_present = false;
+	self->transient_present = false;
 }
 
 /**

@@ -17,20 +17,11 @@ You should have received a copy of the GNU Lesser General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
-/**
-* \file transient_detector.h
-* \author Luciano Dato
-* \brief Contains a transient detector abstraction
-*/
-
 #ifndef TRANSIENT_DETECTOR_H
 #define TRANSIENT_DETECTOR_H
 
 #include <stdbool.h>
 
-/**
-* Gain estimation struct.
-*/
 typedef struct TransientDetector TransientDetector;
 
 float spectral_flux(float *spectrum, float *spectrum_prev, float N);

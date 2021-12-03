@@ -17,12 +17,6 @@ You should have received a copy of the GNU Lesser General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
-/**
-* \file spectrum_smoother.c
-* \author Luciano Dato
-* \brief Contains a spectrum smoother abstraction
-*/
-
 #ifndef SPECTRUM_SMOOTHER_H
 #define SPECTRUM_SMOOTHER_H
 

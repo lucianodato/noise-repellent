@@ -33,11 +33,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <stdlib.h>
 #include <string.h>
 
-//General spectral subtraction configuration
 #define GAMMA1 2.f
 #define GAMMA2 0.5f
 
-//masking thresholds values recomended by virag
 #define ALPHA_MAX 6.f
 #define ALPHA_MIN 1.f
 #define BETA_MAX 0.02f
@@ -45,14 +43,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 struct GainEstimator
 {
-	//General parameters
 	int fft_size;
 	int half_fft_size;
 	int samp_rate;
 	int hop;
 
-	//Arrays
-	float *gain_spectrum; //definitive gain
+	float *gain_spectrum;
 	float *noise_profile;
 	float *signal_spectrum;
 	float *alpha;
@@ -67,11 +63,6 @@ struct GainEstimator
 	SpectralSmoother *spectrum_smoothing;
 };
 
-/**
-* Finds the max value of the spectrum.
-* \param spectrum the array to check
-* \param N the size of the array (half the fft size plus 1)
-*/
 float max_spectral_value(float *spectrum, int N)
 {
 	int k;
@@ -83,11 +74,6 @@ float max_spectral_value(float *spectrum, int N)
 	return max;
 }
 
-/**
-* Finds the min value of the spectrum.
-* \param spectrum the array to check
-* \param N the size of the array (half the fft size plus 1)
-*/
 float min_spectral_value(float *spectrum, int N)
 {
 	int k;
@@ -99,9 +85,6 @@ float min_spectral_value(float *spectrum, int N)
 	return min;
 }
 
-/**
-* Wiener substraction supression rule. Outputs the filter mirrored around nyquist.
-*/
 void wiener_subtraction(GainEstimator *self)
 {
 	int k;
@@ -121,15 +104,11 @@ void wiener_subtraction(GainEstimator *self)
 		}
 		else
 		{
-			//Otherwise we keep everything as is
 			self->gain_spectrum[k] = 1.f;
 		}
 	}
 }
 
-/**
-* Gating with hard knee supression rule. Outputs the filter mirrored around nyquist.
-*/
 void spectral_gating(GainEstimator *self)
 {
 	int k;
@@ -138,33 +117,22 @@ void spectral_gating(GainEstimator *self)
 	{
 		if (self->noise_profile[k] > FLT_MIN)
 		{
-			// //Without knee
 			if (self->signal_spectrum[k] >= self->noise_profile[k])
 			{
-				//over the threshold
 				self->gain_spectrum[k] = 1.f;
 			}
 			else
 			{
-				//under the threshold
 				self->gain_spectrum[k] = 0.f;
 			}
 		}
 		else
 		{
-			//Otherwise we keep everything as is
 			self->gain_spectrum[k] = 1.f;
 		}
 	}
 }
 
-/**
-* Generalized spectral subtraction supression rule. This version uses an array of alphas and betas. Outputs the filter mirrored around nyquist. 
-* GAMMA defines what type of spectral Subtraction is used. 
-* GAMMA1=GAMMA2=1 is magnitude substaction. 
-* GAMMA1=2 GAMMA2=0.5 is power Subtraction. 
-* GAMMA1=2 GAMMA2=1 is wiener filtering.
-*/
 void denoise_gain_generalized_spectral_substraction(GainEstimator *self)
 {
 	int k;
@@ -184,49 +152,28 @@ void denoise_gain_generalized_spectral_substraction(GainEstimator *self)
 		}
 		else
 		{
-			//Otherwise we keep everything as is
 			self->gain_spectrum[k] = 1.f;
 		}
 	}
 }
 
-/**
-* alpha and beta computation according to Virags paper. Alphas refers to the oversubtraction
-* factor for each fft bin and beta to the spectral flooring. What the oversubtraction
-* factor for each bin really does is scaling the noise profile in order reduce more or
-* less noise in the supression rule. Spectral flooring limits the amount of reduction in
-* each bin. Using masking thresholds for means of adapting this two parameters correlate
-* much more with human hearing and results in smoother results than using non linear
-* subtraction or others methods of adapting them. Spectral flooring is not used since
-* users decide the amount of noise reduccion themselves and spectral flooring is tied to
-* that parameter instead of being setted automatically.
-*/
 void compute_alpha_and_beta(GainEstimator *self, float masking_ceiling_limit, float masking_floor_limit)
 {
 	int k;
 	float normalized_value;
 
-	//Noise masking threshold must be computed from a clean signal
-	//therefor we aproximate a clean signal using a power Sustraction over
-	//the original noisy one
-
-	//basic Power Sustraction to estimate clean signal
 	for (k = 0; k <= self->half_fft_size; k++)
 	{
 		self->clean_signal_estimation[k] = fmaxf(self->signal_spectrum[k] - self->noise_profile[k], FLT_MIN);
 	}
 
-	//Now we can compute noise masking threshold
-	//then we copy the masking thresholds values to this object masking threshold array
 	compute_masking_thresholds(self->masking_estimation, self->signal_spectrum, self->masking_thresholds);
 
-	//First we need the maximun and the minimun value of the masking threshold
 	float max_masked_tmp = max_spectral_value(self->masking_thresholds, self->half_fft_size);
 	float min_masked_tmp = min_spectral_value(self->masking_thresholds, self->half_fft_size);
 
 	for (k = 0; k <= self->half_fft_size; k++)
 	{
-		//new alpha and beta vector
 		if (self->masking_thresholds[k] == max_masked_tmp)
 		{
 			self->alpha[k] = ALPHA_MIN;
@@ -239,7 +186,6 @@ void compute_alpha_and_beta(GainEstimator *self, float masking_ceiling_limit, fl
 		}
 		if (self->masking_thresholds[k] < max_masked_tmp && self->masking_thresholds[k] > min_masked_tmp)
 		{
-			//Linear interpolation of the value between max and min masked threshold values
 			normalized_value = (self->masking_thresholds[k] - min_masked_tmp) / (max_masked_tmp - min_masked_tmp);
 
 			self->alpha[k] = (1.f - normalized_value) * ALPHA_MIN + normalized_value * masking_ceiling_limit;
@@ -256,40 +202,27 @@ void gain_estimation_run(GainEstimator *self, float *signal_spectrum, float *noi
 	memcpy(self->signal_spectrum, signal_spectrum, sizeof(float) * self->half_fft_size + 1);
 	memcpy(self->noise_profile, noise_profile, sizeof(float) * self->half_fft_size + 1);
 
-	//PREPROCESSING - PRECALCULATIONS
-
-	//------TRANSIENT DETECTION------
-
 	if (transient_threshold > 1.f)
 	{
 		self->transient_detected = transient_detector_run(self->transient_detection, transient_threshold);
 	}
 
-	//COMPUTING OF ALPHA WITH MASKING THRESHOLDS USING VIRAGS METHOD
 	if (masking_ceiling_limit > 1.f)
 	{
-		compute_alpha_and_beta(self, masking_ceiling_limit, 0.f); //temporary value to imitate current state
+		compute_alpha_and_beta(self, masking_ceiling_limit, 0.f);
 	}
 	else
 	{
-		memset(self->alpha, 1.f, self->half_fft_size + 1); //This avoids incorrect results when moving sliders rapidly
+		memset(self->alpha, 1.f, self->half_fft_size + 1);
 	}
 
-	//------OVERSUBTRACTION------
-
-	//Scale noise thresholds (equals applying an oversubtraction factor in spectral subtraction)
 	for (k = 0; k <= self->half_fft_size; k++)
 	{
 		self->noise_profile[k] = self->noise_profile[k] * noise_rescale * self->alpha[k];
 	}
 
-	//------SMOOTHING DETECTOR------
-
 	spectral_smoothing_run(self->spectrum_smoothing, release);
 
-	//------REDUCTION GAINS------
-
-	//Protect transient by avoiding smoothing if present
 	if (self->transient_detected && transient_threshold > 1.f)
 	{
 		wiener_subtraction(self);
@@ -299,7 +232,6 @@ void gain_estimation_run(GainEstimator *self, float *signal_spectrum, float *noi
 		spectral_gating(self);
 	}
 
-	//Copy the obtained values and mirror the gain array
 	memcpy(gain_spectrum, self->gain_spectrum, sizeof(float) * self->half_fft_size + 1);
 	for (k = 1; k < self->half_fft_size; k++)
 	{
@@ -307,12 +239,8 @@ void gain_estimation_run(GainEstimator *self, float *signal_spectrum, float *noi
 	}
 }
 
-/**
-* Reset dynamic arrays to zero.
-*/
 void gain_estimation_reset(GainEstimator *self)
 {
-	//Reset all arrays
 	memset(self->signal_spectrum, 0.f, self->half_fft_size + 1);
 	memset(self->noise_profile, 0.f, self->half_fft_size + 1);
 	memset(self->gain_spectrum, 1.f, self->half_fft_size + 1);
@@ -322,21 +250,15 @@ void gain_estimation_reset(GainEstimator *self)
 	memset(self->clean_signal_estimation, 0.f, self->half_fft_size + 1);
 }
 
-/**
-* Gain estimator initialization and configuration.
-*/
 GainEstimator *gain_estimation_initialize(int fft_size, int samp_rate, int hop)
 {
-	//Allocate object
 	GainEstimator *self = (GainEstimator *)malloc(sizeof(GainEstimator));
 
-	//Configuration
 	self->fft_size = fft_size;
 	self->half_fft_size = self->fft_size / 2;
 	self->samp_rate = samp_rate;
 	self->hop = hop;
 
-	//spectrum allocation
 	self->signal_spectrum = (float *)calloc((self->half_fft_size + 1), sizeof(float));
 	self->gain_spectrum = (float *)calloc((self->half_fft_size + 1), sizeof(float));
 	self->noise_profile = (float *)calloc((self->half_fft_size + 1), sizeof(float));
@@ -345,7 +267,6 @@ GainEstimator *gain_estimation_initialize(int fft_size, int samp_rate, int hop)
 	self->masking_thresholds = (float *)calloc((self->half_fft_size + 1), sizeof(float));
 	self->clean_signal_estimation = (float *)calloc((self->half_fft_size + 1), sizeof(float));
 
-	//Reset all values
 	gain_estimation_reset(self);
 
 	self->masking_estimation = masking_estimation_initialize(self->fft_size, self->samp_rate);
@@ -355,9 +276,6 @@ GainEstimator *gain_estimation_initialize(int fft_size, int samp_rate, int hop)
 	return self;
 }
 
-/**
-* Free allocated memory.
-*/
 void gain_estimation_free(GainEstimator *self)
 {
 	free(self->noise_profile);

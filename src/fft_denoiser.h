@@ -17,12 +17,6 @@ You should have received a copy of the GNU Lesser General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
-/**
-* \file fft_denoiser.h
-* \author Luciano Dato
-* \brief Contains an abstraction for a single fft spectrum denoising
-*/
-
 #ifndef FFT_DENOISER_H
 #define FFT_DENOISER_H
 

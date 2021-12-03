@@ -17,12 +17,6 @@ You should have received a copy of the GNU Lesser General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
-/**
-* \file gain_estimator.h
-* \author Luciano Dato
-* \brief Contains a the reduction gain estimator abstraction
-*/
-
 #ifndef GAIN_ESTIMATOR_H
 #define GAIN_ESTIMATOR_H
 

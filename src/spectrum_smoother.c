@@ -17,12 +17,6 @@ You should have received a copy of the GNU Lesser General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
-/**
-* \file spectrum_smoother.c
-* \author Luciano Dato
-* \brief Contains a spectrum smoother abstraction
-*/
-
 #include "spectrum_smoother.h"
 #include <math.h>
 #include <stdlib.h>
@@ -30,54 +24,40 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 struct SpectralSmoother
 {
-	//General parameters
 	int fft_size;
 	int half_fft_size;
 	int samp_rate;
 	int hop;
 
-	//Ensemble related
-	//Spectrum
 	float *noise_spectrum;
 	float *signal_spectrum;
 
-	//smoothing related
-	float *smoothed_spectrum;		   //power spectrum to be smoothed
-	float *smoothed_spectrum_previous; //previous frame smoothed power spectrum for envelopes
+	float *smoothed_spectrum;
+	float *smoothed_spectrum_previous;
 
-	float release_coefficient; //reference smoothing value
+	float release_coefficient;
 };
 
-/*
-* Exponential decay coefficients for envelopes and adaptive noise profiling
-* These must take into account the hop size as explained in the following paper
-* FFT-BASED DYNAMIC RANGE COMPRESSION
-*/
 void get_release_coefficient(SpectralSmoother *self, float release)
 {
-	if (release != 0.f) //This allows to turn off smoothing with 0 ms in order to use masking only
+	if (release != 0.f)
 	{
 		self->release_coefficient = expf(-1000.f / (((release)*self->samp_rate) / self->hop));
 	}
 	else
 	{
-		self->release_coefficient = 0.f; //This avoids incorrect results when moving sliders rapidly
+		self->release_coefficient = 0.f;
 	}
 }
 
-/**
-* Spectral time smoothing by applying a release envelope. This seems to work better than * using time smoothing directly or McAulay & Malpass modification.
-*/
 void apply_time_envelope(SpectralSmoother *self)
 {
 	int k;
 
 	for (k = 0; k <= self->half_fft_size; k++)
 	{
-		//It doesn't make much sense to have an attack slider when there is time smoothing
 		if (self->smoothed_spectrum[k] > self->smoothed_spectrum_previous[k])
 		{
-			//Release (when signal is incrementing in amplitude)
 			self->smoothed_spectrum[k] = self->release_coefficient * self->smoothed_spectrum_previous[k] + (1.f - self->release_coefficient) * self->smoothed_spectrum[k];
 		}
 	}
@@ -94,12 +74,8 @@ void spectral_smoothing_run(SpectralSmoother *self, float release)
 	memcpy(self->smoothed_spectrum_previous, self->smoothed_spectrum, sizeof(float) * (self->half_fft_size + 1));
 }
 
-/**
-* Reset dynamic arrays to zero.
-*/
 void spectral_smoothing_reset(SpectralSmoother *self)
 {
-	//Reset all arrays
 	memset(self->signal_spectrum, 0.f, self->half_fft_size + 1);
 	memset(self->noise_spectrum, 0.f, self->half_fft_size + 1);
 	memset(self->smoothed_spectrum, 0.f, self->half_fft_size + 1);
@@ -108,35 +84,25 @@ void spectral_smoothing_reset(SpectralSmoother *self)
 	self->release_coefficient = 0.f;
 }
 
-/**
-* Gain estimator initialization and configuration.
-*/
 SpectralSmoother *spectral_smoothing_initialize(int fft_size, int samp_rate, int hop)
 {
-	//Allocate object
 	SpectralSmoother *self = (SpectralSmoother *)malloc(sizeof(SpectralSmoother));
 
-	//Configuration
 	self->fft_size = fft_size;
 	self->half_fft_size = self->fft_size / 2;
 	self->samp_rate = samp_rate;
 	self->hop = hop;
 
-	//spectrum allocation
 	self->signal_spectrum = (float *)calloc((self->half_fft_size + 1), sizeof(float));
 	self->noise_spectrum = (float *)calloc((self->half_fft_size + 1), sizeof(float));
 	self->smoothed_spectrum = (float *)calloc((self->half_fft_size + 1), sizeof(float));
 	self->smoothed_spectrum_previous = (float *)calloc((self->half_fft_size + 1), sizeof(float));
 
-	//Reset all values
 	spectral_smoothing_reset(self);
 
 	return self;
 }
 
-/**
-* Free allocated memory.
-*/
 void spectral_smoothing_free(SpectralSmoother *self)
 {
 	free(self->noise_spectrum);

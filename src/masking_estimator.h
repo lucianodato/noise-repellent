@@ -17,12 +17,6 @@ You should have received a copy of the GNU Lesser General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
-/**
-* \file masking_estimator.h
-* \author Luciano Dato
-* \brief Methods for masking threshold estimation
-*/
-
 #ifndef MASKING_ESTIMATOR_H
 #define MASKING_ESTIMATOR_H
 
