@@ -39,10 +39,10 @@ struct TransientDetector
 	float *spectrum;
 
 	//Transient preservation related
-	float *transient_preserv_prev; //previous frame smoothed power spectrum for envelopes
-	float tp_r_mean;
-	bool transient_present;
-	float tp_window_count;
+	float *previous_spectrum; //previous frame smoothed power spectrum for envelopes
+	float r_mean;
+	bool is_transient_present;
+	float window_count;
 };
 
 /**
@@ -76,23 +76,23 @@ bool transient_detector_run(TransientDetector *self, float transient_threshold)
 	float adapted_threshold, reduction_function;
 
 	//Transient protection by forcing wiener filtering when an onset is detected
-	reduction_function = spectral_flux(self->spectrum, self->transient_preserv_prev, self->half_fft_size);
+	reduction_function = spectral_flux(self->spectrum, self->previous_spectrum, self->half_fft_size);
 	//reduction_function = high_frequency_content(self->spectrum, self->half_fft_size);
 
-	self->tp_window_count += 1.f;
+	self->window_count += 1.f;
 
-	if (self->tp_window_count > 1.f)
+	if (self->window_count > 1.f)
 	{
-		self->tp_r_mean += ((reduction_function - self->tp_r_mean) / self->tp_window_count);
+		self->r_mean += ((reduction_function - self->r_mean) / self->window_count);
 	}
 	else
 	{
-		self->tp_r_mean = reduction_function;
+		self->r_mean = reduction_function;
 	}
 
-	adapted_threshold = (TP_UPPER_LIMIT - transient_threshold) * self->tp_r_mean;
+	adapted_threshold = (TP_UPPER_LIMIT - transient_threshold) * self->r_mean;
 
-	memcpy(self->transient_preserv_prev, self->spectrum, sizeof(float) * (self->half_fft_size + 1));
+	memcpy(self->previous_spectrum, self->spectrum, sizeof(float) * (self->half_fft_size + 1));
 
 	if (reduction_function > adapted_threshold)
 	{
@@ -111,11 +111,11 @@ void transient_detector_reset(TransientDetector *self)
 {
 	//Reset all arrays
 	memset(self->spectrum, 0.f, self->half_fft_size + 1);
-	memset(self->transient_preserv_prev, 0.f, self->half_fft_size + 1);
+	memset(self->previous_spectrum, 0.f, self->half_fft_size + 1);
 
-	self->tp_window_count = 0.f;
-	self->tp_r_mean = 0.f;
-	self->transient_present = false;
+	self->window_count = 0.f;
+	self->r_mean = 0.f;
+	self->is_transient_present = false;
 }
 
 /**
@@ -132,7 +132,7 @@ TransientDetector *transient_detector_initialize(int fft_size)
 
 	//spectrum allocation
 	self->spectrum = (float *)calloc((self->half_fft_size + 1), sizeof(float));
-	self->transient_preserv_prev = (float *)calloc((self->half_fft_size + 1), sizeof(float));
+	self->previous_spectrum = (float *)calloc((self->half_fft_size + 1), sizeof(float));
 
 	//Reset all values
 	transient_detector_reset(self);
@@ -146,6 +146,6 @@ TransientDetector *transient_detector_initialize(int fft_size)
 void transient_detector_free(TransientDetector *self)
 {
 	free(self->spectrum);
-	free(self->transient_preserv_prev);
+	free(self->previous_spectrum);
 	free(self);
 }

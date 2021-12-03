@@ -37,7 +37,7 @@ struct NoiseEstimator
 	//noise related
 	float *noise_spectrum;		   //captured noise profile power spectrum
 	bool noise_spectrum_available; //indicate whether a noise profile is available or no
-	float *noise_block_count;	   //Count windows for mean computing
+	float *noise_blocks_count;	   //Count windows for mean computing
 };
 
 bool is_noise_estimation_available(NoiseEstimator *self)
@@ -53,18 +53,18 @@ float *noise_estimation_run(NoiseEstimator *self, float *spectrum)
 	int k;
 
 	//Increase window count for rolling mean
-	self->noise_block_count++;
+	self->noise_blocks_count++;
 
 	//Get noise thresholds based on averageing the input noise signal between frames
 	for (k = 0; k <= self->half_fft_size; k++)
 	{
-		if (*self->noise_block_count <= 1.f)
+		if (*self->noise_blocks_count <= 1.f)
 		{
 			self->noise_spectrum[k] = spectrum[k];
 		}
 		else
 		{
-			self->noise_spectrum[k] += ((spectrum[k] - self->noise_spectrum[k]) / *self->noise_block_count);
+			self->noise_spectrum[k] += ((spectrum[k] - self->noise_spectrum[k]) / *self->noise_blocks_count);
 		}
 	}
 

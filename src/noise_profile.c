@@ -30,25 +30,25 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 struct NoiseProfile
 {
 	int noise_profile_size;
-	float *values;
+	float *noise_profile;
 };
 
 void set_noise_profile(NoiseProfile *self, float *noise_profile)
 {
 	if (*noise_profile)
 	{
-		memcpy(self->values, noise_profile, self->noise_profile_size);
+		memcpy(self->noise_profile, noise_profile, self->noise_profile_size);
 	}
 }
 
 float *get_noise_profile(NoiseProfile *self)
 {
-	return self->values;
+	return self->noise_profile;
 }
 
 void noise_profile_reset(NoiseProfile *self)
 {
-	memset(self->values, 0.f, self->noise_profile_size + 1);
+	memset(self->noise_profile, 0.f, self->noise_profile_size + 1);
 }
 
 NoiseProfile *noise_profile_initialize(int noise_profile_size)
@@ -57,7 +57,7 @@ NoiseProfile *noise_profile_initialize(int noise_profile_size)
 	NoiseProfile *self = (NoiseProfile *)malloc(sizeof(NoiseProfile));
 
 	self->noise_profile_size = noise_profile_size;
-	self->values = (float *)calloc((self->noise_profile_size), sizeof(float));
+	self->noise_profile = (float *)calloc((self->noise_profile_size), sizeof(float));
 
 	noise_profile_reset(self);
 
@@ -66,6 +66,6 @@ NoiseProfile *noise_profile_initialize(int noise_profile_size)
 
 void noise_profile_free(NoiseProfile *self)
 {
-	free(self->values);
+	free(self->noise_profile);
 	free(self);
 }

@@ -42,8 +42,8 @@ struct SpectralSmoother
 	float *signal_spectrum;
 
 	//smoothing related
-	float *smoothed_spectrum;	   //power spectrum to be smoothed
-	float *smoothed_spectrum_prev; //previous frame smoothed power spectrum for envelopes
+	float *smoothed_spectrum;		   //power spectrum to be smoothed
+	float *smoothed_spectrum_previous; //previous frame smoothed power spectrum for envelopes
 
 	float release_coefficient; //reference smoothing value
 };
@@ -75,10 +75,10 @@ void apply_time_envelope(SpectralSmoother *self)
 	for (k = 0; k <= self->half_fft_size; k++)
 	{
 		//It doesn't make much sense to have an attack slider when there is time smoothing
-		if (self->smoothed_spectrum[k] > self->smoothed_spectrum_prev[k])
+		if (self->smoothed_spectrum[k] > self->smoothed_spectrum_previous[k])
 		{
 			//Release (when signal is incrementing in amplitude)
-			self->smoothed_spectrum[k] = self->release_coefficient * self->smoothed_spectrum_prev[k] + (1.f - self->release_coefficient) * self->smoothed_spectrum[k];
+			self->smoothed_spectrum[k] = self->release_coefficient * self->smoothed_spectrum_previous[k] + (1.f - self->release_coefficient) * self->smoothed_spectrum[k];
 		}
 	}
 }
@@ -91,7 +91,7 @@ void spectral_smoothing_run(SpectralSmoother *self, float release)
 
 	apply_time_envelope(self);
 
-	memcpy(self->smoothed_spectrum_prev, self->smoothed_spectrum, sizeof(float) * (self->half_fft_size + 1));
+	memcpy(self->smoothed_spectrum_previous, self->smoothed_spectrum, sizeof(float) * (self->half_fft_size + 1));
 }
 
 /**
@@ -103,7 +103,7 @@ void spectral_smoothing_reset(SpectralSmoother *self)
 	memset(self->signal_spectrum, 0.f, self->half_fft_size + 1);
 	memset(self->noise_spectrum, 0.f, self->half_fft_size + 1);
 	memset(self->smoothed_spectrum, 0.f, self->half_fft_size + 1);
-	memset(self->smoothed_spectrum_prev, 0.f, self->half_fft_size + 1);
+	memset(self->smoothed_spectrum_previous, 0.f, self->half_fft_size + 1);
 
 	self->release_coefficient = 0.f;
 }
@@ -126,7 +126,7 @@ SpectralSmoother *spectral_smoothing_initialize(int fft_size, int samp_rate, int
 	self->signal_spectrum = (float *)calloc((self->half_fft_size + 1), sizeof(float));
 	self->noise_spectrum = (float *)calloc((self->half_fft_size + 1), sizeof(float));
 	self->smoothed_spectrum = (float *)calloc((self->half_fft_size + 1), sizeof(float));
-	self->smoothed_spectrum_prev = (float *)calloc((self->half_fft_size + 1), sizeof(float));
+	self->smoothed_spectrum_previous = (float *)calloc((self->half_fft_size + 1), sizeof(float));
 
 	//Reset all values
 	spectral_smoothing_reset(self);
@@ -142,6 +142,6 @@ void spectral_smoothing_free(SpectralSmoother *self)
 	free(self->noise_spectrum);
 	free(self->signal_spectrum);
 	free(self->smoothed_spectrum);
-	free(self->smoothed_spectrum_prev);
+	free(self->smoothed_spectrum_previous);
 	free(self);
 }

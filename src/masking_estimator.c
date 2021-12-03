@@ -57,7 +57,7 @@ struct MaskingEstimator
 	float *spectral_spreading_function;
 	float *unity_gain_bark_spectrum;
 	float *spreaded_unity_gain_bark_spectrum;
-	fftwf_plan forward_at;
+	fftwf_plan forward_fft;
 };
 
 /*Maps a bin number to a frequency
@@ -140,7 +140,7 @@ void get_power_spectrum(MaskingEstimator *self, float *window, float *signal, fl
 	}
 
 	//Do FFT
-	fftwf_execute(self->forward_at);
+	fftwf_execute(self->forward_fft);
 
 	//Get the power spectrum
 
@@ -475,7 +475,7 @@ MaskingEstimator *masking_estimation_initialize(int fft_size, int samp_rate)
 	//Reset all values
 	masking_estimation_reset(self);
 
-	self->forward_at = fftwf_plan_r2r_1d(self->fft_size, self->input_fft_buffer_at, self->output_fft_buffer_at, FFTW_R2HC, FFTW_ESTIMATE);
+	self->forward_fft = fftwf_plan_r2r_1d(self->fft_size, self->input_fft_buffer_at, self->output_fft_buffer_at, FFTW_R2HC, FFTW_ESTIMATE);
 
 	compute_bark_mapping(self);
 	compute_absolute_thresholds(self);
@@ -503,6 +503,6 @@ void masking_estimation_free(MaskingEstimator *self)
 	free(self->spreaded_unity_gain_bark_spectrum);
 	fftwf_free(self->input_fft_buffer_at);
 	fftwf_free(self->output_fft_buffer_at);
-	fftwf_destroy_plan(self->forward_at);
+	fftwf_destroy_plan(self->forward_fft);
 	free(self);
 }
