@@ -23,12 +23,16 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 * \brief The main file for host interaction
 */
 
+#include "fft_denoiser.h"
 #include "noise_profile.h"
 #include "plugin_state.h"
 #include "stft_processor.h"
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
+
+#define FFT_SIZE 2048	 //Size of the fft transform
+#define OVERLAP_FACTOR 4 //4 is 75% overlap Values bigger than 4 will rescale correctly (if Vorbis windows is not used)
 
 #define FROM_DB(gain_db) (expf(gain_db / 10.f * logf(10.f))) // converts a db value to linear scale.
 
@@ -80,6 +84,7 @@ typedef struct
 	STFTProcessor *stft_processor; //The stft transform object
 	PluginState *plugin_state;
 	NoiseProfile *noise_profile;
+	FFTDenoiser *fft_denoiser;
 } NoiseRepellent;
 
 /**
@@ -95,8 +100,9 @@ static LV2_Handle instantiate(const LV2_Descriptor *descriptor, double rate, con
 	self->sample_rate = (float)rate;
 
 	//STFT related
-	self->stft_processor = stft_processor_initialize(self->sample_rate);
-	self->noise_profile = noise_profile_initialize(getHalfSpectralSize(self->stft_processor));
+	self->fft_denoiser = fft_denoiser_initialize(self->sample_rate, FFT_SIZE, OVERLAP_FACTOR);
+	self->stft_processor = stft_processor_initialize(self->fft_denoiser, self->sample_rate, FFT_SIZE, OVERLAP_FACTOR);
+	self->noise_profile = noise_profile_initialize(FFT_SIZE / 2);
 
 	//Plugin state initialization
 	if (!plugin_state_initialize(self->plugin_state, features))
@@ -198,6 +204,7 @@ static void cleanup(LV2_Handle instance)
 	NoiseRepellent *self = (NoiseRepellent *)instance;
 
 	noise_profile_free(self->noise_profile);
+	fft_denoiser_free(self->fft_denoiser);
 	stft_processor_free(self->stft_processor);
 	plugin_state_free(self->plugin_state);
 	free(instance);
@@ -211,7 +218,7 @@ static LV2_State_Status savestate(LV2_Handle instance, LV2_State_Store_Function 
 {
 	NoiseRepellent *self = (NoiseRepellent *)instance;
 
-	plugin_state_savestate(self->plugin_state, store, handle, getSpectralSize(self->stft_processor),
+	plugin_state_savestate(self->plugin_state, store, handle, FFT_SIZE,
 						   self->noise_profile);
 
 	return LV2_STATE_SUCCESS;
@@ -230,7 +237,11 @@ static LV2_State_Status restorestate(LV2_Handle instance, LV2_State_Retrieve_Fun
 	if (!plugin_state_restorestate(self->plugin_state, retrieve, handle,
 								   self->noise_profile, &fft_size))
 	{
-		setSpectralSize(self->stft_processor, fft_size);
+		if (!fft_size)
+			setSpectralSize(self->stft_processor, FFT_SIZE);
+		else
+			setSpectralSize(self->stft_processor, fft_size);
+
 		return LV2_STATE_ERR_NO_PROPERTY;
 	}
 

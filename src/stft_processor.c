@@ -24,7 +24,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
 #include "stft_processor.h"
-#include "fft_denoiser.h"
 #include <fftw3.h>
 #include <math.h>
 #include <stdlib.h>
@@ -37,10 +36,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define VORBIS_WINDOW 3
 
 //STFT default values (Hardcoded for now)
-#define FFT_SIZE 2048		 //Size of the fft transform
 #define INPUT_WINDOW_TYPE 3	 //Input windows for STFT algorithm
 #define OUTPUT_WINDOW_TYPE 3 //Output windows for STFT algorithm
-#define OVERLAP_FACTOR 4	 //4 is 75% overlap Values bigger than 4 will rescale correctly (if Vorbis windows is not used)
 
 struct STFTProcessor
 {
@@ -389,17 +386,16 @@ void stft_processor_reset(STFTProcessor *self)
 /**
 * STFT processor initialization and configuration.
 */
-STFTProcessor *stft_processor_initialize(int sample_rate)
+STFTProcessor *stft_processor_initialize(FFTDenoiser *fft_denoiser, int sample_rate, int fft_size, int overlap_factor)
 {
 	//Allocate object
 	STFTProcessor *self = (STFTProcessor *)malloc(sizeof(STFTProcessor));
 
 	//self configuration
-	self->fft_size = FFT_SIZE;
-	self->half_fft_size = self->fft_size / 2;
+	setSpectralSize(self, fft_size);
 	self->window_option_input = INPUT_WINDOW_TYPE;
 	self->window_option_output = OUTPUT_WINDOW_TYPE;
-	self->overlap_factor = OVERLAP_FACTOR;
+	self->overlap_factor = overlap_factor;
 	self->hop = self->fft_size / self->overlap_factor;
 	self->input_latency = self->fft_size - self->hop;
 	self->read_position = self->input_latency;
@@ -439,7 +435,7 @@ STFTProcessor *stft_processor_initialize(int sample_rate)
 	stft_processor_pre_and_post_window(self);
 
 	//Spectral processor related
-	self->fft_denoiser = fft_denoiser_initialize(self->fft_size, self->fft_size, sample_rate, self->hop);
+	self->fft_denoiser = fft_denoiser;
 
 	return self;
 }
@@ -461,28 +457,11 @@ void stft_processor_free(STFTProcessor *self)
 	free(self->power_spectrum);
 	free(self->magnitude_spectrum);
 	free(self->phase_spectrum);
-	fft_denoiser_free(self->fft_denoiser);
 	free(self);
-}
-
-int getHalfSpectralSize(STFTProcessor *self)
-{
-	return self->half_fft_size;
-}
-
-int getSpectralSize(STFTProcessor *self)
-{
-	return self->fft_size;
 }
 
 void setSpectralSize(STFTProcessor *self, int fft_size)
 {
-	if (!fft_size)
-	{
-		self->fft_size = FFT_SIZE;
-		self->half_fft_size = self->fft_size / 2;
-	}
-
 	self->fft_size = fft_size;
 	self->half_fft_size = self->fft_size / 2;
 }
