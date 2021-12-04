@@ -134,22 +134,22 @@ void spl_reference(MaskingEstimator *self)
 	int k;
 	float sinewave[self->fft_size];
 	float window[self->fft_size];
-	float fft_p2_at[self->half_fft_size];
-	float fft_p2_at_dbspl[self->half_fft_size];
+	float fft_power_at[self->half_fft_size];
+	float fft_power_at_dbspl[self->half_fft_size];
 
 	for (k = 0; k < self->fft_size; k++)
 	{
 		sinewave[k] = S_AMP * sinf((2.f * M_PI * k * AT_SINE_WAVE_FREQ) / (float)self->samp_rate);
 	}
 
-	get_power_spectrum(self, window, sinewave, fft_p2_at);
+	get_power_spectrum(self, window, sinewave, fft_power_at);
 
 	for (k = 0; k <= self->half_fft_size; k++)
 	{
-		fft_p2_at_dbspl[k] = REFERENCE_LEVEL - 10.f * log10f(fft_p2_at[k]);
+		fft_power_at_dbspl[k] = REFERENCE_LEVEL - 10.f * log10f(fft_power_at[k]);
 	}
 
-	memcpy(self->spl_reference_values, fft_p2_at_dbspl, sizeof(float) * (self->half_fft_size + 1));
+	memcpy(self->spl_reference_values, fft_power_at_dbspl, sizeof(float) * (self->half_fft_size + 1));
 }
 
 void compute_spectral_spreading_function(MaskingEstimator *self)

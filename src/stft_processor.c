@@ -153,39 +153,39 @@ void stft_processor_pre_and_post_window(STFTProcessor *self)
 	self->overlap_scale_factor = (sum / (float)(self->fft_size));
 }
 
-void get_info_from_bins(float *fft_p2, float *fft_magnitude, float *fft_phase,
-						int fft_size_2, int fft_size, float *fft_buffer)
+void get_info_from_bins(float *fft_power, float *fft_magnitude, float *fft_phase,
+						int half_fft_size, int fft_size, float *fft_buffer)
 {
 	int k;
-	float real_p, imag_n, mag, p2, phase;
+	float real_p, imag_n, magnitude, power, phase;
 
 	real_p = fft_buffer[0];
 	imag_n = 0.f;
 
-	fft_p2[0] = real_p * real_p;
+	fft_power[0] = real_p * real_p;
 	fft_magnitude[0] = real_p;
 	fft_phase[0] = atan2f(real_p, 0.f);
 
-	for (k = 1; k <= fft_size_2; k++)
+	for (k = 1; k <= half_fft_size; k++)
 	{
 		real_p = fft_buffer[k];
 		imag_n = fft_buffer[fft_size - k];
 
-		if (k < fft_size_2)
+		if (k < half_fft_size)
 		{
-			p2 = (real_p * real_p + imag_n * imag_n);
-			mag = sqrtf(p2);
+			power = (real_p * real_p + imag_n * imag_n);
+			magnitude = sqrtf(power);
 			phase = atan2f(real_p, imag_n);
 		}
 		else
 		{
-			p2 = real_p * real_p;
-			mag = real_p;
+			power = real_p * real_p;
+			magnitude = real_p;
 			phase = atan2f(real_p, 0.f);
 		}
 
-		fft_p2[k] = p2;
-		fft_magnitude[k] = mag;
+		fft_power[k] = power;
+		fft_magnitude[k] = magnitude;
 		fft_phase[k] = phase;
 	}
 }
