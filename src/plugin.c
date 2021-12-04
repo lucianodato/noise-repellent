@@ -80,7 +80,7 @@ static LV2_Handle instantiate(const LV2_Descriptor *descriptor, double rate, con
 	self->sample_rate = (float)rate;
 
 	self->noise_profile = noise_profile_initialize(FFT_SIZE / 2);
-	self->fft_denoiser = fft_denoiser_initialize(self->noise_profile, self->sample_rate, FFT_SIZE, OVERLAP_FACTOR);
+	self->fft_denoiser = fft_denoiser_initialize(self->sample_rate, FFT_SIZE, OVERLAP_FACTOR);
 	self->stft_processor = stft_processor_initialize(self->fft_denoiser, self->sample_rate, FFT_SIZE, OVERLAP_FACTOR);
 
 	if (!plugin_state_initialize(self->plugin_state, features))
@@ -160,7 +160,7 @@ static void run(LV2_Handle instance, uint32_t n_samples)
 	float transient_threshold = *self->transient_protection;
 	float noise_rescale = *self->noise_rescale;
 
-	stft_processor_run(self->stft_processor, n_samples, self->input, self->output, enable, learn_noise,
+	stft_processor_run(self->stft_processor, self->noise_profile, n_samples, self->input, self->output, enable, learn_noise,
 					   whitening_factor, reduction_amount, residual_listen, transient_threshold,
 					   masking_ceiling_limit, release_time, noise_rescale);
 }

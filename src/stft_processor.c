@@ -242,7 +242,7 @@ int stft_processor_get_latency(STFTProcessor *self)
 	return self->input_latency;
 }
 
-void stft_processor_run(STFTProcessor *self, int n_samples, const float *input, float *output,
+void stft_processor_run(STFTProcessor *self, NoiseProfile *noise_profile, int n_samples, const float *input, float *output,
 						int enable, int learn_noise, float whitening_factor, float reduction_amount,
 						bool residual_listen, float transient_threshold, float masking_ceiling_limit,
 						float release, float noise_rescale)
@@ -267,7 +267,7 @@ void stft_processor_run(STFTProcessor *self, int n_samples, const float *input, 
 							   self->phase_spectrum, self->half_fft_size,
 							   self->fft_size, self->output_fft_buffer);
 
-			fft_denoiser_run(self->fft_denoiser, self->power_spectrum, enable, learn_noise, whitening_factor,
+			fft_denoiser_run(self->fft_denoiser, noise_profile, self->power_spectrum, enable, learn_noise, whitening_factor,
 							 reduction_amount, residual_listen, transient_threshold, masking_ceiling_limit,
 							 release, noise_rescale);
 

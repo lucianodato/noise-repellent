@@ -166,7 +166,7 @@ void get_final_spectrum(FFTDenoiser *self, bool residual_listen, float reduction
 	}
 }
 
-void fft_denoiser_run(FFTDenoiser *self, float *fft_spectrum, int enable, bool learn_noise, float whitening_factor,
+void fft_denoiser_run(FFTDenoiser *self, NoiseProfile *noise_profile, float *fft_spectrum, int enable, bool learn_noise, float whitening_factor,
 					  float reduction_amount, bool residual_listen, float transient_threshold,
 					  float masking_ceiling_limit, float release, float noise_rescale)
 {
@@ -178,7 +178,7 @@ void fft_denoiser_run(FFTDenoiser *self, float *fft_spectrum, int enable, bool l
 	{
 		if (learn_noise)
 		{
-			set_noise_profile(self->noise_profile, noise_estimation_run(self->noise_estimation, self->fft_spectrum));
+			noise_estimation_run(self->noise_estimation, noise_profile, self->fft_spectrum);
 		}
 		else
 		{
@@ -216,7 +216,7 @@ void fft_denoiser_reset(FFTDenoiser *self)
 	self->whitening_window_count = 0.f;
 }
 
-FFTDenoiser *fft_denoiser_initialize(NoiseProfile *noise_profile, int samp_rate, int fft_size, int overlap_factor)
+FFTDenoiser *fft_denoiser_initialize(int samp_rate, int fft_size, int overlap_factor)
 {
 	FFTDenoiser *self = (FFTDenoiser *)malloc(sizeof(FFTDenoiser));
 
@@ -242,8 +242,6 @@ FFTDenoiser *fft_denoiser_initialize(NoiseProfile *noise_profile, int samp_rate,
 	fft_denoiser_reset(self);
 
 	self->noise_estimation = noise_estimation_initialize(self->fft_size);
-
-	self->noise_profile = noise_profile;
 
 	return self;
 }

@@ -20,12 +20,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #ifndef NOISE_ESTIMATOR_H
 #define NOISE_ESTIMATOR_H
 
+#include "noise_profile.h"
 #include <stdbool.h>
 
 typedef struct NoiseEstimator NoiseEstimator;
 
 bool is_noise_estimation_available(NoiseEstimator *self);
-float *noise_estimation_run(NoiseEstimator *self, float *spectrum);
+void noise_estimation_run(NoiseEstimator *self, NoiseProfile *noise_profile, float *spectrum);
 void noise_estimation_reset(NoiseEstimator *self);
 NoiseEstimator *noise_estimation_initialize(int fft_size);
 void noise_estimation_free(NoiseEstimator *self);

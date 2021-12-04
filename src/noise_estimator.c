@@ -26,10 +26,10 @@ struct NoiseEstimator
 {
 	int fft_size;
 	int half_fft_size;
-
-	float *noise_spectrum;
 	bool noise_spectrum_available;
+
 	float *noise_blocks_count;
+	float *noise_spectrum;
 };
 
 bool is_noise_estimation_available(NoiseEstimator *self)
@@ -37,7 +37,7 @@ bool is_noise_estimation_available(NoiseEstimator *self)
 	return self->noise_spectrum_available;
 }
 
-float *noise_estimation_run(NoiseEstimator *self, float *spectrum)
+void noise_estimation_run(NoiseEstimator *self, NoiseProfile *noise_profile, float *spectrum)
 {
 	int k;
 
@@ -57,7 +57,7 @@ float *noise_estimation_run(NoiseEstimator *self, float *spectrum)
 
 	self->noise_spectrum_available = true;
 
-	return self->noise_spectrum;
+	set_noise_profile(noise_profile, self->noise_spectrum);
 }
 
 void noise_estimation_reset(NoiseEstimator *self)
