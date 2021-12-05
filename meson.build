@@ -105,9 +105,9 @@ nrepel_ttl = configure_file(
 # testing ttls
 if sord_validate.found()
 	test('LV2 validation of manifest.ttl', sord_validate,
-		args : ['manifest.ttl'])
+		args : [run_command('find','/ -name "manifest.ttl"').stdout()])
     test('LV2 validation of nrepellent.ttl', sord_validate,
-		args : ['nrepellent.ttl'])
+		args : [run_command('find','/ -name "nrepellent.ttl"').stdout()])
 endif
 
 # stress test
