@@ -31,8 +31,5 @@
 # Debug files
 *.dSYM/
 
-# VSCode
-.vscode
-
 # Builds
 build/

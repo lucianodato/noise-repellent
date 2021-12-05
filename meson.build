@@ -1,20 +1,23 @@
-project('nrepel.lv2','c',version: '0.1.6',default_options: ['c_std=gnu11'])
+project('nrepellent.lv2','c',version: '0.1.6',default_options: ['c_std=gnu11'])
 
+git = find_program('git', native : true, required : true)
 sord_validate = find_program('sord_validate', native : true, required : false)
-cp = find_program('cp')
-clone = [cp, '@INPUT@', '@OUTPUT@']
+lv2bench = find_program('lv2bench', native : true, required : false)
+lv2ls = find_program('lv2ls', native : true, required : false)
 
 #sources to compile
-stft_processor = 'src/stft_processor.c' 
-fft_denoiser = 'src/fft_denoiser.c'
-masking_estimator = 'src/masking_estimator.c'
-gain_estimator = 'src/gain_estimator.c'
-noise_estimator = 'src/noise_estimator.c'
-spectrum_smoother = 'src/spectrum_smoother.c'
-transient_detector = 'src/transient_detector.c'
-noise_profile = 'src/noise_profile.c' 
-plugin_state = 'src/plugin_state.c'
-plugin = 'src/plugin.c'
+noise_repellent_sources = [
+    'src/transient_detector.c',
+    'src/masking_estimator.c',
+    'src/spectrum_smoother.c',
+    'src/noise_estimator.c',
+    'src/gain_estimator.c',
+    'src/fft_denoiser.c',
+    'src/stft_processor.c',
+    'src/noise_profile.c',
+    'src/plugin_state.c',
+    'src/plugin.c'
+]
 
 #dependencies for noise repellent
 m_dep = meson.get_compiler('c').find_library('m', required : true)
@@ -24,6 +27,9 @@ nr_dep = [m_dep,fftw_dep,lv2_dep]
 
 #compiler default flags
 add_global_arguments('-fomit-frame-pointer','-fno-finite-math-only','-Wno-unused-function',language : 'c')
+if get_option('buildtype').startswith('debug')
+   add_global_arguments('-ggdb3', language: 'c')
+endif
 
 #install folder
 install_folder = join_paths(get_option('libdir'), 'lv2', meson.project_name())
@@ -58,16 +64,7 @@ install_folder = 'nrepellent.lv2'
 
 #build of the shared object
 library('nrepellent',
-    transient_detector,
-    masking_estimator,
-    spectrum_smoother,
-    gain_estimator,
-    noise_estimator,
-    fft_denoiser,
-    stft_processor,
-    noise_profile,
-    plugin_state,
-    plugin,
+    noise_repellent_sources,
     name_prefix: '',
     dependencies: nr_dep,
     c_args: cflags, 
@@ -107,6 +104,15 @@ nrepel_ttl = configure_file(
 
 # testing ttls
 if sord_validate.found()
-	test('LV2 validation', sord_validate,
-		args : [run_command('find','./lv2 -name "*.ttl"').stdout(), run_command('find','. -name "*.ttl"').stdout()])
+	test('LV2 validation of manifest.ttl', sord_validate,
+		args : ['manifest.ttl'])
+    test('LV2 validation of nrepellent.ttl', sord_validate,
+		args : ['nrepellent.ttl'])
+endif
+
+# stress test
+if lv2bench.found() and lv2ls.found()
+	plugin_uri = run_command('lv2ls').stdout()
+    test('Stress Test Plugin', lv2bench,
+		args : [plugin_uri])
 endif

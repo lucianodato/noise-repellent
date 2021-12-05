@@ -1,0 +1,15 @@
+{
+    "tasks": [
+        {
+            "label": "buildDebugMeson",
+            "type": "shell",
+            "command": "meson build --buildtype=debug && ninja -C build",
+        },
+        {
+            "label": "buildTestMeson",
+            "type": "shell",
+            "command": "meson build --buildtype=release && sudo ninja -C build install test",
+        }
+    ],
+    "version": "2.0.0"
+}

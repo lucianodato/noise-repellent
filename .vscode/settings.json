@@ -1,0 +1,8 @@
+{
+  "files.associations": {
+    "*.h": "c",
+    "*.c": "c",
+    "*.ttl.in": "turtle",
+    "*.ttl": "turtle",
+  },
+}

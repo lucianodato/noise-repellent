@@ -1,0 +1,39 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "/usr/bin/lv2apply",
+      "args": [
+        "-i",
+        "~/Music/noise.wav", // Any audio input file for testing purposed
+        "-o",
+        "~/Music/denoised.wav", // Any audio output file for testing purposed
+        "https://github.com/lucianodato/noise-repellent" // Plugin URI
+      ],
+      "stopAtEntry": false,
+      "cwd": "${workspaceRoot}",
+      "environment": [],
+      "externalConsole": false,
+      "MIMode": "gdb",
+      "setupCommands": [
+        {
+          "description": "Enable pretty-printing for gdb",
+          "text": "-enable-pretty-printing",
+          "ignoreFailures": true
+        }
+      ],
+      "preLaunchTask": "buildDebugMeson",
+      "miDebuggerPath": "/usr/bin/gdb"
+    },
+    {
+      "name": "Tests",
+      "type": "bashdb",
+      "request": "launch",
+      "program": "/usr/bin/bash",
+      "preLaunchTask": "buildTestMeson",
+    }
+  ]
+}
