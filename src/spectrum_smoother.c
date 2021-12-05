@@ -74,16 +74,6 @@ void spectral_smoothing_run(SpectralSmoother *self, float release)
 	memcpy(self->smoothed_spectrum_previous, self->smoothed_spectrum, sizeof(float) * (self->half_fft_size + 1));
 }
 
-void spectral_smoothing_reset(SpectralSmoother *self)
-{
-	memset(self->signal_spectrum, 0.f, self->half_fft_size + 1);
-	memset(self->noise_spectrum, 0.f, self->half_fft_size + 1);
-	memset(self->smoothed_spectrum, 0.f, self->half_fft_size + 1);
-	memset(self->smoothed_spectrum_previous, 0.f, self->half_fft_size + 1);
-
-	self->release_coefficient = 0.f;
-}
-
 SpectralSmoother *spectral_smoothing_initialize(int fft_size, int samp_rate, int hop)
 {
 	SpectralSmoother *self = (SpectralSmoother *)malloc(sizeof(SpectralSmoother));
@@ -98,7 +88,7 @@ SpectralSmoother *spectral_smoothing_initialize(int fft_size, int samp_rate, int
 	self->smoothed_spectrum = (float *)calloc((self->half_fft_size + 1), sizeof(float));
 	self->smoothed_spectrum_previous = (float *)calloc((self->half_fft_size + 1), sizeof(float));
 
-	spectral_smoothing_reset(self);
+	self->release_coefficient = 0.f;
 
 	return self;
 }

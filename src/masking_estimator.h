@@ -36,7 +36,6 @@ void convert_to_dbspl(MaskingEstimator *self, float *masking_thresholds);
 float compute_tonality_factor(float *spectrum, float *intermediate_band_bins,
 							  float *n_bins_per_band, int band);
 void compute_masking_thresholds(MaskingEstimator *self, float *spectrum, float *masking_thresholds);
-void masking_estimation_reset(MaskingEstimator *self);
 MaskingEstimator *masking_estimation_initialize(int fft_size, int samp_rate);
 void masking_estimation_free(MaskingEstimator *self);
 

@@ -156,18 +156,16 @@ void stft_processor_pre_and_post_window(STFTProcessor *self)
 void get_info_from_bins(float *fft_power, float *fft_magnitude, float *fft_phase,
 						int half_fft_size, int fft_size, float *fft_buffer)
 {
-	int k;
-	float real_p, imag_n, magnitude, power, phase;
-
-	real_p = fft_buffer[0];
-	imag_n = 0.f;
+	float real_p = fft_buffer[0];
 
 	fft_power[0] = real_p * real_p;
 	fft_magnitude[0] = real_p;
 	fft_phase[0] = atan2f(real_p, 0.f);
 
-	for (k = 1; k <= half_fft_size; k++)
+	for (int k = 1; k <= half_fft_size; k++)
 	{
+		float imag_n, magnitude, power, phase;
+
 		real_p = fft_buffer[k];
 		imag_n = fft_buffer[fft_size - k];
 
@@ -276,21 +274,7 @@ void stft_processor_run(STFTProcessor *self, NoiseProfile *noise_profile, int n_
 	}
 }
 
-void stft_processor_reset(STFTProcessor *self)
-{
-	memset(self->input_fft_buffer, 0.f, self->fft_size);
-	memset(self->output_fft_buffer, 0.f, self->fft_size);
-	memset(self->input_window, 0.f, self->fft_size);
-	memset(self->output_window, 0.f, self->fft_size);
-	memset(self->in_fifo, 0.f, self->fft_size);
-	memset(self->out_fifo, 0.f, self->fft_size);
-	memset(self->output_accum, 0.f, self->fft_size * 2);
-	memset(self->power_spectrum, 0.f, self->half_fft_size + 1);
-	memset(self->magnitude_spectrum, 0.f, self->half_fft_size + 1);
-	memset(self->phase_spectrum, 0.f, self->half_fft_size + 1);
-}
-
-STFTProcessor *stft_processor_initialize(FFTDenoiser *fft_denoiser, int sample_rate, int fft_size, int overlap_factor)
+STFTProcessor *stft_processor_initialize(FFTDenoiser *fft_denoiser, int fft_size, int overlap_factor)
 {
 	STFTProcessor *self = (STFTProcessor *)malloc(sizeof(STFTProcessor));
 
@@ -322,8 +306,6 @@ STFTProcessor *stft_processor_initialize(FFTDenoiser *fft_denoiser, int sample_r
 	self->power_spectrum = (float *)malloc((self->half_fft_size + 1) * sizeof(float));
 	self->magnitude_spectrum = (float *)malloc((self->half_fft_size + 1) * sizeof(float));
 	self->phase_spectrum = (float *)malloc((self->half_fft_size + 1) * sizeof(float));
-
-	stft_processor_reset(self);
 
 	stft_processor_pre_and_post_window(self);
 

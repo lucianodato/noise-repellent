@@ -26,7 +26,6 @@ typedef struct TransientDetector TransientDetector;
 
 float spectral_flux(float *spectrum, float *spectrum_prev, float N);
 bool transient_detector_run(TransientDetector *self, float transient_threshold);
-void transient_detector_reset(TransientDetector *self);
 TransientDetector *transient_detector_initialize(int fft_size);
 void transient_detector_free(TransientDetector *self);
 

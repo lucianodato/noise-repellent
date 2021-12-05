@@ -25,7 +25,6 @@ typedef struct SpectralSmoother SpectralSmoother;
 void get_release_coefficient(SpectralSmoother *self, float release);
 void apply_time_envelope(SpectralSmoother *self);
 void spectral_smoothing_run(SpectralSmoother *self, float release);
-void spectral_smoothing_reset(SpectralSmoother *self);
 SpectralSmoother *spectral_smoothing_initialize(int fft_size, int samp_rate, int hop);
 void spectral_smoothing_free(SpectralSmoother *self);
 

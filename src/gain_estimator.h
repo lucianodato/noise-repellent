@@ -30,7 +30,6 @@ void denoise_gain_generalized_spectral_substraction(GainEstimator *self);
 void compute_alpha_and_beta(GainEstimator *self, float masking_ceiling_limit, float masking_floor_limit);
 void gain_estimation_run(GainEstimator *self, float *signal_spectrum, float *noise_profile, float *gain_spectrum, float transient_threshold,
 						 float masking_ceiling_limit, float release, float noise_rescale);
-void gain_estimation_reset(GainEstimator *self);
 GainEstimator *gain_estimation_initialize(int fft_size, int samp_rate, int hop);
 void gain_estimation_free(GainEstimator *self);
 

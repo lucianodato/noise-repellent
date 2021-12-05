@@ -17,67 +17,45 @@ You should have received a copy of the GNU Lesser General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
-/**
-* \file transient_detector.c
-* \author Luciano Dato
-* \brief Contains a transient detector abstraction
-*/
-
 #include "transient_detector.h"
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
 
-#define TP_UPPER_LIMIT 5.f //This correspond to the upper limit of the adaptive threshold multiplier. Should be the same as the ttl configured one
+#define TP_UPPER_LIMIT 5.f
 
 struct TransientDetector
 {
-	//General parameters
 	int fft_size;
 	int half_fft_size;
 
 	float *spectrum;
 
-	//Transient preservation related
-	float *previous_spectrum; //previous frame smoothed power spectrum for envelopes
+	float *previous_spectrum;
 	float r_mean;
 	bool transient_present;
 	float window_count;
 };
 
-/**
-* Outputs the spectral flux between two spectrums.
-* \param spectrum the current power spectrum
-* \param spectrum_prev the previous power spectrum
-* \param N the size of the spectrum (half the fft size plus 1)
-*/
 float spectral_flux(float *spectrum, float *spectrum_prev, float N)
 {
 	int i;
 	float spectral_flux = 0.f;
-	float temp;
 
 	for (i = 0; i <= N; i++)
 	{
-		temp = sqrtf(spectrum[i]) - sqrtf(spectrum_prev[i]); //Recieves power spectrum uses magnitude
+		float temp;
+		temp = sqrtf(spectrum[i]) - sqrtf(spectrum_prev[i]);
 		spectral_flux += (temp + fabs(temp)) / 2.f;
 	}
 	return spectral_flux;
 }
 
-/**
-* Transient detection using a rolling mean thresholding over the spectral flux of
-* the signal. Using more heuristics like high frequency content and others like the ones
-* anylised by Dixon in 'Simple Spectrum-Based Onset Detection' would be better. Onset
-* detection is explained thoroughly in 'A tutorial on onset detection in music signals' * by Bello.
-*/
 bool transient_detector_run(TransientDetector *self, float transient_threshold)
 {
 	float adapted_threshold, reduction_function;
 
-	//Transient protection by forcing wiener filtering when an onset is detected
 	reduction_function = spectral_flux(self->spectrum, self->previous_spectrum, self->half_fft_size);
-	//reduction_function = high_frequency_content(self->spectrum, self->half_fft_size);
 
 	self->window_count += 1.f;
 
@@ -104,45 +82,23 @@ bool transient_detector_run(TransientDetector *self, float transient_threshold)
 	}
 }
 
-/**
-* Reset dynamic arrays to zero.
-*/
-void transient_detector_reset(TransientDetector *self)
+TransientDetector *transient_detector_initialize(int fft_size)
 {
-	//Reset all arrays
-	memset(self->spectrum, 0.f, self->half_fft_size + 1);
-	memset(self->previous_spectrum, 0.f, self->half_fft_size + 1);
+	TransientDetector *self = (TransientDetector *)malloc(sizeof(TransientDetector));
+
+	self->fft_size = fft_size;
+	self->half_fft_size = self->fft_size / 2;
+
+	self->spectrum = (float *)calloc((self->half_fft_size + 1), sizeof(float));
+	self->previous_spectrum = (float *)calloc((self->half_fft_size + 1), sizeof(float));
 
 	self->window_count = 0.f;
 	self->r_mean = 0.f;
 	self->transient_present = false;
-}
-
-/**
-* Masking estimator initialization and configuration.
-*/
-TransientDetector *transient_detector_initialize(int fft_size)
-{
-	//Allocate object
-	TransientDetector *self = (TransientDetector *)malloc(sizeof(TransientDetector));
-
-	//Configuration
-	self->fft_size = fft_size;
-	self->half_fft_size = self->fft_size / 2;
-
-	//spectrum allocation
-	self->spectrum = (float *)calloc((self->half_fft_size + 1), sizeof(float));
-	self->previous_spectrum = (float *)calloc((self->half_fft_size + 1), sizeof(float));
-
-	//Reset all values
-	transient_detector_reset(self);
 
 	return self;
 }
 
-/**
-* Free allocated memory.
-*/
 void transient_detector_free(TransientDetector *self)
 {
 	free(self->spectrum);

@@ -77,21 +77,20 @@ static LV2_Handle instantiate(const LV2_Descriptor *descriptor, double rate, con
 
 	NoiseRepellent *self = (NoiseRepellent *)calloc(1, sizeof(NoiseRepellent));
 
-	self->sample_rate = (float)rate;
+	self->plugin_state = plugin_state_initialize();
 
-	self->noise_profile = noise_profile_initialize(FFT_SIZE / 2);
-	self->fft_denoiser = fft_denoiser_initialize(self->sample_rate, FFT_SIZE, OVERLAP_FACTOR);
-	self->stft_processor = stft_processor_initialize(self->fft_denoiser, self->sample_rate, FFT_SIZE, OVERLAP_FACTOR);
-
-	if (!plugin_state_initialize(self->plugin_state, features))
+	if (!plugin_state_configure(self->plugin_state, features))
 	{
-		noise_profile_free(self->noise_profile);
-		fft_denoiser_free(self->fft_denoiser);
-		stft_processor_free(self->stft_processor);
 		plugin_state_free(self->plugin_state);
 		free(self);
 		return NULL;
 	}
+
+	self->sample_rate = (float)rate;
+
+	self->noise_profile = noise_profile_initialize(FFT_SIZE / 2 + 1);
+	self->fft_denoiser = fft_denoiser_initialize(self->sample_rate, FFT_SIZE, OVERLAP_FACTOR);
+	self->stft_processor = stft_processor_initialize(self->fft_denoiser, FFT_SIZE, OVERLAP_FACTOR);
 
 	return (LV2_Handle)self;
 }

@@ -36,8 +36,7 @@ void stft_processor_run(STFTProcessor *self, NoiseProfile *noise_profile, int n_
 						int enable, int learn_noise, float whitening_factor, float reduction_amount,
 						bool residual_listen, float transient_threshold, float masking_ceiling_limit,
 						float release, float noise_rescale);
-void stft_processor_reset(STFTProcessor *self);
-STFTProcessor *stft_processor_initialize(FFTDenoiser *fft_denoiser, int sample_rate, int fft_size, int overlap_factor);
+STFTProcessor *stft_processor_initialize(FFTDenoiser *fft_denoiser, int fft_size, int overlap_factor);
 void stft_processor_free(STFTProcessor *self);
 void get_info_from_bins(float *fft_power, float *fft_magnitude, float *fft_phase,
 						int half_fft_size, int fft_size, float *fft_buffer);

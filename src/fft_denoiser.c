@@ -201,21 +201,6 @@ void fft_denoiser_run(FFTDenoiser *self, NoiseProfile *noise_profile, float *fft
 	memcpy(fft_spectrum, self->processed_fft_spectrum, sizeof(float) * self->fft_size);
 }
 
-void fft_denoiser_reset(FFTDenoiser *self)
-{
-	memset(self->fft_spectrum, 0.f, self->fft_size);
-	memset(self->processed_fft_spectrum, 0.f, self->fft_size);
-	memset(self->gain_spectrum, 1.f, self->fft_size);
-
-	memset(self->residual_max_spectrum, 0.f, self->fft_size);
-	memset(self->denoised_spectrum, 0.f, self->fft_size);
-	memset(self->residual_spectrum, 0.f, self->fft_size);
-	memset(self->whitened_residual_spectrum, 0.f, self->fft_size);
-	memset(self->gain_spectrum, 0.f, self->fft_size);
-
-	self->whitening_window_count = 0.f;
-}
-
 FFTDenoiser *fft_denoiser_initialize(int samp_rate, int fft_size, int overlap_factor)
 {
 	FFTDenoiser *self = (FFTDenoiser *)malloc(sizeof(FFTDenoiser));
@@ -239,7 +224,7 @@ FFTDenoiser *fft_denoiser_initialize(int samp_rate, int fft_size, int overlap_fa
 	self->gain_spectrum = (float *)calloc((self->fft_size), sizeof(float));
 	self->whitened_residual_spectrum = (float *)calloc((self->fft_size), sizeof(float));
 
-	fft_denoiser_reset(self);
+	self->whitening_window_count = 0.f;
 
 	self->noise_estimation = noise_estimation_initialize(self->fft_size);
 

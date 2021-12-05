@@ -27,7 +27,6 @@ typedef struct NoiseEstimator NoiseEstimator;
 
 bool is_noise_estimation_available(NoiseEstimator *self);
 void noise_estimation_run(NoiseEstimator *self, NoiseProfile *noise_profile, float *spectrum);
-void noise_estimation_reset(NoiseEstimator *self);
 NoiseEstimator *noise_estimation_initialize(int fft_size);
 void noise_estimation_free(NoiseEstimator *self);
 

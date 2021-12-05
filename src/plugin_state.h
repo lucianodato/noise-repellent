@@ -30,11 +30,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 typedef struct PluginState PluginState;
 
-bool plugin_state_initialize(PluginState *self, const LV2_Feature *const *features);
-void plugin_state_free(PluginState *self);
+bool plugin_state_configure(PluginState *self, const LV2_Feature *const *features);
 void plugin_state_savestate(PluginState *self, LV2_State_Store_Function store, LV2_State_Handle handle,
 							int fft_size, NoiseProfile *noise_profile);
 bool plugin_state_restorestate(PluginState *self, LV2_State_Retrieve_Function retrieve, LV2_State_Handle handle,
 							   NoiseProfile *noise_profile, int *fft_size);
+void plugin_state_free(PluginState *self);
+PluginState *plugin_state_initialize();
 
 #endif

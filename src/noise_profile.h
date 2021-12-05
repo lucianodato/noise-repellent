@@ -24,7 +24,6 @@ typedef struct NoiseProfile NoiseProfile;
 
 void set_noise_profile(NoiseProfile *self, float *noise_profile);
 float *get_noise_profile(NoiseProfile *self);
-void noise_profile_reset(NoiseProfile *self);
 NoiseProfile *noise_profile_initialize(int noise_profile_size);
 void noise_profile_free(NoiseProfile *self);
 

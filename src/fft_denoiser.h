@@ -36,7 +36,6 @@ void get_final_spectrum(FFTDenoiser *self, bool residual_listen, float reduction
 void fft_denoiser_run(FFTDenoiser *self, NoiseProfile *noise_profile, float *fft_spectrum, int enable, bool learn_noise, float whitening_factor,
 					  float reduction_amount, bool residual_listen, float transient_threshold,
 					  float masking_ceiling_limit, float release, float noise_rescale);
-void fft_denoiser_reset(FFTDenoiser *self);
 FFTDenoiser *fft_denoiser_initialize(int sample_rate, int fft_size, int overlap_factor);
 void fft_denoiser_free(FFTDenoiser *self);
 

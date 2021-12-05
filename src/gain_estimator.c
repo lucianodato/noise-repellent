@@ -213,7 +213,7 @@ void gain_estimation_run(GainEstimator *self, float *signal_spectrum, float *noi
 	}
 	else
 	{
-		memset(self->alpha, 1.f, self->half_fft_size + 1);
+		memset(self->alpha, 0, self->half_fft_size + 1);
 	}
 
 	for (k = 0; k <= self->half_fft_size; k++)
@@ -239,17 +239,6 @@ void gain_estimation_run(GainEstimator *self, float *signal_spectrum, float *noi
 	}
 }
 
-void gain_estimation_reset(GainEstimator *self)
-{
-	memset(self->signal_spectrum, 0.f, self->half_fft_size + 1);
-	memset(self->noise_profile, 0.f, self->half_fft_size + 1);
-	memset(self->gain_spectrum, 1.f, self->half_fft_size + 1);
-	memset(self->alpha, 1.f, self->half_fft_size + 1);
-	memset(self->beta, 0.f, self->half_fft_size + 1);
-	memset(self->masking_thresholds, 0.f, self->half_fft_size + 1);
-	memset(self->clean_signal_estimation, 0.f, self->half_fft_size + 1);
-}
-
 GainEstimator *gain_estimation_initialize(int fft_size, int samp_rate, int hop)
 {
 	GainEstimator *self = (GainEstimator *)malloc(sizeof(GainEstimator));
@@ -266,8 +255,6 @@ GainEstimator *gain_estimation_initialize(int fft_size, int samp_rate, int hop)
 	self->beta = (float *)calloc((self->half_fft_size + 1), sizeof(float));
 	self->masking_thresholds = (float *)calloc((self->half_fft_size + 1), sizeof(float));
 	self->clean_signal_estimation = (float *)calloc((self->half_fft_size + 1), sizeof(float));
-
-	gain_estimation_reset(self);
 
 	self->masking_estimation = masking_estimation_initialize(self->fft_size, self->samp_rate);
 	self->transient_detection = transient_detector_initialize(self->fft_size);

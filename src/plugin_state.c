@@ -18,24 +18,19 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
 #include "plugin_state.h"
-#include <math.h>
-#include <stdbool.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
 
 struct PluginState
 {
 	LV2_URID_Map *map;
 	LV2_URID atom_Vector;
 	LV2_URID atom_Int;
-	LV2_URID atom_Float;
 	LV2_URID property_fft_size;
 	LV2_URID property_saved_noise_profile;
 };
 
-bool plugin_state_initialize(PluginState *self, const LV2_Feature *const *features)
+bool plugin_state_configure(PluginState *self, const LV2_Feature *const *features)
 {
 	for (int i = 0; features[i]; ++i)
 	{
@@ -44,24 +39,18 @@ bool plugin_state_initialize(PluginState *self, const LV2_Feature *const *featur
 			self->map = (LV2_URID_Map *)features[i]->data;
 		}
 	}
-	if (!self->map)
+
+	if (self->map == NULL)
 	{
 		return false;
 	}
 
-	//For lv2 state (noise profile saving)
-	self->atom_Vector = self->map->map(self->map->handle, LV2_ATOM__Vector);
 	self->atom_Int = self->map->map(self->map->handle, LV2_ATOM__Int);
-	self->atom_Float = self->map->map(self->map->handle, LV2_ATOM__Float);
+	self->atom_Vector = self->map->map(self->map->handle, LV2_ATOM__Vector);
 	self->property_fft_size = self->map->map(self->map->handle, NOISEREPELLENT_URI "#fftsize");
 	self->property_saved_noise_profile = self->map->map(self->map->handle, NOISEREPELLENT_URI "#savednoiseprofile");
 
 	return true;
-}
-
-void plugin_state_free(PluginState *self)
-{
-	free(self);
 }
 
 void plugin_state_savestate(PluginState *self, LV2_State_Store_Function store, LV2_State_Handle handle,
@@ -81,7 +70,7 @@ bool plugin_state_restorestate(PluginState *self, LV2_State_Retrieve_Function re
 	uint32_t type;
 	uint32_t valflags;
 
-	const int *fftsize = retrieve(handle, self->property_fft_size, &size, &type, &valflags);
+	const int *fftsize = (const int *)retrieve(handle, self->property_fft_size, &size, &type, &valflags);
 	if (!fftsize || type != self->atom_Int)
 	{
 		return false;
@@ -97,4 +86,18 @@ bool plugin_state_restorestate(PluginState *self, LV2_State_Retrieve_Function re
 	memcpy(noise_profile, (float *)LV2_ATOM_BODY(saved_noise_profile), (*fftsize / 2 + 1) * sizeof(float));
 
 	return true;
+}
+
+void plugin_state_free(PluginState *self)
+{
+	free(self->map);
+	free(self);
+}
+
+PluginState *plugin_state_initialize()
+{
+	PluginState *self = (PluginState *)calloc(1, sizeof(PluginState));
+	self->map = (LV2_URID_Map *)calloc(1, sizeof(LV2_URID_Map));
+
+	return self;
 }

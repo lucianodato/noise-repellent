@@ -40,19 +40,12 @@ float *get_noise_profile(NoiseProfile *self)
 	return self->noise_profile;
 }
 
-void noise_profile_reset(NoiseProfile *self)
-{
-	memset(self->noise_profile, 0.f, self->noise_profile_size + 1);
-}
-
 NoiseProfile *noise_profile_initialize(int noise_profile_size)
 {
 	NoiseProfile *self = (NoiseProfile *)malloc(sizeof(NoiseProfile));
 
 	self->noise_profile_size = noise_profile_size;
 	self->noise_profile = (float *)calloc((self->noise_profile_size), sizeof(float));
-
-	noise_profile_reset(self);
 
 	return self;
 }
