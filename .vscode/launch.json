@@ -25,15 +25,8 @@
           "ignoreFailures": true
         }
       ],
-      "preLaunchTask": "buildDebugMeson",
+      "preLaunchTask": "DebugBuild",
       "miDebuggerPath": "/usr/bin/gdb"
-    },
-    {
-      "name": "Tests",
-      "type": "bashdb",
-      "request": "launch",
-      "program": "/usr/bin/bash",
-      "preLaunchTask": "buildTestMeson",
     }
   ]
 }

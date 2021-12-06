@@ -1,14 +1,39 @@
 {
     "tasks": [
         {
-            "label": "buildDebugMeson",
+            "label": "DebugBuild",
             "type": "shell",
             "command": "meson build --buildtype=debug && ninja -C build",
         },
         {
-            "label": "buildTestMeson",
+            "label": "CleanBuild",
             "type": "shell",
-            "command": "meson build --buildtype=release && sudo ninja -C build install test",
+            "command": "ninja -C build -t clean",
+        },
+        {
+            "label": "ValgrindBuild",
+            "type": "shell",
+            "command": "meson build --buildtype=debug --prefix=/usr/lib/lv2 && sudo ninja -C build install && valgrind lv2apply -i ~/Music/noise.wav -o ~/Music/denoised.wav https://github.com/lucianodato/noise-repellent",
+        },
+        {
+            "label": "TestBuild",
+            "type": "shell",
+            "command": "meson build --buildtype=release && ninja -C build test",
+        },
+        {
+            "label": "InstallPlugin",
+            "type": "shell",
+            "command": "meson build --buildtype=release --prefix=/usr/lib/lv2 && sudo ninja -C build install",
+        },
+        {
+            "label": "UninstallPlugin",
+            "type": "shell",
+            "command": "sudo ninja -C build uninstall",
+        },
+        {
+            "label": "InstallDependencies",
+            "type": "shell",
+            "command": "sudo apt install build-essential gdb valgrind meson ninja-build git lv2-dev libfftw3-dev sordi lilv-utils",
         }
     ],
     "version": "2.0.0"
