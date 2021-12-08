@@ -11,7 +11,6 @@ noise_repellent_sources = [
     'src/stft_processor.c',
     'src/noise_profile.c',
     'src/denoise_parameters.c',
-    'src/plugin_state.c',
     'src/plugin.c'
 ]
 
