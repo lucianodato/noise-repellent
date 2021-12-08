@@ -245,7 +245,7 @@ void fft_denoiser_run(FFTDenoiser *self, NoiseProfile *noise_profile, float *fft
 
 	fft_denoiser_soft_bypass(self);
 
-	memcpy(fft_spectrum, self->fft_spectrum, sizeof(float) * self->half_fft_size + 1);
+	memcpy(fft_spectrum, self->processed_fft_spectrum, sizeof(float) * self->half_fft_size + 1);
 }
 
 FFTDenoiser *fft_denoiser_initialize(int samp_rate, int fft_size, int overlap_factor)
