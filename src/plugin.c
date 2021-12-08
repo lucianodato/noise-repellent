@@ -86,17 +86,7 @@ typedef struct
 	const float *input;
 	float *output;
 	float sample_rate;
-
 	float *report_latency;
-	float *reduction_amount;
-	float *noise_rescale;
-	float *release;
-	float *masking;
-	float *whitening_factor;
-	float *learn_noise;
-	float *residual_listen;
-	float *transient_protection;
-	float *enable;
 
 	// Features
 	LV2_URID_Map *map;
@@ -150,31 +140,31 @@ static void connect_port(LV2_Handle instance, uint32_t port, void *data)
 	switch ((PortIndex)port)
 	{
 	case NOISEREPELLENT_AMOUNT:
-		self->reduction_amount = (float *)data;
+		set_plugin_parameters(self->denoise_parameters, (float *)data, REDUCTION_AMOUNT);
 		break;
 	case NOISEREPELLENT_NOISE_OFFSET:
-		self->noise_rescale = (float *)data;
+		set_plugin_parameters(self->denoise_parameters, (float *)data, NOISE_RESCALE);
 		break;
 	case NOISEREPELLENT_RELEASE:
-		self->release = (float *)data;
+		set_plugin_parameters(self->denoise_parameters, (float *)data, RELEASE);
 		break;
 	case NOISEREPELLENT_MASKING:
-		self->masking = (float *)data;
+		set_plugin_parameters(self->denoise_parameters, (float *)data, MASKING);
 		break;
 	case NOISEREPELLENT_WHITENING:
-		self->whitening_factor = (float *)data;
+		set_plugin_parameters(self->denoise_parameters, (float *)data, WHITENING_FACTOR);
 		break;
 	case NOISEREPELLENT_NOISE_LEARN:
-		self->learn_noise = (float *)data;
+		set_plugin_parameters(self->denoise_parameters, (float *)data, LEARN_NOISE);
 		break;
 	case NOISEREPELLENT_RESIDUAL_LISTEN:
-		self->residual_listen = (float *)data;
+		set_plugin_parameters(self->denoise_parameters, (float *)data, RESIDUAL_LISTEN);
 		break;
 	case NOISEREPELLENT_TRANSIENT_PROTECT:
-		self->transient_protection = (float *)data;
+		set_plugin_parameters(self->denoise_parameters, (float *)data, TRANSIENT_PROTECTION);
 		break;
 	case NOISEREPELLENT_ENABLE:
-		self->enable = (float *)data;
+		set_plugin_parameters(self->denoise_parameters, (float *)data, ENABLE);
 		break;
 	case NOISEREPELLENT_LATENCY:
 		self->report_latency = (float *)data;
@@ -192,20 +182,9 @@ static void run(LV2_Handle instance, uint32_t n_samples)
 {
 	NoiseRepellent *self = (NoiseRepellent *)instance;
 
-	set_plugin_parameters(self->denoise_parameters, self->reduction_amount, REDUCTION_AMOUNT);
-	set_plugin_parameters(self->denoise_parameters, self->noise_rescale, NOISE_RESCALE);
-	set_plugin_parameters(self->denoise_parameters, self->release, RELEASE);
-	set_plugin_parameters(self->denoise_parameters, self->masking, MASKING);
-	set_plugin_parameters(self->denoise_parameters, self->whitening_factor, WHITENING_FACTOR);
-	set_plugin_parameters(self->denoise_parameters, self->learn_noise, LEARN_NOISE);
-	set_plugin_parameters(self->denoise_parameters, self->residual_listen, RESIDUAL_LISTEN);
-	set_plugin_parameters(self->denoise_parameters, self->transient_protection, TRANSIENT_PROTECTION);
-	set_plugin_parameters(self->denoise_parameters, self->enable, ENABLE);
-
 	load_denoise_parameters(self->fft_denoiser, self->denoise_parameters);
 
 	*(self->report_latency) = (float)stft_processor_get_latency(self->stft_processor);
-
 	stft_processor_run(self->stft_processor, self->noise_profile, n_samples, self->input, self->output);
 }
 
