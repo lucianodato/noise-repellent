@@ -1,10 +1,5 @@
 project('nrepellent.lv2','c',version: '0.1.6',default_options: ['c_std=gnu11'])
 
-git = find_program('git', native : true, required : true)
-sord_validate = find_program('sord_validate', native : true, required : false)
-lv2bench = find_program('lv2bench', native : true, required : false)
-lv2ls = find_program('lv2ls', native : true, required : false)
-
 #sources to compile
 noise_repellent_sources = [
     'src/transient_detector.c',
@@ -15,6 +10,7 @@ noise_repellent_sources = [
     'src/fft_denoiser.c',
     'src/stft_processor.c',
     'src/noise_profile.c',
+    'src/denoise_parameters.c',
     'src/plugin_state.c',
     'src/plugin.c'
 ]
@@ -27,8 +23,8 @@ nr_dep = [m_dep,fftw_dep,lv2_dep]
 
 #compiler default flags
 add_global_arguments('-fomit-frame-pointer','-fno-finite-math-only','-Wno-unused-function',language : 'c')
-if get_option('buildtype').startswith('debug')
-   add_global_arguments('-ggdb3', language: 'c')
+if get_option('buildtype') == 'debug'
+  add_project_arguments('-ggdb3',  language : 'c')
 endif
 
 #install folder
@@ -39,13 +35,15 @@ current_os = host_machine.system()
 current_arch = host_machine.cpu_family()
 cflags = []
 
-# Add x86_64 optimization where appropriate (not for ARM, not for riscv)
-if current_arch != 'aarch64' and current_arch != 'riscv64' and current_os != 'darwin' 
-    cflags += ['-ffast-math', '-msse','-msse2','-mfpmath=sse']
-endif
-# Add osx multiarch flags when appropriate
-if current_os == 'darwin'
-    cflags += ['-mrecip']
+if get_option('buildtype') == 'release'
+    # Add x86_64 optimization where appropriate (not for ARM, not for riscv)
+    if current_arch != 'aarch64' and current_arch != 'riscv64' and current_os != 'darwin' 
+        cflags += ['-ffast-math', '-msse','-msse2','-mfpmath=sse']
+    endif
+    # Add osx multiarch flags when appropriate
+    if current_os == 'darwin'
+        cflags += ['-mrecip']
+    endif
 endif
 
 # Extension for library by os
@@ -74,7 +72,9 @@ library('nrepellent',
 	
 #Getting version from project configuration or from git tags
 version_array = meson.project_version().split('.')
-if version_array.length() == 0
+
+git = find_program('git', native : true, required : false)
+if version_array.length() == 0 and git.found()
     version_array = run_command('git', 'describe').stdout().strip().split('-')[0].split('.')
 endif
 
@@ -93,7 +93,7 @@ manifest_ttl = configure_file(
 	install_dir : install_folder
 )
 
-#Configure nrepel.ttl and install
+#Configure nrepellent.ttl and install
 nrepel_ttl = configure_file(
     input : join_paths('lv2ttl', 'nrepellent.ttl.in'),
     output : 'nrepellent.ttl',
@@ -101,18 +101,3 @@ nrepel_ttl = configure_file(
     install : true,
 	install_dir : install_folder
 )
-
-# testing ttls
-if sord_validate.found()
-	test('LV2 validation of manifest.ttl', sord_validate,
-		args : [run_command('find','/ -name "manifest.ttl"').stdout()])
-    test('LV2 validation of nrepellent.ttl', sord_validate,
-		args : [run_command('find','/ -name "nrepellent.ttl"').stdout()])
-endif
-
-# stress test
-if lv2bench.found() and lv2ls.found()
-	plugin_uri = run_command('lv2ls').stdout()
-    test('Stress Test Plugin', lv2bench,
-		args : [plugin_uri])
-endif

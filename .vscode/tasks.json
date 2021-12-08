@@ -1,39 +1,134 @@
 {
     "tasks": [
         {
-            "label": "DebugBuild",
+            "label": "CleanBuildFolder",
             "type": "shell",
-            "command": "rm -rf ./build && meson build --buildtype=debug --prefix=~/.lv2 && ninja -C build install",
+            "command": "rm -rf ./build"
         },
         {
-            "label": "CleanBuild",
+            "label": "MesonDebugConfig",
             "type": "shell",
-            "command": "ninja -C build -t clean",
+            "command": "meson build --buildtype=debug --prefix=~/.lv2"
         },
         {
-            "label": "ValgrindBuild",
+            "label": "MesonReleaseConfig",
             "type": "shell",
-            "command": "rm -rf ./build && meson build --buildtype=debug --prefix=~/.lv2 && ninja -C build install && valgrind lv2apply -i ~/Music/noise.wav -o ~/Music/denoised.wav https://github.com/lucianodato/noise-repellent",
+            "command": "meson build --buildtype=release --prefix=~/.lv2"
         },
         {
-            "label": "TestBuild",
+            "label": "NinjaBuild",
             "type": "shell",
-            "command": "rm -rf ./build && meson build --buildtype=release --prefix=~/.lv2 && ninja -C build install test",
+            "command": "ninja -C build -v"
+        },
+        {
+            "label": "NinjaInstall",
+            "type": "shell",
+            "command": "ninja -C build install -v"
+        },
+        {
+            "label": "NinjaTest",
+            "type": "shell",
+            "command": "ninja -C build test"
+        },
+        {
+            "label": "NinjaUninstall",
+            "type": "shell",
+            "command": "ninja -C build uninstall"
+        },
+        {
+            "label": "NinjaClean",
+            "type": "shell",
+            "command": "ninja -C build -t clean"
+        },
+        {
+            "label": "SordValidate",
+            "type": "shell",
+            "command": "sord_validate $(find ./build -name *.ttl) $(find /usr/lib/lv2 -name *.ttl)"
+        },
+        {
+            "label": "Lv2Bench",
+            "type": "shell",
+            "command": "lv2bench https://github.com/lucianodato/noise-repellent"
+        },
+        {
+            "label": "ValgrindLv2Apply",
+            "type": "shell",
+            "command": "valgrind",
+            "args": [
+                "--leak-check=full",
+                "--track-origins=yes",
+                "lv2apply",
+                "-i",
+                "~/Music/noise.wav",
+                "-o",
+                "~/Music/denoised.wav",
+                "https://github.com/lucianodato/noise-repellent"
+            ]
+        },
+        {
+            "label": "DebugPlugin",
+            "dependsOn": [
+                "CleanBuildFolder",
+                "MesonDebugConfig",
+                "NinjaBuild",
+                "NinjaInstall",
+            ],
+            "dependsOrder": "sequence",
+            "problemMatcher": {
+                "base": "$gcc",
+            }
+        },
+        {
+            "label": "ValgrindPlugin",
+            "dependsOn": [
+                "CleanBuildFolder",
+                "MesonDebugConfig",
+                "NinjaBuild",
+                "NinjaInstall",
+                "ValgrindLv2Apply"
+            ],
+            "dependsOrder": "sequence",
+        },
+        {
+            "label": "TestPlugin",
+            "dependsOn": [
+                "CleanBuildFolder",
+                "MesonReleaseConfig",
+                "NinjaBuild",
+                "NinjaInstall",
+                "SordValidate",
+                "Lv2Bench"
+            ],
+            "dependsOrder": "sequence",
         },
         {
             "label": "InstallPlugin",
-            "type": "shell",
-            "command": "rm -rf ./build && meson build --buildtype=release --prefix=~/.lv2 && ninja -C build install",
+            "dependsOn": [
+                "CleanBuildFolder",
+                "MesonReleaseConfig",
+                "NinjaBuild",
+                "NinjaInstall",
+            ],
+            "dependsOrder": "sequence",
         },
         {
             "label": "UninstallPlugin",
-            "type": "shell",
-            "command": "ninja -C build uninstall",
+            "dependsOn": [
+                "NinjaUninstall",
+                "NinjaClean",
+                "CleanBuildFolder",
+            ],
+            "dependsOrder": "sequence",
         },
         {
-            "label": "InstallDependencies",
+            "label": "InstallDevelopmentDependencies",
             "type": "shell",
-            "command": "sudo apt install build-essential gdb valgrind meson ninja-build git lv2-dev libfftw3-dev sordi lilv-utils",
+            "command": "sudo apt install build-essential gdb valgrind meson ninja-build git lv2-dev libfftw3-dev sordi lilv-utils"
+        },
+        {
+            "label": "InstallDevelopmentLinters",
+            "type": "shell",
+            "command": "sudo apt install clang cppcheck pip && sudo pip install flawfinder lizard"
         }
     ],
     "version": "2.0.0"
