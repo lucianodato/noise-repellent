@@ -20,11 +20,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include "denoise_parameters.h"
 #include "fft_denoiser.h"
 #include "lv2/atom/atom.h"
-#include "lv2/atom/forge.h"
-#include "lv2/atom/util.h"
 #include "lv2/core/lv2.h"
 #include "lv2/core/lv2_util.h"
-#include "lv2/log/log.h"
 #include "lv2/log/logger.h"
 #include "lv2/state/state.h"
 #include "lv2/urid/urid.h"
@@ -35,8 +32,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <string.h>
 
 #define NOISEREPELLENT_URI "https://github.com/lucianodato/noise-repellent"
-#define N_PROPS 2
-
 #define FFT_SIZE 2048
 #define OVERLAP_FACTOR 4
 
