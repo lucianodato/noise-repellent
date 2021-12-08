@@ -52,9 +52,7 @@ void get_release_coefficient(SpectralSmoother *self, float release)
 
 void apply_time_envelope(SpectralSmoother *self)
 {
-	int k;
-
-	for (k = 0; k <= self->half_fft_size; k++)
+	for (int k = 1; k <= self->half_fft_size; k++)
 	{
 		if (self->smoothed_spectrum[k] > self->smoothed_spectrum_previous[k])
 		{
@@ -76,7 +74,7 @@ void spectral_smoothing_run(SpectralSmoother *self, float release)
 
 SpectralSmoother *spectral_smoothing_initialize(int fft_size, int samp_rate, int hop)
 {
-	SpectralSmoother *self = (SpectralSmoother *)malloc(sizeof(SpectralSmoother));
+	SpectralSmoother *self = (SpectralSmoother *)calloc(1, sizeof(SpectralSmoother));
 
 	self->fft_size = fft_size;
 	self->half_fft_size = self->fft_size / 2;

@@ -240,14 +240,18 @@ int stft_processor_get_latency(STFTProcessor *self)
 	return self->input_latency;
 }
 
-void stft_processor_run(STFTProcessor *self, NoiseProfile *noise_profile, int n_samples, const float *input, float *output,
-						int enable, int learn_noise, float whitening_factor, float reduction_amount,
-						bool residual_listen, float transient_threshold, float masking_ceiling_limit,
-						float release, float noise_rescale)
+static void mirror_resulting_spectrum(STFTProcessor *self)
 {
-	int k;
+	for (int i = 0; i <= self->half_fft_size; i++)
+	{
+		self->output_fft_buffer[i] = self->power_spectrum[i];
+		self->output_fft_buffer[self->fft_size - i - 1] = self->power_spectrum[i];
+	}
+}
 
-	for (k = 0; k < n_samples; k++)
+void stft_processor_run(STFTProcessor *self, NoiseProfile *noise_profile, int n_samples, const float *input, float *output)
+{
+	for (int k = 0; k < n_samples; k++)
 	{
 		self->in_fifo[self->read_position] = input[k];
 		output[k] = self->out_fifo[self->read_position - self->input_latency];
@@ -265,9 +269,9 @@ void stft_processor_run(STFTProcessor *self, NoiseProfile *noise_profile, int n_
 							   self->phase_spectrum, self->half_fft_size,
 							   self->fft_size, self->output_fft_buffer);
 
-			fft_denoiser_run(self->fft_denoiser, noise_profile, self->power_spectrum, enable, learn_noise, whitening_factor,
-							 reduction_amount, residual_listen, transient_threshold, masking_ceiling_limit,
-							 release, noise_rescale);
+			fft_denoiser_run(self->fft_denoiser, noise_profile, self->power_spectrum);
+
+			mirror_resulting_spectrum(self);
 
 			stft_processor_synthesis(self);
 		}
@@ -276,7 +280,7 @@ void stft_processor_run(STFTProcessor *self, NoiseProfile *noise_profile, int n_
 
 STFTProcessor *stft_processor_initialize(FFTDenoiser *fft_denoiser, int fft_size, int overlap_factor)
 {
-	STFTProcessor *self = (STFTProcessor *)malloc(sizeof(STFTProcessor));
+	STFTProcessor *self = (STFTProcessor *)calloc(1, sizeof(STFTProcessor));
 
 	set_spectral_size(self, fft_size);
 	self->window_option_input = INPUT_WINDOW_TYPE;
@@ -286,16 +290,16 @@ STFTProcessor *stft_processor_initialize(FFTDenoiser *fft_denoiser, int fft_size
 	self->input_latency = self->fft_size - self->hop;
 	self->read_position = self->input_latency;
 
-	self->input_window = (float *)malloc(self->fft_size * sizeof(float));
-	self->output_window = (float *)malloc(self->fft_size * sizeof(float));
+	self->input_window = (float *)calloc(self->fft_size, sizeof(float));
+	self->output_window = (float *)calloc(self->fft_size, sizeof(float));
 
-	self->in_fifo = (float *)malloc(self->fft_size * sizeof(float));
-	self->out_fifo = (float *)malloc(self->fft_size * sizeof(float));
+	self->in_fifo = (float *)calloc(self->fft_size, sizeof(float));
+	self->out_fifo = (float *)calloc(self->fft_size, sizeof(float));
 
-	self->output_accum = (float *)malloc((self->fft_size * 2) * sizeof(float));
+	self->output_accum = (float *)calloc((self->fft_size * 2), sizeof(float));
 
-	self->input_fft_buffer = (float *)fftwf_malloc(self->fft_size * sizeof(float));
-	self->output_fft_buffer = (float *)fftwf_malloc(self->fft_size * sizeof(float));
+	self->input_fft_buffer = (float *)calloc(self->fft_size, sizeof(float));
+	self->output_fft_buffer = (float *)calloc(self->fft_size, sizeof(float));
 	self->forward = fftwf_plan_r2r_1d(self->fft_size, self->input_fft_buffer,
 									  self->output_fft_buffer, FFTW_R2HC,
 									  FFTW_ESTIMATE);
@@ -303,9 +307,9 @@ STFTProcessor *stft_processor_initialize(FFTDenoiser *fft_denoiser, int fft_size
 									   self->input_fft_buffer, FFTW_HC2R,
 									   FFTW_ESTIMATE);
 
-	self->power_spectrum = (float *)malloc((self->half_fft_size + 1) * sizeof(float));
-	self->magnitude_spectrum = (float *)malloc((self->half_fft_size + 1) * sizeof(float));
-	self->phase_spectrum = (float *)malloc((self->half_fft_size + 1) * sizeof(float));
+	self->power_spectrum = (float *)calloc((self->half_fft_size + 1), sizeof(float));
+	self->magnitude_spectrum = (float *)calloc((self->half_fft_size + 1), sizeof(float));
+	self->phase_spectrum = (float *)calloc((self->half_fft_size + 1), sizeof(float));
 
 	stft_processor_pre_and_post_window(self);
 
@@ -316,8 +320,8 @@ STFTProcessor *stft_processor_initialize(FFTDenoiser *fft_denoiser, int fft_size
 
 void stft_processor_free(STFTProcessor *self)
 {
-	fftwf_free(self->input_fft_buffer);
-	fftwf_free(self->output_fft_buffer);
+	free(self->input_fft_buffer);
+	free(self->output_fft_buffer);
 	fftwf_destroy_plan(self->forward);
 	fftwf_destroy_plan(self->backward);
 	free(self->input_window);

@@ -48,7 +48,7 @@ struct FFTDenoiser
 
 	GainEstimator *gain_estimation;
 	NoiseEstimator *noise_estimation;
-	NoiseProfile *noise_profile;
+	DenoiseParameters *denoise_parameters;
 
 	float *residual_max_spectrum;
 	float max_decay_rate;
@@ -57,8 +57,7 @@ struct FFTDenoiser
 
 bool is_empty(float *spectrum, int N)
 {
-	int k;
-	for (k = 0; k <= N; k++)
+	for (int k = 1; k <= N; k++)
 	{
 		if (spectrum[k] > FLT_MIN)
 		{
@@ -70,7 +69,6 @@ bool is_empty(float *spectrum, int N)
 
 void fft_denoiser_update_wetdry_target(FFTDenoiser *self, bool enable)
 {
-
 	if (enable)
 	{
 		self->wet_dry_target = 1.f;
@@ -85,9 +83,7 @@ void fft_denoiser_update_wetdry_target(FFTDenoiser *self, bool enable)
 
 void fft_denoiser_soft_bypass(FFTDenoiser *self)
 {
-	int k;
-
-	for (k = 0; k < self->fft_size; k++)
+	for (int k = 1; k <= self->half_fft_size; k++)
 	{
 		self->processed_fft_spectrum[k] = (1.f - self->wet_dry) * self->fft_spectrum[k] + self->processed_fft_spectrum[k] * self->wet_dry;
 	}
@@ -97,7 +93,7 @@ void residual_spectrum_whitening(FFTDenoiser *self, float whitening_factor)
 {
 	self->whitening_window_count++;
 
-	for (int k = 0; k < self->fft_size; k++)
+	for (int k = 1; k <= self->half_fft_size; k++)
 	{
 		if (self->whitening_window_count > 1.f)
 		{
@@ -109,7 +105,7 @@ void residual_spectrum_whitening(FFTDenoiser *self, float whitening_factor)
 		}
 	}
 
-	for (int k = 0; k < self->fft_size; k++)
+	for (int k = 1; k <= self->half_fft_size; k++)
 	{
 		if (self->residual_spectrum[k] > FLT_MIN)
 		{
@@ -122,9 +118,7 @@ void residual_spectrum_whitening(FFTDenoiser *self, float whitening_factor)
 
 void get_denoised_spectrum(FFTDenoiser *self)
 {
-	int k;
-
-	for (k = 0; k < self->fft_size; k++)
+	for (int k = 1; k <= self->half_fft_size; k++)
 	{
 		self->denoised_spectrum[k] = self->fft_spectrum[k] * self->gain_spectrum[k];
 	}
@@ -132,9 +126,7 @@ void get_denoised_spectrum(FFTDenoiser *self)
 
 void get_residual_spectrum(FFTDenoiser *self, float whitening_factor)
 {
-	int k;
-
-	for (k = 0; k < self->fft_size; k++)
+	for (int k = 1; k <= self->half_fft_size; k++)
 	{
 		self->residual_spectrum[k] = self->fft_spectrum[k] - self->denoised_spectrum[k];
 	}
@@ -147,18 +139,16 @@ void get_residual_spectrum(FFTDenoiser *self, float whitening_factor)
 
 void get_final_spectrum(FFTDenoiser *self, bool residual_listen, float reduction_amount)
 {
-	int k;
-
 	if (residual_listen)
 	{
-		for (k = 0; k < self->fft_size; k++)
+		for (int k = 1; k <= self->half_fft_size; k++)
 		{
 			self->processed_fft_spectrum[k] = self->residual_spectrum[k];
 		}
 	}
 	else
 	{
-		for (k = 0; k < self->fft_size; k++)
+		for (int k = 1; k <= self->half_fft_size; k++)
 		{
 			self->processed_fft_spectrum[k] = self->denoised_spectrum[k] +
 											  self->residual_spectrum[k] * reduction_amount;
@@ -166,13 +156,27 @@ void get_final_spectrum(FFTDenoiser *self, bool residual_listen, float reduction
 	}
 }
 
-void fft_denoiser_run(FFTDenoiser *self, NoiseProfile *noise_profile, float *fft_spectrum, int enable, bool learn_noise, float whitening_factor,
-					  float reduction_amount, bool residual_listen, float transient_threshold,
-					  float masking_ceiling_limit, float release, float noise_rescale)
+void load_denoise_parameters(FFTDenoiser *self, DenoiseParameters *new_parameters)
 {
+	self->denoise_parameters = new_parameters;
+}
+
+void fft_denoiser_run(FFTDenoiser *self, NoiseProfile *noise_profile, float *fft_spectrum)
+{
+	bool enable = (bool)get_plugin_parameters(self->denoise_parameters, ENABLE);
+	bool learn_noise = (bool)get_plugin_parameters(self->denoise_parameters, LEARN_NOISE);
+	bool residual_listen = (bool)get_plugin_parameters(self->denoise_parameters, RESIDUAL_LISTEN);
+	float transient_protection = get_plugin_parameters(self->denoise_parameters, TRANSIENT_PROTECTION);
+	float masking = get_plugin_parameters(self->denoise_parameters, MASKING);
+	float release = get_plugin_parameters(self->denoise_parameters, RELEASE);
+	float noise_rescale = get_plugin_parameters(self->denoise_parameters, NOISE_RESCALE);
+	float reduction_amount = get_plugin_parameters(self->denoise_parameters, REDUCTION_AMOUNT);
+	float whitening_factor = get_plugin_parameters(self->denoise_parameters, WHITENING_FACTOR);
+	float *noise_spectrum = get_noise_profile(noise_profile);
+
 	fft_denoiser_update_wetdry_target(self, enable);
 
-	memcpy(self->fft_spectrum, fft_spectrum, sizeof(float) * self->fft_size);
+	memcpy(self->fft_spectrum, fft_spectrum, sizeof(float) * self->half_fft_size + 1);
 
 	if (!is_empty(self->fft_spectrum, self->half_fft_size))
 	{
@@ -184,8 +188,8 @@ void fft_denoiser_run(FFTDenoiser *self, NoiseProfile *noise_profile, float *fft
 		{
 			if (is_noise_estimation_available(self->noise_estimation))
 			{
-				gain_estimation_run(self->gain_estimation, self->fft_spectrum, get_noise_profile(self->noise_profile), self->gain_spectrum, transient_threshold,
-									masking_ceiling_limit, release, noise_rescale);
+				gain_estimation_run(self->gain_estimation, self->fft_spectrum, noise_spectrum, self->gain_spectrum,
+									transient_protection, masking, release, noise_rescale);
 
 				get_denoised_spectrum(self);
 
@@ -198,34 +202,35 @@ void fft_denoiser_run(FFTDenoiser *self, NoiseProfile *noise_profile, float *fft
 
 	fft_denoiser_soft_bypass(self);
 
-	memcpy(fft_spectrum, self->processed_fft_spectrum, sizeof(float) * self->fft_size);
+	memcpy(fft_spectrum, self->processed_fft_spectrum, sizeof(float) * self->half_fft_size + 1);
 }
 
 FFTDenoiser *fft_denoiser_initialize(int samp_rate, int fft_size, int overlap_factor)
 {
-	FFTDenoiser *self = (FFTDenoiser *)malloc(sizeof(FFTDenoiser));
+	FFTDenoiser *self = (FFTDenoiser *)calloc(1, sizeof(FFTDenoiser));
 
 	self->fft_size = fft_size;
 	self->half_fft_size = self->fft_size / 2;
 	self->hop = self->fft_size / overlap_factor;
 	self->samp_rate = samp_rate;
 
-	self->fft_spectrum = (float *)calloc((self->fft_size), sizeof(float));
-	self->processed_fft_spectrum = (float *)calloc((self->fft_size), sizeof(float));
+	self->fft_spectrum = (float *)calloc((self->half_fft_size + 1), sizeof(float));
+	self->processed_fft_spectrum = (float *)calloc((self->half_fft_size + 1), sizeof(float));
 
 	self->tau = (1.f - expf(-2.f * M_PI * 25.f * 64.f / self->samp_rate));
 	self->wet_dry = 0.f;
 
-	self->residual_max_spectrum = (float *)calloc((self->fft_size), sizeof(float));
+	self->residual_max_spectrum = (float *)calloc((self->half_fft_size + 1), sizeof(float));
 	self->max_decay_rate = expf(-1000.f / (((WHITENING_DECAY_RATE)*self->samp_rate) / self->hop));
 
-	self->residual_spectrum = (float *)calloc((self->fft_size), sizeof(float));
-	self->denoised_spectrum = (float *)calloc((self->fft_size), sizeof(float));
-	self->gain_spectrum = (float *)calloc((self->fft_size), sizeof(float));
-	self->whitened_residual_spectrum = (float *)calloc((self->fft_size), sizeof(float));
+	self->residual_spectrum = (float *)calloc((self->half_fft_size + 1), sizeof(float));
+	self->denoised_spectrum = (float *)calloc((self->half_fft_size + 1), sizeof(float));
+	self->gain_spectrum = (float *)calloc((self->half_fft_size + 1), sizeof(float));
+	self->whitened_residual_spectrum = (float *)calloc((self->half_fft_size + 1), sizeof(float));
 
 	self->whitening_window_count = 0.f;
 
+	self->gain_estimation = gain_estimation_initialize(self->fft_size, self->samp_rate, self->hop);
 	self->noise_estimation = noise_estimation_initialize(self->fft_size);
 
 	return self;
@@ -233,6 +238,9 @@ FFTDenoiser *fft_denoiser_initialize(int samp_rate, int fft_size, int overlap_fa
 
 void fft_denoiser_free(FFTDenoiser *self)
 {
+	gain_estimation_free(self->gain_estimation);
+	noise_estimation_free(self->noise_estimation);
+
 	free(self->fft_spectrum);
 	free(self->processed_fft_spectrum);
 	free(self->gain_spectrum);
@@ -240,6 +248,5 @@ void fft_denoiser_free(FFTDenoiser *self)
 	free(self->whitened_residual_spectrum);
 	free(self->denoised_spectrum);
 	free(self->residual_max_spectrum);
-	noise_estimation_free(self->noise_estimation);
 	free(self);
 }

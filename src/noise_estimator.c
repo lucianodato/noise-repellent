@@ -27,8 +27,8 @@ struct NoiseEstimator
 	int fft_size;
 	int half_fft_size;
 	bool noise_spectrum_available;
+	float noise_blocks_count;
 
-	float *noise_blocks_count;
 	float *noise_spectrum;
 };
 
@@ -39,19 +39,17 @@ bool is_noise_estimation_available(NoiseEstimator *self)
 
 void noise_estimation_run(NoiseEstimator *self, NoiseProfile *noise_profile, float *spectrum)
 {
-	int k;
-
 	self->noise_blocks_count++;
 
-	for (k = 0; k <= self->half_fft_size; k++)
+	for (int k = 1; k <= self->half_fft_size; k++)
 	{
-		if (*self->noise_blocks_count <= 1.f)
+		if (self->noise_blocks_count <= 1.f)
 		{
 			self->noise_spectrum[k] = spectrum[k];
 		}
 		else
 		{
-			self->noise_spectrum[k] += ((spectrum[k] - self->noise_spectrum[k]) / *self->noise_blocks_count);
+			self->noise_spectrum[k] += ((spectrum[k] - self->noise_spectrum[k]) / self->noise_blocks_count);
 		}
 	}
 
@@ -62,10 +60,11 @@ void noise_estimation_run(NoiseEstimator *self, NoiseProfile *noise_profile, flo
 
 NoiseEstimator *noise_estimation_initialize(int fft_size)
 {
-	NoiseEstimator *self = (NoiseEstimator *)malloc(sizeof(NoiseEstimator));
+	NoiseEstimator *self = (NoiseEstimator *)calloc(1, sizeof(NoiseEstimator));
 
 	self->fft_size = fft_size;
 	self->half_fft_size = self->fft_size / 2;
+	self->noise_blocks_count = 0;
 
 	self->noise_spectrum = (float *)calloc((self->half_fft_size + 1), sizeof(float));
 

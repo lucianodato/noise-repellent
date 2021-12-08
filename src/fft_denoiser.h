@@ -20,6 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #ifndef FFT_DENOISER_H
 #define FFT_DENOISER_H
 
+#include "denoise_parameters.h"
 #include "noise_profile.h"
 #include <float.h>
 #include <stdbool.h>
@@ -33,10 +34,9 @@ void residual_spectrum_whitening(FFTDenoiser *self, float whitening_factor);
 void get_denoised_spectrum(FFTDenoiser *self);
 void get_residual_spectrum(FFTDenoiser *self, float whitening_factor);
 void get_final_spectrum(FFTDenoiser *self, bool residual_listen, float reduction_amount);
-void fft_denoiser_run(FFTDenoiser *self, NoiseProfile *noise_profile, float *fft_spectrum, int enable, bool learn_noise, float whitening_factor,
-					  float reduction_amount, bool residual_listen, float transient_threshold,
-					  float masking_ceiling_limit, float release, float noise_rescale);
+void fft_denoiser_run(FFTDenoiser *self, NoiseProfile *noise_profile, float *fft_spectrum);
 FFTDenoiser *fft_denoiser_initialize(int sample_rate, int fft_size, int overlap_factor);
 void fft_denoiser_free(FFTDenoiser *self);
+void load_denoise_parameters(FFTDenoiser *self, DenoiseParameters *new_parameters);
 
 #endif

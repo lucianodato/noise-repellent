@@ -17,18 +17,16 @@ You should have received a copy of the GNU Lesser General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
+#include "denoise_parameters.h"
 #include "fft_denoiser.h"
 #include "noise_profile.h"
 #include "plugin_state.h"
 #include "stft_processor.h"
-#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 
 #define FFT_SIZE 2048
 #define OVERLAP_FACTOR 4
-
-#define FROM_DB_TO_CV(gain_db) (expf(gain_db / 10.f * logf(10.f)))
 
 typedef enum
 {
@@ -39,12 +37,11 @@ typedef enum
 	NOISEREPELLENT_TRANSIENT_PROTECT = 4,
 	NOISEREPELLENT_WHITENING = 5,
 	NOISEREPELLENT_NOISE_LEARN = 6,
-	NOISEREPELLENT_RESET = 7,
-	NOISEREPELLENT_RESIDUAL_LISTEN = 8,
-	NOISEREPELLENT_ENABLE = 9,
-	NOISEREPELLENT_LATENCY = 10,
-	NOISEREPELLENT_INPUT = 11,
-	NOISEREPELLENT_OUTPUT = 12,
+	NOISEREPELLENT_RESIDUAL_LISTEN = 7,
+	NOISEREPELLENT_ENABLE = 8,
+	NOISEREPELLENT_LATENCY = 9,
+	NOISEREPELLENT_INPUT = 10,
+	NOISEREPELLENT_OUTPUT = 11,
 } PortIndex;
 
 typedef struct
@@ -53,22 +50,23 @@ typedef struct
 	float *output;
 	float sample_rate;
 
+	float *report_latency;
 	float *reduction_amount;
 	float *noise_rescale;
 	float *release;
 	float *masking;
 	float *whitening_factor;
 	float *learn_noise;
-	float *reset_profile;
 	float *residual_listen;
 	float *transient_protection;
 	float *enable;
-	float *report_latency;
 
+	PluginState *plugin_state;
+
+	DenoiseParameters *denoise_parameters;
 	NoiseProfile *noise_profile;
 	FFTDenoiser *fft_denoiser;
 	STFTProcessor *stft_processor;
-	PluginState *plugin_state;
 } NoiseRepellent;
 
 static LV2_Handle instantiate(const LV2_Descriptor *descriptor, double rate, const char *bundle_path,
@@ -83,14 +81,15 @@ static LV2_Handle instantiate(const LV2_Descriptor *descriptor, double rate, con
 	{
 		plugin_state_free(self->plugin_state);
 		free(self);
-		return NULL;
+		return (LV2_Handle)NULL;
 	}
 
-	self->sample_rate = (float)rate;
-
 	self->noise_profile = noise_profile_initialize(FFT_SIZE / 2 + 1);
+	self->denoise_parameters = plugin_parameters_initialize();
 	self->fft_denoiser = fft_denoiser_initialize(self->sample_rate, FFT_SIZE, OVERLAP_FACTOR);
 	self->stft_processor = stft_processor_initialize(self->fft_denoiser, FFT_SIZE, OVERLAP_FACTOR);
+
+	self->sample_rate = (float)rate;
 
 	return (LV2_Handle)self;
 }
@@ -125,9 +124,6 @@ static void connect_port(LV2_Handle instance, uint32_t port, void *data)
 	case NOISEREPELLENT_TRANSIENT_PROTECT:
 		self->transient_protection = (float *)data;
 		break;
-	case NOISEREPELLENT_RESET:
-		self->reset_profile = (float *)data;
-		break;
 	case NOISEREPELLENT_ENABLE:
 		self->enable = (float *)data;
 		break;
@@ -147,21 +143,21 @@ static void run(LV2_Handle instance, uint32_t n_samples)
 {
 	NoiseRepellent *self = (NoiseRepellent *)instance;
 
+	set_plugin_parameters(self->denoise_parameters, self->reduction_amount, REDUCTION_AMOUNT);
+	set_plugin_parameters(self->denoise_parameters, self->noise_rescale, NOISE_RESCALE);
+	set_plugin_parameters(self->denoise_parameters, self->release, RELEASE);
+	set_plugin_parameters(self->denoise_parameters, self->masking, MASKING);
+	set_plugin_parameters(self->denoise_parameters, self->whitening_factor, WHITENING_FACTOR);
+	set_plugin_parameters(self->denoise_parameters, self->learn_noise, LEARN_NOISE);
+	set_plugin_parameters(self->denoise_parameters, self->residual_listen, RESIDUAL_LISTEN);
+	set_plugin_parameters(self->denoise_parameters, self->transient_protection, TRANSIENT_PROTECTION);
+	set_plugin_parameters(self->denoise_parameters, self->enable, ENABLE);
+
+	load_denoise_parameters(self->fft_denoiser, self->denoise_parameters);
+
 	*(self->report_latency) = (float)stft_processor_get_latency(self->stft_processor);
 
-	float whitening_factor = (*self->whitening_factor / 100.f);
-	bool enable = (bool)*self->enable;
-	bool learn_noise = (bool)*self->learn_noise;
-	float reduction_amount = FROM_DB_TO_CV(-1.f * *self->reduction_amount);
-	bool residual_listen = (bool)*self->residual_listen;
-	float release_time = *self->release;
-	float masking_ceiling_limit = *self->masking;
-	float transient_threshold = *self->transient_protection;
-	float noise_rescale = *self->noise_rescale;
-
-	stft_processor_run(self->stft_processor, self->noise_profile, n_samples, self->input, self->output, enable, learn_noise,
-					   whitening_factor, reduction_amount, residual_listen, transient_threshold,
-					   masking_ceiling_limit, release_time, noise_rescale);
+	stft_processor_run(self->stft_processor, self->noise_profile, n_samples, self->input, self->output);
 }
 
 static void cleanup(LV2_Handle instance)
@@ -169,6 +165,7 @@ static void cleanup(LV2_Handle instance)
 	NoiseRepellent *self = (NoiseRepellent *)instance;
 
 	noise_profile_free(self->noise_profile);
+	plugin_parameters_free(self->denoise_parameters);
 	fft_denoiser_free(self->fft_denoiser);
 	stft_processor_free(self->stft_processor);
 	plugin_state_free(self->plugin_state);

@@ -24,8 +24,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 struct PluginState
 {
 	LV2_URID_Map *map;
-	LV2_URID atom_Vector;
 	LV2_URID atom_Int;
+	LV2_URID atom_Vector;
 	LV2_URID property_fft_size;
 	LV2_URID property_saved_noise_profile;
 };
@@ -40,7 +40,7 @@ bool plugin_state_configure(PluginState *self, const LV2_Feature *const *feature
 		}
 	}
 
-	if (self->map == NULL)
+	if (!self->map)
 	{
 		return false;
 	}
@@ -83,21 +83,21 @@ bool plugin_state_restorestate(PluginState *self, LV2_State_Retrieve_Function re
 	}
 
 	memcpy(fft_size, fftsize, sizeof(int));
-	memcpy(noise_profile, (float *)LV2_ATOM_BODY(saved_noise_profile), (*fftsize / 2 + 1) * sizeof(float));
+	set_noise_profile(noise_profile, (float *)LV2_ATOM_BODY(saved_noise_profile));
 
 	return true;
 }
 
 void plugin_state_free(PluginState *self)
 {
-	free(self->map);
+	self->atom_Int = 0;
+	self->atom_Vector = 0;
 	free(self);
 }
 
 PluginState *plugin_state_initialize()
 {
-	PluginState *self = (PluginState *)calloc(1, sizeof(PluginState));
-	self->map = (LV2_URID_Map *)calloc(1, sizeof(LV2_URID_Map));
+	PluginState *self = (PluginState *)malloc(1 * sizeof(PluginState));
 
 	return self;
 }

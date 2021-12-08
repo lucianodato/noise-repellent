@@ -42,7 +42,7 @@ float spectral_flux(float *spectrum, float *spectrum_prev, float N)
 	int i;
 	float spectral_flux = 0.f;
 
-	for (i = 0; i <= N; i++)
+	for (i = 1; i <= N; i++)
 	{
 		float temp;
 		temp = sqrtf(spectrum[i]) - sqrtf(spectrum_prev[i]);
@@ -84,7 +84,7 @@ bool transient_detector_run(TransientDetector *self, float transient_threshold)
 
 TransientDetector *transient_detector_initialize(int fft_size)
 {
-	TransientDetector *self = (TransientDetector *)malloc(sizeof(TransientDetector));
+	TransientDetector *self = (TransientDetector *)calloc(1, sizeof(TransientDetector));
 
 	self->fft_size = fft_size;
 	self->half_fft_size = self->fft_size / 2;

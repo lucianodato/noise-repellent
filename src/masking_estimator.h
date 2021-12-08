@@ -25,7 +25,6 @@ typedef struct MaskingEstimator MaskingEstimator;
 float bin_to_freq(int i, float samp_rate, int N);
 void compute_bark_mapping(MaskingEstimator *self);
 void compute_absolute_thresholds(MaskingEstimator *self);
-void hanning_window(float *window, int N);
 void get_power_spectrum(MaskingEstimator *self, float *window, float *signal, float *power_spectrum);
 void spl_reference(MaskingEstimator *self);
 void compute_spectral_spreading_function(MaskingEstimator *self);
