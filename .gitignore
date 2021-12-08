@@ -33,3 +33,6 @@
 
 # Builds
 build/
+
+# Valgrind dumps
+*.valgrind

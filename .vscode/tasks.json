@@ -23,7 +23,7 @@
         {
             "label": "NinjaInstall",
             "type": "shell",
-            "command": "ninja -C build install -v"
+            "command": "ninja -C build install"
         },
         {
             "label": "NinjaTest",
@@ -48,15 +48,18 @@
         {
             "label": "Lv2Bench",
             "type": "shell",
-            "command": "lv2bench https://github.com/lucianodato/noise-repellent"
+            "command": "for i in {1..10}; do lv2bench https://github.com/lucianodato/noise-repellent; done"
         },
         {
             "label": "ValgrindLv2Apply",
             "type": "shell",
             "command": "valgrind",
             "args": [
-                "--leak-check=full",
+                "-s",
+                "--leak-check=yes",
+                "--show-reachable=yes",
                 "--track-origins=yes",
+                "--log-file=./output.valgrind",
                 "lv2apply",
                 "-i",
                 "~/Music/noise.wav",
@@ -71,11 +74,11 @@
                 "CleanBuildFolder",
                 "MesonDebugConfig",
                 "NinjaBuild",
-                "NinjaInstall",
+                "NinjaInstall"
             ],
             "dependsOrder": "sequence",
             "problemMatcher": {
-                "base": "$gcc",
+                "base": "$gcc"
             }
         },
         {
@@ -88,6 +91,9 @@
                 "ValgrindLv2Apply"
             ],
             "dependsOrder": "sequence",
+            "problemMatcher": [
+                "$gcc"
+            ]
         },
         {
             "label": "TestPlugin",
@@ -96,10 +102,10 @@
                 "MesonReleaseConfig",
                 "NinjaBuild",
                 "NinjaInstall",
-                "SordValidate",
-                "Lv2Bench"
+                "Lv2Bench",
+                "SordValidate"
             ],
-            "dependsOrder": "sequence",
+            "dependsOrder": "sequence"
         },
         {
             "label": "InstallPlugin",
@@ -107,18 +113,18 @@
                 "CleanBuildFolder",
                 "MesonReleaseConfig",
                 "NinjaBuild",
-                "NinjaInstall",
+                "NinjaInstall"
             ],
-            "dependsOrder": "sequence",
+            "dependsOrder": "sequence"
         },
         {
             "label": "UninstallPlugin",
             "dependsOn": [
                 "NinjaUninstall",
                 "NinjaClean",
-                "CleanBuildFolder",
+                "CleanBuildFolder"
             ],
-            "dependsOrder": "sequence",
+            "dependsOrder": "sequence"
         },
         {
             "label": "InstallDevelopmentDependencies",

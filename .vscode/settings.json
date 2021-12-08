@@ -4,5 +4,6 @@
     "*.c": "c",
     "*.ttl.in": "turtle",
     "*.ttl": "turtle",
+    "*.valgrind": "valgrind",
   },
 }
