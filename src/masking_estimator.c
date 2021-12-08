@@ -27,7 +27,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define AT_SINE_WAVE_FREQ 1000.f
 #define REFERENCE_LEVEL 90.f
 
-#define BIAS 1
+#define BIAS 0
 #define HIGH_FREQ_BIAS 20.f
 #define S_AMP 1.f
 

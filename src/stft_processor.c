@@ -55,10 +55,6 @@ struct STFTProcessor
 	float *input_fft_buffer;
 	float *output_fft_buffer;
 
-	float *power_spectrum;
-	float *phase_spectrum;
-	float *magnitude_spectrum;
-
 	FFTDenoiser *fft_denoiser;
 };
 
@@ -153,41 +149,6 @@ void stft_processor_pre_and_post_window(STFTProcessor *self)
 	self->overlap_scale_factor = (sum / (float)(self->fft_size));
 }
 
-void get_info_from_bins(float *fft_power, float *fft_magnitude, float *fft_phase,
-						int half_fft_size, int fft_size, float *fft_buffer)
-{
-	float real_p = fft_buffer[0];
-
-	fft_power[0] = real_p * real_p;
-	fft_magnitude[0] = real_p;
-	fft_phase[0] = atan2f(real_p, 0.f);
-
-	for (int k = 1; k <= half_fft_size; k++)
-	{
-		float imag_n, magnitude, power, phase;
-
-		real_p = fft_buffer[k];
-		imag_n = fft_buffer[fft_size - k];
-
-		if (k < half_fft_size)
-		{
-			power = (real_p * real_p + imag_n * imag_n);
-			magnitude = sqrtf(power);
-			phase = atan2f(real_p, imag_n);
-		}
-		else
-		{
-			power = real_p * real_p;
-			magnitude = real_p;
-			phase = atan2f(real_p, 0.f);
-		}
-
-		fft_power[k] = power;
-		fft_magnitude[k] = magnitude;
-		fft_phase[k] = phase;
-	}
-}
-
 void stft_processor_analysis(STFTProcessor *self)
 {
 	int k;
@@ -240,15 +201,6 @@ int stft_processor_get_latency(STFTProcessor *self)
 	return self->input_latency;
 }
 
-static void mirror_resulting_spectrum(STFTProcessor *self)
-{
-	for (int i = 0; i <= self->half_fft_size; i++)
-	{
-		self->output_fft_buffer[i] = self->power_spectrum[i];
-		self->output_fft_buffer[self->fft_size - i - 1] = self->power_spectrum[i];
-	}
-}
-
 void stft_processor_run(STFTProcessor *self, NoiseProfile *noise_profile, int n_samples, const float *input, float *output)
 {
 	for (int k = 0; k < n_samples; k++)
@@ -265,13 +217,7 @@ void stft_processor_run(STFTProcessor *self, NoiseProfile *noise_profile, int n_
 
 			stft_processor_analysis(self);
 
-			get_info_from_bins(self->power_spectrum, self->magnitude_spectrum,
-							   self->phase_spectrum, self->half_fft_size,
-							   self->fft_size, self->output_fft_buffer);
-
-			fft_denoiser_run(self->fft_denoiser, noise_profile, self->power_spectrum);
-
-			mirror_resulting_spectrum(self);
+			fft_denoiser_run(self->fft_denoiser, noise_profile, self->output_fft_buffer);
 
 			stft_processor_synthesis(self);
 		}
@@ -307,10 +253,6 @@ STFTProcessor *stft_processor_initialize(FFTDenoiser *fft_denoiser, int fft_size
 									   self->input_fft_buffer, FFTW_HC2R,
 									   FFTW_ESTIMATE);
 
-	self->power_spectrum = (float *)calloc((self->half_fft_size + 1), sizeof(float));
-	self->magnitude_spectrum = (float *)calloc((self->half_fft_size + 1), sizeof(float));
-	self->phase_spectrum = (float *)calloc((self->half_fft_size + 1), sizeof(float));
-
 	stft_processor_pre_and_post_window(self);
 
 	self->fft_denoiser = fft_denoiser;
@@ -329,9 +271,6 @@ void stft_processor_free(STFTProcessor *self)
 	free(self->in_fifo);
 	free(self->out_fifo);
 	free(self->output_accum);
-	free(self->power_spectrum);
-	free(self->magnitude_spectrum);
-	free(self->phase_spectrum);
 	free(self);
 }
 

@@ -48,6 +48,6 @@ Noise-repellent is on Arch community at <https://www.archlinux.org/packages/comm
 
 Noise-repellent is also available in KXStudios repositories <https://kx.studio/Repositories:Plugins>
 
-## Usage Instuctions
+## Use Instuctions
 
 Please refer to project's wiki <https://github.com/lucianodato/noise-repellent/wiki>
