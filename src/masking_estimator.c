@@ -23,6 +23,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <stdlib.h>
 #include <string.h>
 
+#ifndef M_PI
+#define M_PI (3.14159265358979323846)
+#endif
+
 #define N_BARK_BANDS 25
 #define AT_SINE_WAVE_FREQ 1000.f
 #define REFERENCE_LEVEL 90.f

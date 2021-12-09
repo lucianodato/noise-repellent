@@ -1,4 +1,4 @@
-project('nrepellent.lv2','c',version: '0.1.6',default_options: ['c_std=gnu11'])
+project('nrepellent.lv2','c',version: '0.1.6',default_options: ['c_std=c99'])
 
 #sources to compile
 noise_repellent_sources = [
