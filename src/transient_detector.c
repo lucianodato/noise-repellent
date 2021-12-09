@@ -37,6 +37,30 @@ struct TransientDetector
 	float window_count;
 };
 
+TransientDetector *transient_detector_initialize(int fft_size)
+{
+	TransientDetector *self = (TransientDetector *)calloc(1, sizeof(TransientDetector));
+
+	self->fft_size = fft_size;
+	self->half_fft_size = self->fft_size / 2;
+
+	self->spectrum = (float *)calloc((self->half_fft_size + 1), sizeof(float));
+	self->previous_spectrum = (float *)calloc((self->half_fft_size + 1), sizeof(float));
+
+	self->window_count = 0.f;
+	self->r_mean = 0.f;
+	self->transient_present = false;
+
+	return self;
+}
+
+void transient_detector_free(TransientDetector *self)
+{
+	free(self->spectrum);
+	free(self->previous_spectrum);
+	free(self);
+}
+
 float spectral_flux(float *spectrum, float *spectrum_prev, float N)
 {
 	int i;
@@ -80,28 +104,4 @@ bool transient_detector_run(TransientDetector *self, float transient_threshold)
 	{
 		return false;
 	}
-}
-
-TransientDetector *transient_detector_initialize(int fft_size)
-{
-	TransientDetector *self = (TransientDetector *)calloc(1, sizeof(TransientDetector));
-
-	self->fft_size = fft_size;
-	self->half_fft_size = self->fft_size / 2;
-
-	self->spectrum = (float *)calloc((self->half_fft_size + 1), sizeof(float));
-	self->previous_spectrum = (float *)calloc((self->half_fft_size + 1), sizeof(float));
-
-	self->window_count = 0.f;
-	self->r_mean = 0.f;
-	self->transient_present = false;
-
-	return self;
-}
-
-void transient_detector_free(TransientDetector *self)
-{
-	free(self->spectrum);
-	free(self->previous_spectrum);
-	free(self);
 }

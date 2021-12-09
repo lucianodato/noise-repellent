@@ -88,7 +88,6 @@ typedef struct
 	float sample_rate;
 	float *report_latency;
 
-	// Features
 	LV2_URID_Map *map;
 	LV2_Log_Logger log;
 	URIs uris;

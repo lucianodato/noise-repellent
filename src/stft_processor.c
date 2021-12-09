@@ -62,25 +62,75 @@ struct STFTProcessor
 	FFTDenoiser *fft_denoiser;
 };
 
-static float blackman(int k, int N)
+STFTProcessor *stft_processor_initialize(FFTDenoiser *fft_denoiser, int fft_size, int overlap_factor)
+{
+	STFTProcessor *self = (STFTProcessor *)calloc(1, sizeof(STFTProcessor));
+
+	set_spectral_size(self, fft_size);
+	self->window_option_input = INPUT_WINDOW_TYPE;
+	self->window_option_output = OUTPUT_WINDOW_TYPE;
+	self->overlap_factor = overlap_factor;
+	self->hop = self->fft_size / self->overlap_factor;
+	self->input_latency = self->fft_size - self->hop;
+	self->read_position = self->input_latency;
+
+	self->input_window = (float *)calloc(self->fft_size, sizeof(float));
+	self->output_window = (float *)calloc(self->fft_size, sizeof(float));
+
+	self->in_fifo = (float *)calloc(self->fft_size, sizeof(float));
+	self->out_fifo = (float *)calloc(self->fft_size, sizeof(float));
+
+	self->output_accum = (float *)calloc((self->fft_size * 2), sizeof(float));
+
+	self->input_fft_buffer = (float *)calloc(self->fft_size, sizeof(float));
+	self->output_fft_buffer = (float *)calloc(self->fft_size, sizeof(float));
+	self->forward = fftwf_plan_r2r_1d(self->fft_size, self->input_fft_buffer,
+									  self->output_fft_buffer, FFTW_R2HC,
+									  FFTW_ESTIMATE);
+	self->backward = fftwf_plan_r2r_1d(self->fft_size, self->output_fft_buffer,
+									   self->input_fft_buffer, FFTW_HC2R,
+									   FFTW_ESTIMATE);
+
+	stft_processor_pre_and_post_window(self);
+
+	self->fft_denoiser = fft_denoiser;
+
+	return self;
+}
+
+void stft_processor_free(STFTProcessor *self)
+{
+	free(self->input_fft_buffer);
+	free(self->output_fft_buffer);
+	fftwf_destroy_plan(self->forward);
+	fftwf_destroy_plan(self->backward);
+	free(self->input_window);
+	free(self->output_window);
+	free(self->in_fifo);
+	free(self->out_fifo);
+	free(self->output_accum);
+	free(self);
+}
+
+float blackman(int k, int N)
 {
 	float p = ((float)(k)) / ((float)(N));
 	return 0.42 - 0.5 * cosf(2.f * M_PI * p) + 0.08 * cosf(4.f * M_PI * p);
 }
 
-static float hanning(int k, int N)
+float hanning(int k, int N)
 {
 	float p = ((float)(k)) / ((float)(N));
 	return 0.5 - 0.5 * cosf(2.f * M_PI * p);
 }
 
-static float hamming(int k, int N)
+float hamming(int k, int N)
 {
 	float p = ((float)(k)) / ((float)(N));
 	return 0.54 - 0.46 * cosf(2.f * M_PI * p);
 }
 
-static float vorbis(int k, int N)
+float vorbis(int k, int N)
 {
 	float p = ((float)(k)) / ((float)(N));
 	return sinf(M_PI / 2.f * powf(sinf(M_PI * p), 2.f));
@@ -113,7 +163,6 @@ void stft_processor_pre_and_post_window(STFTProcessor *self)
 {
 	float sum = 0.f;
 
-	//Input window
 	switch ((WindowTypes)self->window_option_input)
 	{
 	case HANN_WINDOW:
@@ -130,7 +179,6 @@ void stft_processor_pre_and_post_window(STFTProcessor *self)
 		break;
 	}
 
-	//Output window
 	switch ((WindowTypes)self->window_option_output)
 	{
 	case HANN_WINDOW:
@@ -226,56 +274,6 @@ void stft_processor_run(STFTProcessor *self, NoiseProfile *noise_profile, int n_
 			stft_processor_synthesis(self);
 		}
 	}
-}
-
-STFTProcessor *stft_processor_initialize(FFTDenoiser *fft_denoiser, int fft_size, int overlap_factor)
-{
-	STFTProcessor *self = (STFTProcessor *)calloc(1, sizeof(STFTProcessor));
-
-	set_spectral_size(self, fft_size);
-	self->window_option_input = INPUT_WINDOW_TYPE;
-	self->window_option_output = OUTPUT_WINDOW_TYPE;
-	self->overlap_factor = overlap_factor;
-	self->hop = self->fft_size / self->overlap_factor;
-	self->input_latency = self->fft_size - self->hop;
-	self->read_position = self->input_latency;
-
-	self->input_window = (float *)calloc(self->fft_size, sizeof(float));
-	self->output_window = (float *)calloc(self->fft_size, sizeof(float));
-
-	self->in_fifo = (float *)calloc(self->fft_size, sizeof(float));
-	self->out_fifo = (float *)calloc(self->fft_size, sizeof(float));
-
-	self->output_accum = (float *)calloc((self->fft_size * 2), sizeof(float));
-
-	self->input_fft_buffer = (float *)calloc(self->fft_size, sizeof(float));
-	self->output_fft_buffer = (float *)calloc(self->fft_size, sizeof(float));
-	self->forward = fftwf_plan_r2r_1d(self->fft_size, self->input_fft_buffer,
-									  self->output_fft_buffer, FFTW_R2HC,
-									  FFTW_ESTIMATE);
-	self->backward = fftwf_plan_r2r_1d(self->fft_size, self->output_fft_buffer,
-									   self->input_fft_buffer, FFTW_HC2R,
-									   FFTW_ESTIMATE);
-
-	stft_processor_pre_and_post_window(self);
-
-	self->fft_denoiser = fft_denoiser;
-
-	return self;
-}
-
-void stft_processor_free(STFTProcessor *self)
-{
-	free(self->input_fft_buffer);
-	free(self->output_fft_buffer);
-	fftwf_destroy_plan(self->forward);
-	fftwf_destroy_plan(self->backward);
-	free(self->input_window);
-	free(self->output_window);
-	free(self->in_fifo);
-	free(self->out_fifo);
-	free(self->output_accum);
-	free(self);
 }
 
 void set_spectral_size(STFTProcessor *self, int fft_size)

@@ -24,8 +24,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 typedef struct TransientDetector TransientDetector;
 
-bool transient_detector_run(TransientDetector *self, float transient_threshold);
 TransientDetector *transient_detector_initialize(int fft_size);
 void transient_detector_free(TransientDetector *self);
+bool transient_detector_run(TransientDetector *self, float transient_threshold);
 
 #endif

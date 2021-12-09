@@ -38,6 +38,34 @@ struct SpectralSmoother
 	float release_coefficient;
 };
 
+SpectralSmoother *spectral_smoothing_initialize(int fft_size, int samp_rate, int hop)
+{
+	SpectralSmoother *self = (SpectralSmoother *)calloc(1, sizeof(SpectralSmoother));
+
+	self->fft_size = fft_size;
+	self->half_fft_size = self->fft_size / 2;
+	self->samp_rate = samp_rate;
+	self->hop = hop;
+
+	self->signal_spectrum = (float *)calloc((self->half_fft_size + 1), sizeof(float));
+	self->noise_spectrum = (float *)calloc((self->half_fft_size + 1), sizeof(float));
+	self->smoothed_spectrum = (float *)calloc((self->half_fft_size + 1), sizeof(float));
+	self->smoothed_spectrum_previous = (float *)calloc((self->half_fft_size + 1), sizeof(float));
+
+	self->release_coefficient = 0.f;
+
+	return self;
+}
+
+void spectral_smoothing_free(SpectralSmoother *self)
+{
+	free(self->noise_spectrum);
+	free(self->signal_spectrum);
+	free(self->smoothed_spectrum);
+	free(self->smoothed_spectrum_previous);
+	free(self);
+}
+
 void get_release_coefficient(SpectralSmoother *self, float release)
 {
 	if (release != 0.f)
@@ -70,32 +98,4 @@ void spectral_smoothing_run(SpectralSmoother *self, float release)
 	apply_time_envelope(self);
 
 	memcpy(self->smoothed_spectrum_previous, self->smoothed_spectrum, sizeof(float) * (self->half_fft_size + 1));
-}
-
-SpectralSmoother *spectral_smoothing_initialize(int fft_size, int samp_rate, int hop)
-{
-	SpectralSmoother *self = (SpectralSmoother *)calloc(1, sizeof(SpectralSmoother));
-
-	self->fft_size = fft_size;
-	self->half_fft_size = self->fft_size / 2;
-	self->samp_rate = samp_rate;
-	self->hop = hop;
-
-	self->signal_spectrum = (float *)calloc((self->half_fft_size + 1), sizeof(float));
-	self->noise_spectrum = (float *)calloc((self->half_fft_size + 1), sizeof(float));
-	self->smoothed_spectrum = (float *)calloc((self->half_fft_size + 1), sizeof(float));
-	self->smoothed_spectrum_previous = (float *)calloc((self->half_fft_size + 1), sizeof(float));
-
-	self->release_coefficient = 0.f;
-
-	return self;
-}
-
-void spectral_smoothing_free(SpectralSmoother *self)
-{
-	free(self->noise_spectrum);
-	free(self->signal_spectrum);
-	free(self->smoothed_spectrum);
-	free(self->smoothed_spectrum_previous);
-	free(self);
 }

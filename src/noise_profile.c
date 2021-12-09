@@ -27,19 +27,6 @@ struct NoiseProfile
 	float *noise_profile;
 };
 
-void set_noise_profile(NoiseProfile *self, float *noise_profile)
-{
-	if (sizeof(noise_profile) == (self->noise_profile_size * sizeof(float)))
-	{
-		memcpy(self->noise_profile, noise_profile, self->noise_profile_size);
-	}
-}
-
-float *get_noise_profile(NoiseProfile *self)
-{
-	return self->noise_profile;
-}
-
 NoiseProfile *noise_profile_initialize(int noise_profile_size)
 {
 	NoiseProfile *self = (NoiseProfile *)calloc(1, sizeof(NoiseProfile));
@@ -54,4 +41,17 @@ void noise_profile_free(NoiseProfile *self)
 {
 	free(self->noise_profile);
 	free(self);
+}
+
+void set_noise_profile(NoiseProfile *self, float *noise_profile)
+{
+	if (sizeof(noise_profile) == (self->noise_profile_size * sizeof(float)))
+	{
+		memcpy(self->noise_profile, noise_profile, self->noise_profile_size);
+	}
+}
+
+float *get_noise_profile(NoiseProfile *self)
+{
+	return self->noise_profile;
 }

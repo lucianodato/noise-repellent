@@ -38,6 +38,18 @@ struct DenoiseParameters
     float *noise_rescale;
 };
 
+DenoiseParameters *plugin_parameters_initialize()
+{
+    DenoiseParameters *self = (DenoiseParameters *)calloc(1, sizeof(DenoiseParameters));
+
+    return self;
+}
+
+void plugin_parameters_free(DenoiseParameters *self)
+{
+    free(self);
+}
+
 float get_plugin_parameters(DenoiseParameters *self, int parameter_type)
 {
     switch ((ParameterType)parameter_type)
@@ -106,16 +118,4 @@ void set_plugin_parameters(DenoiseParameters *self, float *value, int parameter_
         self->enable = value;
         break;
     }
-}
-
-void plugin_parameters_free(DenoiseParameters *self)
-{
-    free(self);
-}
-
-DenoiseParameters *plugin_parameters_initialize()
-{
-    DenoiseParameters *self = (DenoiseParameters *)calloc(1, sizeof(DenoiseParameters));
-
-    return self;
 }

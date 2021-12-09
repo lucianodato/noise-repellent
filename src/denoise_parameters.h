@@ -35,9 +35,9 @@ typedef enum
 
 typedef struct DenoiseParameters DenoiseParameters;
 
+DenoiseParameters *plugin_parameters_initialize();
 void plugin_parameters_free(DenoiseParameters *self);
 float get_plugin_parameters(DenoiseParameters *self, int parameter_type);
 void set_plugin_parameters(DenoiseParameters *self, float *value, int parameter_type);
-DenoiseParameters *plugin_parameters_initialize();
 
 #endif

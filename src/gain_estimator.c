@@ -63,6 +63,46 @@ struct GainEstimator
 	SpectralSmoother *spectrum_smoothing;
 };
 
+GainEstimator *gain_estimation_initialize(int fft_size, int samp_rate, int hop)
+{
+	GainEstimator *self = (GainEstimator *)calloc(1, sizeof(GainEstimator));
+
+	self->fft_size = fft_size;
+	self->half_fft_size = self->fft_size / 2;
+	self->samp_rate = samp_rate;
+	self->hop = hop;
+
+	self->signal_spectrum = (float *)calloc((self->half_fft_size + 1), sizeof(float));
+	self->gain_spectrum = (float *)calloc((self->half_fft_size + 1), sizeof(float));
+	self->noise_profile = (float *)calloc((self->half_fft_size + 1), sizeof(float));
+	self->alpha = (float *)calloc((self->half_fft_size + 1), sizeof(float));
+	self->beta = (float *)calloc((self->half_fft_size + 1), sizeof(float));
+	self->masking_thresholds = (float *)calloc((self->half_fft_size + 1), sizeof(float));
+	self->clean_signal_estimation = (float *)calloc((self->half_fft_size + 1), sizeof(float));
+
+	self->masking_estimation = masking_estimation_initialize(self->fft_size, self->samp_rate);
+	self->transient_detection = transient_detector_initialize(self->fft_size);
+	self->spectrum_smoothing = spectral_smoothing_initialize(self->fft_size, self->samp_rate, self->hop);
+
+	return self;
+}
+
+void gain_estimation_free(GainEstimator *self)
+{
+	masking_estimation_free(self->masking_estimation);
+	transient_detector_free(self->transient_detection);
+	spectral_smoothing_free(self->spectrum_smoothing);
+
+	free(self->noise_profile);
+	free(self->gain_spectrum);
+	free(self->signal_spectrum);
+	free(self->alpha);
+	free(self->beta);
+	free(self->masking_thresholds);
+	free(self->clean_signal_estimation);
+	free(self);
+}
+
 float max_spectral_value(float *spectrum, int N)
 {
 	float max = spectrum[0];
@@ -222,44 +262,4 @@ void gain_estimation_run(GainEstimator *self, float *signal_spectrum, float *noi
 	}
 
 	memcpy(gain_spectrum, self->gain_spectrum, sizeof(float) * self->half_fft_size + 1);
-}
-
-void gain_estimation_free(GainEstimator *self)
-{
-	masking_estimation_free(self->masking_estimation);
-	transient_detector_free(self->transient_detection);
-	spectral_smoothing_free(self->spectrum_smoothing);
-
-	free(self->noise_profile);
-	free(self->gain_spectrum);
-	free(self->signal_spectrum);
-	free(self->alpha);
-	free(self->beta);
-	free(self->masking_thresholds);
-	free(self->clean_signal_estimation);
-	free(self);
-}
-
-GainEstimator *gain_estimation_initialize(int fft_size, int samp_rate, int hop)
-{
-	GainEstimator *self = (GainEstimator *)calloc(1, sizeof(GainEstimator));
-
-	self->fft_size = fft_size;
-	self->half_fft_size = self->fft_size / 2;
-	self->samp_rate = samp_rate;
-	self->hop = hop;
-
-	self->signal_spectrum = (float *)calloc((self->half_fft_size + 1), sizeof(float));
-	self->gain_spectrum = (float *)calloc((self->half_fft_size + 1), sizeof(float));
-	self->noise_profile = (float *)calloc((self->half_fft_size + 1), sizeof(float));
-	self->alpha = (float *)calloc((self->half_fft_size + 1), sizeof(float));
-	self->beta = (float *)calloc((self->half_fft_size + 1), sizeof(float));
-	self->masking_thresholds = (float *)calloc((self->half_fft_size + 1), sizeof(float));
-	self->clean_signal_estimation = (float *)calloc((self->half_fft_size + 1), sizeof(float));
-
-	self->masking_estimation = masking_estimation_initialize(self->fft_size, self->samp_rate);
-	self->transient_detection = transient_detector_initialize(self->fft_size);
-	self->spectrum_smoothing = spectral_smoothing_initialize(self->fft_size, self->samp_rate, self->hop);
-
-	return self;
 }
