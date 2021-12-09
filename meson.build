@@ -1,5 +1,8 @@
 project('nrepellent.lv2','c',version: '0.1.6',default_options: ['c_std=c99'])
 
+#install folder
+install_folder = join_paths(get_option('libdir'), 'lv2', meson.project_name())
+
 #sources to compile
 noise_repellent_sources = [
     'src/transient_detector.c',
@@ -20,24 +23,17 @@ fftw_dep = dependency('fftw3f', required : true)
 lv2_dep = dependency('lv2', required : true)
 nr_dep = [m_dep,fftw_dep,lv2_dep]
 
-#compiler default flags
-add_global_arguments('-fomit-frame-pointer','-fno-finite-math-only','-Wno-unused-function',language : 'c')
-if get_option('buildtype') == 'debug'
-  add_project_arguments('-ggdb3',  language : 'c')
-endif
-
-#install folder
-install_folder = join_paths(get_option('libdir'), 'lv2', meson.project_name())
-
 #get the host operating system and configure install path and shared object extension
 current_os = host_machine.system()
 current_arch = host_machine.cpu_family()
 cflags = []
 
+#compiler flags
 if get_option('buildtype') == 'release'
     # Add x86_64 optimization where appropriate (not for ARM, not for riscv)
     if current_arch != 'aarch64' and current_arch != 'riscv64' and current_os != 'darwin' 
         cflags += ['-ffast-math', '-msse','-msse2','-mfpmath=sse']
+        
     endif
     # Add osx multiarch flags when appropriate
     if current_os == 'darwin'
@@ -55,9 +51,6 @@ if current_os == 'windows' #windows
     extension = '.dll'
     exe_wrapper = true
 endif
-
-#install folder
-install_folder = 'nrepellent.lv2'
 
 #build of the shared object
 library('nrepellent',

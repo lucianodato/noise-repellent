@@ -8,17 +8,17 @@
         {
             "label": "MesonDebugConfig",
             "type": "shell",
-            "command": "meson build --buildtype=debug --prefix=~/.lv2"
+            "command": "meson build --werror --prefix=~/ --libdir="
         },
         {
             "label": "MesonReleaseConfig",
             "type": "shell",
-            "command": "meson build --buildtype=release --prefix=~/.lv2"
+            "command": "meson build --warnlevel=0 --buildtype=release --prefix=/usr --libdir=lib"
         },
         {
             "label": "NinjaBuild",
             "type": "shell",
-            "command": "ninja -C build -v"
+            "command": "ninja -C build -v",
         },
         {
             "label": "NinjaInstall",
@@ -33,7 +33,7 @@
         {
             "label": "NinjaUninstall",
             "type": "shell",
-            "command": "ninja -C build uninstall"
+            "command": "sudo ninja -C build uninstall"
         },
         {
             "label": "NinjaClean",
@@ -82,9 +82,9 @@
                 "NinjaInstall"
             ],
             "dependsOrder": "sequence",
-            "problemMatcher": {
-                "base": "$gcc"
-            }
+            "problemMatcher": [
+                "$gcc"
+            ]
         },
         {
             "label": "ValgrindPlugin",
