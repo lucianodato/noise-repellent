@@ -22,18 +22,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 typedef struct MaskingEstimator MaskingEstimator;
 
-float bin_to_freq(int i, float samp_rate, int N);
-void compute_bark_mapping(MaskingEstimator *self);
-void compute_absolute_thresholds(MaskingEstimator *self);
-void get_power_spectrum(MaskingEstimator *self, float *window, float *signal, float *power_spectrum);
-void spl_reference(MaskingEstimator *self);
-void compute_spectral_spreading_function(MaskingEstimator *self);
-void convolve_with_spectral_spreading_function(MaskingEstimator *self, float *bark_spectrum, float *spreaded_spectrum);
-void compute_bark_spectrum(MaskingEstimator *self, float *bark_spectrum, float *spectrum,
-						   float *intermediate_band_bins, float *n_bins_per_band);
-void convert_to_dbspl(MaskingEstimator *self, float *masking_thresholds);
-float compute_tonality_factor(float *spectrum, float *intermediate_band_bins,
-							  float *n_bins_per_band, int band);
 void compute_masking_thresholds(MaskingEstimator *self, float *spectrum, float *masking_thresholds);
 MaskingEstimator *masking_estimation_initialize(int fft_size, int samp_rate);
 void masking_estimation_free(MaskingEstimator *self);

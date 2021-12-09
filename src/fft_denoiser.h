@@ -27,13 +27,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 typedef struct FFTDenoiser FFTDenoiser;
 
-bool is_empty(float *spectrum, int N);
-void fft_denoiser_update_wetdry_target(FFTDenoiser *self, bool enable);
-void fft_denoiser_soft_bypass(FFTDenoiser *self);
-void residual_spectrum_whitening(FFTDenoiser *self, float whitening_factor);
-void get_denoised_spectrum(FFTDenoiser *self);
-void get_residual_spectrum(FFTDenoiser *self, float whitening_factor);
-void get_final_spectrum(FFTDenoiser *self, bool residual_listen, float reduction_amount);
 void fft_denoiser_run(FFTDenoiser *self, NoiseProfile *noise_profile, float *fft_spectrum);
 FFTDenoiser *fft_denoiser_initialize(int sample_rate, int fft_size, int overlap_factor);
 void fft_denoiser_free(FFTDenoiser *self);

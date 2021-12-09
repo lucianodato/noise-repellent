@@ -22,12 +22,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 typedef struct GainEstimator GainEstimator;
 
-float max_spectral_value(float *spectrum, int N);
-float min_spectral_value(float *spectrum, int N);
-void wiener_subtraction(GainEstimator *self);
-void spectral_gating(GainEstimator *self);
-void denoise_gain_generalized_spectral_substraction(GainEstimator *self);
-void compute_alpha_and_beta(GainEstimator *self, float masking_ceiling_limit, float masking_floor_limit);
 void gain_estimation_run(GainEstimator *self, float *signal_spectrum, float *noise_profile, float *gain_spectrum, float transient_threshold,
 						 float masking_ceiling_limit, float release, float noise_rescale);
 void gain_estimation_free(GainEstimator *self);

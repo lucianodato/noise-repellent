@@ -35,7 +35,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define HIGH_FREQ_BIAS 20.f
 #define S_AMP 1.f
 
+#if BIAS
 static const float relative_thresholds[N_BARK_BANDS] = {-16.f, -17.f, -18.f, -19.f, -20.f, -21.f, -22.f, -23.f, -24.f, -25.f, -25.f, -25.f, -25.f, -25.f, -25.f, -24.f, -23.f, -22.f, -19.f, -18.f, -18.f, -18.f, -18.f, -18.f, -18.f};
+#endif
 
 struct MaskingEstimator
 {

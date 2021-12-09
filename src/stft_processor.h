@@ -27,15 +27,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 typedef struct STFTProcessor STFTProcessor;
 
 void set_spectral_size(STFTProcessor *self, int fft_size);
-void fft_window(float *window, int N, int window_type);
-void stft_processor_pre_and_post_window(STFTProcessor *self);
-void stft_processor_analysis(STFTProcessor *self);
-void stft_processor_synthesis(STFTProcessor *self);
 int stft_processor_get_latency(STFTProcessor *self);
 void stft_processor_run(STFTProcessor *self, NoiseProfile *noise_profile, int n_samples, const float *input, float *output);
 STFTProcessor *stft_processor_initialize(FFTDenoiser *fft_denoiser, int fft_size, int overlap_factor);
 void stft_processor_free(STFTProcessor *self);
-void get_info_from_bins(float *fft_power, float *fft_magnitude, float *fft_phase,
-						int half_fft_size, int fft_size, float *fft_buffer);
 
 #endif
