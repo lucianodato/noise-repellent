@@ -1,7 +1,11 @@
 project('nrepellent.lv2','c',version: '0.1.6',default_options: ['c_std=c99'])
 
 #install folder
-install_folder = join_paths(get_option('libdir'), 'lv2', meson.project_name())
+if get_option('buildtype') == 'release'
+    install_folder = join_paths(get_option('libdir'), 'lv2', meson.project_name())
+else
+    install_folder = join_paths('.lv2', meson.project_name())
+endif
 
 #sources to compile
 noise_repellent_sources = [
