@@ -25,10 +25,5 @@ typedef struct MaskingEstimator MaskingEstimator;
 MaskingEstimator *masking_estimation_initialize(int fft_size, int samp_rate);
 void masking_estimation_free(MaskingEstimator *self);
 void compute_masking_thresholds(MaskingEstimator *self, float *spectrum, float *masking_thresholds);
-void compute_bark_mapping(MaskingEstimator *self);
-void compute_absolute_thresholds(MaskingEstimator *self);
-void spl_reference(MaskingEstimator *self);
-void compute_spectral_spreading_function(MaskingEstimator *self);
-void convolve_with_spectral_spreading_function(MaskingEstimator *self, float *bark_spectrum, float *spreaded_spectrum);
 
 #endif

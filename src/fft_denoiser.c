@@ -119,30 +119,30 @@ void fft_denoiser_free(FFTDenoiser *self)
 void get_info_from_bins(float *fft_power, float *fft_magnitude, float *fft_phase,
 						int half_fft_size, int fft_size, float *fft_buffer)
 {
-	float real_p = fft_buffer[0];
+	float real_bin = fft_buffer[0];
 
-	fft_power[0] = real_p * real_p;
-	fft_magnitude[0] = real_p;
-	fft_phase[0] = atan2f(real_p, 0.f);
+	fft_power[0] = real_bin * real_bin;
+	fft_magnitude[0] = real_bin;
+	fft_phase[0] = atan2f(real_bin, 0.f);
 
 	for (int k = 1; k <= half_fft_size; k++)
 	{
-		float imag_n, magnitude, power, phase;
+		float imag_bin, magnitude, power, phase;
 
-		real_p = fft_buffer[k];
-		imag_n = fft_buffer[fft_size - k];
+		real_bin = fft_buffer[k];
+		imag_bin = fft_buffer[fft_size - k];
 
 		if (k < half_fft_size)
 		{
-			power = (real_p * real_p + imag_n * imag_n);
+			power = (real_bin * real_bin + imag_bin * imag_bin);
 			magnitude = sqrtf(power);
-			phase = atan2f(real_p, imag_n);
+			phase = atan2f(real_bin, imag_bin);
 		}
 		else
 		{
-			power = real_p * real_p;
-			magnitude = real_p;
-			phase = atan2f(real_p, 0.f);
+			power = real_bin * real_bin;
+			magnitude = real_bin;
+			phase = atan2f(real_bin, 0.f);
 		}
 
 		fft_power[k] = power;
@@ -278,7 +278,7 @@ void fft_denoiser_run(FFTDenoiser *self, NoiseProfile *noise_profile, float *fft
 					   self->phase_spectrum, self->half_fft_size,
 					   self->fft_size, self->fft_spectrum);
 
-	if (!is_empty(self->power_spectrum, self->half_fft_size))
+	if (is_empty(self->power_spectrum, self->half_fft_size) == false)
 	{
 		if (learn_noise)
 		{

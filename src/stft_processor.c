@@ -30,6 +30,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define INPUT_WINDOW_TYPE 3
 #define OUTPUT_WINDOW_TYPE 3
 
+void stft_processor_pre_and_post_window(STFTProcessor *self);
+
 typedef enum
 {
 	HANN_WINDOW = 0,

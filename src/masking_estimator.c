@@ -39,6 +39,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 static const float relative_thresholds[N_BARK_BANDS] = {-16.f, -17.f, -18.f, -19.f, -20.f, -21.f, -22.f, -23.f, -24.f, -25.f, -25.f, -25.f, -25.f, -25.f, -25.f, -24.f, -23.f, -22.f, -19.f, -18.f, -18.f, -18.f, -18.f, -18.f, -18.f};
 #endif
 
+void compute_spectral_spreading_function(MaskingEstimator *self);
+void convolve_with_spectral_spreading_function(MaskingEstimator *self, float *bark_spectrum, float *spreaded_spectrum);
+void compute_bark_mapping(MaskingEstimator *self);
+void compute_absolute_thresholds(MaskingEstimator *self);
+void spl_reference(MaskingEstimator *self);
+
 struct MaskingEstimator
 {
 
@@ -46,7 +52,7 @@ struct MaskingEstimator
 	int half_fft_size;
 	int samp_rate;
 
-	float *bark_z;
+	float *bark_z_spectrum;
 	float *absolute_thresholds;
 	float *spl_reference_values;
 	float *input_fft_buffer_at;
@@ -67,7 +73,7 @@ MaskingEstimator *masking_estimation_initialize(int fft_size, int samp_rate)
 	self->samp_rate = samp_rate;
 
 	self->absolute_thresholds = (float *)calloc((self->half_fft_size + 1), sizeof(float));
-	self->bark_z = (float *)calloc((self->half_fft_size + 1), sizeof(float));
+	self->bark_z_spectrum = (float *)calloc((self->half_fft_size + 1), sizeof(float));
 	self->spl_reference_values = (float *)calloc((self->half_fft_size + 1), sizeof(float));
 	self->input_fft_buffer_at = (float *)calloc((self->fft_size), sizeof(float));
 	self->output_fft_buffer_at = (float *)calloc((self->fft_size), sizeof(float));
@@ -90,7 +96,7 @@ MaskingEstimator *masking_estimation_initialize(int fft_size, int samp_rate)
 void masking_estimation_free(MaskingEstimator *self)
 {
 	free(self->absolute_thresholds);
-	free(self->bark_z);
+	free(self->bark_z_spectrum);
 	free(self->spl_reference_values);
 	free(self->input_fft_buffer_at);
 	free(self->output_fft_buffer_at);
@@ -112,7 +118,7 @@ void compute_bark_mapping(MaskingEstimator *self)
 	{
 		float freq;
 		freq = (float)self->samp_rate / (2.f * (float)(self->half_fft_size) * (float)k);
-		self->bark_z[k] = 1.f + 13.f * atanf(0.00076f * freq) + 3.5f * atanf(powf(freq / 7500.f, 2.f));
+		self->bark_z_spectrum[k] = 1.f + 13.f * atanf(0.00076f * freq) + 3.5f * atanf(powf(freq / 7500.f, 2.f));
 	}
 }
 
@@ -146,25 +152,25 @@ void get_power_spectrum(MaskingEstimator *self, float *window, float *signal, fl
 
 	fftwf_execute(self->forward_fft);
 
-	float real_p = self->output_fft_buffer_at[0];
+	float real_bin = self->output_fft_buffer_at[0];
 
-	power_spectrum[0] = real_p * real_p;
+	power_spectrum[0] = real_bin * real_bin;
 
 	for (int k = 1; k <= self->half_fft_size; k++)
 	{
-		float imag_n, p2;
+		float imag_bin, p2;
 
-		real_p = self->output_fft_buffer_at[k];
-		imag_n = self->output_fft_buffer_at[self->fft_size - k];
+		real_bin = self->output_fft_buffer_at[k];
+		imag_bin = self->output_fft_buffer_at[self->fft_size - k];
 
 		if (k < self->half_fft_size)
 		{
-			p2 = (real_p * real_p + imag_n * imag_n);
+			p2 = (real_bin * real_bin + imag_bin * imag_bin);
 		}
 		else
 		{
 
-			p2 = real_p * real_p;
+			p2 = real_bin * real_bin;
 		}
 
 		power_spectrum[k] = p2;
@@ -230,11 +236,13 @@ void compute_bark_spectrum(MaskingEstimator *self, float *bark_spectrum, float *
 	{
 		int cont = 0;
 		if (j == 0)
+		{
 			cont = 1;
+		}
 
 		bark_spectrum[j] = 0.f;
 
-		while (floor(self->bark_z[last_position + cont]) == (j + 1))
+		while (floor(self->bark_z_spectrum[last_position + cont]) == (j + 1))
 		{
 			bark_spectrum[j] += spectrum[last_position + cont];
 			cont++;
@@ -260,7 +268,7 @@ float compute_tonality_factor(float *spectrum, float *intermediate_band_bins,
 {
 	int k;
 	float SFM, tonality_factor;
-	float sum_p = 0.f, sum_log_p = 0.f;
+	float sum_bins = 0.f, sum_log_bins = 0.f;
 	int start_pos, end_pos = 0;
 
 	if (band == 0)
@@ -276,11 +284,11 @@ float compute_tonality_factor(float *spectrum, float *intermediate_band_bins,
 
 	for (k = start_pos; k < end_pos; k++)
 	{
-		sum_p += spectrum[k];
-		sum_log_p += log10f(spectrum[k]);
+		sum_bins += spectrum[k];
+		sum_log_bins += log10f(spectrum[k]);
 	}
 
-	SFM = 10.f * (sum_log_p / (float)(n_bins_per_band[band]) - log10f(sum_p / (float)(n_bins_per_band[band])));
+	SFM = 10.f * (sum_log_bins / (float)(n_bins_per_band[band]) - log10f(sum_bins / (float)(n_bins_per_band[band])));
 
 	tonality_factor = fminf(SFM / -60.f, 1.f);
 
@@ -314,7 +322,9 @@ void compute_masking_thresholds(MaskingEstimator *self, float *spectrum, float *
 		masking_offset[j] = relative_thresholds[j];
 
 		if (j > 15)
+		{
 			masking_offset[j] += HIGH_FREQ_BIAS;
+		}
 #endif
 
 		threshold_j[j] = powf(10.f, log10f(spreaded_spectrum[j]) - (masking_offset[j] / 10.f));

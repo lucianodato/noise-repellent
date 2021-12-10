@@ -226,18 +226,22 @@ static LV2_State_Status restorestate(LV2_Handle instance, LV2_State_Retrieve_Fun
 	uint32_t valflags;
 
 	const int *fftsize = (const int *)retrieve(handle, self->state.property_fft_size, &size, &type, &valflags);
-	if (!fftsize || type != self->uris.atom_Int)
+	if (fftsize == NULL || type != self->uris.atom_Int)
 	{
 		return LV2_STATE_ERR_NO_PROPERTY;
 	}
 
-	if (!*fftsize)
+	if (*fftsize == 0)
+	{
 		set_spectral_size(self->stft_processor, FFT_SIZE);
+	}
 	else
+	{
 		set_spectral_size(self->stft_processor, *fftsize);
+	}
 
 	const void *saved_noise_profile = retrieve(handle, self->state.property_saved_noise_profile, &size, &type, &valflags);
-	if (!saved_noise_profile || size != sizeof(float) * *fftsize / 2 + 1 || type != self->uris.atom_Vector)
+	if (saved_noise_profile == NULL || size != sizeof(float) * *fftsize / 2 + 1 || type != self->uris.atom_Vector)
 	{
 		return LV2_STATE_ERR_NO_PROPERTY;
 	}
@@ -250,7 +254,7 @@ static LV2_State_Status restorestate(LV2_Handle instance, LV2_State_Retrieve_Fun
 static const void *extension_data(const char *uri)
 {
 	static const LV2_State_Interface state = {savestate, restorestate};
-	if (!strcmp(uri, LV2_STATE__interface))
+	if (strcmp(uri, LV2_STATE__interface) == 0)
 	{
 		return &state;
 	}
