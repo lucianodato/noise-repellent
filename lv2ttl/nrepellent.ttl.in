@@ -46,7 +46,6 @@
     lv2:maximum 48.0 ;
     lv2:default 10.0 ;
     units:unit units:db ;
-    pg:group <https://github.com/lucianodato/noise-repellent#main_controls> ;
   ], [
     a lv2:ControlPort,
       lv2:InputPort ;
@@ -59,7 +58,6 @@
     lv2:maximum 12.0 ;
     lv2:default 0.0 ;
     units:unit units:db ;
-    pg:group <https://github.com/lucianodato/noise-repellent#main_controls> ;
   ], [
     a lv2:ControlPort,
       lv2:InputPort ;
@@ -72,7 +70,6 @@
     lv2:maximum 1000.0 ;
     lv2:default 150.0 ;
     units:unit units:ms ;
-    pg:group <https://github.com/lucianodato/noise-repellent#main_controls> ;
   ], [
     a lv2:ControlPort,
       lv2:InputPort ;
@@ -84,7 +81,6 @@
     lv2:minimum 1.0 ;
     lv2:maximum 10.0 ;
     lv2:default 5.0 ;
-    pg:group <https://github.com/lucianodato/noise-repellent#main_controls> ;
   ], [
     a lv2:InputPort,
     lv2:ControlPort ;
@@ -96,7 +92,6 @@
     lv2:default 1.0 ;
     lv2:minimum 1.0 ;
     lv2:maximum 6.0 ;
-    pg:group <https://github.com/lucianodato/noise-repellent#main_controls> ;
   ], [
     a lv2:ControlPort,
       lv2:InputPort ;
@@ -109,7 +104,6 @@
     lv2:maximum 100.0 ;
     lv2:default 0.0 ;
     units:unit units:pc ;
-    pg:group <https://github.com/lucianodato/noise-repellent#main_controls> ;
   ], [
     a lv2:ControlPort,
       lv2:InputPort ;
@@ -122,7 +116,6 @@
     lv2:maximum 1 ;
     lv2:default 0 ;
     lv2:portProperty lv2:toggled, lv2:integer ;
-    pg:group <https://github.com/lucianodato/noise-repellent#switches> ;
   ], [
     a lv2:InputPort,
     lv2:ControlPort ;
@@ -135,7 +128,6 @@
     lv2:minimum 0 ;
     lv2:maximum 1 ;
     lv2:portProperty lv2:toggled, lv2:integer ;
-    pg:group <https://github.com/lucianodato/noise-repellent#switches> ;
   ], [
     a lv2:InputPort, lv2:ControlPort ;
     lv2:index 8 ;
@@ -145,8 +137,6 @@
     lv2:minimum 0.0 ;
     lv2:maximum 1.0 ;
     lv2:portProperty lv2:toggled, pprop:notOnGUI;
-    lv2:designation <http://ardour.org/lv2/processing#enable>;
-    pg:group <https://github.com/lucianodato/noise-repellent#switches> ;
   ], [
     a lv2:OutputPort,
       lv2:ControlPort ;
@@ -157,21 +147,18 @@
     lv2:maximum 8192 ;
     lv2:portProperty lv2:reportsLatency, lv2:integer, pprop:notOnGUI ;
     units:unit units:frame ;
-    pg:group <https://github.com/lucianodato/noise-repellent#latency> ;
   ], [
     a lv2:AudioPort,
       lv2:InputPort ;
     lv2:index 10 ;
     lv2:symbol "input" ;
     lv2:name "Input" ;
-    pg:group <https://github.com/lucianodato/noise-repellent#inputs> ;
   ], [
     a lv2:AudioPort,
       lv2:OutputPort ;
     lv2:index 11 ;
     lv2:symbol "output" ;
     lv2:name "Output" ;
-    pg:group <https://github.com/lucianodato/noise-repellent#outputs> ;
   ];
   rdfs:comment "Un plugin LV2 para la reduccion de ruido"@es,
                "Un plugin LV2 pour la réduction du bruit à large bande"@fr,
