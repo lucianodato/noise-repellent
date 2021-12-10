@@ -26,10 +26,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 typedef struct STFTProcessor STFTProcessor;
 
-STFTProcessor *stft_processor_initialize(FFTDenoiser *fft_denoiser, int fft_size, int overlap_factor);
+STFTProcessor *stft_processor_initialize(FFTDenoiser *fft_denoiser,
+                                         int fft_size, int overlap_factor);
 void stft_processor_free(STFTProcessor *self);
 void set_spectral_size(STFTProcessor *self, int fft_size);
 int stft_processor_get_latency(STFTProcessor *self);
-void stft_processor_run(STFTProcessor *self, NoiseProfile *noise_profile, int n_samples, const float *input, float *output);
+void stft_processor_run(STFTProcessor *self, NoiseProfile *noise_profile,
+                        int n_samples, const float *input, float *output);
 
 #endif

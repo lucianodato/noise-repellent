@@ -21,37 +21,30 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <stdlib.h>
 #include <string.h>
 
-struct NoiseProfile
-{
-	int noise_profile_size;
-	float *noise_profile;
+struct NoiseProfile {
+  int noise_profile_size;
+  float *noise_profile;
 };
 
-NoiseProfile *noise_profile_initialize(int noise_profile_size)
-{
-	NoiseProfile *self = (NoiseProfile *)calloc(1, sizeof(NoiseProfile));
+NoiseProfile *noise_profile_initialize(int noise_profile_size) {
+  NoiseProfile *self = (NoiseProfile *)calloc(1, sizeof(NoiseProfile));
 
-	self->noise_profile_size = noise_profile_size;
-	self->noise_profile = (float *)calloc((self->noise_profile_size), sizeof(float));
+  self->noise_profile_size = noise_profile_size;
+  self->noise_profile =
+      (float *)calloc((self->noise_profile_size), sizeof(float));
 
-	return self;
+  return self;
 }
 
-void noise_profile_free(NoiseProfile *self)
-{
-	free(self->noise_profile);
-	free(self);
+void noise_profile_free(NoiseProfile *self) {
+  free(self->noise_profile);
+  free(self);
 }
 
-void set_noise_profile(NoiseProfile *self, float *noise_profile)
-{
-	if (sizeof(noise_profile) == (self->noise_profile_size * sizeof(float)))
-	{
-		memcpy(self->noise_profile, noise_profile, self->noise_profile_size);
-	}
+void set_noise_profile(NoiseProfile *self, float *noise_profile) {
+  if (sizeof(noise_profile) == (self->noise_profile_size * sizeof(float))) {
+    memcpy(self->noise_profile, noise_profile, self->noise_profile_size);
+  }
 }
 
-float *get_noise_profile(NoiseProfile *self)
-{
-	return self->noise_profile;
-}
+float *get_noise_profile(NoiseProfile *self) { return self->noise_profile; }

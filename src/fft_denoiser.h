@@ -27,9 +27,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 typedef struct FFTDenoiser FFTDenoiser;
 
-FFTDenoiser *fft_denoiser_initialize(int sample_rate, int fft_size, int overlap_factor);
+FFTDenoiser *fft_denoiser_initialize(int samp_rate, int fft_size,
+                                     int overlap_factor);
 void fft_denoiser_free(FFTDenoiser *self);
-void load_denoise_parameters(FFTDenoiser *self, DenoiseParameters *new_parameters);
-void fft_denoiser_run(FFTDenoiser *self, NoiseProfile *noise_profile, float *fft_spectrum);
+void load_denoise_parameters(FFTDenoiser *self,
+                             DenoiseParameters *new_parameters);
+void fft_denoiser_run(FFTDenoiser *self, NoiseProfile *noise_profile,
+                      float *fft_spectrum);
 
 #endif

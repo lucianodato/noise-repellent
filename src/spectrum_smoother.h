@@ -22,7 +22,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 typedef struct SpectralSmoother SpectralSmoother;
 
-SpectralSmoother *spectral_smoothing_initialize(int fft_size, int samp_rate, int hop);
+SpectralSmoother *spectral_smoothing_initialize(int fft_size, int samp_rate,
+                                                int hop);
 void spectral_smoothing_free(SpectralSmoother *self);
 void spectral_smoothing_run(SpectralSmoother *self, float release);
 

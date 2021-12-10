@@ -22,59 +22,52 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <stdlib.h>
 #include <string.h>
 
-struct NoiseEstimator
-{
-	int fft_size;
-	int half_fft_size;
-	bool noise_spectrum_available;
-	float noise_blocks_count;
-
-	float *noise_spectrum;
+struct NoiseEstimator {
+  int fft_size;
+  int half_fft_size;
+  bool noise_spectrum_available;
+  float noise_blocks_count;
+  float *noise_spectrum;
 };
 
-NoiseEstimator *noise_estimation_initialize(int fft_size)
-{
-	NoiseEstimator *self = (NoiseEstimator *)calloc(1, sizeof(NoiseEstimator));
+NoiseEstimator *noise_estimation_initialize(const int fft_size) {
+  NoiseEstimator *self = (NoiseEstimator *)calloc(1, sizeof(NoiseEstimator));
 
-	self->fft_size = fft_size;
-	self->half_fft_size = self->fft_size / 2;
-	self->noise_blocks_count = 0;
+  self->fft_size = fft_size;
+  self->half_fft_size = self->fft_size / 2;
+  self->noise_blocks_count = 0;
 
-	self->noise_spectrum = (float *)calloc((self->half_fft_size + 1), sizeof(float));
+  self->noise_spectrum =
+      (float *)calloc((self->half_fft_size + 1), sizeof(float));
 
-	self->noise_spectrum_available = false;
+  self->noise_spectrum_available = false;
 
-	return self;
+  return self;
 }
 
-void noise_estimation_free(NoiseEstimator *self)
-{
-	free(self->noise_spectrum);
-	free(self);
+void noise_estimation_free(NoiseEstimator *self) {
+  free(self->noise_spectrum);
+  free(self);
 }
 
-bool is_noise_estimation_available(NoiseEstimator *self)
-{
-	return self->noise_spectrum_available;
+bool is_noise_estimation_available(NoiseEstimator *self) {
+  return self->noise_spectrum_available;
 }
 
-void noise_estimation_run(NoiseEstimator *self, NoiseProfile *noise_profile, float *spectrum)
-{
-	self->noise_blocks_count++;
+void noise_estimation_run(NoiseEstimator *self, NoiseProfile *noise_profile,
+                          const float *spectrum) {
+  self->noise_blocks_count++;
 
-	for (int k = 1; k <= self->half_fft_size; k++)
-	{
-		if (self->noise_blocks_count <= 1.f)
-		{
-			self->noise_spectrum[k] = spectrum[k];
-		}
-		else
-		{
-			self->noise_spectrum[k] += ((spectrum[k] - self->noise_spectrum[k]) / self->noise_blocks_count);
-		}
-	}
+  for (int k = 1; k <= self->half_fft_size; k++) {
+    if (self->noise_blocks_count <= 1.f) {
+      self->noise_spectrum[k] = spectrum[k];
+    } else {
+      self->noise_spectrum[k] +=
+          ((spectrum[k] - self->noise_spectrum[k]) / self->noise_blocks_count);
+    }
+  }
 
-	self->noise_spectrum_available = true;
+  self->noise_spectrum_available = true;
 
-	set_noise_profile(noise_profile, self->noise_spectrum);
+  set_noise_profile(noise_profile, self->noise_spectrum);
 }

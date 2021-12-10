@@ -24,84 +24,77 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 #define TP_UPPER_LIMIT 5.f
 
-struct TransientDetector
-{
-	int fft_size;
-	int half_fft_size;
+struct TransientDetector {
+  int fft_size;
+  int half_fft_size;
 
-	float *spectrum;
+  float *spectrum;
 
-	float *previous_spectrum;
-	float r_mean;
-	bool transient_present;
-	float window_count;
+  float *previous_spectrum;
+  float r_mean;
+  bool transient_present;
+  float window_count;
 };
 
-TransientDetector *transient_detector_initialize(int fft_size)
-{
-	TransientDetector *self = (TransientDetector *)calloc(1, sizeof(TransientDetector));
+TransientDetector *transient_detector_initialize(int fft_size) {
+  TransientDetector *self =
+      (TransientDetector *)calloc(1, sizeof(TransientDetector));
 
-	self->fft_size = fft_size;
-	self->half_fft_size = self->fft_size / 2;
+  self->fft_size = fft_size;
+  self->half_fft_size = self->fft_size / 2;
 
-	self->spectrum = (float *)calloc((self->half_fft_size + 1), sizeof(float));
-	self->previous_spectrum = (float *)calloc((self->half_fft_size + 1), sizeof(float));
+  self->spectrum = (float *)calloc((self->half_fft_size + 1), sizeof(float));
+  self->previous_spectrum =
+      (float *)calloc((self->half_fft_size + 1), sizeof(float));
 
-	self->window_count = 0.f;
-	self->r_mean = 0.f;
-	self->transient_present = false;
+  self->window_count = 0.f;
+  self->r_mean = 0.f;
+  self->transient_present = false;
 
-	return self;
+  return self;
 }
 
-void transient_detector_free(TransientDetector *self)
-{
-	free(self->spectrum);
-	free(self->previous_spectrum);
-	free(self);
+void transient_detector_free(TransientDetector *self) {
+  free(self->spectrum);
+  free(self->previous_spectrum);
+  free(self);
 }
 
-float spectral_flux(float *spectrum, float *spectrum_prev, float N)
-{
-	int i;
-	float spectral_flux = 0.f;
+float spectral_flux(float *spectrum, float *spectrum_prev, float N) {
+  int i = 0;
+  float spectral_flux = 0.f;
 
-	for (i = 1; i <= N; i++)
-	{
-		float temp;
-		temp = sqrtf(spectrum[i]) - sqrtf(spectrum_prev[i]);
-		spectral_flux += (temp + fabs(temp)) / 2.f;
-	}
-	return spectral_flux;
+  for (i = 1; i <= N; i++) {
+    float temp = 0.f;
+    temp = sqrtf(spectrum[i]) - sqrtf(spectrum_prev[i]);
+    spectral_flux += (temp + fabsf(temp)) / 2.f;
+  }
+  return spectral_flux;
 }
 
-bool transient_detector_run(TransientDetector *self, float transient_threshold)
-{
-	float adapted_threshold, reduction_function;
+bool transient_detector_run(TransientDetector *self,
+                            float transient_threshold) {
+  float adapted_threshold = 0.f;
+  float reduction_function = 0.f;
 
-	reduction_function = spectral_flux(self->spectrum, self->previous_spectrum, self->half_fft_size);
+  reduction_function = spectral_flux(self->spectrum, self->previous_spectrum,
+                                     self->half_fft_size);
 
-	self->window_count += 1.f;
+  self->window_count += 1.f;
 
-	if (self->window_count > 1.f)
-	{
-		self->r_mean += ((reduction_function - self->r_mean) / self->window_count);
-	}
-	else
-	{
-		self->r_mean = reduction_function;
-	}
+  if (self->window_count > 1.f) {
+    self->r_mean += ((reduction_function - self->r_mean) / self->window_count);
+  } else {
+    self->r_mean = reduction_function;
+  }
 
-	adapted_threshold = (TP_UPPER_LIMIT - transient_threshold) * self->r_mean;
+  adapted_threshold = (TP_UPPER_LIMIT - transient_threshold) * self->r_mean;
 
-	memcpy(self->previous_spectrum, self->spectrum, sizeof(float) * (self->half_fft_size + 1));
+  memcpy(self->previous_spectrum, self->spectrum,
+         sizeof(float) * (self->half_fft_size + 1));
 
-	if (reduction_function > adapted_threshold)
-	{
-		return true;
-	}
-	else
-	{
-		return false;
-	}
+  if (reduction_function > adapted_threshold) {
+    return true;
+  }
+  return false;
 }

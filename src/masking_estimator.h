@@ -24,6 +24,7 @@ typedef struct MaskingEstimator MaskingEstimator;
 
 MaskingEstimator *masking_estimation_initialize(int fft_size, int samp_rate);
 void masking_estimation_free(MaskingEstimator *self);
-void compute_masking_thresholds(MaskingEstimator *self, float *spectrum, float *masking_thresholds);
+void compute_masking_thresholds(MaskingEstimator *self, float *spectrum,
+                                float *masking_thresholds);
 
 #endif

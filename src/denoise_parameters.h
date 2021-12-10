@@ -20,17 +20,16 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #ifndef DENOISE_PARAMETERS_H
 #define DENOISE_PARAMETERS_H
 
-typedef enum
-{
-    REDUCTION_AMOUNT = 0,
-    NOISE_RESCALE = 1,
-    RELEASE = 2,
-    MASKING = 3,
-    WHITENING_FACTOR = 4,
-    LEARN_NOISE = 5,
-    RESIDUAL_LISTEN = 6,
-    TRANSIENT_PROTECTION = 7,
-    ENABLE = 8
+typedef enum {
+  REDUCTION_AMOUNT = 0,
+  NOISE_RESCALE = 1,
+  RELEASE = 2,
+  MASKING = 3,
+  WHITENING_FACTOR = 4,
+  LEARN_NOISE = 5,
+  RESIDUAL_LISTEN = 6,
+  TRANSIENT_PROTECTION = 7,
+  ENABLE = 8
 } ParameterType;
 
 typedef struct DenoiseParameters DenoiseParameters;
@@ -38,6 +37,7 @@ typedef struct DenoiseParameters DenoiseParameters;
 DenoiseParameters *plugin_parameters_initialize();
 void plugin_parameters_free(DenoiseParameters *self);
 float get_plugin_parameters(DenoiseParameters *self, int parameter_type);
-void set_plugin_parameters(DenoiseParameters *self, float *value, int parameter_type);
+void set_plugin_parameters(DenoiseParameters *self, float *value,
+                           int parameter_type);
 
 #endif
