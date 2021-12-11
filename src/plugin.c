@@ -124,8 +124,12 @@ static LV2_Handle instantiate(const LV2_Descriptor *descriptor, double rate,
 
   self->fft_denoiser =
       fft_denoiser_initialize(self->sample_rate, FFT_SIZE, OVERLAP_FACTOR);
+  load_noise_profile(self->fft_denoiser, &self->noise_profile);
+  load_denoise_parameters(self->fft_denoiser, &self->denoise_parameters);
+
   self->stft_processor =
       stft_processor_initialize(self->fft_denoiser, FFT_SIZE, OVERLAP_FACTOR);
+  load_denoiser(self->stft_processor, self->fft_denoiser);
 
   return (LV2_Handle)self;
 }
@@ -174,9 +178,6 @@ static void connect_port(LV2_Handle instance, uint32_t port, void *data) {
 static void run(LV2_Handle instance, uint32_t n_samples) {
   NoiseRepellent *self = (NoiseRepellent *)instance;
 
-  load_denoise_parameters(self->fft_denoiser, self->denoise_parameters);
-  load_noise_profile(self->fft_denoiser, &self->noise_profile);
-
   *self->report_latency = (float)get_stft_latency(self->stft_processor);
 
   stft_processor_run(self->stft_processor, n_samples, self->input,
@@ -192,10 +193,10 @@ static void cleanup(LV2_Handle instance) {
   free(instance);
 }
 
-static LV2_State_Status savestate(LV2_Handle instance,
-                                  LV2_State_Store_Function store,
-                                  LV2_State_Handle handle, uint32_t flags,
-                                  const LV2_Feature *const *features) {
+static LV2_State_Status save(LV2_Handle instance,
+                             LV2_State_Store_Function store,
+                             LV2_State_Handle handle, uint32_t flags,
+                             const LV2_Feature *const *features) {
   NoiseRepellent *self = (NoiseRepellent *)instance;
 
   const uint32_t fft_size = FFT_SIZE;
@@ -211,10 +212,10 @@ static LV2_State_Status savestate(LV2_Handle instance,
   return LV2_STATE_SUCCESS;
 }
 
-static LV2_State_Status restorestate(LV2_Handle instance,
-                                     LV2_State_Retrieve_Function retrieve,
-                                     LV2_State_Handle handle, uint32_t flags,
-                                     const LV2_Feature *const *features) {
+static LV2_State_Status restore(LV2_Handle instance,
+                                LV2_State_Retrieve_Function retrieve,
+                                LV2_State_Handle handle, uint32_t flags,
+                                const LV2_Feature *const *features) {
   NoiseRepellent *self = (NoiseRepellent *)instance;
 
   size_t size = 0;
@@ -223,7 +224,7 @@ static LV2_State_Status restorestate(LV2_Handle instance,
 
   const uint32_t *fftsize = (const uint32_t *)retrieve(
       handle, self->state.property_fft_size, &size, &type, &valflags);
-  if (fftsize == NULL || type != self->uris.atom_Int) {
+  if (!fftsize || type != self->uris.atom_Int) {
     return LV2_STATE_ERR_NO_PROPERTY;
   }
 
@@ -236,7 +237,7 @@ static LV2_State_Status restorestate(LV2_Handle instance,
   const void *saved_noise_profile =
       retrieve(handle, self->state.property_saved_noise_profile, &size, &type,
                &valflags);
-  if (saved_noise_profile == NULL || size != sizeof(float) * *fftsize / 2 + 1 ||
+  if (!saved_noise_profile || size != sizeof(float) * *fftsize / 2 + 1 ||
       type != self->uris.atom_Vector) {
     return LV2_STATE_ERR_NO_PROPERTY;
   }
@@ -249,7 +250,7 @@ static LV2_State_Status restorestate(LV2_Handle instance,
 }
 
 static const void *extension_data(const char *uri) {
-  static const LV2_State_Interface state = {savestate, restorestate};
+  static const LV2_State_Interface state = {save, restore};
   if (strcmp(uri, LV2_STATE__interface) == 0) {
     return &state;
   }

@@ -96,8 +96,6 @@ STFTProcessor *stft_processor_initialize(FFTDenoiser *fft_denoiser,
 
   stft_processor_pre_and_post_window(self);
 
-  self->fft_denoiser = fft_denoiser;
-
   return self;
 }
 
@@ -119,6 +117,10 @@ uint32_t get_stft_latency(STFTProcessor *self) { return self->input_latency; }
 void load_spectral_size(STFTProcessor *self, const uint32_t fft_size) {
   self->fft_size = fft_size;
   self->half_fft_size = self->fft_size / 2;
+}
+
+void load_denoiser(STFTProcessor *self, FFTDenoiser *fft_denoiser) {
+  self->fft_denoiser = fft_denoiser;
 }
 
 void stft_processor_run(STFTProcessor *self, const uint32_t n_samples,

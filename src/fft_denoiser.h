@@ -47,7 +47,7 @@ FFTDenoiser *fft_denoiser_initialize(uint32_t sample_rate, uint32_t fft_size,
                                      uint32_t overlap_factor);
 void fft_denoiser_free(FFTDenoiser *self);
 void load_denoise_parameters(FFTDenoiser *self,
-                             DenoiseParameters new_parameters);
+                             DenoiseParameters *new_parameters);
 void load_noise_profile(FFTDenoiser *self, NoiseProfile *noise_profile);
 void fft_denoiser_run(FFTDenoiser *self, float *fft_spectrum);
 

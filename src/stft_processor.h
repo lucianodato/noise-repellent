@@ -30,6 +30,7 @@ STFTProcessor *stft_processor_initialize(FFTDenoiser *fft_denoiser,
                                          uint32_t overlap_factor);
 void stft_processor_free(STFTProcessor *self);
 void load_spectral_size(STFTProcessor *self, uint32_t fft_size);
+void load_denoiser(STFTProcessor *self, FFTDenoiser *fft_denoiser);
 uint32_t get_stft_latency(STFTProcessor *self);
 void stft_processor_run(STFTProcessor *self, uint32_t n_samples,
                         const float *input, float *output);

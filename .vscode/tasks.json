@@ -64,7 +64,7 @@
             "args": [
                 "-s",
                 "--leak-check=yes",
-                "--show-reachable=yes",
+                "--show-reachable=no",
                 "--track-origins=yes",
                 "--log-file=./output.valgrind",
                 "lv2bench",

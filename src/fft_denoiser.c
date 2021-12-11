@@ -69,7 +69,7 @@ struct FFTDenoiser {
   GainEstimator *gain_estimation;
   NoiseEstimator *noise_estimation;
   NoiseProfile *noise_profile;
-  DenoiseParameters denoise_parameters;
+  DenoiseParameters *denoise_parameters;
 
   float *residual_max_spectrum;
   float max_decay_rate;
@@ -141,7 +141,7 @@ void fft_denoiser_free(FFTDenoiser *self) {
 }
 
 void load_denoise_parameters(FFTDenoiser *self,
-                             const DenoiseParameters new_parameters) {
+                             DenoiseParameters *new_parameters) {
   self->denoise_parameters = new_parameters;
 }
 
@@ -151,17 +151,18 @@ void load_noise_profile(FFTDenoiser *self, NoiseProfile *noise_profile) {
 
 void fft_denoiser_run(FFTDenoiser *self, float *fft_spectrum) {
 
-  const bool enable = (bool)*self->denoise_parameters.enable;
-  const bool learn_noise = (bool)*self->denoise_parameters.learn_noise;
-  const bool residual_listen = (bool)*self->denoise_parameters.residual_listen;
+  const bool enable = (bool)*self->denoise_parameters->enable;
+  const bool learn_noise = (bool)*self->denoise_parameters->learn_noise;
+  const bool residual_listen = (bool)*self->denoise_parameters->residual_listen;
   const float transient_protection =
-      *self->denoise_parameters.transient_threshold;
-  const float masking = *self->denoise_parameters.masking_ceiling_limit / 100.f;
-  const float release = *self->denoise_parameters.release_time;
-  const float noise_rescale = *self->denoise_parameters.noise_rescale;
-  const float reduction_amount =
-      from_db_to_coefficient(*self->denoise_parameters.reduction_amount * -1.f);
-  const float whitening_factor = *self->denoise_parameters.whitening_factor;
+      *self->denoise_parameters->transient_threshold;
+  const float masking =
+      *self->denoise_parameters->masking_ceiling_limit / 100.f;
+  const float release = *self->denoise_parameters->release_time;
+  const float noise_rescale = *self->denoise_parameters->noise_rescale;
+  const float reduction_amount = from_db_to_coefficient(
+      *self->denoise_parameters->reduction_amount * -1.f);
+  const float whitening_factor = *self->denoise_parameters->whitening_factor;
   float *noise_spectrum = self->noise_profile->noise_profile;
 
   fft_denoiser_update_wetdry_target(self, enable);
@@ -172,7 +173,7 @@ void fft_denoiser_run(FFTDenoiser *self, float *fft_spectrum) {
                      self->phase_spectrum, self->half_fft_size, self->fft_size,
                      self->fft_spectrum);
 
-  if (is_empty(self->power_spectrum, self->half_fft_size) == false) {
+  if (!is_empty(self->power_spectrum, self->half_fft_size)) {
     if (learn_noise) {
       noise_estimation_run(self->noise_estimation, noise_spectrum,
                            self->power_spectrum);
