@@ -85,12 +85,21 @@ typedef struct {
   URIs uris;
   State state;
 
-  DenoiseParameters denoise_parameters;
-  NoiseProfile noise_profile;
+  DenoiseParameters *denoise_parameters;
+  NoiseProfile *noise_profile;
 
   FFTDenoiser *fft_denoiser;
   STFTProcessor *stft_processor;
 } NoiseRepellent;
+
+static void cleanup(LV2_Handle instance) {
+  NoiseRepellent *self = (NoiseRepellent *)instance;
+
+  free(self->noise_profile->noise_profile);
+  fft_denoiser_free(self->fft_denoiser);
+  stft_processor_free(self->stft_processor);
+  free(instance);
+}
 
 static LV2_Handle instantiate(const LV2_Descriptor *descriptor, double rate,
                               const char *bundle_path,
@@ -103,13 +112,13 @@ static LV2_Handle instantiate(const LV2_Descriptor *descriptor, double rate,
                          LV2_LOG__log, &self->log.log, false,
                          LV2_URID__map, &self->map, true,
                          NULL);
-  // clang-format on
+  // clang-format onnoise_profile
 
   lv2_log_logger_set_map(&self->log, self->map);
 
   if (missing) {
     lv2_log_error(&self->log, "Missing feature <%s>\n", missing);
-    free(self);
+    cleanup((LV2_Handle)self);
     return NULL;
   }
 
@@ -118,17 +127,29 @@ static LV2_Handle instantiate(const LV2_Descriptor *descriptor, double rate,
 
   self->sample_rate = (float)rate;
 
-  self->noise_profile.noise_profile =
+  self->denoise_parameters =
+      (DenoiseParameters *)calloc(1, sizeof(DenoiseParameters));
+
+  self->noise_profile = (NoiseProfile *)calloc(1, sizeof(NoiseProfile));
+  self->noise_profile->noise_profile_size = FFT_SIZE / 2 + 1;
+  self->noise_profile->noise_profile =
       (float *)calloc((FFT_SIZE / 2 + 1), sizeof(float));
-  self->noise_profile.noise_profile_size = FFT_SIZE / 2 + 1;
 
   self->fft_denoiser =
       fft_denoiser_initialize(self->sample_rate, FFT_SIZE, OVERLAP_FACTOR);
-  load_noise_profile(self->fft_denoiser, &self->noise_profile);
-  load_denoise_parameters(self->fft_denoiser, &self->denoise_parameters);
-
   self->stft_processor =
       stft_processor_initialize(self->fft_denoiser, FFT_SIZE, OVERLAP_FACTOR);
+
+  if (!self->denoise_parameters || !self->noise_profile ||
+      !self->noise_profile->noise_profile || !self->fft_denoiser ||
+      !self->stft_processor) {
+    lv2_log_error(&self->log, "Could not allocate memory for Noise Repellent");
+    cleanup((LV2_Handle)self);
+    return NULL;
+  }
+
+  load_noise_profile(self->fft_denoiser, self->noise_profile);
+  load_denoise_parameters(self->fft_denoiser, self->denoise_parameters);
   load_denoiser(self->stft_processor, self->fft_denoiser);
 
   return (LV2_Handle)self;
@@ -139,29 +160,31 @@ static void connect_port(LV2_Handle instance, uint32_t port, void *data) {
 
   switch ((PortIndex)port) {
   case NOISEREPELLENT_AMOUNT:
-    self->denoise_parameters.reduction_amount = (float *)data;
+    self->denoise_parameters->reduction_amount = (float *)data;
     break;
   case NOISEREPELLENT_NOISE_OFFSET:
-    self->denoise_parameters.noise_rescale = (float *)data;
+    self->denoise_parameters->noise_rescale = (float *)data;
     break;
   case NOISEREPELLENT_RELEASE:
-    self->denoise_parameters.release_time = (float *)data;
+    self->denoise_parameters->release_time = (float *)data;
+    break;
   case NOISEREPELLENT_MASKING:
-    self->denoise_parameters.masking_ceiling_limit = (float *)data;
+    self->denoise_parameters->masking_ceiling_limit = (float *)data;
+    break;
   case NOISEREPELLENT_WHITENING:
-    self->denoise_parameters.whitening_factor = (float *)data;
+    self->denoise_parameters->whitening_factor = (float *)data;
     break;
   case NOISEREPELLENT_NOISE_LEARN:
-    self->denoise_parameters.learn_noise = (float *)data;
+    self->denoise_parameters->learn_noise = (float *)data;
     break;
   case NOISEREPELLENT_RESIDUAL_LISTEN:
-    self->denoise_parameters.residual_listen = (float *)data;
+    self->denoise_parameters->residual_listen = (float *)data;
     break;
   case NOISEREPELLENT_TRANSIENT_PROTECT:
-    self->denoise_parameters.transient_threshold = (float *)data;
+    self->denoise_parameters->transient_threshold = (float *)data;
     break;
   case NOISEREPELLENT_ENABLE:
-    self->denoise_parameters.enable = (float *)data;
+    self->denoise_parameters->enable = (float *)data;
     break;
   case NOISEREPELLENT_LATENCY:
     self->report_latency = (float *)data;
@@ -184,15 +207,6 @@ static void run(LV2_Handle instance, uint32_t n_samples) {
                      self->output);
 }
 
-static void cleanup(LV2_Handle instance) {
-  NoiseRepellent *self = (NoiseRepellent *)instance;
-
-  free(self->noise_profile.noise_profile);
-  fft_denoiser_free(self->fft_denoiser);
-  stft_processor_free(self->stft_processor);
-  free(instance);
-}
-
 static LV2_State_Status save(LV2_Handle instance,
                              LV2_State_Store_Function store,
                              LV2_State_Handle handle, uint32_t flags,
@@ -205,7 +219,7 @@ static LV2_State_Status save(LV2_Handle instance,
         self->uris.atom_Int, LV2_STATE_IS_POD | LV2_STATE_IS_PORTABLE);
 
   store(handle, self->state.property_saved_noise_profile,
-        (void *)self->noise_profile.noise_profile,
+        (void *)self->noise_profile->noise_profile,
         sizeof(float) * fft_size / 2 + 1, self->uris.atom_Vector,
         LV2_STATE_IS_POD | LV2_STATE_IS_PORTABLE);
 
@@ -242,7 +256,7 @@ static LV2_State_Status restore(LV2_Handle instance,
     return LV2_STATE_ERR_NO_PROPERTY;
   }
 
-  memcpy(self->noise_profile.noise_profile,
+  memcpy(self->noise_profile->noise_profile,
          (float *)LV2_ATOM_BODY(saved_noise_profile),
          sizeof(float) * *fftsize / 2 + 1);
 
