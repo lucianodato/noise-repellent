@@ -91,7 +91,7 @@
                 "MesonDebugConfig",
                 "NinjaBuild",
                 "NinjaInstall",
-                "ValgrindLv2Apply"
+                "ValgrindLv2Bench"
             ],
             "dependsOrder": "sequence"
         },

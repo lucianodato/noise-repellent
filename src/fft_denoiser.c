@@ -72,8 +72,7 @@ FFTDenoiser *fft_denoiser_initialize(int samp_rate, int fft_size,
   self->hop = self->fft_size / overlap_factor;
   self->samp_rate = samp_rate;
 
-  self->fft_spectrum =
-      (float *)calloc((self->half_fft_size + 1), sizeof(float));
+  self->fft_spectrum = (float *)calloc((self->fft_size), sizeof(float));
   self->processed_fft_spectrum =
       (float *)calloc((self->half_fft_size + 1), sizeof(float));
 
