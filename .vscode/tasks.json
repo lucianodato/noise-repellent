@@ -58,12 +58,7 @@
             "command": "for i in {1..10}; do lv2bench https://github.com/lucianodato/noise-repellent; done"
         },
         {
-            "label": "Lv2Apply",
-            "type": "shell",
-            "command": "lv2apply -i ~/Music/noise.wav -o ~/Music/denoised.wav https://github.com/lucianodato/noise-repellent"
-        },
-        {
-            "label": "ValgrindLv2Apply",
+            "label": "ValgrindLv2Bench",
             "type": "shell",
             "command": "valgrind",
             "args": [
@@ -72,11 +67,7 @@
                 "--show-reachable=yes",
                 "--track-origins=yes",
                 "--log-file=./output.valgrind",
-                "lv2apply",
-                "-i",
-                "~/Music/noise.wav",
-                "-o",
-                "~/Music/denoised.wav",
+                "lv2bench",
                 "https://github.com/lucianodato/noise-repellent"
             ]
         },

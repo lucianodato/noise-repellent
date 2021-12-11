@@ -5,12 +5,8 @@
       "name": "Debug",
       "type": "cppdbg",
       "request": "launch",
-      "program": "/usr/bin/lv2apply",
+      "program": "/usr/bin/lv2bench",
       "args": [
-        "-i",
-        "~/Music/noise.wav", // Any audio input file for testing purposed
-        "-o",
-        "~/Music/denoised.wav", // Any audio output file for testing purposed
         "https://github.com/lucianodato/noise-repellent" // Plugin URI
       ],
       "stopAtEntry": false,
