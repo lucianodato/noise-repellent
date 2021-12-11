@@ -97,9 +97,13 @@ static LV2_Handle instantiate(const LV2_Descriptor *descriptor, double rate,
                               const LV2_Feature *const *features) {
   NoiseRepellent *self = (NoiseRepellent *)calloc(1, sizeof(NoiseRepellent));
 
+  // clang-format off
   const char *missing =
-      lv2_features_query(features, LV2_LOG__log, &self->log.log, false,
-                         LV2_URID__map, &self->map, true, NULL);
+      lv2_features_query(features, 
+                         LV2_LOG__log, &self->log.log, false,
+                         LV2_URID__map, &self->map, true,
+                         NULL);
+  // clang-format on
 
   lv2_log_logger_set_map(&self->log, self->map);
 
@@ -252,9 +256,18 @@ static const void *extension_data(const char *uri) {
   return NULL;
 }
 
+// clang-format off
 static const LV2_Descriptor descriptor = {
-    NOISEREPELLENT_URI, instantiate, connect_port, NULL, run, NULL, cleanup,
-    extension_data};
+    NOISEREPELLENT_URI,
+    instantiate,
+    connect_port,
+    NULL,
+    run,
+    NULL,
+    cleanup,
+    extension_data
+};
+// clang-format on
 
 LV2_SYMBOL_EXPORT const LV2_Descriptor *lv2_descriptor(uint32_t index) {
   switch (index) {

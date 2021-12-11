@@ -65,7 +65,8 @@ struct STFTProcessor {
 };
 
 STFTProcessor *stft_processor_initialize(FFTDenoiser *fft_denoiser,
-                                         int fft_size, int overlap_factor) {
+                                         const int fft_size,
+                                         const int overlap_factor) {
   STFTProcessor *self = (STFTProcessor *)calloc(1, sizeof(STFTProcessor));
 
   load_spectral_size(self, fft_size);
@@ -115,13 +116,13 @@ void stft_processor_free(STFTProcessor *self) {
 
 int get_stft_latency(STFTProcessor *self) { return self->input_latency; }
 
-void load_spectral_size(STFTProcessor *self, int fft_size) {
+void load_spectral_size(STFTProcessor *self, const int fft_size) {
   self->fft_size = fft_size;
   self->half_fft_size = self->fft_size / 2;
 }
 
-void stft_processor_run(STFTProcessor *self, int n_samples, const float *input,
-                        float *output) {
+void stft_processor_run(STFTProcessor *self, const int n_samples,
+                        const float *input, float *output) {
   for (int k = 0; k < n_samples; k++) {
     self->in_fifo[self->read_position] = input[k];
     output[k] = self->out_fifo[self->read_position - self->input_latency];
@@ -142,48 +143,47 @@ void stft_processor_run(STFTProcessor *self, int n_samples, const float *input,
   }
 }
 
-static inline float blackman(int k, int N) {
-  float p = ((float)(k)) / ((float)(N));
+static inline float blackman(const int bin_index, const int fft_size) {
+  const float p = ((float)(bin_index)) / ((float)(fft_size));
   return 0.42 - 0.5 * cosf(2.f * M_PI * p) + 0.08 * cosf(4.f * M_PI * p);
 }
 
-static inline float hanning(int k, int N) {
-  float p = ((float)(k)) / ((float)(N));
+static inline float hanning(const int bin_index, const int fft_size) {
+  const float p = ((float)(bin_index)) / ((float)(fft_size));
   return 0.5 - 0.5 * cosf(2.f * M_PI * p);
 }
 
-static inline float hamming(int k, int N) {
-  float p = ((float)(k)) / ((float)(N));
+static inline float hamming(const int bin_index, const int fft_size) {
+  const float p = ((float)(bin_index)) / ((float)(fft_size));
   return 0.54 - 0.46 * cosf(2.f * M_PI * p);
 }
 
-static inline float vorbis(int k, int N) {
-  float p = ((float)(k)) / ((float)(N));
+static inline float vorbis(const int bin_index, const int fft_size) {
+  const float p = ((float)(bin_index)) / ((float)(fft_size));
   return sinf(M_PI / 2.f * powf(sinf(M_PI * p), 2.f));
 }
 
-static void fft_window(float *window, int N, int window_type) {
-  int k = 0;
-  for (k = 0; k < N; k++) {
+static void fft_window(float *window, const int fft_size,
+                       const int window_type) {
+  for (int k = 0; k < fft_size; k++) {
     switch (window_type) {
     case BLACKMAN_WINDOW:
-      window[k] = blackman(k, N);
+      window[k] = blackman(k, fft_size);
       break;
     case HANN_WINDOW:
-      window[k] = hanning(k, N);
+      window[k] = hanning(k, fft_size);
       break;
     case HAMMING_WINDOW:
-      window[k] = hamming(k, N);
+      window[k] = hamming(k, fft_size);
       break;
     case VORBIS_WINDOW:
-      window[k] = vorbis(k, N);
+      window[k] = vorbis(k, fft_size);
       break;
     }
   }
 }
 
 static void stft_processor_pre_and_post_window(STFTProcessor *self) {
-  float sum = 0.f;
 
   switch ((WindowTypes)self->window_option_input) {
   case HANN_WINDOW:
@@ -215,6 +215,7 @@ static void stft_processor_pre_and_post_window(STFTProcessor *self) {
     break;
   }
 
+  float sum = 0.f;
   for (int i = 0; i < self->fft_size; i++) {
     sum += self->input_window[i] * self->output_window[i];
   }
@@ -223,9 +224,7 @@ static void stft_processor_pre_and_post_window(STFTProcessor *self) {
 }
 
 static void stft_processor_analysis(STFTProcessor *self) {
-  int k = 0;
-
-  for (k = 0; k < self->fft_size; k++) {
+  for (int k = 0; k < self->fft_size; k++) {
     self->input_fft_buffer[k] *= self->input_window[k];
   }
 
@@ -233,32 +232,30 @@ static void stft_processor_analysis(STFTProcessor *self) {
 }
 
 static void stft_processor_synthesis(STFTProcessor *self) {
-  int k = 0;
-
   fftwf_execute(self->backward);
 
-  for (k = 0; k < self->fft_size; k++) {
+  for (int k = 0; k < self->fft_size; k++) {
     self->input_fft_buffer[k] = self->input_fft_buffer[k] / self->fft_size;
   }
 
-  for (k = 0; k < self->fft_size; k++) {
+  for (int k = 0; k < self->fft_size; k++) {
     self->input_fft_buffer[k] =
         (self->output_window[k] * self->input_fft_buffer[k]) /
         (self->overlap_scale_factor * self->overlap_factor);
   }
 
-  for (k = 0; k < self->fft_size; k++) {
+  for (int k = 0; k < self->fft_size; k++) {
     self->output_accum[k] += self->input_fft_buffer[k];
   }
 
-  for (k = 0; k < self->hop; k++) {
+  for (int k = 0; k < self->hop; k++) {
     self->out_fifo[k] = self->output_accum[k];
   }
 
   memmove(self->output_accum, self->output_accum + self->hop,
           self->fft_size * sizeof(float));
 
-  for (k = 0; k < self->input_latency; k++) {
+  for (int k = 0; k < self->input_latency; k++) {
     self->in_fifo[k] = self->in_fifo[k + self->hop];
   }
 }

@@ -22,9 +22,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 typedef struct MaskingEstimator MaskingEstimator;
 
-MaskingEstimator *masking_estimation_initialize(int fft_size, int samp_rate);
+MaskingEstimator *masking_estimation_initialize(int fft_size, int sample_rate);
 void masking_estimation_free(MaskingEstimator *self);
-void compute_masking_thresholds(MaskingEstimator *self, float *spectrum,
+void compute_masking_thresholds(MaskingEstimator *self, const float *spectrum,
                                 float *masking_thresholds);
 
 #endif

@@ -44,7 +44,7 @@ static void compute_alpha_and_beta(GainEstimator *self,
 struct GainEstimator {
   int fft_size;
   int half_fft_size;
-  int samp_rate;
+  int sample_rate;
   int hop;
 
   float *gain_spectrum;
@@ -62,13 +62,14 @@ struct GainEstimator {
   SpectralSmoother *spectrum_smoothing;
 };
 
-GainEstimator *gain_estimation_initialize(int fft_size, int samp_rate,
-                                          int hop) {
+GainEstimator *gain_estimation_initialize(const int fft_size,
+                                          const int sample_rate,
+                                          const int hop) {
   GainEstimator *self = (GainEstimator *)calloc(1, sizeof(GainEstimator));
 
   self->fft_size = fft_size;
   self->half_fft_size = self->fft_size / 2;
-  self->samp_rate = samp_rate;
+  self->sample_rate = sample_rate;
   self->hop = hop;
 
   self->signal_spectrum =
@@ -85,10 +86,10 @@ GainEstimator *gain_estimation_initialize(int fft_size, int samp_rate,
       (float *)calloc((self->half_fft_size + 1), sizeof(float));
 
   self->masking_estimation =
-      masking_estimation_initialize(self->fft_size, self->samp_rate);
+      masking_estimation_initialize(self->fft_size, self->sample_rate);
   self->transient_detection = transient_detector_initialize(self->fft_size);
-  self->spectrum_smoothing =
-      spectral_smoothing_initialize(self->fft_size, self->samp_rate, self->hop);
+  self->spectrum_smoothing = spectral_smoothing_initialize(
+      self->fft_size, self->sample_rate, self->hop);
 
   return self;
 }
@@ -108,10 +109,11 @@ void gain_estimation_free(GainEstimator *self) {
   free(self);
 }
 
-void gain_estimation_run(GainEstimator *self, float *signal_spectrum,
-                         float *noise_profile, float *gain_spectrum,
-                         float transient_threshold, float masking_ceiling_limit,
-                         float release, float noise_rescale) {
+void gain_estimation_run(GainEstimator *self, const float *signal_spectrum,
+                         const float *noise_profile, float *gain_spectrum,
+                         const float transient_threshold,
+                         const float masking_ceiling_limit, const float release,
+                         const float noise_rescale) {
   memcpy(self->signal_spectrum, signal_spectrum,
          sizeof(float) * self->half_fft_size + 1);
   memcpy(self->noise_profile, noise_profile,
@@ -145,17 +147,17 @@ void gain_estimation_run(GainEstimator *self, float *signal_spectrum,
          sizeof(float) * self->half_fft_size + 1);
 }
 
-static float max_spectral_value(float *spectrum, int N) {
+static float max_spectral_value(float *spectrum, int half_fft_size) {
   float max = spectrum[0];
-  for (int k = 1; k <= N; k++) {
+  for (int k = 1; k <= half_fft_size; k++) {
     max = fmaxf(spectrum[k], max);
   }
   return max;
 }
 
-static float min_spectral_value(float *spectrum, int N) {
+static float min_spectral_value(float *spectrum, int half_fft_size) {
   float min = spectrum[0];
-  for (int k = 1; k <= N; k++) {
+  for (int k = 1; k <= half_fft_size; k++) {
     min = fminf(spectrum[k], min);
   }
   return min;
@@ -192,10 +194,8 @@ static void spectral_gating(GainEstimator *self) {
 }
 
 static void compute_alpha_and_beta(GainEstimator *self,
-                                   float masking_ceiling_limit,
-                                   float masking_floor_limit) {
-  float normalized_value = 0.f;
-
+                                   const float masking_ceiling_limit,
+                                   const float masking_floor_limit) {
   for (int k = 1; k <= self->half_fft_size; k++) {
     self->clean_signal_estimation[k] =
         fmaxf(self->signal_spectrum[k] - self->noise_profile[k], FLT_MIN);
@@ -220,8 +220,9 @@ static void compute_alpha_and_beta(GainEstimator *self,
     }
     if (self->masking_thresholds[k] < max_masked_tmp &&
         self->masking_thresholds[k] > min_masked_tmp) {
-      normalized_value = (self->masking_thresholds[k] - min_masked_tmp) /
-                         (max_masked_tmp - min_masked_tmp);
+      const float normalized_value =
+          (self->masking_thresholds[k] - min_masked_tmp) /
+          (max_masked_tmp - min_masked_tmp);
 
       self->alpha[k] = (1.f - normalized_value) * ALPHA_MIN +
                        normalized_value * masking_ceiling_limit;

@@ -22,10 +22,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 typedef struct GainEstimator GainEstimator;
 
-GainEstimator *gain_estimation_initialize(int fft_size, int samp_rate, int hop);
+GainEstimator *gain_estimation_initialize(int fft_size, int sample_rate,
+                                          int hop);
 void gain_estimation_free(GainEstimator *self);
-void gain_estimation_run(GainEstimator *self, float *signal_spectrum,
-                         float *noise_profile, float *gain_spectrum,
+void gain_estimation_run(GainEstimator *self, const float *signal_spectrum,
+                         const float *noise_profile, float *gain_spectrum,
                          float transient_threshold, float masking_ceiling_limit,
                          float release, float noise_rescale);
 

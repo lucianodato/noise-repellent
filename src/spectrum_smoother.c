@@ -28,7 +28,7 @@ static void apply_time_envelope(SpectralSmoother *self);
 struct SpectralSmoother {
   int fft_size;
   int half_fft_size;
-  int samp_rate;
+  int sample_rate;
   int hop;
 
   float *noise_spectrum;
@@ -40,14 +40,15 @@ struct SpectralSmoother {
   float release_coefficient;
 };
 
-SpectralSmoother *spectral_smoothing_initialize(int fft_size, int samp_rate,
-                                                int hop) {
+SpectralSmoother *spectral_smoothing_initialize(const int fft_size,
+                                                const int sample_rate,
+                                                const int hop) {
   SpectralSmoother *self =
       (SpectralSmoother *)calloc(1, sizeof(SpectralSmoother));
 
   self->fft_size = fft_size;
   self->half_fft_size = self->fft_size / 2;
-  self->samp_rate = samp_rate;
+  self->sample_rate = sample_rate;
   self->hop = hop;
 
   self->signal_spectrum =
@@ -72,7 +73,7 @@ void spectral_smoothing_free(SpectralSmoother *self) {
   free(self);
 }
 
-void spectral_smoothing_run(SpectralSmoother *self, float release) {
+void spectral_smoothing_run(SpectralSmoother *self, const float release) {
   get_release_coefficient(self, release);
 
   memcpy(self->smoothed_spectrum, self->signal_spectrum,
@@ -84,10 +85,11 @@ void spectral_smoothing_run(SpectralSmoother *self, float release) {
          sizeof(float) * (self->half_fft_size + 1));
 }
 
-static void get_release_coefficient(SpectralSmoother *self, float release) {
+static void get_release_coefficient(SpectralSmoother *self,
+                                    const float release) {
   if (release != 0.f) {
     self->release_coefficient =
-        expf(-1000.f / (((release)*self->samp_rate) / self->hop));
+        expf(-1000.f / (((release)*self->sample_rate) / self->hop));
   } else {
     self->release_coefficient = 0.f;
   }
