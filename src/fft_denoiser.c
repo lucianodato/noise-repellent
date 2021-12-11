@@ -55,7 +55,8 @@ struct FFTDenoiser {
 
   GainEstimator *gain_estimation;
   NoiseEstimator *noise_estimation;
-  DenoiseParameters *denoise_parameters;
+  NoiseProfile *noise_profile;
+  DenoiseParameters denoise_parameters;
 
   float *residual_max_spectrum;
   float max_decay_rate;
@@ -245,29 +246,32 @@ void get_final_spectrum(FFTDenoiser *self, bool residual_listen,
   }
 }
 
+static inline float from_db_to_cv(float gain_db) {
+  return expf(gain_db / 10.f * logf(10.f));
+}
+
 void load_denoise_parameters(FFTDenoiser *self,
-                             DenoiseParameters *new_parameters) {
+                             const DenoiseParameters new_parameters) {
   self->denoise_parameters = new_parameters;
 }
 
-void fft_denoiser_run(FFTDenoiser *self, NoiseProfile *noise_profile,
-                      float *fft_spectrum) {
-  bool enable = (bool)get_plugin_parameters(self->denoise_parameters, ENABLE);
-  bool learn_noise =
-      (bool)get_plugin_parameters(self->denoise_parameters, LEARN_NOISE);
-  bool residual_listen =
-      (bool)get_plugin_parameters(self->denoise_parameters, RESIDUAL_LISTEN);
-  float transient_protection =
-      get_plugin_parameters(self->denoise_parameters, TRANSIENT_PROTECTION);
-  float masking = get_plugin_parameters(self->denoise_parameters, MASKING);
-  float release = get_plugin_parameters(self->denoise_parameters, RELEASE);
-  float noise_rescale =
-      get_plugin_parameters(self->denoise_parameters, NOISE_RESCALE);
+void load_noise_profile(FFTDenoiser *self, NoiseProfile *noise_profile) {
+  self->noise_profile = noise_profile;
+}
+
+void fft_denoiser_run(FFTDenoiser *self, float *fft_spectrum) {
+  bool enable = (bool)*self->denoise_parameters.enable;
+
+  bool learn_noise = (bool)*self->denoise_parameters.learn_noise;
+  bool residual_listen = (bool)*self->denoise_parameters.residual_listen;
+  float transient_protection = *self->denoise_parameters.transient_threshold;
+  float masking = *self->denoise_parameters.masking_ceiling_limit / 100.f;
+  float release = *self->denoise_parameters.release_time;
+  float noise_rescale = *self->denoise_parameters.noise_rescale;
   float reduction_amount =
-      get_plugin_parameters(self->denoise_parameters, REDUCTION_AMOUNT);
-  float whitening_factor =
-      get_plugin_parameters(self->denoise_parameters, WHITENING_FACTOR);
-  float *noise_spectrum = get_noise_profile(noise_profile);
+      from_db_to_cv(*self->denoise_parameters.reduction_amount * -1.f);
+  float whitening_factor = *self->denoise_parameters.whitening_factor;
+  float *noise_spectrum = self->noise_profile->noise_profile;
 
   fft_denoiser_update_wetdry_target(self, enable);
 
@@ -279,7 +283,7 @@ void fft_denoiser_run(FFTDenoiser *self, NoiseProfile *noise_profile,
 
   if (is_empty(self->power_spectrum, self->half_fft_size) == false) {
     if (learn_noise) {
-      noise_estimation_run(self->noise_estimation, noise_profile,
+      noise_estimation_run(self->noise_estimation, noise_spectrum,
                            self->power_spectrum);
     } else {
       if (is_noise_estimation_available(self->noise_estimation)) {

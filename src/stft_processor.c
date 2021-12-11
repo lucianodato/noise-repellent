@@ -236,8 +236,8 @@ int stft_processor_get_latency(STFTProcessor *self) {
   return self->input_latency;
 }
 
-void stft_processor_run(STFTProcessor *self, NoiseProfile *noise_profile,
-                        int n_samples, const float *input, float *output) {
+void stft_processor_run(STFTProcessor *self, int n_samples, const float *input,
+                        float *output) {
   for (int k = 0; k < n_samples; k++) {
     self->in_fifo[self->read_position] = input[k];
     output[k] = self->out_fifo[self->read_position - self->input_latency];
@@ -251,8 +251,7 @@ void stft_processor_run(STFTProcessor *self, NoiseProfile *noise_profile,
 
       stft_processor_analysis(self);
 
-      fft_denoiser_run(self->fft_denoiser, noise_profile,
-                       self->output_fft_buffer);
+      fft_denoiser_run(self->fft_denoiser, self->output_fft_buffer);
 
       stft_processor_synthesis(self);
     }

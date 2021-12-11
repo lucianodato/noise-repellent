@@ -21,7 +21,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define STFT_PROCESSOR_H
 
 #include "fft_denoiser.h"
-#include "noise_profile.h"
 #include <stdbool.h>
 
 typedef struct STFTProcessor STFTProcessor;
@@ -31,7 +30,7 @@ STFTProcessor *stft_processor_initialize(FFTDenoiser *fft_denoiser,
 void stft_processor_free(STFTProcessor *self);
 void set_spectral_size(STFTProcessor *self, int fft_size);
 int stft_processor_get_latency(STFTProcessor *self);
-void stft_processor_run(STFTProcessor *self, NoiseProfile *noise_profile,
-                        int n_samples, const float *input, float *output);
+void stft_processor_run(STFTProcessor *self, int n_samples, const float *input,
+                        float *output);
 
 #endif
