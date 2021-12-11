@@ -22,6 +22,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <stdlib.h>
 #include <string.h>
 
+static void get_release_coefficient(SpectralSmoother *self, float release);
+static void apply_time_envelope(SpectralSmoother *self);
+
 struct SpectralSmoother {
   int fft_size;
   int half_fft_size;
@@ -69,25 +72,6 @@ void spectral_smoothing_free(SpectralSmoother *self) {
   free(self);
 }
 
-void get_release_coefficient(SpectralSmoother *self, float release) {
-  if (release != 0.f) {
-    self->release_coefficient =
-        expf(-1000.f / (((release)*self->samp_rate) / self->hop));
-  } else {
-    self->release_coefficient = 0.f;
-  }
-}
-
-void apply_time_envelope(SpectralSmoother *self) {
-  for (int k = 1; k <= self->half_fft_size; k++) {
-    if (self->smoothed_spectrum[k] > self->smoothed_spectrum_previous[k]) {
-      self->smoothed_spectrum[k] =
-          self->release_coefficient * self->smoothed_spectrum_previous[k] +
-          (1.f - self->release_coefficient) * self->smoothed_spectrum[k];
-    }
-  }
-}
-
 void spectral_smoothing_run(SpectralSmoother *self, float release) {
   get_release_coefficient(self, release);
 
@@ -98,4 +82,23 @@ void spectral_smoothing_run(SpectralSmoother *self, float release) {
 
   memcpy(self->smoothed_spectrum_previous, self->smoothed_spectrum,
          sizeof(float) * (self->half_fft_size + 1));
+}
+
+static void get_release_coefficient(SpectralSmoother *self, float release) {
+  if (release != 0.f) {
+    self->release_coefficient =
+        expf(-1000.f / (((release)*self->samp_rate) / self->hop));
+  } else {
+    self->release_coefficient = 0.f;
+  }
+}
+
+static void apply_time_envelope(SpectralSmoother *self) {
+  for (int k = 1; k <= self->half_fft_size; k++) {
+    if (self->smoothed_spectrum[k] > self->smoothed_spectrum_previous[k]) {
+      self->smoothed_spectrum[k] =
+          self->release_coefficient * self->smoothed_spectrum_previous[k] +
+          (1.f - self->release_coefficient) * self->smoothed_spectrum[k];
+    }
+  }
 }

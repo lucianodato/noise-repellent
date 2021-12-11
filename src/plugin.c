@@ -173,8 +173,7 @@ static void run(LV2_Handle instance, uint32_t n_samples) {
   load_denoise_parameters(self->fft_denoiser, self->denoise_parameters);
   load_noise_profile(self->fft_denoiser, &self->noise_profile);
 
-  *self->report_latency =
-      (float)stft_processor_get_latency(self->stft_processor);
+  *self->report_latency = (float)get_stft_latency(self->stft_processor);
 
   stft_processor_run(self->stft_processor, n_samples, self->input,
                      self->output);
@@ -225,9 +224,9 @@ static LV2_State_Status restorestate(LV2_Handle instance,
   }
 
   if (*fftsize == 0) {
-    set_spectral_size(self->stft_processor, FFT_SIZE);
+    load_spectral_size(self->stft_processor, FFT_SIZE);
   } else {
-    set_spectral_size(self->stft_processor, *fftsize);
+    load_spectral_size(self->stft_processor, *fftsize);
   }
 
   const void *saved_noise_profile =

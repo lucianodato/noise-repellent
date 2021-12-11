@@ -30,7 +30,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define INPUT_WINDOW_TYPE 3
 #define OUTPUT_WINDOW_TYPE 3
 
-void stft_processor_pre_and_post_window(STFTProcessor *self);
+static void stft_processor_pre_and_post_window(STFTProcessor *self);
+static void stft_processor_analysis(STFTProcessor *self);
+static void stft_processor_synthesis(STFTProcessor *self);
 
 typedef enum {
   HANN_WINDOW = 0,
@@ -66,7 +68,7 @@ STFTProcessor *stft_processor_initialize(FFTDenoiser *fft_denoiser,
                                          int fft_size, int overlap_factor) {
   STFTProcessor *self = (STFTProcessor *)calloc(1, sizeof(STFTProcessor));
 
-  set_spectral_size(self, fft_size);
+  load_spectral_size(self, fft_size);
   self->window_option_input = INPUT_WINDOW_TYPE;
   self->window_option_output = OUTPUT_WINDOW_TYPE;
   self->overlap_factor = overlap_factor;
@@ -111,27 +113,56 @@ void stft_processor_free(STFTProcessor *self) {
   free(self);
 }
 
-float blackman(int k, int N) {
+int get_stft_latency(STFTProcessor *self) { return self->input_latency; }
+
+void load_spectral_size(STFTProcessor *self, int fft_size) {
+  self->fft_size = fft_size;
+  self->half_fft_size = self->fft_size / 2;
+}
+
+void stft_processor_run(STFTProcessor *self, int n_samples, const float *input,
+                        float *output) {
+  for (int k = 0; k < n_samples; k++) {
+    self->in_fifo[self->read_position] = input[k];
+    output[k] = self->out_fifo[self->read_position - self->input_latency];
+    self->read_position++;
+
+    if (self->read_position >= self->fft_size) {
+      self->read_position = self->input_latency;
+
+      memcpy(self->input_fft_buffer, self->in_fifo,
+             sizeof(float) * self->fft_size);
+
+      stft_processor_analysis(self);
+
+      fft_denoiser_run(self->fft_denoiser, self->output_fft_buffer);
+
+      stft_processor_synthesis(self);
+    }
+  }
+}
+
+static inline float blackman(int k, int N) {
   float p = ((float)(k)) / ((float)(N));
   return 0.42 - 0.5 * cosf(2.f * M_PI * p) + 0.08 * cosf(4.f * M_PI * p);
 }
 
-float hanning(int k, int N) {
+static inline float hanning(int k, int N) {
   float p = ((float)(k)) / ((float)(N));
   return 0.5 - 0.5 * cosf(2.f * M_PI * p);
 }
 
-float hamming(int k, int N) {
+static inline float hamming(int k, int N) {
   float p = ((float)(k)) / ((float)(N));
   return 0.54 - 0.46 * cosf(2.f * M_PI * p);
 }
 
-float vorbis(int k, int N) {
+static inline float vorbis(int k, int N) {
   float p = ((float)(k)) / ((float)(N));
   return sinf(M_PI / 2.f * powf(sinf(M_PI * p), 2.f));
 }
 
-void fft_window(float *window, int N, int window_type) {
+static void fft_window(float *window, int N, int window_type) {
   int k = 0;
   for (k = 0; k < N; k++) {
     switch (window_type) {
@@ -151,7 +182,7 @@ void fft_window(float *window, int N, int window_type) {
   }
 }
 
-void stft_processor_pre_and_post_window(STFTProcessor *self) {
+static void stft_processor_pre_and_post_window(STFTProcessor *self) {
   float sum = 0.f;
 
   switch ((WindowTypes)self->window_option_input) {
@@ -191,7 +222,7 @@ void stft_processor_pre_and_post_window(STFTProcessor *self) {
   self->overlap_scale_factor = (sum / (float)(self->fft_size));
 }
 
-void stft_processor_analysis(STFTProcessor *self) {
+static void stft_processor_analysis(STFTProcessor *self) {
   int k = 0;
 
   for (k = 0; k < self->fft_size; k++) {
@@ -201,7 +232,7 @@ void stft_processor_analysis(STFTProcessor *self) {
   fftwf_execute(self->forward);
 }
 
-void stft_processor_synthesis(STFTProcessor *self) {
+static void stft_processor_synthesis(STFTProcessor *self) {
   int k = 0;
 
   fftwf_execute(self->backward);
@@ -230,35 +261,4 @@ void stft_processor_synthesis(STFTProcessor *self) {
   for (k = 0; k < self->input_latency; k++) {
     self->in_fifo[k] = self->in_fifo[k + self->hop];
   }
-}
-
-int stft_processor_get_latency(STFTProcessor *self) {
-  return self->input_latency;
-}
-
-void stft_processor_run(STFTProcessor *self, int n_samples, const float *input,
-                        float *output) {
-  for (int k = 0; k < n_samples; k++) {
-    self->in_fifo[self->read_position] = input[k];
-    output[k] = self->out_fifo[self->read_position - self->input_latency];
-    self->read_position++;
-
-    if (self->read_position >= self->fft_size) {
-      self->read_position = self->input_latency;
-
-      memcpy(self->input_fft_buffer, self->in_fifo,
-             sizeof(float) * self->fft_size);
-
-      stft_processor_analysis(self);
-
-      fft_denoiser_run(self->fft_denoiser, self->output_fft_buffer);
-
-      stft_processor_synthesis(self);
-    }
-  }
-}
-
-void set_spectral_size(STFTProcessor *self, int fft_size) {
-  self->fft_size = fft_size;
-  self->half_fft_size = self->fft_size / 2;
 }

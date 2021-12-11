@@ -24,6 +24,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 #define TP_UPPER_LIMIT 5.f
 
+static float spectral_flux(float *spectrum, float *spectrum_prev, float N);
+
 struct TransientDetector {
   int fft_size;
   int half_fft_size;
@@ -60,18 +62,6 @@ void transient_detector_free(TransientDetector *self) {
   free(self);
 }
 
-float spectral_flux(float *spectrum, float *spectrum_prev, float N) {
-  int i = 0;
-  float spectral_flux = 0.f;
-
-  for (i = 1; i <= N; i++) {
-    float temp = 0.f;
-    temp = sqrtf(spectrum[i]) - sqrtf(spectrum_prev[i]);
-    spectral_flux += (temp + fabsf(temp)) / 2.f;
-  }
-  return spectral_flux;
-}
-
 bool transient_detector_run(TransientDetector *self,
                             float transient_threshold) {
   float adapted_threshold = 0.f;
@@ -97,4 +87,16 @@ bool transient_detector_run(TransientDetector *self,
     return true;
   }
   return false;
+}
+
+static float spectral_flux(float *spectrum, float *spectrum_prev, float N) {
+  int i = 0;
+  float spectral_flux = 0.f;
+
+  for (i = 1; i <= N; i++) {
+    float temp = 0.f;
+    temp = sqrtf(spectrum[i]) - sqrtf(spectrum_prev[i]);
+    spectral_flux += (temp + fabsf(temp)) / 2.f;
+  }
+  return spectral_flux;
 }

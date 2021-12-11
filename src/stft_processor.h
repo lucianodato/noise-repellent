@@ -28,8 +28,8 @@ typedef struct STFTProcessor STFTProcessor;
 STFTProcessor *stft_processor_initialize(FFTDenoiser *fft_denoiser,
                                          int fft_size, int overlap_factor);
 void stft_processor_free(STFTProcessor *self);
-void set_spectral_size(STFTProcessor *self, int fft_size);
-int stft_processor_get_latency(STFTProcessor *self);
+void load_spectral_size(STFTProcessor *self, int fft_size);
+int get_stft_latency(STFTProcessor *self);
 void stft_processor_run(STFTProcessor *self, int n_samples, const float *input,
                         float *output);
 
