@@ -123,9 +123,9 @@ void load_denoiser(STFTProcessor *self, FFTDenoiser *fft_denoiser) {
   self->fft_denoiser = fft_denoiser;
 }
 
-void stft_processor_run(STFTProcessor *self, const uint32_t n_samples,
+void stft_processor_run(STFTProcessor *self, const uint32_t number_of_samples,
                         const float *input, float *output) {
-  for (uint32_t k = 0; k < n_samples; k++) {
+  for (uint32_t k = 0; k < number_of_samples; k++) {
     self->in_fifo[self->read_position] = input[k];
     output[k] = self->out_fifo[self->read_position - self->input_latency];
     self->read_position++;

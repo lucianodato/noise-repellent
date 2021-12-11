@@ -101,8 +101,8 @@ static void cleanup(LV2_Handle instance) {
   free(instance);
 }
 
-static LV2_Handle instantiate(const LV2_Descriptor *descriptor, double rate,
-                              const char *bundle_path,
+static LV2_Handle instantiate(const LV2_Descriptor *descriptor,
+                              const double rate, const char *bundle_path,
                               const LV2_Feature *const *features) {
   NoiseRepellent *self = (NoiseRepellent *)calloc(1, sizeof(NoiseRepellent));
 
@@ -129,11 +129,12 @@ static LV2_Handle instantiate(const LV2_Descriptor *descriptor, double rate,
 
   self->denoise_parameters =
       (DenoiseParameters *)calloc(1, sizeof(DenoiseParameters));
-
+  
+  const uint32_t noise_profile_size = FFT_SIZE / 2 + 1;
   self->noise_profile = (NoiseProfile *)calloc(1, sizeof(NoiseProfile));
-  self->noise_profile->noise_profile_size = FFT_SIZE / 2 + 1;
+  self->noise_profile->noise_profile_size = noise_profile_size;
   self->noise_profile->noise_profile =
-      (float *)calloc((FFT_SIZE / 2 + 1), sizeof(float));
+      (float *)calloc(noise_profile_size, sizeof(float));
 
   self->fft_denoiser =
       fft_denoiser_initialize(self->sample_rate, FFT_SIZE, OVERLAP_FACTOR);
@@ -143,7 +144,7 @@ static LV2_Handle instantiate(const LV2_Descriptor *descriptor, double rate,
   if (!self->denoise_parameters || !self->noise_profile ||
       !self->noise_profile->noise_profile || !self->fft_denoiser ||
       !self->stft_processor) {
-    lv2_log_error(&self->log, "Could not allocate memory for Noise Repellent");
+    lv2_log_error(&self->log, "Could not allocate memory for <%s>\n", NOISEREPELLENT_URI);
     cleanup((LV2_Handle)self);
     return NULL;
   }
@@ -198,12 +199,12 @@ static void connect_port(LV2_Handle instance, uint32_t port, void *data) {
   }
 }
 
-static void run(LV2_Handle instance, uint32_t n_samples) {
+static void run(LV2_Handle instance, uint32_t number_of_samples) {
   NoiseRepellent *self = (NoiseRepellent *)instance;
 
   *self->report_latency = (float)get_stft_latency(self->stft_processor);
 
-  stft_processor_run(self->stft_processor, n_samples, self->input,
+  stft_processor_run(self->stft_processor, number_of_samples, self->input,
                      self->output);
 }
 
