@@ -22,6 +22,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 #include <float.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 typedef struct {
   float *enable;
@@ -36,14 +37,14 @@ typedef struct {
 } DenoiseParameters;
 
 typedef struct {
-  int noise_profile_size;
+  uint32_t noise_profile_size;
   float *noise_profile;
 } NoiseProfile;
 
 typedef struct FFTDenoiser FFTDenoiser;
 
-FFTDenoiser *fft_denoiser_initialize(int sample_rate, int fft_size,
-                                     int overlap_factor);
+FFTDenoiser *fft_denoiser_initialize(uint32_t sample_rate, uint32_t fft_size,
+                                     uint32_t overlap_factor);
 void fft_denoiser_free(FFTDenoiser *self);
 void load_denoise_parameters(FFTDenoiser *self,
                              DenoiseParameters new_parameters);

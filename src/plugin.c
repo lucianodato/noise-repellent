@@ -198,13 +198,13 @@ static LV2_State_Status savestate(LV2_Handle instance,
                                   const LV2_Feature *const *features) {
   NoiseRepellent *self = (NoiseRepellent *)instance;
 
-  const int fft_size = FFT_SIZE;
-  const float *noise_profile = self->noise_profile.noise_profile;
+  const uint32_t fft_size = FFT_SIZE;
 
-  store(handle, self->state.property_fft_size, &fft_size, sizeof(int),
+  store(handle, self->state.property_fft_size, &fft_size, sizeof(uint32_t),
         self->uris.atom_Int, LV2_STATE_IS_POD | LV2_STATE_IS_PORTABLE);
 
-  store(handle, self->state.property_saved_noise_profile, (void *)noise_profile,
+  store(handle, self->state.property_saved_noise_profile,
+        (void *)self->noise_profile.noise_profile,
         sizeof(float) * fft_size / 2 + 1, self->uris.atom_Vector,
         LV2_STATE_IS_POD | LV2_STATE_IS_PORTABLE);
 
@@ -221,7 +221,7 @@ static LV2_State_Status restorestate(LV2_Handle instance,
   uint32_t type = 0;
   uint32_t valflags = 0;
 
-  const int *fftsize = (const int *)retrieve(
+  const uint32_t *fftsize = (const uint32_t *)retrieve(
       handle, self->state.property_fft_size, &size, &type, &valflags);
   if (fftsize == NULL || type != self->uris.atom_Int) {
     return LV2_STATE_ERR_NO_PROPERTY;

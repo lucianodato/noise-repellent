@@ -23,13 +23,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <string.h>
 
 struct NoiseEstimator {
-  int fft_size;
-  int half_fft_size;
+  uint32_t fft_size;
+  uint32_t half_fft_size;
   bool noise_spectrum_available;
   float noise_blocks_count;
 };
 
-NoiseEstimator *noise_estimation_initialize(const int fft_size) {
+NoiseEstimator *noise_estimation_initialize(const uint32_t fft_size) {
   NoiseEstimator *self = (NoiseEstimator *)calloc(1, sizeof(NoiseEstimator));
 
   self->fft_size = fft_size;
@@ -50,7 +50,7 @@ void noise_estimation_run(NoiseEstimator *self, float *noise_spectrum,
                           const float *spectrum) {
   self->noise_blocks_count++;
 
-  for (int k = 1; k <= self->half_fft_size; k++) {
+  for (uint32_t k = 1; k <= self->half_fft_size; k++) {
     if (self->noise_blocks_count <= 1.f) {
       noise_spectrum[k] = spectrum[k];
     } else {

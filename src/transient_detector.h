@@ -21,10 +21,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define TRANSIENT_DETECTOR_H
 
 #include <stdbool.h>
+#include <stdint.h>
 
 typedef struct TransientDetector TransientDetector;
 
-TransientDetector *transient_detector_initialize(int fft_size);
+TransientDetector *transient_detector_initialize(uint32_t fft_size);
 void transient_detector_free(TransientDetector *self);
 bool transient_detector_run(TransientDetector *self, float transient_threshold);
 

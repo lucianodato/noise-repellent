@@ -32,9 +32,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define WHITENING_FLOOR 0.02f
 
 static void get_info_from_bins(float *fft_power, float *fft_magnitude,
-                               float *fft_phase, int half_fft_size,
-                               int fft_size, const float *fft_buffer);
-static bool is_empty(const float *spectrum, int half_fft_size);
+                               float *fft_phase, uint32_t half_fft_size,
+                               uint32_t fft_size, const float *fft_buffer);
+static bool is_empty(const float *spectrum, uint32_t half_fft_size);
 static void fft_denoiser_update_wetdry_target(FFTDenoiser *self, bool enable);
 static void fft_denoiser_soft_bypass(FFTDenoiser *self);
 static void get_denoised_spectrum(FFTDenoiser *self);
@@ -42,13 +42,13 @@ static void get_residual_spectrum(FFTDenoiser *self, float whitening_factor);
 
 static void get_final_spectrum(FFTDenoiser *self, bool residual_listen,
                                float reduction_amount);
-static inline float from_db_to_cv(float gain_db);
+static inline float from_db_to_coefficient(float gain_db);
 
 struct FFTDenoiser {
-  int fft_size;
-  int half_fft_size;
-  int sample_rate;
-  int hop;
+  uint32_t fft_size;
+  uint32_t half_fft_size;
+  uint32_t sample_rate;
+  uint32_t hop;
 
   float *fft_spectrum;
   float *processed_fft_spectrum;
@@ -73,11 +73,12 @@ struct FFTDenoiser {
 
   float *residual_max_spectrum;
   float max_decay_rate;
-  int whitening_window_count;
+  uint32_t whitening_window_count;
 };
 
-FFTDenoiser *fft_denoiser_initialize(const int sample_rate, const int fft_size,
-                                     const int overlap_factor) {
+FFTDenoiser *fft_denoiser_initialize(const uint32_t sample_rate,
+                                     const uint32_t fft_size,
+                                     const uint32_t overlap_factor) {
   FFTDenoiser *self = (FFTDenoiser *)calloc(1, sizeof(FFTDenoiser));
 
   self->fft_size = fft_size;
@@ -159,7 +160,7 @@ void fft_denoiser_run(FFTDenoiser *self, float *fft_spectrum) {
   const float release = *self->denoise_parameters.release_time;
   const float noise_rescale = *self->denoise_parameters.noise_rescale;
   const float reduction_amount =
-      from_db_to_cv(*self->denoise_parameters.reduction_amount * -1.f);
+      from_db_to_coefficient(*self->denoise_parameters.reduction_amount * -1.f);
   const float whitening_factor = *self->denoise_parameters.whitening_factor;
   float *noise_spectrum = self->noise_profile->noise_profile;
 
@@ -198,15 +199,16 @@ void fft_denoiser_run(FFTDenoiser *self, float *fft_spectrum) {
 }
 
 static void get_info_from_bins(float *fft_power, float *fft_magnitude,
-                               float *fft_phase, const int half_fft_size,
-                               const int fft_size, const float *fft_buffer) {
+                               float *fft_phase, const uint32_t half_fft_size,
+                               const uint32_t fft_size,
+                               const float *fft_buffer) {
   float real_bin = fft_buffer[0];
 
   fft_power[0] = real_bin * real_bin;
   fft_magnitude[0] = real_bin;
   fft_phase[0] = atan2f(real_bin, 0.f);
 
-  for (int k = 1; k <= half_fft_size; k++) {
+  for (uint32_t k = 1; k <= half_fft_size; k++) {
     float magnitude = 0.f;
     float power = 0.f;
     float phase = 0.f;
@@ -230,8 +232,8 @@ static void get_info_from_bins(float *fft_power, float *fft_magnitude,
   }
 }
 
-static bool is_empty(const float *spectrum, const int half_fft_size) {
-  for (int k = 1; k <= half_fft_size; k++) {
+static bool is_empty(const float *spectrum, const uint32_t half_fft_size) {
+  for (uint32_t k = 1; k <= half_fft_size; k++) {
     if (spectrum[k] > FLT_MIN) {
       return false;
     }
@@ -251,7 +253,7 @@ static void fft_denoiser_update_wetdry_target(FFTDenoiser *self,
 }
 
 static void fft_denoiser_soft_bypass(FFTDenoiser *self) {
-  for (int k = 1; k <= self->half_fft_size; k++) {
+  for (uint32_t k = 1; k <= self->half_fft_size; k++) {
     self->processed_fft_spectrum[k] =
         (1.f - self->wet_dry) * self->fft_spectrum[k] +
         self->processed_fft_spectrum[k] * self->wet_dry;
@@ -262,7 +264,7 @@ static void residual_spectrum_whitening(FFTDenoiser *self,
                                         const float whitening_factor) {
   self->whitening_window_count++;
 
-  for (int k = 1; k <= self->half_fft_size; k++) {
+  for (uint32_t k = 1; k <= self->half_fft_size; k++) {
     if (self->whitening_window_count > 1.f) {
       self->residual_max_spectrum[k] =
           fmaxf(fmaxf(self->residual_spectrum[k], WHITENING_FLOOR),
@@ -273,7 +275,7 @@ static void residual_spectrum_whitening(FFTDenoiser *self,
     }
   }
 
-  for (int k = 1; k <= self->half_fft_size; k++) {
+  for (uint32_t k = 1; k <= self->half_fft_size; k++) {
     if (self->residual_spectrum[k] > FLT_MIN) {
       self->whitened_residual_spectrum[k] =
           self->residual_spectrum[k] / self->residual_max_spectrum[k];
@@ -286,14 +288,14 @@ static void residual_spectrum_whitening(FFTDenoiser *self,
 }
 
 static void get_denoised_spectrum(FFTDenoiser *self) {
-  for (int k = 1; k <= self->half_fft_size; k++) {
+  for (uint32_t k = 1; k <= self->half_fft_size; k++) {
     self->denoised_spectrum[k] = self->fft_spectrum[k] * self->gain_spectrum[k];
   }
 }
 
 static void get_residual_spectrum(FFTDenoiser *self,
                                   const float whitening_factor) {
-  for (int k = 1; k <= self->half_fft_size; k++) {
+  for (uint32_t k = 1; k <= self->half_fft_size; k++) {
     self->residual_spectrum[k] =
         self->fft_spectrum[k] - self->denoised_spectrum[k];
   }
@@ -306,11 +308,11 @@ static void get_residual_spectrum(FFTDenoiser *self,
 static void get_final_spectrum(FFTDenoiser *self, const bool residual_listen,
                                const float reduction_amount) {
   if (residual_listen) {
-    for (int k = 1; k <= self->half_fft_size; k++) {
+    for (uint32_t k = 1; k <= self->half_fft_size; k++) {
       self->processed_fft_spectrum[k] = self->residual_spectrum[k];
     }
   } else {
-    for (int k = 1; k <= self->half_fft_size; k++) {
+    for (uint32_t k = 1; k <= self->half_fft_size; k++) {
       self->processed_fft_spectrum[k] =
           self->denoised_spectrum[k] +
           self->residual_spectrum[k] * reduction_amount;
@@ -318,6 +320,6 @@ static void get_final_spectrum(FFTDenoiser *self, const bool residual_listen,
   }
 }
 
-static inline float from_db_to_cv(const float gain_db) {
+static inline float from_db_to_coefficient(const float gain_db) {
   return expf(gain_db / 10.f * logf(10.f));
 }

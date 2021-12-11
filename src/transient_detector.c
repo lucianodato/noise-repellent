@@ -28,8 +28,8 @@ static float spectral_flux(float *spectrum, float *spectrum_prev,
                            float half_fft_size);
 
 struct TransientDetector {
-  int fft_size;
-  int half_fft_size;
+  uint32_t fft_size;
+  uint32_t half_fft_size;
 
   float *spectrum;
 
@@ -39,7 +39,7 @@ struct TransientDetector {
   float window_count;
 };
 
-TransientDetector *transient_detector_initialize(const int fft_size) {
+TransientDetector *transient_detector_initialize(const uint32_t fft_size) {
   TransientDetector *self =
       (TransientDetector *)calloc(1, sizeof(TransientDetector));
 
@@ -93,7 +93,7 @@ static float spectral_flux(float *spectrum, float *spectrum_prev,
                            const float half_fft_size) {
   float spectral_flux = 0.f;
 
-  for (int i = 1; i <= half_fft_size; i++) {
+  for (uint32_t i = 1; i <= half_fft_size; i++) {
     const float temp = sqrtf(spectrum[i]) - sqrtf(spectrum_prev[i]);
     spectral_flux += (temp + fabsf(temp)) / 2.f;
   }
