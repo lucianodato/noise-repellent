@@ -9,6 +9,7 @@ endif
 
 #sources to compile
 noise_repellent_sources = [
+    'src/spectral_utils.c',
     'src/transient_detector.c',
     'src/masking_estimator.c',
     'src/spectrum_smoother.c',

@@ -139,7 +139,7 @@ static LV2_Handle instantiate(const LV2_Descriptor *descriptor,
   self->fft_denoiser =
       fft_denoiser_initialize(self->sample_rate, FFT_SIZE, OVERLAP_FACTOR);
   self->stft_processor =
-      stft_processor_initialize(self->fft_denoiser, FFT_SIZE, OVERLAP_FACTOR);
+      stft_processor_initialize(FFT_SIZE, OVERLAP_FACTOR);
 
   if (!self->denoise_parameters || !self->noise_profile ||
       !self->noise_profile->noise_profile || !self->fft_denoiser ||

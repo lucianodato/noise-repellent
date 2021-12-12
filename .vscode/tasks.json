@@ -8,7 +8,7 @@
         {
             "label": "MesonDebugConfig",
             "type": "shell",
-            "command": "meson build --werror --prefix=~/"
+            "command": "meson build --warnlevel=1 --werror --prefix=~/"
         },
         {
             "label": "MesonReleaseConfig",

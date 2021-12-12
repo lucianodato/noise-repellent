@@ -25,8 +25,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 typedef struct STFTProcessor STFTProcessor;
 
-STFTProcessor *stft_processor_initialize(FFTDenoiser *fft_denoiser,
-                                         uint32_t fft_size,
+STFTProcessor *stft_processor_initialize(uint32_t fft_size,
                                          uint32_t overlap_factor);
 void stft_processor_free(STFTProcessor *self);
 void load_spectral_size(STFTProcessor *self, uint32_t fft_size);

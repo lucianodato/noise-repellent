@@ -18,14 +18,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
 #include "masking_estimator.h"
+#include "spectral_utils.h"
 #include <fftw3.h>
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
-
-#ifndef M_PI
-#define M_PI (3.14159265358979323846)
-#endif
 
 #define N_BARK_BANDS 25
 #define AT_SINE_WAVE_FREQ 1000.f
@@ -218,42 +215,6 @@ static void compute_absolute_thresholds(MaskingEstimator *self) {
   }
 }
 
-static void hanning_window(float *window, const uint32_t fft_size) {
-  for (uint32_t k = 0; k < fft_size; k++) {
-    float p = ((float)(k)) / ((float)(fft_size));
-    window[k] = 0.5 - 0.5 * cosf(2.f * M_PI * p);
-  }
-}
-
-static void get_power_spectrum(MaskingEstimator *self, float *window,
-                               const float *signal, float *power_spectrum) {
-  hanning_window(window, self->fft_size);
-  for (uint32_t k = 0; k < self->fft_size; k++) {
-    self->input_fft_buffer_at[k] = signal[k] * window[k];
-  }
-
-  fftwf_execute(self->forward_fft);
-
-  float real_bin = self->output_fft_buffer_at[0];
-
-  power_spectrum[0] = real_bin * real_bin;
-
-  for (uint32_t k = 1; k <= self->half_fft_size; k++) {
-    real_bin = self->output_fft_buffer_at[k];
-    const float imag_bin = self->output_fft_buffer_at[self->fft_size - k];
-
-    float p2 = 0.f;
-    if (k < self->half_fft_size) {
-      p2 = (real_bin * real_bin + imag_bin * imag_bin);
-    } else {
-
-      p2 = real_bin * real_bin;
-    }
-
-    power_spectrum[k] = p2;
-  }
-}
-
 static void spl_reference(MaskingEstimator *self) {
   float sinewave[self->fft_size];
   float window[self->fft_size];
@@ -265,7 +226,15 @@ static void spl_reference(MaskingEstimator *self) {
                                (float)self->sample_rate);
   }
 
-  get_power_spectrum(self, window, sinewave, fft_power_at);
+  get_fft_window(window, self->fft_size, HANN_WINDOW);
+  for (uint32_t k = 0; k < self->fft_size; k++) {
+    self->input_fft_buffer_at[k] = sinewave[k] * window[k];
+  }
+
+  fftwf_execute(self->forward_fft);
+
+  get_fft_power_spectrum(self->output_fft_buffer_at, self->fft_size,
+                         fft_power_at, self->half_fft_size);
 
   for (uint32_t k = 1; k <= self->half_fft_size; k++) {
     fft_power_at_dbspl[k] = REFERENCE_LEVEL - 10.f * log10f(fft_power_at[k]);

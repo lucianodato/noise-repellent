@@ -18,14 +18,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
 #include "stft_processor.h"
+#include "spectral_utils.h"
 #include <fftw3.h>
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
-
-#ifndef M_PI
-#define M_PI (3.14159265358979323846)
-#endif
 
 #define INPUT_WINDOW_TYPE 3
 #define OUTPUT_WINDOW_TYPE 3
@@ -33,13 +30,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 static void stft_processor_pre_and_post_window(STFTProcessor *self);
 static void stft_processor_analysis(STFTProcessor *self);
 static void stft_processor_synthesis(STFTProcessor *self);
-
-typedef enum {
-  HANN_WINDOW = 0,
-  HAMMING_WINDOW = 1,
-  BLACKMAN_WINDOW = 2,
-  VORBIS_WINDOW = 3
-} WindowTypes;
 
 struct STFTProcessor {
   uint32_t fft_size;
@@ -64,8 +54,7 @@ struct STFTProcessor {
   FFTDenoiser *fft_denoiser;
 };
 
-STFTProcessor *stft_processor_initialize(FFTDenoiser *fft_denoiser,
-                                         const uint32_t fft_size,
+STFTProcessor *stft_processor_initialize(const uint32_t fft_size,
                                          const uint32_t overlap_factor) {
   STFTProcessor *self = (STFTProcessor *)calloc(1, sizeof(STFTProcessor));
 
@@ -145,76 +134,43 @@ void stft_processor_run(STFTProcessor *self, const uint32_t number_of_samples,
   }
 }
 
-static inline float blackman(const uint32_t bin_index,
-                             const uint32_t fft_size) {
-  const float p = ((float)(bin_index)) / ((float)(fft_size));
-  return 0.42 - 0.5 * cosf(2.f * M_PI * p) + 0.08 * cosf(4.f * M_PI * p);
-}
-
-static inline float hanning(const uint32_t bin_index, const uint32_t fft_size) {
-  const float p = ((float)(bin_index)) / ((float)(fft_size));
-  return 0.5 - 0.5 * cosf(2.f * M_PI * p);
-}
-
-static inline float hamming(const uint32_t bin_index, const uint32_t fft_size) {
-  const float p = ((float)(bin_index)) / ((float)(fft_size));
-  return 0.54 - 0.46 * cosf(2.f * M_PI * p);
-}
-
-static inline float vorbis(const uint32_t bin_index, const uint32_t fft_size) {
-  const float p = ((float)(bin_index)) / ((float)(fft_size));
-  return sinf(M_PI / 2.f * powf(sinf(M_PI * p), 2.f));
-}
-
-static void fft_window(float *window, const uint32_t fft_size,
-                       const uint32_t window_type) {
-  for (uint32_t k = 0; k < fft_size; k++) {
-    switch (window_type) {
-    case BLACKMAN_WINDOW:
-      window[k] = blackman(k, fft_size);
-      break;
-    case HANN_WINDOW:
-      window[k] = hanning(k, fft_size);
-      break;
-    case HAMMING_WINDOW:
-      window[k] = hamming(k, fft_size);
-      break;
-    case VORBIS_WINDOW:
-      window[k] = vorbis(k, fft_size);
-      break;
-    }
-  }
-}
-
 static void stft_processor_pre_and_post_window(STFTProcessor *self) {
 
   switch ((WindowTypes)self->window_option_input) {
   case HANN_WINDOW:
-    fft_window(self->input_window, self->fft_size, HANN_WINDOW);
+    get_fft_window(self->input_window, self->fft_size,
+                   (WindowTypes)self->window_option_input);
     break;
   case HAMMING_WINDOW:
-    fft_window(self->input_window, self->fft_size, HAMMING_WINDOW);
+    get_fft_window(self->input_window, self->fft_size,
+                   (WindowTypes)self->window_option_input);
     break;
   case BLACKMAN_WINDOW:
-    fft_window(self->input_window, self->fft_size, BLACKMAN_WINDOW);
+    get_fft_window(self->input_window, self->fft_size,
+                   (WindowTypes)self->window_option_input);
     break;
   case VORBIS_WINDOW:
-    fft_window(self->input_window, self->fft_size, VORBIS_WINDOW);
+    get_fft_window(self->input_window, self->fft_size,
+                   (WindowTypes)self->window_option_input);
     break;
   }
 
   switch ((WindowTypes)self->window_option_output) {
   case HANN_WINDOW:
-    fft_window(self->output_window, self->fft_size, HANN_WINDOW);
+    get_fft_window(self->output_window, self->fft_size,
+                   (WindowTypes)self->window_option_output);
     break;
   case HAMMING_WINDOW:
-    fft_window(self->output_window, self->fft_size, HAMMING_WINDOW);
+    get_fft_window(self->output_window, self->fft_size,
+                   (WindowTypes)self->window_option_output);
     break;
   case BLACKMAN_WINDOW:
-    fft_window(self->output_window, self->fft_size, BLACKMAN_WINDOW);
+    get_fft_window(self->output_window, self->fft_size,
+                   (WindowTypes)self->window_option_output);
     break;
   case VORBIS_WINDOW:
-    fft_window(self->output_window, self->fft_size, VORBIS_WINDOW);
+    get_fft_window(self->output_window, self->fft_size,
+                   (WindowTypes)self->window_option_output);
     break;
   }
 

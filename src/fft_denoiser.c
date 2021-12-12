@@ -20,20 +20,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include "fft_denoiser.h"
 #include "gain_estimator.h"
 #include "noise_estimator.h"
+#include "spectral_utils.h"
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
 
-#ifndef M_PI
-#define M_PI (3.14159265358979323846)
-#endif
-
 #define WHITENING_DECAY_RATE 1000.f
 #define WHITENING_FLOOR 0.02f
 
-static void get_info_from_bins(float *fft_power, float *fft_magnitude,
-                               float *fft_phase, uint32_t half_fft_size,
-                               uint32_t fft_size, const float *fft_buffer);
 static bool is_empty(const float *spectrum, uint32_t half_fft_size);
 static void fft_denoiser_update_wetdry_target(FFTDenoiser *self, bool enable);
 static void fft_denoiser_soft_bypass(FFTDenoiser *self);
@@ -169,9 +163,8 @@ void fft_denoiser_run(FFTDenoiser *self, float *fft_spectrum) {
 
   memcpy(self->fft_spectrum, fft_spectrum, sizeof(float) * self->fft_size);
 
-  get_info_from_bins(self->power_spectrum, self->magnitude_spectrum,
-                     self->phase_spectrum, self->half_fft_size, self->fft_size,
-                     self->fft_spectrum);
+  get_fft_power_spectrum(self->fft_spectrum, self->fft_size,
+                         self->power_spectrum, self->half_fft_size);
 
   if (!is_empty(self->power_spectrum, self->half_fft_size)) {
     if (learn_noise) {
@@ -197,40 +190,6 @@ void fft_denoiser_run(FFTDenoiser *self, float *fft_spectrum) {
 
   memcpy(fft_spectrum, self->processed_fft_spectrum,
          sizeof(float) * self->half_fft_size + 1);
-}
-
-static void get_info_from_bins(float *fft_power, float *fft_magnitude,
-                               float *fft_phase, const uint32_t half_fft_size,
-                               const uint32_t fft_size,
-                               const float *fft_buffer) {
-  float real_bin = fft_buffer[0];
-
-  fft_power[0] = real_bin * real_bin;
-  fft_magnitude[0] = real_bin;
-  fft_phase[0] = atan2f(real_bin, 0.f);
-
-  for (uint32_t k = 1; k <= half_fft_size; k++) {
-    float magnitude = 0.f;
-    float power = 0.f;
-    float phase = 0.f;
-
-    real_bin = fft_buffer[k];
-    float imag_bin = fft_buffer[fft_size - k];
-
-    if (k < half_fft_size) {
-      power = (real_bin * real_bin + imag_bin * imag_bin);
-      magnitude = sqrtf(power);
-      phase = atan2f(real_bin, imag_bin);
-    } else {
-      power = real_bin * real_bin;
-      magnitude = real_bin;
-      phase = atan2f(real_bin, 0.f);
-    }
-
-    fft_power[k] = power;
-    fft_magnitude[k] = magnitude;
-    fft_phase[k] = phase;
-  }
 }
 
 static bool is_empty(const float *spectrum, const uint32_t half_fft_size) {
