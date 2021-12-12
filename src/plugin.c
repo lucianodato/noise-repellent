@@ -30,8 +30,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <string.h>
 
 #define NOISEREPELLENT_URI "https://github.com/lucianodato/noise-repellent"
-#define FFT_SIZE 2048
-#define OVERLAP_FACTOR 4
 
 typedef struct {
   LV2_URID atom_Int;
@@ -243,11 +241,7 @@ static LV2_State_Status restore(LV2_Handle instance,
     return LV2_STATE_ERR_NO_PROPERTY;
   }
 
-  if (*fftsize == 0) {
-    load_spectral_size(self->stft_processor, FFT_SIZE);
-  } else {
-    load_spectral_size(self->stft_processor, *fftsize);
-  }
+  load_spectral_size(self->stft_processor, *fftsize);
 
   const void *saved_noise_profile =
       retrieve(handle, self->state.property_saved_noise_profile, &size, &type,

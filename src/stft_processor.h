@@ -23,6 +23,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include "fft_denoiser.h"
 #include <stdbool.h>
 
+#define FFT_SIZE 2048
+#define OVERLAP_FACTOR 4
+
 typedef struct STFTProcessor STFTProcessor;
 
 STFTProcessor *stft_processor_initialize(uint32_t fft_size,
