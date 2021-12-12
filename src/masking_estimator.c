@@ -71,6 +71,12 @@ struct MaskingEstimator {
   float *threshold_j;
   float *masking_offset;
   float *spreaded_spectrum;
+
+  float *sinewave;
+  float *window;
+  float *fft_power_at;
+  float *fft_power_at_dbspl;
+
   fftwf_plan forward_fft;
 };
 
@@ -106,6 +112,13 @@ MaskingEstimator *masking_estimation_initialize(const uint32_t fft_size,
   self->masking_offset = (float *)calloc(N_BARK_BANDS, sizeof(float));
   self->spreaded_spectrum = (float *)calloc(N_BARK_BANDS, sizeof(float));
 
+  self->sinewave = (float *)calloc(self->fft_size, sizeof(float));
+  self->window = (float *)calloc(self->fft_size, sizeof(float));
+  self->fft_power_at =
+      (float *)calloc((self->half_fft_size + 1), sizeof(float));
+  self->fft_power_at_dbspl =
+      (float *)calloc((self->half_fft_size + 1), sizeof(float));
+
   self->forward_fft =
       fftwf_plan_r2r_1d(self->fft_size, self->input_fft_buffer_at,
                         self->output_fft_buffer_at, FFTW_R2HC, FFTW_ESTIMATE);
@@ -135,6 +148,11 @@ void masking_estimation_free(MaskingEstimator *self) {
   free(self->threshold_j);
   free(self->masking_offset);
   free(self->spreaded_spectrum);
+
+  free(self->sinewave);
+  free(self->window);
+  free(self->fft_power_at);
+  free(self->fft_power_at_dbspl);
 
   fftwf_destroy_plan(self->forward_fft);
   free(self);
@@ -216,31 +234,28 @@ static void compute_absolute_thresholds(MaskingEstimator *self) {
 }
 
 static void spl_reference(MaskingEstimator *self) {
-  float sinewave[self->fft_size];
-  float window[self->fft_size];
-  float fft_power_at[self->half_fft_size + 1];
-  float fft_power_at_dbspl[self->half_fft_size + 1];
-
   for (uint32_t k = 0; k < self->fft_size; k++) {
-    sinewave[k] = S_AMP * sinf((2.f * M_PI * k * AT_SINE_WAVE_FREQ) /
-                               (float)self->sample_rate);
+    self->sinewave[k] = S_AMP * sinf((2.f * M_PI * k * AT_SINE_WAVE_FREQ) /
+                                     (float)self->sample_rate);
   }
 
-  get_fft_window(window, self->fft_size, HANN_WINDOW);
+  get_fft_window(self->window, self->fft_size, HANN_WINDOW);
+
   for (uint32_t k = 0; k < self->fft_size; k++) {
-    self->input_fft_buffer_at[k] = sinewave[k] * window[k];
+    self->input_fft_buffer_at[k] = self->sinewave[k] * self->window[k];
   }
 
   fftwf_execute(self->forward_fft);
 
   get_fft_power_spectrum(self->output_fft_buffer_at, self->fft_size,
-                         fft_power_at, self->half_fft_size);
+                         self->fft_power_at, self->half_fft_size);
 
   for (uint32_t k = 1; k <= self->half_fft_size; k++) {
-    fft_power_at_dbspl[k] = REFERENCE_LEVEL - 10.f * log10f(fft_power_at[k]);
+    self->fft_power_at_dbspl[k] =
+        REFERENCE_LEVEL - 10.f * log10f(self->fft_power_at[k]);
   }
 
-  memcpy(self->spl_reference_values, fft_power_at_dbspl,
+  memcpy(self->spl_reference_values, self->fft_power_at_dbspl,
          sizeof(float) * (self->half_fft_size + 1));
 }
 
