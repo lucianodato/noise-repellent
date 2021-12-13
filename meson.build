@@ -17,6 +17,7 @@ noise_repellent_sources = [
     'src/gain_estimator.c',
     'src/fft_denoiser.c',
     'src/stft_processor.c',
+    'src/noise_repellent.c',
     'src/plugin.c'
 ]
 

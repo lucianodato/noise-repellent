@@ -36,7 +36,6 @@ static void get_residual_spectrum(FFTDenoiser *self, float whitening_factor);
 
 static void get_final_spectrum(FFTDenoiser *self, bool residual_listen,
                                float reduction_amount);
-static inline float from_db_to_coefficient(float gain_db);
 
 struct FFTDenoiser {
   uint32_t fft_size;
@@ -144,19 +143,16 @@ void load_noise_profile(FFTDenoiser *self, NoiseProfile *noise_profile) {
 }
 
 void fft_denoiser_run(FFTDenoiser *self, float *fft_spectrum) {
-
-  const bool enable = (bool)*self->denoise_parameters->enable;
-  const bool learn_noise = (bool)*self->denoise_parameters->learn_noise;
-  const bool residual_listen = (bool)*self->denoise_parameters->residual_listen;
+  const bool enable = self->denoise_parameters->enable;
+  const bool learn_noise = self->denoise_parameters->learn_noise;
+  const bool residual_listen = self->denoise_parameters->residual_listen;
   const float transient_protection =
-      *self->denoise_parameters->transient_threshold;
-  const float masking =
-      *self->denoise_parameters->masking_ceiling_limit / 100.f;
-  const float release = *self->denoise_parameters->release_time;
-  const float noise_rescale = *self->denoise_parameters->noise_rescale;
-  const float reduction_amount = from_db_to_coefficient(
-      *self->denoise_parameters->reduction_amount * -1.f);
-  const float whitening_factor = *self->denoise_parameters->whitening_factor;
+      self->denoise_parameters->transient_threshold;
+  const float masking = self->denoise_parameters->masking_ceiling_limit;
+  const float release = self->denoise_parameters->release_time;
+  const float noise_rescale = self->denoise_parameters->noise_rescale;
+  const float reduction_amount = self->denoise_parameters->reduction_amount;
+  const float whitening_factor = self->denoise_parameters->whitening_factor;
   float *noise_spectrum = self->noise_profile->noise_profile;
 
   fft_denoiser_update_wetdry_target(self, enable);
@@ -278,8 +274,4 @@ static void get_final_spectrum(FFTDenoiser *self, const bool residual_listen,
           self->residual_spectrum[k] * reduction_amount;
     }
   }
-}
-
-static inline float from_db_to_coefficient(const float gain_db) {
-  return expf(gain_db / 10.f * logf(10.f));
 }
