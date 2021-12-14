@@ -76,7 +76,7 @@ typedef struct {
   URIs uris;
   State state;
 
-  NoiseRepellentLib *lib_instance;
+  NoiseRepellent *lib_instance;
 
   float *enable;
   float *learn_noise;
@@ -88,10 +88,10 @@ typedef struct {
   float *transient_threshold;
   float *noise_rescale;
 
-} NoiseRepellent;
+} NoiseRepellentPlugin;
 
 static void cleanup(LV2_Handle instance) {
-  NoiseRepellent *self = (NoiseRepellent *)instance;
+  NoiseRepellentPlugin *self = (NoiseRepellentPlugin *)instance;
 
   nr_free(self->lib_instance);
   free(instance);
@@ -100,7 +100,8 @@ static void cleanup(LV2_Handle instance) {
 static LV2_Handle instantiate(const LV2_Descriptor *descriptor,
                               const double rate, const char *bundle_path,
                               const LV2_Feature *const *features) {
-  NoiseRepellent *self = (NoiseRepellent *)calloc(1, sizeof(NoiseRepellent));
+  NoiseRepellentPlugin *self =
+      (NoiseRepellentPlugin *)calloc(1, sizeof(NoiseRepellentPlugin));
 
   // clang-format off
   const char *missing =
@@ -134,7 +135,7 @@ static LV2_Handle instantiate(const LV2_Descriptor *descriptor,
 }
 
 static void connect_port(LV2_Handle instance, uint32_t port, void *data) {
-  NoiseRepellent *self = (NoiseRepellent *)instance;
+  NoiseRepellentPlugin *self = (NoiseRepellentPlugin *)instance;
 
   switch ((PortIndex)port) {
   case NOISEREPELLENT_AMOUNT:
@@ -177,7 +178,7 @@ static void connect_port(LV2_Handle instance, uint32_t port, void *data) {
 }
 
 static void run(LV2_Handle instance, uint32_t number_of_samples) {
-  NoiseRepellent *self = (NoiseRepellent *)instance;
+  NoiseRepellentPlugin *self = (NoiseRepellentPlugin *)instance;
 
   nr_load_parameters(self->lib_instance, (bool)*self->enable,
                      (bool)*self->learn_noise, *self->masking_ceiling_limit,
@@ -194,7 +195,7 @@ static LV2_State_Status save(LV2_Handle instance,
                              LV2_State_Store_Function store,
                              LV2_State_Handle handle, uint32_t flags,
                              const LV2_Feature *const *features) {
-  NoiseRepellent *self = (NoiseRepellent *)instance;
+  NoiseRepellentPlugin *self = (NoiseRepellentPlugin *)instance;
 
   uint32_t noise_profile_size = nr_get_noise_profile_size(self->lib_instance);
   float *noise_profile = nr_get_noise_profile(self->lib_instance);
@@ -210,7 +211,7 @@ static LV2_State_Status restore(LV2_Handle instance,
                                 LV2_State_Retrieve_Function retrieve,
                                 LV2_State_Handle handle, uint32_t flags,
                                 const LV2_Feature *const *features) {
-  NoiseRepellent *self = (NoiseRepellent *)instance;
+  NoiseRepellentPlugin *self = (NoiseRepellentPlugin *)instance;
 
   size_t size = 0;
   uint32_t type = 0;

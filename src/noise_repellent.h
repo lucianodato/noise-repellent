@@ -23,18 +23,17 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <stdbool.h>
 #include <stdint.h>
 
-typedef struct NoiseRepellentLib NoiseRepellentLib;
+typedef struct NoiseRepellent NoiseRepellent;
 
-NoiseRepellentLib *nr_initialize(uint32_t sample_rate);
-void nr_free(NoiseRepellentLib *self);
-uint32_t nr_get_latency(NoiseRepellentLib *self);
-bool nr_process(NoiseRepellentLib *self, uint32_t number_of_samples,
+NoiseRepellent *nr_initialize(uint32_t sample_rate);
+void nr_free(NoiseRepellent *self);
+uint32_t nr_get_latency(NoiseRepellent *self);
+bool nr_process(NoiseRepellent *self, uint32_t number_of_samples,
                 const float *input, float *output);
-uint32_t nr_get_noise_profile_size(NoiseRepellentLib *self);
-float *nr_get_noise_profile(NoiseRepellentLib *self);
-bool nr_load_noise_profile(NoiseRepellentLib *self,
-                           const float *restored_profile);
-bool nr_load_parameters(NoiseRepellentLib *self, bool enable, bool learn_noise,
+uint32_t nr_get_noise_profile_size(NoiseRepellent *self);
+float *nr_get_noise_profile(NoiseRepellent *self);
+bool nr_load_noise_profile(NoiseRepellent *self, const float *restored_profile);
+bool nr_load_parameters(NoiseRepellent *self, bool enable, bool learn_noise,
                         float masking_ceiling_limit, float noise_rescale,
                         float reduction_amount, float release_time,
                         float residual_listen, float transient_threshold,

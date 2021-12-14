@@ -25,19 +25,18 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <stdlib.h>
 #include <string.h>
 
-struct NoiseRepellentLib {
+struct NoiseRepellent {
   ProcessorParameters *denoise_parameters;
   NoiseProfile *noise_profile;
 
   SpectralProcessor *fft_denoiser;
-  STFTProcessor *stft_processor;
+  StftProcessor *stft_processor;
 
   uint32_t sample_rate;
 };
 
-NoiseRepellentLib *nr_initialize(const uint32_t sample_rate) {
-  NoiseRepellentLib *self =
-      (NoiseRepellentLib *)calloc(1, sizeof(NoiseRepellentLib));
+NoiseRepellent *nr_initialize(const uint32_t sample_rate) {
+  NoiseRepellent *self = (NoiseRepellent *)calloc(1, sizeof(NoiseRepellent));
   self->sample_rate = sample_rate;
 
   self->stft_processor = stft_processor_initialize();
@@ -83,7 +82,7 @@ NoiseRepellentLib *nr_initialize(const uint32_t sample_rate) {
   return self;
 }
 
-void nr_free(NoiseRepellentLib *self) {
+void nr_free(NoiseRepellent *self) {
   free(self->noise_profile);
   free(self->denoise_parameters);
   spectral_processor_free(self->fft_denoiser);
@@ -91,11 +90,11 @@ void nr_free(NoiseRepellentLib *self) {
   free(self);
 }
 
-uint32_t nr_get_latency(NoiseRepellentLib *self) {
+uint32_t nr_get_latency(NoiseRepellent *self) {
   return get_stft_latency(self->stft_processor);
 }
 
-bool nr_process(NoiseRepellentLib *self, const uint32_t number_of_samples,
+bool nr_process(NoiseRepellent *self, const uint32_t number_of_samples,
                 const float *input, float *output) {
   if (!self || !number_of_samples || !input || !output) {
     return false;
@@ -106,15 +105,15 @@ bool nr_process(NoiseRepellentLib *self, const uint32_t number_of_samples,
   return true;
 }
 
-uint32_t nr_get_noise_profile_size(NoiseRepellentLib *self) {
+uint32_t nr_get_noise_profile_size(NoiseRepellent *self) {
   return self->noise_profile->noise_profile_size;
 }
 
-float *nr_get_noise_profile(NoiseRepellentLib *self) {
+float *nr_get_noise_profile(NoiseRepellent *self) {
   return self->noise_profile->noise_profile;
 }
 
-bool nr_load_noise_profile(NoiseRepellentLib *self,
+bool nr_load_noise_profile(NoiseRepellent *self,
                            const float restored_profile[]) {
   if (!self || !restored_profile) {
     return false;
@@ -128,7 +127,7 @@ static inline float from_db_to_coefficient(const float gain_db) {
   return expf(gain_db / 10.f * logf(10.f));
 }
 
-bool nr_load_parameters(NoiseRepellentLib *self, const bool enable,
+bool nr_load_parameters(NoiseRepellent *self, const bool enable,
                         const bool learn_noise,
                         const float masking_ceiling_limit,
                         const float noise_rescale, const float reduction_amount,
