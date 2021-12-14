@@ -20,21 +20,25 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #ifndef STFT_PROCESSOR_H
 #define STFT_PROCESSOR_H
 
-#include "fft_denoiser.h"
+#include "spectral_processor.h"
 #include <stdbool.h>
-
-#define FFT_SIZE 2048
-#define OVERLAP_FACTOR 4
+#include <stdint.h>
 
 typedef struct STFTProcessor STFTProcessor;
+typedef void spectral_processing(
+    SpectralProcessor *spectral_processor,
+    float *fft_spectrum); // Pointer to Spectral Processing function
 
-STFTProcessor *stft_processor_initialize(uint32_t fft_size,
-                                         uint32_t overlap_factor);
+STFTProcessor *stft_processor_initialize();
 void stft_processor_free(STFTProcessor *self);
-void load_spectral_size(STFTProcessor *self, uint32_t fft_size);
-void load_denoiser(STFTProcessor *self, FFTDenoiser *fft_denoiser);
 uint32_t get_stft_latency(STFTProcessor *self);
-void stft_processor_run(STFTProcessor *self, uint32_t number_of_samples,
-                        const float *input, float *output);
+void stft_processor_run(STFTProcessor *self,
+                        spectral_processing *spectral_processing,
+                        SpectralProcessor *spectral_processor,
+                        uint32_t number_of_samples, const float *input,
+                        float *output);
+uint32_t get_fft_size(STFTProcessor *self);
+uint32_t get_overlap_factor(STFTProcessor *self);
+uint32_t get_spectral_processing_size(STFTProcessor *self);
 
 #endif

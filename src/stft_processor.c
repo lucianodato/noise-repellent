@@ -24,6 +24,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <stdlib.h>
 #include <string.h>
 
+#define FFT_SIZE 2048
+#define OVERLAP_FACTOR 4
 #define INPUT_WINDOW_TYPE 3
 #define OUTPUT_WINDOW_TYPE 3
 
@@ -50,18 +52,16 @@ struct STFTProcessor {
   float *output_accum;
   float *input_fft_buffer;
   float *output_fft_buffer;
-
-  FFTDenoiser *fft_denoiser;
 };
 
-STFTProcessor *stft_processor_initialize(const uint32_t fft_size,
-                                         const uint32_t overlap_factor) {
+STFTProcessor *stft_processor_initialize() {
   STFTProcessor *self = (STFTProcessor *)calloc(1, sizeof(STFTProcessor));
 
-  load_spectral_size(self, fft_size);
+  self->fft_size = FFT_SIZE;
+  self->half_fft_size = self->fft_size / 2;
   self->window_option_input = INPUT_WINDOW_TYPE;
   self->window_option_output = OUTPUT_WINDOW_TYPE;
-  self->overlap_factor = overlap_factor;
+  self->overlap_factor = OVERLAP_FACTOR;
   self->hop = self->fft_size / self->overlap_factor;
   self->input_latency = self->fft_size - self->hop;
   self->read_position = self->input_latency;
@@ -102,18 +102,19 @@ void stft_processor_free(STFTProcessor *self) {
 }
 
 uint32_t get_stft_latency(STFTProcessor *self) { return self->input_latency; }
-
-void load_spectral_size(STFTProcessor *self, const uint32_t fft_size) {
-  self->fft_size = fft_size;
-  self->half_fft_size = self->fft_size / 2;
+uint32_t get_fft_size(STFTProcessor *self) { return self->fft_size; }
+uint32_t get_overlap_factor(STFTProcessor *self) {
+  return self->overlap_factor;
+}
+uint32_t get_spectral_processing_size(STFTProcessor *self) {
+  return self->half_fft_size / 2 + 1;
 }
 
-void load_denoiser(STFTProcessor *self, FFTDenoiser *fft_denoiser) {
-  self->fft_denoiser = fft_denoiser;
-}
-
-void stft_processor_run(STFTProcessor *self, const uint32_t number_of_samples,
-                        const float *input, float *output) {
+void stft_processor_run(STFTProcessor *self,
+                        spectral_processing *spectral_processing,
+                        SpectralProcessor *spectral_processor,
+                        const uint32_t number_of_samples, const float *input,
+                        float *output) {
   for (uint32_t k = 0; k < number_of_samples; k++) {
     self->in_fifo[self->read_position] = input[k];
     output[k] = self->out_fifo[self->read_position - self->input_latency];
@@ -127,7 +128,7 @@ void stft_processor_run(STFTProcessor *self, const uint32_t number_of_samples,
 
       stft_processor_analysis(self);
 
-      fft_denoiser_run(self->fft_denoiser, self->output_fft_buffer);
+      spectral_processing(spectral_processor, self->output_fft_buffer);
 
       stft_processor_synthesis(self);
     }

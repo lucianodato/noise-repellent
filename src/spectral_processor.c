@@ -17,7 +17,7 @@ You should have received a copy of the GNU Lesser General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
-#include "fft_denoiser.h"
+#include "spectral_processor.h"
 #include "gain_estimator.h"
 #include "noise_estimator.h"
 #include "spectral_utils.h"
@@ -29,15 +29,17 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define WHITENING_FLOOR 0.02f
 
 static bool is_empty(const float *spectrum, uint32_t half_fft_size);
-static void fft_denoiser_update_wetdry_target(FFTDenoiser *self, bool enable);
-static void fft_denoiser_soft_bypass(FFTDenoiser *self);
-static void get_denoised_spectrum(FFTDenoiser *self);
-static void get_residual_spectrum(FFTDenoiser *self, float whitening_factor);
+static void fft_denoiser_update_wetdry_target(SpectralProcessor *self,
+                                              bool enable);
+static void fft_denoiser_soft_bypass(SpectralProcessor *self);
+static void get_denoised_spectrum(SpectralProcessor *self);
+static void get_residual_spectrum(SpectralProcessor *self,
+                                  float whitening_factor);
 
-static void get_final_spectrum(FFTDenoiser *self, bool residual_listen,
+static void get_final_spectrum(SpectralProcessor *self, bool residual_listen,
                                float reduction_amount);
 
-struct FFTDenoiser {
+struct SpectralProcessor {
   uint32_t fft_size;
   uint32_t half_fft_size;
   uint32_t sample_rate;
@@ -62,17 +64,19 @@ struct FFTDenoiser {
   GainEstimator *gain_estimation;
   NoiseEstimator *noise_estimation;
   NoiseProfile *noise_profile;
-  DenoiseParameters *denoise_parameters;
+  ProcessorParameters *denoise_parameters;
 
   float *residual_max_spectrum;
   float max_decay_rate;
   uint32_t whitening_window_count;
 };
 
-FFTDenoiser *fft_denoiser_initialize(const uint32_t sample_rate,
-                                     const uint32_t fft_size,
-                                     const uint32_t overlap_factor) {
-  FFTDenoiser *self = (FFTDenoiser *)calloc(1, sizeof(FFTDenoiser));
+SpectralProcessor *
+spectral_processor_initialize(const uint32_t sample_rate,
+                              const uint32_t fft_size,
+                              const uint32_t overlap_factor) {
+  SpectralProcessor *self =
+      (SpectralProcessor *)calloc(1, sizeof(SpectralProcessor));
 
   self->fft_size = fft_size;
   self->half_fft_size = self->fft_size / 2;
@@ -116,7 +120,7 @@ FFTDenoiser *fft_denoiser_initialize(const uint32_t sample_rate,
   return self;
 }
 
-void fft_denoiser_free(FFTDenoiser *self) {
+void spectral_processor_free(SpectralProcessor *self) {
   gain_estimation_free(self->gain_estimation);
   noise_estimation_free(self->noise_estimation);
 
@@ -133,16 +137,16 @@ void fft_denoiser_free(FFTDenoiser *self) {
   free(self);
 }
 
-void load_denoise_parameters(FFTDenoiser *self,
-                             DenoiseParameters *new_parameters) {
+void load_processor_parameters(SpectralProcessor *self,
+                               ProcessorParameters *new_parameters) {
   self->denoise_parameters = new_parameters;
 }
 
-void load_noise_profile(FFTDenoiser *self, NoiseProfile *noise_profile) {
+void load_noise_profile(SpectralProcessor *self, NoiseProfile *noise_profile) {
   self->noise_profile = noise_profile;
 }
 
-void fft_denoiser_run(FFTDenoiser *self, float *fft_spectrum) {
+void spectral_processor_run(SpectralProcessor *self, float *fft_spectrum) {
   const bool enable = self->denoise_parameters->enable;
   const bool learn_noise = self->denoise_parameters->learn_noise;
   const bool residual_listen = self->denoise_parameters->residual_listen;
@@ -197,7 +201,7 @@ static bool is_empty(const float *spectrum, const uint32_t half_fft_size) {
   return true;
 }
 
-static void fft_denoiser_update_wetdry_target(FFTDenoiser *self,
+static void fft_denoiser_update_wetdry_target(SpectralProcessor *self,
                                               const bool enable) {
   if (enable) {
     self->wet_dry_target = 1.f;
@@ -208,7 +212,7 @@ static void fft_denoiser_update_wetdry_target(FFTDenoiser *self,
   self->wet_dry += self->tau * (self->wet_dry_target - self->wet_dry) + FLT_MIN;
 }
 
-static void fft_denoiser_soft_bypass(FFTDenoiser *self) {
+static void fft_denoiser_soft_bypass(SpectralProcessor *self) {
   for (uint32_t k = 1; k <= self->half_fft_size; k++) {
     self->processed_fft_spectrum[k] =
         (1.f - self->wet_dry) * self->fft_spectrum[k] +
@@ -216,7 +220,7 @@ static void fft_denoiser_soft_bypass(FFTDenoiser *self) {
   }
 }
 
-static void residual_spectrum_whitening(FFTDenoiser *self,
+static void residual_spectrum_whitening(SpectralProcessor *self,
                                         const float whitening_factor) {
   self->whitening_window_count++;
 
@@ -243,13 +247,13 @@ static void residual_spectrum_whitening(FFTDenoiser *self,
   }
 }
 
-static void get_denoised_spectrum(FFTDenoiser *self) {
+static void get_denoised_spectrum(SpectralProcessor *self) {
   for (uint32_t k = 1; k <= self->half_fft_size; k++) {
     self->denoised_spectrum[k] = self->fft_spectrum[k] * self->gain_spectrum[k];
   }
 }
 
-static void get_residual_spectrum(FFTDenoiser *self,
+static void get_residual_spectrum(SpectralProcessor *self,
                                   const float whitening_factor) {
   for (uint32_t k = 1; k <= self->half_fft_size; k++) {
     self->residual_spectrum[k] =
@@ -261,7 +265,8 @@ static void get_residual_spectrum(FFTDenoiser *self,
   }
 }
 
-static void get_final_spectrum(FFTDenoiser *self, const bool residual_listen,
+static void get_final_spectrum(SpectralProcessor *self,
+                               const bool residual_listen,
                                const float reduction_amount) {
   if (residual_listen) {
     for (uint32_t k = 1; k <= self->half_fft_size; k++) {

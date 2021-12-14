@@ -125,8 +125,7 @@ static LV2_Handle instantiate(const LV2_Descriptor *descriptor,
 
   self->lib_instance = nr_initialize(self->sample_rate);
   if (!self->lib_instance) {
-    lv2_log_error(&self->log, "Could not allocate memory for <%s>\n",
-                  NOISEREPELLENT_URI);
+    lv2_log_error(&self->log, "Error initializing <%s>\n", NOISEREPELLENT_URI);
     cleanup((LV2_Handle)self);
     return NULL;
   }

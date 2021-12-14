@@ -18,19 +18,18 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
 #include "noise_repellent.h"
-#include "fft_denoiser.h"
+#include "internal_data_types.h"
+#include "spectral_processor.h"
 #include "stft_processor.h"
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
 
-#define NOISE_PROFILE_SIZE FFT_SIZE / 2 + 1
-
 struct NoiseRepellentLib {
-  DenoiseParameters *denoise_parameters;
+  ProcessorParameters *denoise_parameters;
   NoiseProfile *noise_profile;
 
-  FFTDenoiser *fft_denoiser;
+  SpectralProcessor *fft_denoiser;
   STFTProcessor *stft_processor;
 
   uint32_t sample_rate;
@@ -41,36 +40,53 @@ NoiseRepellentLib *nr_initialize(const uint32_t sample_rate) {
       (NoiseRepellentLib *)calloc(1, sizeof(NoiseRepellentLib));
   self->sample_rate = sample_rate;
 
-  self->denoise_parameters =
-      (DenoiseParameters *)calloc(1, sizeof(DenoiseParameters));
+  self->stft_processor = stft_processor_initialize();
 
-  self->noise_profile = (NoiseProfile *)calloc(1, sizeof(NoiseProfile));
-  self->noise_profile->noise_profile_size = NOISE_PROFILE_SIZE;
-  self->noise_profile->noise_profile =
-      (float *)calloc(NOISE_PROFILE_SIZE, sizeof(float));
-
-  self->fft_denoiser =
-      fft_denoiser_initialize(self->sample_rate, FFT_SIZE, OVERLAP_FACTOR);
-  self->stft_processor = stft_processor_initialize(FFT_SIZE, OVERLAP_FACTOR);
-
-  if (!self->denoise_parameters || !self->noise_profile ||
-      !self->noise_profile->noise_profile || !self->fft_denoiser ||
-      !self->stft_processor) {
+  if (!self->stft_processor) {
     nr_free(self);
     return NULL;
   }
 
+  const uint32_t fft_size = get_fft_size(self->stft_processor);
+  const uint32_t overlap_factor = get_overlap_factor(self->stft_processor);
+  const uint32_t spectral_size =
+      get_spectral_processing_size(self->stft_processor);
+
+  self->fft_denoiser = spectral_processor_initialize(self->sample_rate,
+                                                     fft_size, overlap_factor);
+
+  if (!self->fft_denoiser) {
+    nr_free(self);
+    return NULL;
+  }
+
+  self->denoise_parameters =
+      (ProcessorParameters *)calloc(1, sizeof(ProcessorParameters));
+
+  if (!self->denoise_parameters) {
+    nr_free(self);
+    return NULL;
+  }
+
+  self->noise_profile = (NoiseProfile *)calloc(1, sizeof(NoiseProfile));
+  self->noise_profile->noise_profile =
+      (float *)calloc(spectral_size, sizeof(float));
+
+  if (!self->noise_profile || !self->noise_profile->noise_profile) {
+    nr_free(self);
+    return NULL;
+  }
+
+  self->noise_profile->noise_profile_size = spectral_size;
   load_noise_profile(self->fft_denoiser, self->noise_profile);
-  load_denoiser(self->stft_processor, self->fft_denoiser);
 
   return self;
 }
 
 void nr_free(NoiseRepellentLib *self) {
-  free(self->noise_profile->noise_profile);
   free(self->noise_profile);
   free(self->denoise_parameters);
-  fft_denoiser_free(self->fft_denoiser);
+  spectral_processor_free(self->fft_denoiser);
   stft_processor_free(self->stft_processor);
   free(self);
 }
@@ -84,12 +100,14 @@ bool nr_process(NoiseRepellentLib *self, const uint32_t number_of_samples,
   if (!self || !number_of_samples || !input || !output) {
     return false;
   }
-  stft_processor_run(self->stft_processor, number_of_samples, input, output);
+
+  stft_processor_run(self->stft_processor, &spectral_processor_run,
+                     self->fft_denoiser, number_of_samples, input, output);
   return true;
 }
 
 uint32_t nr_get_noise_profile_size(NoiseRepellentLib *self) {
-  return NOISE_PROFILE_SIZE;
+  return self->noise_profile->noise_profile_size;
 }
 
 float *nr_get_noise_profile(NoiseRepellentLib *self) {
@@ -102,7 +120,7 @@ bool nr_load_noise_profile(NoiseRepellentLib *self,
     return false;
   }
   memcpy(self->noise_profile->noise_profile, restored_profile,
-         sizeof(float) * NOISE_PROFILE_SIZE);
+         sizeof(float) * self->noise_profile->noise_profile_size);
   return true;
 }
 
@@ -133,7 +151,7 @@ bool nr_load_parameters(NoiseRepellentLib *self, const bool enable,
   self->denoise_parameters->transient_threshold = transient_threshold;
   self->denoise_parameters->noise_rescale = noise_rescale;
 
-  load_denoise_parameters(self->fft_denoiser, self->denoise_parameters);
+  load_processor_parameters(self->fft_denoiser, self->denoise_parameters);
 
   return true;
 }
