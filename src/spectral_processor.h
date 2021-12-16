@@ -20,7 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #ifndef SPECTRAL_PROCESSOR_H
 #define SPECTRAL_PROCESSOR_H
 
-#include "internal_data_types.h"
+#include "data_types.h"
 #include <float.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -33,7 +33,7 @@ SpectralProcessor *spectral_processor_initialize(uint32_t sample_rate,
 void spectral_processor_free(SpectralProcessor *self);
 void load_processor_parameters(SpectralProcessor *self,
                                ProcessorParameters *new_parameters);
-void spectral_processor_run(SpectralProcessor *self, float *fft_spectrum);
+void spectral_processor_run(SPECTAL_PROCESSOR self, float *fft_spectrum);
 
 // Polymorphysm with this one
 void load_noise_profile(SpectralProcessor *self, NoiseProfile *noise_profile);

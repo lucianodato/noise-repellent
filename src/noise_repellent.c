@@ -18,7 +18,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
 #include "noise_repellent.h"
-#include "internal_data_types.h"
+#include "data_types.h"
 #include "spectral_processor.h"
 #include "stft_processor.h"
 #include <math.h>
@@ -101,7 +101,8 @@ bool nr_process(NoiseRepellent *self, const uint32_t number_of_samples,
   }
 
   stft_processor_run(self->stft_processor, &spectral_processor_run,
-                     self->fft_denoiser, number_of_samples, input, output);
+                     (SPECTAL_PROCESSOR)self->fft_denoiser, number_of_samples,
+                     input, output);
   return true;
 }
 

@@ -23,6 +23,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <stdbool.h>
 #include <stdint.h>
 
+typedef void *SPECTAL_PROCESSOR;
+
 typedef struct {
   uint32_t noise_profile_size;
   float *noise_profile;

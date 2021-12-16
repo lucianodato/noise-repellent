@@ -30,28 +30,39 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define OUTPUT_WINDOW_TYPE 3
 
 static void stft_processor_pre_and_post_window(StftProcessor *self);
+static void get_overlap_scale_factor(StftProcessor *self);
 static void stft_processor_analysis(StftProcessor *self);
 static void stft_processor_synthesis(StftProcessor *self);
+
+typedef struct {
+  uint32_t window_option_input;
+  uint32_t window_option_output;
+  float *input_window;
+  float *output_window;
+  float overlap_scale_factor;
+} StftWindows;
+
+typedef struct {
+  uint32_t input_latency;
+  uint32_t read_position;
+  uint32_t hop;
+  uint32_t overlap_factor;
+  float *in_fifo;
+  float *out_fifo;
+  float *output_accum;
+} StftBuffer;
 
 struct StftProcessor {
   uint32_t fft_size;
   uint32_t half_fft_size;
   fftwf_plan forward;
   fftwf_plan backward;
-  uint32_t window_option_input;
-  uint32_t window_option_output;
-  uint32_t overlap_factor;
-  float overlap_scale_factor;
-  uint32_t hop;
-  uint32_t input_latency;
-  uint32_t read_position;
-  float *input_window;
-  float *output_window;
-  float *in_fifo;
-  float *out_fifo;
-  float *output_accum;
+
   float *input_fft_buffer;
   float *output_fft_buffer;
+
+  StftBuffer stft_buffer;
+  StftWindows stft_windows;
 };
 
 StftProcessor *stft_processor_initialize() {
@@ -59,20 +70,22 @@ StftProcessor *stft_processor_initialize() {
 
   self->fft_size = FFT_SIZE;
   self->half_fft_size = self->fft_size / 2;
-  self->window_option_input = INPUT_WINDOW_TYPE;
-  self->window_option_output = OUTPUT_WINDOW_TYPE;
-  self->overlap_factor = OVERLAP_FACTOR;
-  self->hop = self->fft_size / self->overlap_factor;
-  self->input_latency = self->fft_size - self->hop;
-  self->read_position = self->input_latency;
+  self->stft_windows.window_option_input = INPUT_WINDOW_TYPE;
+  self->stft_windows.window_option_output = OUTPUT_WINDOW_TYPE;
 
-  self->input_window = (float *)calloc(self->fft_size, sizeof(float));
-  self->output_window = (float *)calloc(self->fft_size, sizeof(float));
+  self->stft_windows.input_window =
+      (float *)calloc(self->fft_size, sizeof(float));
+  self->stft_windows.output_window =
+      (float *)calloc(self->fft_size, sizeof(float));
 
-  self->in_fifo = (float *)calloc(self->fft_size, sizeof(float));
-  self->out_fifo = (float *)calloc(self->fft_size, sizeof(float));
-
-  self->output_accum = (float *)calloc((self->fft_size * 2), sizeof(float));
+  self->stft_buffer.overlap_factor = OVERLAP_FACTOR;
+  self->stft_buffer.hop = self->fft_size / self->stft_buffer.overlap_factor;
+  self->stft_buffer.input_latency = self->fft_size - self->stft_buffer.hop;
+  self->stft_buffer.read_position = self->stft_buffer.input_latency;
+  self->stft_buffer.in_fifo = (float *)calloc(self->fft_size, sizeof(float));
+  self->stft_buffer.out_fifo = (float *)calloc(self->fft_size, sizeof(float));
+  self->stft_buffer.output_accum =
+      (float *)calloc((self->fft_size * 2), sizeof(float));
 
   self->input_fft_buffer = (float *)calloc(self->fft_size, sizeof(float));
   self->output_fft_buffer = (float *)calloc(self->fft_size, sizeof(float));
@@ -84,6 +97,7 @@ StftProcessor *stft_processor_initialize() {
                         self->input_fft_buffer, FFTW_HC2R, FFTW_ESTIMATE);
 
   stft_processor_pre_and_post_window(self);
+  get_overlap_scale_factor(self);
 
   return self;
 }
@@ -93,18 +107,20 @@ void stft_processor_free(StftProcessor *self) {
   free(self->output_fft_buffer);
   fftwf_destroy_plan(self->forward);
   fftwf_destroy_plan(self->backward);
-  free(self->input_window);
-  free(self->output_window);
-  free(self->in_fifo);
-  free(self->out_fifo);
-  free(self->output_accum);
+  free(self->stft_windows.input_window);
+  free(self->stft_windows.output_window);
+  free(self->stft_buffer.in_fifo);
+  free(self->stft_buffer.out_fifo);
+  free(self->stft_buffer.output_accum);
   free(self);
 }
 
-uint32_t get_stft_latency(StftProcessor *self) { return self->input_latency; }
+uint32_t get_stft_latency(StftProcessor *self) {
+  return self->stft_buffer.input_latency;
+}
 uint32_t get_fft_size(StftProcessor *self) { return self->fft_size; }
 uint32_t get_overlap_factor(StftProcessor *self) {
-  return self->overlap_factor;
+  return self->stft_buffer.overlap_factor;
 }
 uint32_t get_spectral_processing_size(StftProcessor *self) {
   return self->half_fft_size / 2 + 1;
@@ -112,18 +128,19 @@ uint32_t get_spectral_processing_size(StftProcessor *self) {
 
 void stft_processor_run(StftProcessor *self,
                         spectral_processing *spectral_processing,
-                        SpectralProcessor *spectral_processor,
+                        SPECTAL_PROCESSOR spectral_processor,
                         const uint32_t number_of_samples, const float *input,
                         float *output) {
   for (uint32_t k = 0; k < number_of_samples; k++) {
-    self->in_fifo[self->read_position] = input[k];
-    output[k] = self->out_fifo[self->read_position - self->input_latency];
-    self->read_position++;
+    self->stft_buffer.in_fifo[self->stft_buffer.read_position] = input[k];
+    output[k] = self->stft_buffer.out_fifo[self->stft_buffer.read_position -
+                                           self->stft_buffer.input_latency];
+    self->stft_buffer.read_position++;
 
-    if (self->read_position >= self->fft_size) {
-      self->read_position = self->input_latency;
+    if (self->stft_buffer.read_position >= self->fft_size) {
+      self->stft_buffer.read_position = self->stft_buffer.input_latency;
 
-      memcpy(self->input_fft_buffer, self->in_fifo,
+      memcpy(self->input_fft_buffer, self->stft_buffer.in_fifo,
              sizeof(float) * self->fft_size);
 
       stft_processor_analysis(self);
@@ -137,55 +154,58 @@ void stft_processor_run(StftProcessor *self,
 
 static void stft_processor_pre_and_post_window(StftProcessor *self) {
 
-  switch ((WindowTypes)self->window_option_input) {
+  switch ((WindowTypes)self->stft_windows.window_option_input) {
   case HANN_WINDOW:
-    get_fft_window(self->input_window, self->fft_size,
-                   (WindowTypes)self->window_option_input);
+    get_fft_window(self->stft_windows.input_window, self->fft_size,
+                   (WindowTypes)self->stft_windows.window_option_input);
     break;
   case HAMMING_WINDOW:
-    get_fft_window(self->input_window, self->fft_size,
-                   (WindowTypes)self->window_option_input);
+    get_fft_window(self->stft_windows.input_window, self->fft_size,
+                   (WindowTypes)self->stft_windows.window_option_input);
     break;
   case BLACKMAN_WINDOW:
-    get_fft_window(self->input_window, self->fft_size,
-                   (WindowTypes)self->window_option_input);
+    get_fft_window(self->stft_windows.input_window, self->fft_size,
+                   (WindowTypes)self->stft_windows.window_option_input);
     break;
   case VORBIS_WINDOW:
-    get_fft_window(self->input_window, self->fft_size,
-                   (WindowTypes)self->window_option_input);
+    get_fft_window(self->stft_windows.input_window, self->fft_size,
+                   (WindowTypes)self->stft_windows.window_option_input);
     break;
   }
 
-  switch ((WindowTypes)self->window_option_output) {
+  switch ((WindowTypes)self->stft_windows.window_option_output) {
   case HANN_WINDOW:
-    get_fft_window(self->output_window, self->fft_size,
-                   (WindowTypes)self->window_option_output);
+    get_fft_window(self->stft_windows.output_window, self->fft_size,
+                   (WindowTypes)self->stft_windows.window_option_output);
     break;
   case HAMMING_WINDOW:
-    get_fft_window(self->output_window, self->fft_size,
-                   (WindowTypes)self->window_option_output);
+    get_fft_window(self->stft_windows.output_window, self->fft_size,
+                   (WindowTypes)self->stft_windows.window_option_output);
     break;
   case BLACKMAN_WINDOW:
-    get_fft_window(self->output_window, self->fft_size,
-                   (WindowTypes)self->window_option_output);
+    get_fft_window(self->stft_windows.output_window, self->fft_size,
+                   (WindowTypes)self->stft_windows.window_option_output);
     break;
   case VORBIS_WINDOW:
-    get_fft_window(self->output_window, self->fft_size,
-                   (WindowTypes)self->window_option_output);
+    get_fft_window(self->stft_windows.output_window, self->fft_size,
+                   (WindowTypes)self->stft_windows.window_option_output);
     break;
   }
+}
 
+static void get_overlap_scale_factor(StftProcessor *self) {
   float sum = 0.f;
   for (uint32_t i = 0; i < self->fft_size; i++) {
-    sum += self->input_window[i] * self->output_window[i];
+    sum += self->stft_windows.input_window[i] *
+           self->stft_windows.output_window[i];
   }
 
-  self->overlap_scale_factor = (sum / (float)(self->fft_size));
+  self->stft_windows.overlap_scale_factor = (sum / (float)(self->fft_size));
 }
 
 static void stft_processor_analysis(StftProcessor *self) {
   for (uint32_t k = 0; k < self->fft_size; k++) {
-    self->input_fft_buffer[k] *= self->input_window[k];
+    self->input_fft_buffer[k] *= self->stft_windows.input_window[k];
   }
 
   fftwf_execute(self->forward);
@@ -200,22 +220,25 @@ static void stft_processor_synthesis(StftProcessor *self) {
 
   for (uint32_t k = 0; k < self->fft_size; k++) {
     self->input_fft_buffer[k] =
-        (self->output_window[k] * self->input_fft_buffer[k]) /
-        (self->overlap_scale_factor * self->overlap_factor);
+        (self->stft_windows.output_window[k] * self->input_fft_buffer[k]) /
+        (self->stft_windows.overlap_scale_factor *
+         self->stft_buffer.overlap_factor);
   }
 
   for (uint32_t k = 0; k < self->fft_size; k++) {
-    self->output_accum[k] += self->input_fft_buffer[k];
+    self->stft_buffer.output_accum[k] += self->input_fft_buffer[k];
   }
 
-  for (uint32_t k = 0; k < self->hop; k++) {
-    self->out_fifo[k] = self->output_accum[k];
+  for (uint32_t k = 0; k < self->stft_buffer.hop; k++) {
+    self->stft_buffer.out_fifo[k] = self->stft_buffer.output_accum[k];
   }
 
-  memmove(self->output_accum, self->output_accum + self->hop,
+  memmove(self->stft_buffer.output_accum,
+          self->stft_buffer.output_accum + self->stft_buffer.hop,
           self->fft_size * sizeof(float));
 
-  for (uint32_t k = 0; k < self->input_latency; k++) {
-    self->in_fifo[k] = self->in_fifo[k + self->hop];
+  for (uint32_t k = 0; k < self->stft_buffer.input_latency; k++) {
+    self->stft_buffer.in_fifo[k] =
+        self->stft_buffer.in_fifo[k + self->stft_buffer.hop];
   }
 }
