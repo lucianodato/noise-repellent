@@ -29,7 +29,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define INPUT_WINDOW_TYPE 3
 #define OUTPUT_WINDOW_TYPE 3
 
-static void stft_processor_pre_and_post_window(StftProcessor *self);
 static void get_overlap_scale_factor(StftProcessor *self);
 static void stft_processor_analysis(StftProcessor *self);
 static void stft_processor_synthesis(StftProcessor *self);
@@ -96,7 +95,10 @@ StftProcessor *stft_processor_initialize() {
       fftwf_plan_r2r_1d(self->fft_size, self->output_fft_buffer,
                         self->input_fft_buffer, FFTW_HC2R, FFTW_ESTIMATE);
 
-  stft_processor_pre_and_post_window(self);
+  get_fft_window(self->stft_windows.input_window, self->fft_size,
+                 self->stft_windows.window_option_input);
+  get_fft_window(self->stft_windows.output_window, self->fft_size,
+                 self->stft_windows.window_option_output);
   get_overlap_scale_factor(self);
 
   return self;
@@ -149,47 +151,6 @@ void stft_processor_run(StftProcessor *self,
 
       stft_processor_synthesis(self);
     }
-  }
-}
-
-static void stft_processor_pre_and_post_window(StftProcessor *self) {
-
-  switch ((WindowTypes)self->stft_windows.window_option_input) {
-  case HANN_WINDOW:
-    get_fft_window(self->stft_windows.input_window, self->fft_size,
-                   (WindowTypes)self->stft_windows.window_option_input);
-    break;
-  case HAMMING_WINDOW:
-    get_fft_window(self->stft_windows.input_window, self->fft_size,
-                   (WindowTypes)self->stft_windows.window_option_input);
-    break;
-  case BLACKMAN_WINDOW:
-    get_fft_window(self->stft_windows.input_window, self->fft_size,
-                   (WindowTypes)self->stft_windows.window_option_input);
-    break;
-  case VORBIS_WINDOW:
-    get_fft_window(self->stft_windows.input_window, self->fft_size,
-                   (WindowTypes)self->stft_windows.window_option_input);
-    break;
-  }
-
-  switch ((WindowTypes)self->stft_windows.window_option_output) {
-  case HANN_WINDOW:
-    get_fft_window(self->stft_windows.output_window, self->fft_size,
-                   (WindowTypes)self->stft_windows.window_option_output);
-    break;
-  case HAMMING_WINDOW:
-    get_fft_window(self->stft_windows.output_window, self->fft_size,
-                   (WindowTypes)self->stft_windows.window_option_output);
-    break;
-  case BLACKMAN_WINDOW:
-    get_fft_window(self->stft_windows.output_window, self->fft_size,
-                   (WindowTypes)self->stft_windows.window_option_output);
-    break;
-  case VORBIS_WINDOW:
-    get_fft_window(self->stft_windows.output_window, self->fft_size,
-                   (WindowTypes)self->stft_windows.window_option_output);
-    break;
   }
 }
 
