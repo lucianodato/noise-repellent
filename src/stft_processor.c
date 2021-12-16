@@ -30,8 +30,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define OUTPUT_WINDOW_TYPE 3
 
 static void get_overlap_scale_factor(StftProcessor *self);
-static void stft_processor_analysis(StftProcessor *self);
-static void stft_processor_synthesis(StftProcessor *self);
+static void stft_analysis(StftProcessor *self);
+static void stft_synthesis(StftProcessor *self);
+static void stft_write_buffer(StftProcessor *self);
+void static stft_transform_and_process(StftProcessor *self,
+                                       spectral_processing *spectral_processing,
+                                       SPECTAL_PROCESSOR spectral_processor);
 
 typedef struct {
   uint32_t window_option_input;
@@ -109,11 +113,14 @@ void stft_processor_free(StftProcessor *self) {
   free(self->output_fft_buffer);
   fftwf_destroy_plan(self->forward);
   fftwf_destroy_plan(self->backward);
+
   free(self->stft_windows.input_window);
   free(self->stft_windows.output_window);
+
   free(self->stft_buffer.in_fifo);
   free(self->stft_buffer.out_fifo);
   free(self->stft_buffer.output_accum);
+
   free(self);
 }
 
@@ -145,13 +152,21 @@ void stft_processor_run(StftProcessor *self,
       memcpy(self->input_fft_buffer, self->stft_buffer.in_fifo,
              sizeof(float) * self->fft_size);
 
-      stft_processor_analysis(self);
+      stft_transform_and_process(self, spectral_processing, spectral_processor);
 
-      spectral_processing(spectral_processor, self->output_fft_buffer);
-
-      stft_processor_synthesis(self);
+      stft_write_buffer(self);
     }
   }
+}
+
+void static stft_transform_and_process(StftProcessor *self,
+                                       spectral_processing *spectral_processing,
+                                       SPECTAL_PROCESSOR spectral_processor) {
+  stft_analysis(self);
+
+  spectral_processing(spectral_processor, self->output_fft_buffer);
+
+  stft_synthesis(self);
 }
 
 static void get_overlap_scale_factor(StftProcessor *self) {
@@ -164,7 +179,7 @@ static void get_overlap_scale_factor(StftProcessor *self) {
   self->stft_windows.overlap_scale_factor = (sum / (float)(self->fft_size));
 }
 
-static void stft_processor_analysis(StftProcessor *self) {
+static void stft_analysis(StftProcessor *self) {
   for (uint32_t k = 0; k < self->fft_size; k++) {
     self->input_fft_buffer[k] *= self->stft_windows.input_window[k];
   }
@@ -172,7 +187,7 @@ static void stft_processor_analysis(StftProcessor *self) {
   fftwf_execute(self->forward);
 }
 
-static void stft_processor_synthesis(StftProcessor *self) {
+static void stft_synthesis(StftProcessor *self) {
   fftwf_execute(self->backward);
 
   for (uint32_t k = 0; k < self->fft_size; k++) {
@@ -185,7 +200,9 @@ static void stft_processor_synthesis(StftProcessor *self) {
         (self->stft_windows.overlap_scale_factor *
          self->stft_buffer.overlap_factor);
   }
+}
 
+static void stft_write_buffer(StftProcessor *self) {
   for (uint32_t k = 0; k < self->fft_size; k++) {
     self->stft_buffer.output_accum[k] += self->input_fft_buffer[k];
   }
