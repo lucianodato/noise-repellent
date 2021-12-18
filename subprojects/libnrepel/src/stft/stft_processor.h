@@ -28,7 +28,7 @@ typedef struct StftProcessor StftProcessor;
 
 typedef void spectral_processing(
     SPECTAL_PROCESSOR spectral_processor,
-    float *fft_spectrum); // Pointer to Spectral Processing function
+    float *fft_spectrum); // Generic Spectral Processing function
 
 StftProcessor *stft_processor_initialize();
 void stft_processor_free(StftProcessor *self);

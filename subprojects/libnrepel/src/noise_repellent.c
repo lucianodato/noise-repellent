@@ -19,6 +19,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 #include "../include/noise_repellent.h"
 #include "denoiser/spectral_denoiser.h"
+#include "noisemodel/noise_estimator.h"
 #include "shared/data_types.h"
 #include "stft/stft_processor.h"
 #include <math.h>
@@ -29,6 +30,7 @@ struct NoiseRepellent {
   ProcessorParameters *denoise_parameters;
   NoiseProfile *noise_profile;
 
+  NoiseEstimator *noise_estimator;
   SpectralDenoiser *spectral_denoiser;
   StftProcessor *stft_processor;
 
@@ -77,7 +79,8 @@ NoiseRepellent *nr_initialize(const uint32_t sample_rate) {
   }
 
   self->noise_profile->noise_profile_size = spectral_size;
-  load_noise_profile(self->spectral_denoiser, self->noise_profile);
+  self->noise_estimator =
+      noise_estimation_initialize(fft_size, self->noise_profile);
 
   return self;
 }
@@ -85,6 +88,7 @@ NoiseRepellent *nr_initialize(const uint32_t sample_rate) {
 void nr_free(NoiseRepellent *self) {
   free(self->noise_profile);
   free(self->denoise_parameters);
+  noise_estimation_free(self->noise_estimator);
   spectral_denoiser_free(self->spectral_denoiser);
   stft_processor_free(self->stft_processor);
   free(self);
@@ -100,9 +104,19 @@ bool nr_process(NoiseRepellent *self, const uint32_t number_of_samples,
     return false;
   }
 
-  stft_processor_run(self->stft_processor, &spectral_denoiser_run,
-                     (SPECTAL_PROCESSOR)self->spectral_denoiser,
-                     number_of_samples, input, output);
+  if (self->denoise_parameters->learn_noise) {
+    stft_processor_run(self->stft_processor, &noise_estimation_run,
+                       (SPECTAL_PROCESSOR)self->noise_estimator,
+                       number_of_samples, input, output); // estimating noise
+  } else if (is_noise_estimation_available(self->noise_estimator)) {
+    stft_processor_run(self->stft_processor, &spectral_denoiser_run,
+                       (SPECTAL_PROCESSOR)self->spectral_denoiser,
+                       number_of_samples, input, output); // denoising
+  } else {
+    memcpy(output, input,
+           sizeof(float) * number_of_samples); // no processing happening
+  }
+
   return true;
 }
 
@@ -121,6 +135,7 @@ bool nr_load_noise_profile(NoiseRepellent *self,
   }
   memcpy(self->noise_profile->noise_profile, restored_profile,
          sizeof(float) * self->noise_profile->noise_profile_size);
+
   return true;
 }
 

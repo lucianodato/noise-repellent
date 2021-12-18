@@ -3,10 +3,10 @@ project('libnrepel', 'c', version: '0.1.0',default_options: ['c_std=c99'])
 #sources to compile
 noise_repellent_lib = [
     'src/shared/spectral_utils.c',
+    'src/noisemodel/noise_estimator.c',
     'src/denoiser/transient_detector.c',
     'src/denoiser/masking_estimator.c',
     'src/denoiser/spectrum_smoother.c',
-    'src/denoiser/noise_estimator.c',
     'src/denoiser/gain_estimator.c',
     'src/denoiser/spectral_denoiser.c',
     'src/stft/stft_processor.c',

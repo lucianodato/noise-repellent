@@ -20,15 +20,16 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #ifndef NOISE_ESTIMATOR_H
 #define NOISE_ESTIMATOR_H
 
+#include "../shared/data_types.h"
 #include <stdbool.h>
 #include <stdint.h>
 
 typedef struct NoiseEstimator NoiseEstimator;
 
-NoiseEstimator *noise_estimation_initialize(uint32_t fft_size);
+NoiseEstimator *noise_estimation_initialize(uint32_t fft_size,
+                                            NoiseProfile *noise_profile);
 void noise_estimation_free(NoiseEstimator *self);
 bool is_noise_estimation_available(NoiseEstimator *self);
-void noise_estimation_run(NoiseEstimator *self, float *noise_spectrum,
-                          const float *spectrum);
+void noise_estimation_run(SPECTAL_PROCESSOR self, float *spectrum);
 
 #endif

@@ -55,6 +55,12 @@ typedef struct {
   float *output_accumulator;
 } StftBuffer;
 
+typedef struct {
+  float *power_spectrum;
+  float *phase_spectrum;
+  float *magnitude_spectrum;
+} ProcessingSpectrums;
+
 struct StftProcessor {
   uint32_t fft_size;
   uint32_t half_fft_size;
@@ -66,6 +72,8 @@ struct StftProcessor {
 
   StftBuffer stft_buffer;
   StftWindows stft_windows;
+
+  ProcessingSpectrums processing_spectrums;
 };
 
 StftProcessor *stft_processor_initialize() {
@@ -99,6 +107,9 @@ StftProcessor *stft_processor_initialize() {
       fftwf_plan_r2r_1d(self->fft_size, self->output_fft_buffer,
                         self->input_fft_buffer, FFTW_HC2R, FFTW_ESTIMATE);
 
+  self->processing_spectrums.power_spectrum =
+      (float *)calloc((self->half_fft_size + 1), sizeof(float));
+
   get_fft_window(self->stft_windows.input_window, self->fft_size,
                  self->stft_windows.window_option_input);
   get_fft_window(self->stft_windows.output_window, self->fft_size,
@@ -116,6 +127,8 @@ void stft_processor_free(StftProcessor *self) {
 
   free(self->stft_windows.input_window);
   free(self->stft_windows.output_window);
+
+  free(self->processing_spectrums.power_spectrum);
 
   free(self->stft_buffer.in_fifo);
   free(self->stft_buffer.out_fifo);
@@ -164,7 +177,15 @@ void static stft_transform_and_process(StftProcessor *self,
                                        SPECTAL_PROCESSOR spectral_processor) {
   stft_analysis(self);
 
-  spectral_processing(spectral_processor, self->output_fft_buffer);
+  get_fft_power_spectrum(self->output_fft_buffer, self->fft_size,
+                         self->processing_spectrums.power_spectrum,
+                         self->half_fft_size);
+
+  spectral_processing(spectral_processor,
+                      self->processing_spectrums.power_spectrum);
+
+  memcpy(self->output_fft_buffer, self->processing_spectrums.power_spectrum,
+         sizeof(float) * self->half_fft_size + 1);
 
   stft_synthesis(self);
 }
