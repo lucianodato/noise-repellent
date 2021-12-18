@@ -118,7 +118,6 @@ MaskingEstimator *masking_estimation_initialize(const uint32_t fft_size,
       (float *)calloc((self->half_fft_size + 1), sizeof(float));
   self->fft_power_at_dbspl =
       (float *)calloc((self->half_fft_size + 1), sizeof(float));
-
   self->forward_fft =
       fftwf_plan_r2r_1d(self->fft_size, self->input_fft_buffer_at,
                         self->output_fft_buffer_at, FFTW_R2HC, FFTW_ESTIMATE);
@@ -207,8 +206,9 @@ void compute_masking_thresholds(MaskingEstimator *self, const float *spectrum,
   }
 }
 
-static float bin_to_freq(const uint32_t bin_index, const float sample_rate,
-                         const uint32_t half_fft_size) {
+static inline float bin_to_freq(const uint32_t bin_index,
+                                const float sample_rate,
+                                const uint32_t half_fft_size) {
   return (float)bin_index * (sample_rate / half_fft_size / 2.f);
 }
 

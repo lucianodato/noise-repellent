@@ -19,7 +19,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 #include "noise_repellent.h"
 #include "data_types.h"
-#include "spectral_processor.h"
+#include "spectral_denoiser.h"
 #include "stft_processor.h"
 #include <math.h>
 #include <stdlib.h>
@@ -29,7 +29,7 @@ struct NoiseRepellent {
   ProcessorParameters *denoise_parameters;
   NoiseProfile *noise_profile;
 
-  SpectralProcessor *fft_denoiser;
+  SpectralDenoiser *spectral_denoiser;
   StftProcessor *stft_processor;
 
   uint32_t sample_rate;
@@ -51,10 +51,10 @@ NoiseRepellent *nr_initialize(const uint32_t sample_rate) {
   const uint32_t spectral_size =
       get_spectral_processing_size(self->stft_processor);
 
-  self->fft_denoiser = spectral_processor_initialize(self->sample_rate,
-                                                     fft_size, overlap_factor);
+  self->spectral_denoiser =
+      spectral_denoiser_initialize(self->sample_rate, fft_size, overlap_factor);
 
-  if (!self->fft_denoiser) {
+  if (!self->spectral_denoiser) {
     nr_free(self);
     return NULL;
   }
@@ -77,7 +77,7 @@ NoiseRepellent *nr_initialize(const uint32_t sample_rate) {
   }
 
   self->noise_profile->noise_profile_size = spectral_size;
-  load_noise_profile(self->fft_denoiser, self->noise_profile);
+  load_noise_profile(self->spectral_denoiser, self->noise_profile);
 
   return self;
 }
@@ -85,7 +85,7 @@ NoiseRepellent *nr_initialize(const uint32_t sample_rate) {
 void nr_free(NoiseRepellent *self) {
   free(self->noise_profile);
   free(self->denoise_parameters);
-  spectral_processor_free(self->fft_denoiser);
+  spectral_denoiser_free(self->spectral_denoiser);
   stft_processor_free(self->stft_processor);
   free(self);
 }
@@ -100,9 +100,9 @@ bool nr_process(NoiseRepellent *self, const uint32_t number_of_samples,
     return false;
   }
 
-  stft_processor_run(self->stft_processor, &spectral_processor_run,
-                     (SPECTAL_PROCESSOR)self->fft_denoiser, number_of_samples,
-                     input, output);
+  stft_processor_run(self->stft_processor, &spectral_denoiser_run,
+                     (SPECTAL_PROCESSOR)self->spectral_denoiser,
+                     number_of_samples, input, output);
   return true;
 }
 
@@ -151,7 +151,7 @@ bool nr_load_parameters(NoiseRepellent *self, const bool enable,
   self->denoise_parameters->transient_threshold = transient_threshold;
   self->denoise_parameters->noise_rescale = noise_rescale;
 
-  load_processor_parameters(self->fft_denoiser, self->denoise_parameters);
+  load_denoiser_parameters(self->spectral_denoiser, self->denoise_parameters);
 
   return true;
 }

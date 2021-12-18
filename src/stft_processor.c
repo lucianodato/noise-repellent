@@ -52,7 +52,7 @@ typedef struct {
   uint32_t overlap_factor;
   float *in_fifo;
   float *out_fifo;
-  float *output_accum;
+  float *output_accumulator;
 } StftBuffer;
 
 struct StftProcessor {
@@ -87,7 +87,7 @@ StftProcessor *stft_processor_initialize() {
   self->stft_buffer.read_position = self->stft_buffer.input_latency;
   self->stft_buffer.in_fifo = (float *)calloc(self->fft_size, sizeof(float));
   self->stft_buffer.out_fifo = (float *)calloc(self->fft_size, sizeof(float));
-  self->stft_buffer.output_accum =
+  self->stft_buffer.output_accumulator =
       (float *)calloc((self->fft_size * 2), sizeof(float));
 
   self->input_fft_buffer = (float *)calloc(self->fft_size, sizeof(float));
@@ -119,7 +119,7 @@ void stft_processor_free(StftProcessor *self) {
 
   free(self->stft_buffer.in_fifo);
   free(self->stft_buffer.out_fifo);
-  free(self->stft_buffer.output_accum);
+  free(self->stft_buffer.output_accumulator);
 
   free(self);
 }
@@ -204,15 +204,15 @@ static void stft_synthesis(StftProcessor *self) {
 
 static void stft_write_buffer(StftProcessor *self) {
   for (uint32_t k = 0; k < self->fft_size; k++) {
-    self->stft_buffer.output_accum[k] += self->input_fft_buffer[k];
+    self->stft_buffer.output_accumulator[k] += self->input_fft_buffer[k];
   }
 
   for (uint32_t k = 0; k < self->stft_buffer.hop; k++) {
-    self->stft_buffer.out_fifo[k] = self->stft_buffer.output_accum[k];
+    self->stft_buffer.out_fifo[k] = self->stft_buffer.output_accumulator[k];
   }
 
-  memmove(self->stft_buffer.output_accum,
-          self->stft_buffer.output_accum + self->stft_buffer.hop,
+  memmove(self->stft_buffer.output_accumulator,
+          self->stft_buffer.output_accumulator + self->stft_buffer.hop,
           self->fft_size * sizeof(float));
 
   for (uint32_t k = 0; k < self->stft_buffer.input_latency; k++) {

@@ -25,17 +25,15 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <stdbool.h>
 #include <stdint.h>
 
-typedef struct SpectralProcessor SpectralProcessor;
+typedef struct SpectralDenoiser SpectralDenoiser;
 
-SpectralProcessor *spectral_processor_initialize(uint32_t sample_rate,
-                                                 uint32_t fft_size,
-                                                 uint32_t overlap_factor);
-void spectral_processor_free(SpectralProcessor *self);
-void load_processor_parameters(SpectralProcessor *self,
-                               ProcessorParameters *new_parameters);
-void spectral_processor_run(SPECTAL_PROCESSOR self, float *fft_spectrum);
-
-// Polymorphysm with this one
-void load_noise_profile(SpectralProcessor *self, NoiseProfile *noise_profile);
+SpectralDenoiser *spectral_denoiser_initialize(uint32_t sample_rate,
+                                               uint32_t fft_size,
+                                               uint32_t overlap_factor);
+void spectral_denoiser_free(SpectralDenoiser *self);
+void spectral_denoiser_run(SPECTAL_PROCESSOR self, float *fft_spectrum);
+void load_noise_profile(SpectralDenoiser *self, NoiseProfile *noise_profile);
+void load_denoiser_parameters(SpectralDenoiser *self,
+                              ProcessorParameters *new_parameters);
 
 #endif
