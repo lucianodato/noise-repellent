@@ -57,6 +57,7 @@ struct GainEstimator {
 
   bool transient_detected;
 
+  ProcessorParameters *denoise_parameters;
   MaskingEstimator *masking_estimation;
   TransientDetector *transient_detection;
   SpectralSmoother *spectrum_smoothing;
@@ -64,7 +65,8 @@ struct GainEstimator {
 
 GainEstimator *gain_estimation_initialize(const uint32_t fft_size,
                                           const uint32_t sample_rate,
-                                          const uint32_t hop) {
+                                          const uint32_t hop,
+                                          ProcessorParameters *parameters) {
   GainEstimator *self = (GainEstimator *)calloc(1, sizeof(GainEstimator));
 
   self->fft_size = fft_size;
@@ -91,6 +93,8 @@ GainEstimator *gain_estimation_initialize(const uint32_t fft_size,
   self->spectrum_smoothing = spectral_smoothing_initialize(
       self->fft_size, self->sample_rate, self->hop);
 
+  self->denoise_parameters = parameters;
+
   return self;
 }
 
@@ -110,34 +114,36 @@ void gain_estimation_free(GainEstimator *self) {
 }
 
 void gain_estimation_run(GainEstimator *self, const float *signal_spectrum,
-                         const float *noise_profile, float *gain_spectrum,
-                         const float transient_threshold,
-                         const float masking_ceiling_limit, const float release,
-                         const float noise_rescale) {
+                         const float *noise_profile, float *gain_spectrum) {
   memcpy(self->signal_spectrum, signal_spectrum,
          sizeof(float) * self->half_fft_size + 1);
   memcpy(self->noise_profile, noise_profile,
          sizeof(float) * self->half_fft_size + 1);
 
-  if (transient_threshold > 1.f) {
+  if (self->denoise_parameters->transient_threshold > 1.f) {
     self->transient_detected =
-        transient_detector_run(self->transient_detection, transient_threshold);
+        transient_detector_run(self->transient_detection,
+                               self->denoise_parameters->transient_threshold);
   }
 
-  if (masking_ceiling_limit > 1.f) {
-    compute_alpha_and_beta(self, masking_ceiling_limit, 0.f);
+  if (self->denoise_parameters->masking_ceiling_limit > 1.f) {
+    compute_alpha_and_beta(
+        self, self->denoise_parameters->masking_ceiling_limit, 0.f);
   } else {
     memset(self->alpha, 0, self->half_fft_size + 1);
   }
 
   for (uint32_t k = 1; k <= self->half_fft_size; k++) {
-    self->noise_profile[k] =
-        self->noise_profile[k] * noise_rescale * self->alpha[k];
+    self->noise_profile[k] = self->noise_profile[k] *
+                             self->denoise_parameters->noise_rescale *
+                             self->alpha[k];
   }
 
-  spectral_smoothing_run(self->spectrum_smoothing, release);
+  spectral_smoothing_run(self->spectrum_smoothing,
+                         self->denoise_parameters->release_time);
 
-  if (self->transient_detected && transient_threshold > 1.f) {
+  if (self->transient_detected &&
+      self->denoise_parameters->transient_threshold > 1.f) {
     wiener_subtraction(self);
   } else {
     spectral_gating(self);

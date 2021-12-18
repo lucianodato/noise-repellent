@@ -20,16 +20,16 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #ifndef GAIN_ESTIMATOR_H
 #define GAIN_ESTIMATOR_H
 
+#include "../shared/data_types.h"
 #include <stdint.h>
 
 typedef struct GainEstimator GainEstimator;
 
 GainEstimator *gain_estimation_initialize(uint32_t fft_size,
-                                          uint32_t sample_rate, uint32_t hop);
+                                          uint32_t sample_rate, uint32_t hop,
+                                          ProcessorParameters *parameters);
 void gain_estimation_free(GainEstimator *self);
 void gain_estimation_run(GainEstimator *self, const float *signal_spectrum,
-                         const float *noise_profile, float *gain_spectrum,
-                         float transient_threshold, float masking_ceiling_limit,
-                         float release, float noise_rescale);
+                         const float *noise_profile, float *gain_spectrum);
 
 #endif

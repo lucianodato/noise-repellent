@@ -87,9 +87,6 @@ SpectralDenoiser *spectral_denoiser_initialize(
   self->processed_fft_spectrum =
       (float *)calloc((self->half_fft_size + 1), sizeof(float));
 
-  self->gain_estimation =
-      gain_estimation_initialize(self->fft_size, self->sample_rate, self->hop);
-
   self->denoise_builder.residual_spectrum =
       (float *)calloc((self->half_fft_size + 1), sizeof(float));
   self->denoise_builder.denoised_spectrum =
@@ -111,6 +108,9 @@ SpectralDenoiser *spectral_denoiser_initialize(
 
   self->noise_profile = noise_profile;
   self->denoise_parameters = parameters;
+
+  self->gain_estimation = gain_estimation_initialize(
+      self->fft_size, self->sample_rate, self->hop, self->denoise_parameters);
 
   return self;
 }
@@ -138,11 +138,7 @@ void spectral_denoiser_run(SPECTAL_PROCESSOR instance, float *fft_spectrum) {
 
   gain_estimation_run(self->gain_estimation, self->fft_spectrum,
                       self->noise_profile->noise_profile,
-                      self->denoise_builder.gain_spectrum,
-                      self->denoise_parameters->transient_threshold,
-                      self->denoise_parameters->masking_ceiling_limit,
-                      self->denoise_parameters->release_time,
-                      self->denoise_parameters->noise_rescale);
+                      self->denoise_builder.gain_spectrum);
 
   get_denoised_spectrum(self);
 
