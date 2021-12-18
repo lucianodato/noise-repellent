@@ -18,9 +18,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
 #include "spectral_denoiser.h"
+#include "../shared/spectral_utils.h"
 #include "gain_estimator.h"
 #include "noise_estimator.h"
-#include "spectral_utils.h"
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>

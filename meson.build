@@ -1,4 +1,6 @@
-project('nrepellent.lv2','c',version: '0.1.6',default_options: ['c_std=c99'])
+project('nrepellent.lv2','c',version: '0.2.0',default_options: ['c_std=c99'])
+
+libnrepel_proj = subproject('libnrepel')
 
 #install folder
 if get_option('buildtype') == 'release'
@@ -7,25 +9,12 @@ else
     install_folder = join_paths('.lv2', meson.project_name())
 endif
 
-#sources to compile
-noise_repellent_sources = [
-    'src/spectral_utils.c',
-    'src/transient_detector.c',
-    'src/masking_estimator.c',
-    'src/spectrum_smoother.c',
-    'src/noise_estimator.c',
-    'src/gain_estimator.c',
-    'src/spectral_denoiser.c',
-    'src/stft_processor.c',
-    'src/noise_repellent.c',
-    'src/plugin.c'
-]
+noise_repellent_src = 'plugin/plugin.c'
 
 #dependencies for noise repellent
-m_dep = meson.get_compiler('c').find_library('m', required : true)
-fftw_dep = dependency('fftw3f', required : true)
 lv2_dep = dependency('lv2', required : true)
-nr_dep = [m_dep,fftw_dep,lv2_dep]
+nrepel_dep = libnrepel_proj.get_variable('libnrepel_dep')
+nr_dep = [lv2_dep,nrepel_dep]
 
 #get the host operating system and configure install path and shared object extension
 current_os = host_machine.system()
@@ -58,7 +47,7 @@ endif
 
 #build of the shared object
 library('nrepellent',
-    noise_repellent_sources,
+    noise_repellent_src,
     name_prefix: '',
     dependencies: nr_dep,
     c_args: cflags, 

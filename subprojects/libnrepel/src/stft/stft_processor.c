@@ -18,7 +18,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
 #include "stft_processor.h"
-#include "spectral_utils.h"
+#include "../shared/spectral_utils.h"
 #include <fftw3.h>
 #include <math.h>
 #include <stdlib.h>

@@ -17,10 +17,10 @@ You should have received a copy of the GNU Lesser General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
-#include "noise_repellent.h"
-#include "data_types.h"
-#include "spectral_denoiser.h"
-#include "stft_processor.h"
+#include "../include/noise_repellent.h"
+#include "denoiser/spectral_denoiser.h"
+#include "shared/data_types.h"
+#include "stft/stft_processor.h"
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>

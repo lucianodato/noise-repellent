@@ -20,7 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #ifndef STFT_PROCESSOR_H
 #define STFT_PROCESSOR_H
 
-#include "data_types.h"
+#include "../shared/data_types.h"
 #include <stdbool.h>
 #include <stdint.h>
 
