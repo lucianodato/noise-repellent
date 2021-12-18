@@ -53,8 +53,27 @@ NoiseRepellent *nr_initialize(const uint32_t sample_rate) {
   const uint32_t spectral_size =
       get_spectral_processing_size(self->stft_processor);
 
-  self->spectral_denoiser =
-      spectral_denoiser_initialize(self->sample_rate, fft_size, overlap_factor);
+  self->noise_profile = (NoiseProfile *)calloc(1, sizeof(NoiseProfile));
+  self->noise_profile->noise_profile =
+      (float *)calloc(spectral_size, sizeof(float));
+  self->noise_profile->noise_profile_size = spectral_size;
+
+  if (!self->noise_profile || !self->noise_profile->noise_profile) {
+    nr_free(self);
+    return NULL;
+  }
+
+  self->noise_estimator =
+      noise_estimation_initialize(fft_size, self->noise_profile);
+
+  if (!self->noise_estimator) {
+    nr_free(self);
+    return NULL;
+  }
+
+  self->spectral_denoiser = spectral_denoiser_initialize(
+      self->sample_rate, fft_size, overlap_factor, self->noise_profile,
+      self->denoise_parameters);
 
   if (!self->spectral_denoiser) {
     nr_free(self);
@@ -68,19 +87,6 @@ NoiseRepellent *nr_initialize(const uint32_t sample_rate) {
     nr_free(self);
     return NULL;
   }
-
-  self->noise_profile = (NoiseProfile *)calloc(1, sizeof(NoiseProfile));
-  self->noise_profile->noise_profile =
-      (float *)calloc(spectral_size, sizeof(float));
-
-  if (!self->noise_profile || !self->noise_profile->noise_profile) {
-    nr_free(self);
-    return NULL;
-  }
-
-  self->noise_profile->noise_profile_size = spectral_size;
-  self->noise_estimator =
-      noise_estimation_initialize(fft_size, self->noise_profile);
 
   return self;
 }
@@ -165,8 +171,6 @@ bool nr_load_parameters(NoiseRepellent *self, const bool enable,
   self->denoise_parameters->whitening_factor = whitening_factor;
   self->denoise_parameters->transient_threshold = transient_threshold;
   self->denoise_parameters->noise_rescale = noise_rescale;
-
-  load_denoiser_parameters(self->spectral_denoiser, self->denoise_parameters);
 
   return true;
 }

@@ -61,7 +61,7 @@ struct SpectralDenoiser {
   float *fft_spectrum;
   float *processed_fft_spectrum;
 
-  float *noise_profile;
+  NoiseProfile *noise_profile;
 
   SoftBypass crossfade_spectrum;
   Whitening whiten_spectrum;
@@ -71,9 +71,10 @@ struct SpectralDenoiser {
   ProcessorParameters *denoise_parameters;
 };
 
-SpectralDenoiser *spectral_denoiser_initialize(const uint32_t sample_rate,
-                                               const uint32_t fft_size,
-                                               const uint32_t overlap_factor) {
+SpectralDenoiser *spectral_denoiser_initialize(
+    const uint32_t sample_rate, const uint32_t fft_size,
+    const uint32_t overlap_factor, NoiseProfile *noise_profile,
+    ProcessorParameters *parameters) {
   SpectralDenoiser *self =
       (SpectralDenoiser *)calloc(1, sizeof(SpectralDenoiser));
 
@@ -108,8 +109,8 @@ SpectralDenoiser *spectral_denoiser_initialize(const uint32_t sample_rate,
       expf(-1000.f / (((WHITENING_DECAY_RATE)*self->sample_rate) / self->hop));
   self->whiten_spectrum.whitening_window_count = 0.f;
 
-  self->noise_profile =
-      (float *)calloc((self->half_fft_size + 1), sizeof(float));
+  self->noise_profile = noise_profile;
+  self->denoise_parameters = parameters;
 
   return self;
 }
@@ -119,18 +120,12 @@ void spectral_denoiser_free(SpectralDenoiser *self) {
 
   free(self->fft_spectrum);
   free(self->processed_fft_spectrum);
-  free(self->noise_profile);
   free(self->denoise_builder.gain_spectrum);
   free(self->denoise_builder.residual_spectrum);
   free(self->denoise_builder.denoised_spectrum);
   free(self->whiten_spectrum.whitened_residual_spectrum);
   free(self->whiten_spectrum.residual_max_spectrum);
   free(self);
-}
-
-void load_denoiser_parameters(SpectralDenoiser *self,
-                              ProcessorParameters *new_parameters) {
-  self->denoise_parameters = new_parameters;
 }
 
 void spectral_denoiser_run(SPECTAL_PROCESSOR instance, float *fft_spectrum) {
@@ -142,7 +137,8 @@ void spectral_denoiser_run(SPECTAL_PROCESSOR instance, float *fft_spectrum) {
          sizeof(float) * self->half_fft_size + 1);
 
   gain_estimation_run(self->gain_estimation, self->fft_spectrum,
-                      self->noise_profile, self->denoise_builder.gain_spectrum,
+                      self->noise_profile->noise_profile,
+                      self->denoise_builder.gain_spectrum,
                       self->denoise_parameters->transient_threshold,
                       self->denoise_parameters->masking_ceiling_limit,
                       self->denoise_parameters->release_time,

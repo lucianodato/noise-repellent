@@ -27,9 +27,9 @@ typedef struct NoiseRepellent NoiseRepellent;
 
 NoiseRepellent *nr_initialize(uint32_t sample_rate);
 void nr_free(NoiseRepellent *self);
-uint32_t nr_get_latency(NoiseRepellent *self);
 bool nr_process(NoiseRepellent *self, uint32_t number_of_samples,
                 const float *input, float *output);
+uint32_t nr_get_latency(NoiseRepellent *self);
 uint32_t nr_get_noise_profile_size(NoiseRepellent *self);
 float *nr_get_noise_profile(NoiseRepellent *self);
 bool nr_load_noise_profile(NoiseRepellent *self, const float *restored_profile);

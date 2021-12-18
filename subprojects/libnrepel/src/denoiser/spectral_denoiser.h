@@ -29,10 +29,10 @@ typedef struct SpectralDenoiser SpectralDenoiser;
 
 SpectralDenoiser *spectral_denoiser_initialize(uint32_t sample_rate,
                                                uint32_t fft_size,
-                                               uint32_t overlap_factor);
+                                               uint32_t overlap_factor,
+                                               NoiseProfile *noise_profile,
+                                               ProcessorParameters *parameters);
 void spectral_denoiser_free(SpectralDenoiser *self);
 void spectral_denoiser_run(SPECTAL_PROCESSOR self, float *fft_spectrum);
-void load_denoiser_parameters(SpectralDenoiser *self,
-                              ProcessorParameters *new_parameters);
 
 #endif
