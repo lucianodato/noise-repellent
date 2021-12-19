@@ -17,22 +17,18 @@ You should have received a copy of the GNU Lesser General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
-#ifndef SPECTRAL_DENOISER_H
-#define SPECTRAL_DENOISER_H
+#ifndef STFT_WINDOW_H
+#define STFT_WINDOW_H
 
-#include "../shared/data_types.h"
-#include <float.h>
 #include <stdbool.h>
 #include <stdint.h>
 
-typedef struct SpectralDenoiser SpectralDenoiser;
+typedef struct StftWindows StftWindows;
 
-SpectralDenoiser *spectral_denoiser_initialize(uint32_t sample_rate,
-                                               uint32_t fft_size,
-                                               uint32_t overlap_factor,
-                                               NoiseProfile *noise_profile,
-                                               ProcessorParameters *parameters);
-void spectral_denoiser_free(SpectralDenoiser *self);
-void spectral_denoiser_run(SPECTAL_PROCESSOR self, float *fft_spectrum);
+StftWindows *stft_window_initialize(uint32_t window_size);
+void stft_window_free(StftWindows *self);
+float input_output_window_sum(StftWindows *self);
+const float *get_input_window(StftWindows *self);
+const float *get_output_window(StftWindows *self);
 
 #endif
