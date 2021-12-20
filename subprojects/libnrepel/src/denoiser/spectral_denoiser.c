@@ -20,23 +20,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include "spectral_denoiser.h"
 #include "../shared/spectral_features.h"
 #include "gain_estimator.h"
+#include "spectral_whitening.h"
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
 
-#define WHITENING_DECAY_RATE 1000.f
-#define WHITENING_FLOOR 0.02f
-
 static void get_denoised_spectrum(SpectralDenoiser *self);
 static void get_residual_spectrum(SpectralDenoiser *self);
 static void get_final_spectrum(SpectralDenoiser *self);
-
-typedef struct {
-  float *residual_max_spectrum;
-  float *whitened_residual_spectrum;
-  float max_decay_rate;
-  uint32_t whitening_window_count;
-} Whitening;
 
 typedef struct {
   float *gain_spectrum;
@@ -55,9 +46,9 @@ struct SpectralDenoiser {
 
   NoiseProfile *noise_profile;
 
-  Whitening whiten_spectrum;
   SpectralDenoiseBuilder denoise_builder;
 
+  SpectralWhitening *whitener;
   GainEstimator *gain_estimation;
   ProcessorParameters *denoise_parameters;
 
@@ -87,13 +78,8 @@ SpectralDenoiser *spectral_denoiser_initialize(
   self->denoise_builder.gain_spectrum =
       (float *)calloc((self->half_fft_size + 1), sizeof(float));
 
-  self->whiten_spectrum.whitened_residual_spectrum =
-      (float *)calloc((self->half_fft_size + 1), sizeof(float));
-  self->whiten_spectrum.residual_max_spectrum =
-      (float *)calloc((self->half_fft_size + 1), sizeof(float));
-  self->whiten_spectrum.max_decay_rate =
-      expf(-1000.f / (((WHITENING_DECAY_RATE)*self->sample_rate) / self->hop));
-  self->whiten_spectrum.whitening_window_count = 0.f;
+  self->whitener = spectral_whitening_initialize(self->fft_size,
+                                                 self->sample_rate, self->hop);
 
   self->noise_profile = noise_profile;
   self->denoise_parameters = parameters;
@@ -109,14 +95,13 @@ SpectralDenoiser *spectral_denoiser_initialize(
 
 void spectral_denoiser_free(SpectralDenoiser *self) {
   gain_estimation_free(self->gain_estimation);
+  spectral_whitening_free(self->whitener);
 
   free(self->fft_spectrum);
   free(self->processed_fft_spectrum);
   free(self->denoise_builder.gain_spectrum);
   free(self->denoise_builder.residual_spectrum);
   free(self->denoise_builder.denoised_spectrum);
-  free(self->whiten_spectrum.whitened_residual_spectrum);
-  free(self->whiten_spectrum.residual_max_spectrum);
   free(self->processing_spectrums.power_spectrum);
   free(self);
 }
@@ -146,37 +131,6 @@ void spectral_denoiser_run(SPECTRAL_PROCESSOR instance, float *fft_spectrum) {
          sizeof(float) * self->half_fft_size + 1);
 }
 
-static void residual_spectrum_whitening(SpectralDenoiser *self,
-                                        const float whitening_factor) {
-  self->whiten_spectrum.whitening_window_count++;
-
-  for (uint32_t k = 1; k <= self->half_fft_size; k++) {
-    if (self->whiten_spectrum.whitening_window_count > 1.f) {
-      self->whiten_spectrum.residual_max_spectrum[k] = fmaxf(
-          fmaxf(self->denoise_builder.residual_spectrum[k], WHITENING_FLOOR),
-          self->whiten_spectrum.residual_max_spectrum[k] *
-              self->whiten_spectrum.max_decay_rate);
-    } else {
-      self->whiten_spectrum.residual_max_spectrum[k] =
-          fmaxf(self->denoise_builder.residual_spectrum[k], WHITENING_FLOOR);
-    }
-  }
-
-  for (uint32_t k = 1; k <= self->half_fft_size; k++) {
-    if (self->denoise_builder.residual_spectrum[k] > FLT_MIN) {
-      self->whiten_spectrum.whitened_residual_spectrum[k] =
-          self->denoise_builder.residual_spectrum[k] /
-          self->whiten_spectrum.residual_max_spectrum[k];
-
-      self->denoise_builder.residual_spectrum[k] =
-          (1.f - whitening_factor) *
-              self->denoise_builder.residual_spectrum[k] +
-          whitening_factor *
-              self->whiten_spectrum.whitened_residual_spectrum[k];
-    }
-  }
-}
-
 static void get_denoised_spectrum(SpectralDenoiser *self) {
   for (uint32_t k = 1; k <= self->half_fft_size; k++) {
     self->denoise_builder.denoised_spectrum[k] =
@@ -191,8 +145,9 @@ static void get_residual_spectrum(SpectralDenoiser *self) {
   }
 
   if (self->denoise_parameters->whitening_factor > 0.f) {
-    residual_spectrum_whitening(self,
-                                self->denoise_parameters->whitening_factor);
+    spectral_whitening_run(self->whitener,
+                           self->denoise_parameters->whitening_factor,
+                           self->denoise_builder.residual_spectrum);
   }
 }
 

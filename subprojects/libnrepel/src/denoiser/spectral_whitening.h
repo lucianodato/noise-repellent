@@ -17,17 +17,19 @@ You should have received a copy of the GNU Lesser General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
-#ifndef SPECTRAL_SMOOTHER_H
-#define SPECTRAL_SMOOTHER_H
+#ifndef SPECTRAL_WHITENER_H
+#define SPECTRAL_WHITENER_H
 
+#include <stdbool.h>
 #include <stdint.h>
 
-typedef struct SpectralSmoother SpectralSmoother;
+typedef struct SpectralWhitening SpectralWhitening;
 
-SpectralSmoother *spectral_smoothing_initialize(uint32_t fft_size,
-                                                uint32_t sample_rate,
-                                                uint32_t hop);
-void spectral_smoothing_free(SpectralSmoother *self);
-void spectral_smoothing_run(SpectralSmoother *self, float release);
+SpectralWhitening *spectral_whitening_initialize(uint32_t fft_size,
+                                                 uint32_t sample_rate,
+                                                 uint32_t hop);
+void spectral_whitening_free(SpectralWhitening *self);
+bool spectral_whitening_run(SpectralWhitening *self, float whitening_factor,
+                            float *fft_spectrum);
 
 #endif
