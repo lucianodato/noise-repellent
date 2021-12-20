@@ -54,9 +54,9 @@ static void signal_crossfade__update_wetdry_target(SignalCrossfade *self,
   self->wet_dry += self->tau * (self->wet_dry_target - self->wet_dry) + FLT_MIN;
 }
 
-bool signal_crossfade__run(SignalCrossfade *self,
-                           const uint32_t number_of_samples, const float *input,
-                           float *output, const bool enable) {
+bool signal_crossfade_run(SignalCrossfade *self,
+                          const uint32_t number_of_samples, const float *input,
+                          float *output, const bool enable) {
   if (!input || !output || number_of_samples <= 0) {
     return false;
   }

@@ -52,7 +52,7 @@ struct SpectralDenoiser {
   GainEstimator *gain_estimation;
   ProcessorParameters *denoise_parameters;
 
-  SpectralFeatures processing_spectrums;
+  SpectralFeatures *spectral_features;
 };
 
 SpectralDenoiser *spectral_denoiser_initialize(
@@ -87,8 +87,7 @@ SpectralDenoiser *spectral_denoiser_initialize(
   self->gain_estimation = gain_estimation_initialize(
       self->fft_size, self->sample_rate, self->hop, self->denoise_parameters);
 
-  self->processing_spectrums.power_spectrum =
-      (float *)calloc((self->half_fft_size + 1), sizeof(float));
+  self->spectral_features = spectral_features_initialize(self->half_fft_size);
 
   return self;
 }
@@ -96,13 +95,13 @@ SpectralDenoiser *spectral_denoiser_initialize(
 void spectral_denoiser_free(SpectralDenoiser *self) {
   gain_estimation_free(self->gain_estimation);
   spectral_whitening_free(self->whitener);
+  spectral_features_free(self->spectral_features);
 
   free(self->fft_spectrum);
   free(self->processed_fft_spectrum);
   free(self->denoise_builder.gain_spectrum);
   free(self->denoise_builder.residual_spectrum);
   free(self->denoise_builder.denoised_spectrum);
-  free(self->processing_spectrums.power_spectrum);
   free(self);
 }
 
@@ -112,12 +111,10 @@ void spectral_denoiser_run(SPECTRAL_PROCESSOR instance, float *fft_spectrum) {
   memcpy(self->fft_spectrum, fft_spectrum,
          sizeof(float) * self->half_fft_size + 1);
 
-  get_fft_power_spectrum(self->fft_spectrum, self->fft_size,
-                         self->processing_spectrums.power_spectrum,
-                         self->half_fft_size);
+  compute_power_spectrum(self->spectral_features, fft_spectrum, self->fft_size);
 
   gain_estimation_run(self->gain_estimation,
-                      self->processing_spectrums.power_spectrum,
+                      get_power_spectrum(self->spectral_features),
                       get_noise_profile(self->noise_profile),
                       self->denoise_builder.gain_spectrum);
 

@@ -131,8 +131,8 @@ bool nr_process(NoiseRepellent *self, const uint32_t number_of_samples,
            sizeof(float) * number_of_samples); // bypassed
   }
 
-  signal_crossfade__run(self->soft_bypass, number_of_samples, input, output,
-                        self->denoise_parameters->enable);
+  signal_crossfade_run(self->soft_bypass, number_of_samples, input, output,
+                       self->denoise_parameters->enable);
 
   return true;
 }

@@ -30,7 +30,7 @@ struct NoiseEstimator {
   bool noise_spectrum_available;
   float noise_blocks_count;
 
-  SpectralFeatures processing_spectrums;
+  SpectralFeatures *spectral_features;
 
   NoiseProfile *noise_profile;
 };
@@ -46,14 +46,13 @@ NoiseEstimator *noise_estimation_initialize(const uint32_t fft_size,
 
   self->noise_profile = noise_profile;
 
-  self->processing_spectrums.power_spectrum =
-      (float *)calloc((self->half_fft_size + 1), sizeof(float));
+  self->spectral_features = spectral_features_initialize(self->half_fft_size);
 
   return self;
 }
 
 void noise_estimation_free(NoiseEstimator *self) {
-  free(self->processing_spectrums.power_spectrum);
+  spectral_features_free(self->spectral_features);
   free(self);
 }
 
@@ -66,17 +65,15 @@ void noise_estimation_run(SPECTRAL_PROCESSOR instance, float *fft_spectrum) {
 
   self->noise_blocks_count++;
 
-  get_fft_power_spectrum(fft_spectrum, self->fft_size,
-                         self->processing_spectrums.power_spectrum,
-                         self->half_fft_size);
+  compute_power_spectrum(self->spectral_features, fft_spectrum, self->fft_size);
 
   for (uint32_t k = 1; k <= self->half_fft_size; k++) {
     if (self->noise_blocks_count <= 1.f) {
       get_noise_profile(self->noise_profile)[k] =
-          self->processing_spectrums.power_spectrum[k];
+          get_power_spectrum(self->spectral_features)[k];
     } else {
       get_noise_profile(self->noise_profile)[k] +=
-          ((self->processing_spectrums.power_spectrum[k] -
+          ((get_power_spectrum(self->spectral_features)[k] -
             get_noise_profile(self->noise_profile)[k]) /
            self->noise_blocks_count);
     }

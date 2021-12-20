@@ -25,23 +25,18 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 typedef struct SpectralFeatures SpectralFeatures;
 
-struct SpectralFeatures {
-  float *power_spectrum;
-  float *phase_spectrum;
-  float *magnitude_spectrum;
-};
+SpectralFeatures *spectral_features_initialize(uint32_t spectral_size);
+void spectral_features_free(SpectralFeatures *self);
 
-bool get_fft_power_spectrum(const float *fft_spectrum,
-                            uint32_t fft_spectrum_size,
-                            float *fft_power_spectrum,
-                            uint32_t fft_power_spectrum_size);
-bool get_fft_magnitude_spectrum(const float *fft_spectrum,
-                                uint32_t fft_spectrum_size,
-                                float *fft_magnitude_spectrum,
-                                uint32_t fft_magnitude_spectrum_size);
-bool get_fft_phase_spectrum(const float *fft_spectrum,
-                            uint32_t fft_spectrum_size,
-                            float *fft_phase_spectrum,
-                            uint32_t fft_phase_spectrum_size);
+bool compute_power_spectrum(SpectralFeatures *self, const float *fft_spectrum,
+                            uint32_t fft_spectrum_size);
+bool compute_magnitude_spectrum(SpectralFeatures *self,
+                                const float *fft_spectrum,
+                                uint32_t fft_spectrum_size);
+bool compute_phase_spectrum(SpectralFeatures *self, const float *fft_spectrum,
+                            uint32_t fft_spectrum_size);
+float *get_power_spectrum(SpectralFeatures *self);
+float *get_magnitude_spectrum(SpectralFeatures *self);
+float *get_phase_spectrum(SpectralFeatures *self);
 
 #endif

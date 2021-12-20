@@ -76,8 +76,8 @@ struct MaskingEstimator {
 
   float *sinewave;
   float *window;
-  float *fft_power_at;
   float *fft_power_at_dbspl;
+  SpectralFeatures *spectral_features;
 
   fftwf_plan forward_fft;
 };
@@ -116,13 +116,12 @@ MaskingEstimator *masking_estimation_initialize(const uint32_t fft_size,
 
   self->sinewave = (float *)calloc(self->fft_size, sizeof(float));
   self->window = (float *)calloc(self->fft_size, sizeof(float));
-  self->fft_power_at =
-      (float *)calloc((self->half_fft_size + 1), sizeof(float));
   self->fft_power_at_dbspl =
       (float *)calloc((self->half_fft_size + 1), sizeof(float));
   self->forward_fft =
       fftwf_plan_r2r_1d(self->fft_size, self->input_fft_buffer_at,
                         self->output_fft_buffer_at, FFTW_R2HC, FFTW_ESTIMATE);
+  self->spectral_features = spectral_features_initialize(self->half_fft_size);
 
   compute_bark_mapping(self);
   compute_absolute_thresholds(self);
@@ -152,8 +151,8 @@ void masking_estimation_free(MaskingEstimator *self) {
 
   free(self->sinewave);
   free(self->window);
-  free(self->fft_power_at);
   free(self->fft_power_at_dbspl);
+  spectral_features_free(self->spectral_features);
 
   fftwf_destroy_plan(self->forward_fft);
   free(self);
@@ -249,12 +248,13 @@ static void spl_reference(MaskingEstimator *self) {
 
   fftwf_execute(self->forward_fft);
 
-  get_fft_power_spectrum(self->output_fft_buffer_at, self->fft_size,
-                         self->fft_power_at, self->half_fft_size);
+  compute_power_spectrum(self->spectral_features, self->output_fft_buffer_at,
+                         self->fft_size);
 
   for (uint32_t k = 1; k <= self->half_fft_size; k++) {
     self->fft_power_at_dbspl[k] =
-        REFERENCE_LEVEL - 10.f * log10f(self->fft_power_at[k]);
+        REFERENCE_LEVEL -
+        10.f * log10f(get_power_spectrum(self->spectral_features)[k]);
   }
 
   memcpy(self->spl_reference_values, self->fft_power_at_dbspl,
