@@ -121,6 +121,7 @@ void stft_processor_run(StftProcessor *self,
                         SPECTRAL_PROCESSOR spectral_processor,
                         const uint32_t number_of_samples, const float *input,
                         float *output) {
+  // TODO Use circular buffer instead
   for (uint32_t k = 0; k < number_of_samples; k++) {
     self->stft_buffer.in_fifo[self->stft_buffer.read_position] = input[k];
     output[k] = self->stft_buffer.out_fifo[self->stft_buffer.read_position -

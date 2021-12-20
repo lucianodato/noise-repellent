@@ -12,6 +12,7 @@ noise_repellent_lib = [
     'src/denoiser/masking_estimator.c',
     'src/denoiser/spectral_smoother.c',
     'src/denoiser/gain_estimator.c',
+    'src/denoiser/denoise_builder.c',
     'src/denoiser/spectral_denoiser.c',
     'src/stft/stft_windows.c',
     'src/stft/stft_processor.c',

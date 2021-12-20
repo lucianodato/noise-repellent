@@ -58,6 +58,7 @@ struct MaskingEstimator {
   uint32_t half_fft_size;
   uint32_t sample_rate;
 
+  // TODO breakup into different modules
   float *bark_z_spectrum;
   float *absolute_thresholds;
   float *spl_reference_values;

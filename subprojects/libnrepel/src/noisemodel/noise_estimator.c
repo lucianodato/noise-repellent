@@ -24,6 +24,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <stdlib.h>
 #include <string.h>
 
+// TODO reincorporate automatic estimation
+
 struct NoiseEstimator {
   uint32_t fft_size;
   uint32_t half_fft_size;
