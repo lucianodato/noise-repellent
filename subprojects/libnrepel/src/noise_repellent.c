@@ -71,19 +71,19 @@ NoiseRepellent *nr_initialize(const uint32_t sample_rate) {
     return NULL;
   }
 
+  self->denoise_parameters =
+      (ProcessorParameters *)calloc(1, sizeof(ProcessorParameters));
+
+  if (!self->denoise_parameters) {
+    nr_free(self);
+    return NULL;
+  }
+
   self->spectral_denoiser = spectral_denoiser_initialize(
       self->sample_rate, fft_size, overlap_factor, self->noise_profile,
       self->denoise_parameters);
 
   if (!self->spectral_denoiser) {
-    nr_free(self);
-    return NULL;
-  }
-
-  self->denoise_parameters =
-      (ProcessorParameters *)calloc(1, sizeof(ProcessorParameters));
-
-  if (!self->denoise_parameters) {
     nr_free(self);
     return NULL;
   }
@@ -112,11 +112,12 @@ bool nr_process(NoiseRepellent *self, const uint32_t number_of_samples,
 
   if (self->denoise_parameters->learn_noise) {
     stft_processor_run(self->stft_processor, &noise_estimation_run,
-                       (SPECTAL_PROCESSOR)self->noise_estimator,
+                       (SPECTRAL_PROCESSOR)self->noise_estimator,
                        number_of_samples, input, output); // estimating noise
   } else if (is_noise_estimation_available(self->noise_estimator)) {
+
     stft_processor_run(self->stft_processor, &spectral_denoiser_run,
-                       (SPECTAL_PROCESSOR)self->spectral_denoiser,
+                       (SPECTRAL_PROCESSOR)self->spectral_denoiser,
                        number_of_samples, input, output); // denoising
   } else {
     memcpy(output, input,

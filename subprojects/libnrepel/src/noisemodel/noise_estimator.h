@@ -30,6 +30,6 @@ NoiseEstimator *noise_estimation_initialize(uint32_t fft_size,
                                             NoiseProfile *noise_profile);
 void noise_estimation_free(NoiseEstimator *self);
 bool is_noise_estimation_available(NoiseEstimator *self);
-void noise_estimation_run(SPECTAL_PROCESSOR self, float *spectrum);
+void noise_estimation_run(SPECTRAL_PROCESSOR self, float *spectrum);
 
 #endif

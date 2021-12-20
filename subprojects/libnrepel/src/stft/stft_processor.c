@@ -26,7 +26,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <string.h>
 
 #define FFT_SIZE 2048
-#define OVERLAP_FACTOR 4
+#define OVERLAP_FACTOR 2
 
 static void get_overlap_scale_factor(StftProcessor *self);
 static void stft_analysis(StftProcessor *self);
@@ -34,12 +34,13 @@ static void stft_synthesis(StftProcessor *self);
 static void stft_write_buffer(StftProcessor *self);
 void static stft_transform_and_process(StftProcessor *self,
                                        spectral_processing *spectral_processing,
-                                       SPECTAL_PROCESSOR spectral_processor);
+                                       SPECTRAL_PROCESSOR spectral_processor);
 
 typedef struct {
   float overlap_scale_factor;
   uint32_t input_latency;
   uint32_t read_position;
+  uint32_t remaining_samples;
   uint32_t hop;
   uint32_t overlap_factor;
   float *in_fifo;
@@ -130,24 +131,9 @@ uint32_t get_spectral_processing_size(StftProcessor *self) {
   return self->half_fft_size / 2 + 1;
 }
 
-static void stft_read_buffer(StftProcessor *self,
-                             const uint32_t number_of_samples,
-                             const float *input, float *output) {
-  for (uint32_t k = 0; k < number_of_samples; k++) {
-    self->stft_buffer.in_fifo[self->stft_buffer.read_position] = input[k];
-    output[k] = self->stft_buffer.out_fifo[self->stft_buffer.read_position -
-                                           self->stft_buffer.input_latency];
-    self->stft_buffer.read_position++;
-
-    if (self->stft_buffer.read_position >= self->fft_size) {
-      break;
-    }
-  }
-}
-
 void stft_processor_run(StftProcessor *self,
                         spectral_processing *spectral_processing,
-                        SPECTAL_PROCESSOR spectral_processor,
+                        SPECTRAL_PROCESSOR spectral_processor,
                         const uint32_t number_of_samples, const float *input,
                         float *output) {
   for (uint32_t k = 0; k < number_of_samples; k++) {
@@ -171,7 +157,7 @@ void stft_processor_run(StftProcessor *self,
 
 void static stft_transform_and_process(StftProcessor *self,
                                        spectral_processing *spectral_processing,
-                                       SPECTAL_PROCESSOR spectral_processor) {
+                                       SPECTRAL_PROCESSOR spectral_processor) {
   stft_analysis(self);
 
   get_fft_power_spectrum(self->output_fft_buffer, self->fft_size,

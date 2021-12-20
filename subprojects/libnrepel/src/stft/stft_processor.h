@@ -27,7 +27,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 typedef struct StftProcessor StftProcessor;
 
 typedef void spectral_processing(
-    SPECTAL_PROCESSOR spectral_processor,
+    SPECTRAL_PROCESSOR spectral_processor,
     float *fft_spectrum); // Generic Spectral Processing function
 
 StftProcessor *stft_processor_initialize();
@@ -35,7 +35,7 @@ void stft_processor_free(StftProcessor *self);
 uint32_t get_stft_latency(StftProcessor *self);
 void stft_processor_run(StftProcessor *self,
                         spectral_processing *spectral_processing,
-                        SPECTAL_PROCESSOR spectral_processor,
+                        SPECTRAL_PROCESSOR spectral_processor,
                         uint32_t number_of_samples, const float *input,
                         float *output);
 uint32_t get_fft_size(StftProcessor *self);

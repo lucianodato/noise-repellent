@@ -33,6 +33,6 @@ SpectralDenoiser *spectral_denoiser_initialize(uint32_t sample_rate,
                                                NoiseProfile *noise_profile,
                                                ProcessorParameters *parameters);
 void spectral_denoiser_free(SpectralDenoiser *self);
-void spectral_denoiser_run(SPECTAL_PROCESSOR self, float *fft_spectrum);
+void spectral_denoiser_run(SPECTRAL_PROCESSOR self, float *fft_spectrum);
 
 #endif

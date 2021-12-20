@@ -52,7 +52,7 @@ bool is_noise_estimation_available(NoiseEstimator *self) {
   return self->noise_spectrum_available;
 }
 
-void noise_estimation_run(SPECTAL_PROCESSOR instance, float *fft_spectrum) {
+void noise_estimation_run(SPECTRAL_PROCESSOR instance, float *fft_spectrum) {
   NoiseEstimator *self = (NoiseEstimator *)instance;
 
   self->noise_blocks_count++;

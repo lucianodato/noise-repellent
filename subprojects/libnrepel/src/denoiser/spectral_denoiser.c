@@ -128,7 +128,7 @@ void spectral_denoiser_free(SpectralDenoiser *self) {
   free(self);
 }
 
-void spectral_denoiser_run(SPECTAL_PROCESSOR instance, float *fft_spectrum) {
+void spectral_denoiser_run(SPECTRAL_PROCESSOR instance, float *fft_spectrum) {
   SpectralDenoiser *self = (SpectralDenoiser *)instance;
 
   fft_denoiser_update_wetdry_target(self);
