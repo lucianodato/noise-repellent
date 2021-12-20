@@ -19,7 +19,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 #include "gain_estimator.h"
 #include "masking_estimator.h"
-#include "spectrum_smoother.h"
+#include "spectral_smoother.h"
 #include "transient_detector.h"
 #include <float.h>
 #include <math.h>

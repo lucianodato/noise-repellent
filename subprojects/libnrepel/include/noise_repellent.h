@@ -23,6 +23,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <stdbool.h>
 #include <stdint.h>
 
+// TODO -> Document interface
+
 typedef struct NoiseRepellent NoiseRepellent;
 
 NoiseRepellent *nr_initialize(uint32_t sample_rate);

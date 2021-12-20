@@ -18,7 +18,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
 #include "noise_estimator.h"
-#include "../shared/spectral_utils.h"
+#include "../shared/common.h"
+#include "../shared/spectral_features.h"
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
@@ -28,6 +29,8 @@ struct NoiseEstimator {
   uint32_t half_fft_size;
   bool noise_spectrum_available;
   float noise_blocks_count;
+
+  SpectralFeatures processing_spectrums;
 
   NoiseProfile *noise_profile;
 };
@@ -43,10 +46,16 @@ NoiseEstimator *noise_estimation_initialize(const uint32_t fft_size,
 
   self->noise_profile = noise_profile;
 
+  self->processing_spectrums.power_spectrum =
+      (float *)calloc((self->half_fft_size + 1), sizeof(float));
+
   return self;
 }
 
-void noise_estimation_free(NoiseEstimator *self) { free(self); }
+void noise_estimation_free(NoiseEstimator *self) {
+  free(self->processing_spectrums.power_spectrum);
+  free(self);
+}
 
 bool is_noise_estimation_available(NoiseEstimator *self) {
   return self->noise_spectrum_available;
@@ -57,12 +66,18 @@ void noise_estimation_run(SPECTRAL_PROCESSOR instance, float *fft_spectrum) {
 
   self->noise_blocks_count++;
 
+  get_fft_power_spectrum(fft_spectrum, self->fft_size,
+                         self->processing_spectrums.power_spectrum,
+                         self->half_fft_size);
+
   for (uint32_t k = 1; k <= self->half_fft_size; k++) {
     if (self->noise_blocks_count <= 1.f) {
-      self->noise_profile->noise_profile[k] = fft_spectrum[k];
+      get_noise_profile(self->noise_profile)[k] =
+          self->processing_spectrums.power_spectrum[k];
     } else {
-      self->noise_profile->noise_profile[k] +=
-          ((fft_spectrum[k] - self->noise_profile->noise_profile[k]) /
+      get_noise_profile(self->noise_profile)[k] +=
+          ((self->processing_spectrums.power_spectrum[k] -
+            get_noise_profile(self->noise_profile)[k]) /
            self->noise_blocks_count);
     }
   }

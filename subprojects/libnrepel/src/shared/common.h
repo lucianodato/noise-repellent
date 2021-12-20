@@ -17,20 +17,28 @@ You should have received a copy of the GNU Lesser General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
-#ifndef NOISE_ESTIMATOR_H
-#define NOISE_ESTIMATOR_H
+#ifndef COMMON_H
+#define COMMON_H
 
-#include "../shared/common.h"
-#include "../shared/noise_profile.h"
+#ifndef M_PI
+#define M_PI (3.14159265358979323846)
+#endif
+
 #include <stdbool.h>
 #include <stdint.h>
 
-typedef struct NoiseEstimator NoiseEstimator;
+typedef void *SPECTRAL_PROCESSOR;
 
-NoiseEstimator *noise_estimation_initialize(uint32_t fft_size,
-                                            NoiseProfile *noise_profile);
-void noise_estimation_free(NoiseEstimator *self);
-bool is_noise_estimation_available(NoiseEstimator *self);
-void noise_estimation_run(SPECTRAL_PROCESSOR self, float *spectrum);
+typedef struct {
+  bool enable;
+  bool learn_noise;
+  bool residual_listen;
+  float reduction_amount;
+  float release_time;
+  float masking_ceiling_limit;
+  float whitening_factor;
+  float transient_threshold;
+  float noise_rescale;
+} ProcessorParameters;
 
 #endif

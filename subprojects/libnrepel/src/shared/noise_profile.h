@@ -17,29 +17,19 @@ You should have received a copy of the GNU Lesser General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
-#ifndef DATA_TYPES_H
-#define DATA_TYPES_H
+#ifndef NOISE_PROFILE_H
+#define NOISE_PROFILE_H
 
 #include <stdbool.h>
 #include <stdint.h>
 
-typedef void *SPECTRAL_PROCESSOR;
+typedef struct NoiseProfile NoiseProfile;
 
-typedef struct {
-  uint32_t noise_profile_size;
-  float *noise_profile;
-} NoiseProfile;
-
-typedef struct {
-  bool enable;
-  bool learn_noise;
-  bool residual_listen;
-  float reduction_amount;
-  float release_time;
-  float masking_ceiling_limit;
-  float whitening_factor;
-  float transient_threshold;
-  float noise_rescale;
-} ProcessorParameters;
+NoiseProfile *noise_profile_initialize(uint32_t size);
+void noise_profile_free(NoiseProfile *self);
+float *get_noise_profile(NoiseProfile *self);
+uint32_t get_noise_profile_size(NoiseProfile *self);
+bool set_noise_profile(NoiseProfile *self, const float *noise_profile,
+                       uint32_t noise_profile_size);
 
 #endif

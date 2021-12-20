@@ -25,10 +25,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 typedef struct StftWindows StftWindows;
 
-StftWindows *stft_window_initialize(uint32_t window_size);
+typedef enum { INPUT_WINDOW = 1, OUTPUT_WINDOW = 2 } WindowPlace;
+
+StftWindows *stft_window_initialize(uint32_t window_size,
+                                    uint32_t overlap_factor);
 void stft_window_free(StftWindows *self);
-float input_output_window_sum(StftWindows *self);
-const float *get_input_window(StftWindows *self);
-const float *get_output_window(StftWindows *self);
+bool apply_window(StftWindows *self, float *frame, uint32_t frame_size,
+                  WindowPlace place);
 
 #endif

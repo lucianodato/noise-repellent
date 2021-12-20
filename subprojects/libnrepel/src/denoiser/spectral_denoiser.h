@@ -20,7 +20,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #ifndef SPECTRAL_DENOISER_H
 #define SPECTRAL_DENOISER_H
 
-#include "../shared/data_types.h"
+#include "../shared/common.h"
+#include "../shared/noise_profile.h"
 #include <float.h>
 #include <stdbool.h>
 #include <stdint.h>

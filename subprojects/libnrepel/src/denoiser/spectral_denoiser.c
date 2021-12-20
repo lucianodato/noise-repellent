@@ -18,7 +18,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
 #include "spectral_denoiser.h"
-#include "../shared/spectral_utils.h"
+#include "../shared/spectral_features.h"
 #include "gain_estimator.h"
 #include <math.h>
 #include <stdlib.h>
@@ -69,6 +69,8 @@ struct SpectralDenoiser {
 
   GainEstimator *gain_estimation;
   ProcessorParameters *denoise_parameters;
+
+  SpectralFeatures processing_spectrums;
 };
 
 SpectralDenoiser *spectral_denoiser_initialize(
@@ -112,6 +114,9 @@ SpectralDenoiser *spectral_denoiser_initialize(
   self->gain_estimation = gain_estimation_initialize(
       self->fft_size, self->sample_rate, self->hop, self->denoise_parameters);
 
+  self->processing_spectrums.power_spectrum =
+      (float *)calloc((self->half_fft_size + 1), sizeof(float));
+
   return self;
 }
 
@@ -125,6 +130,7 @@ void spectral_denoiser_free(SpectralDenoiser *self) {
   free(self->denoise_builder.denoised_spectrum);
   free(self->whiten_spectrum.whitened_residual_spectrum);
   free(self->whiten_spectrum.residual_max_spectrum);
+  free(self->processing_spectrums.power_spectrum);
   free(self);
 }
 
@@ -136,8 +142,13 @@ void spectral_denoiser_run(SPECTRAL_PROCESSOR instance, float *fft_spectrum) {
   memcpy(self->fft_spectrum, fft_spectrum,
          sizeof(float) * self->half_fft_size + 1);
 
-  gain_estimation_run(self->gain_estimation, self->fft_spectrum,
-                      self->noise_profile->noise_profile,
+  get_fft_power_spectrum(self->fft_spectrum, self->fft_size,
+                         self->processing_spectrums.power_spectrum,
+                         self->half_fft_size);
+
+  gain_estimation_run(self->gain_estimation,
+                      self->processing_spectrums.power_spectrum,
+                      get_noise_profile(self->noise_profile),
                       self->denoise_builder.gain_spectrum);
 
   get_denoised_spectrum(self);
