@@ -1,0 +1,71 @@
+/*
+noise-repellent -- Noise Reduction LV2
+
+Copyright 2016 Luciano Dato <lucianodato@gmail.com>
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Lesser General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Lesser General Public License for more details.
+
+You should have received a copy of the GNU Lesser General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/
+*/
+
+#include "signal_crossfade.h"
+#include "../shared/common.h"
+#include <float.h>
+#include <math.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
+
+struct SignalCrossfade {
+  float tau;
+  float wet_dry_target;
+  float wet_dry;
+};
+
+SignalCrossfade *signal_crossfade_initialize(const uint32_t sample_rate) {
+  SignalCrossfade *self = (SignalCrossfade *)calloc(1, sizeof(SignalCrossfade));
+
+  self->tau = (1.f - expf(-2.f * M_PI * 25.f * 64.f / (float)sample_rate));
+  self->wet_dry = 0.f;
+
+  return self;
+}
+
+void signal_crossfade_free(SignalCrossfade *self) { free(self); }
+
+static void signal_crossfade__update_wetdry_target(SignalCrossfade *self,
+                                                   const bool enable) {
+  if (enable) {
+    self->wet_dry_target = 1.f;
+  } else {
+    self->wet_dry_target = 0.f;
+  }
+
+  self->wet_dry += self->tau * (self->wet_dry_target - self->wet_dry) + FLT_MIN;
+}
+
+bool signal_crossfade__run(SignalCrossfade *self,
+                           const uint32_t number_of_samples, const float *input,
+                           float *output, const bool enable) {
+  if (!input || !output || number_of_samples <= 0) {
+    return false;
+  }
+
+  signal_crossfade__update_wetdry_target(self, enable);
+
+  for (uint32_t k = 0; k < number_of_samples; k++) {
+    output[k] = (1.f - self->wet_dry) * input[k] + output[k] * self->wet_dry;
+  }
+
+  return true;
+}

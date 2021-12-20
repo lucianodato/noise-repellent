@@ -22,6 +22,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include "noisemodel/noise_estimator.h"
 #include "shared/common.h"
 #include "shared/noise_profile.h"
+#include "shared/signal_crossfade.h"
 #include "stft/stft_processor.h"
 #include <math.h>
 #include <stdlib.h>
@@ -34,6 +35,7 @@ struct NoiseRepellent {
   NoiseEstimator *noise_estimator;
   SpectralDenoiser *spectral_denoiser;
   StftProcessor *stft_processor;
+  SignalCrossfade *soft_bypass;
 
   uint32_t sample_rate;
 };
@@ -57,6 +59,13 @@ NoiseRepellent *nr_initialize(const uint32_t sample_rate) {
   self->noise_profile = noise_profile_initialize(spectral_size);
 
   if (!self->noise_profile) {
+    nr_free(self);
+    return NULL;
+  }
+
+  self->soft_bypass = signal_crossfade_initialize(self->sample_rate);
+
+  if (!self->soft_bypass) {
     nr_free(self);
     return NULL;
   }
@@ -91,6 +100,7 @@ NoiseRepellent *nr_initialize(const uint32_t sample_rate) {
 
 void nr_free(NoiseRepellent *self) {
   free(self->denoise_parameters);
+  signal_crossfade_free(self->soft_bypass);
   noise_profile_free(self->noise_profile);
   noise_estimation_free(self->noise_estimator);
   spectral_denoiser_free(self->spectral_denoiser);
@@ -113,7 +123,6 @@ bool nr_process(NoiseRepellent *self, const uint32_t number_of_samples,
                        (SPECTRAL_PROCESSOR)self->noise_estimator,
                        number_of_samples, input, output); // estimating noise
   } else if (is_noise_estimation_available(self->noise_estimator)) {
-
     stft_processor_run(self->stft_processor, &spectral_denoiser_run,
                        (SPECTRAL_PROCESSOR)self->spectral_denoiser,
                        number_of_samples, input, output); // denoising
@@ -121,6 +130,9 @@ bool nr_process(NoiseRepellent *self, const uint32_t number_of_samples,
     memcpy(output, input,
            sizeof(float) * number_of_samples); // bypassed
   }
+
+  signal_crossfade__run(self->soft_bypass, number_of_samples, input, output,
+                        self->denoise_parameters->enable);
 
   return true;
 }

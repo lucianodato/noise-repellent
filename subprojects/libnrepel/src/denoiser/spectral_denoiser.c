@@ -27,17 +27,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define WHITENING_DECAY_RATE 1000.f
 #define WHITENING_FLOOR 0.02f
 
-static void fft_denoiser_update_wetdry_target(SpectralDenoiser *self);
-static void fft_denoiser_soft_bypass(SpectralDenoiser *self);
 static void get_denoised_spectrum(SpectralDenoiser *self);
 static void get_residual_spectrum(SpectralDenoiser *self);
 static void get_final_spectrum(SpectralDenoiser *self);
-
-typedef struct {
-  float tau;
-  float wet_dry_target;
-  float wet_dry;
-} SoftBypass;
 
 typedef struct {
   float *residual_max_spectrum;
@@ -63,7 +55,6 @@ struct SpectralDenoiser {
 
   NoiseProfile *noise_profile;
 
-  SoftBypass crossfade_spectrum;
   Whitening whiten_spectrum;
   SpectralDenoiseBuilder denoise_builder;
 
@@ -95,10 +86,6 @@ SpectralDenoiser *spectral_denoiser_initialize(
       (float *)calloc((self->half_fft_size + 1), sizeof(float));
   self->denoise_builder.gain_spectrum =
       (float *)calloc((self->half_fft_size + 1), sizeof(float));
-
-  self->crossfade_spectrum.tau =
-      (1.f - expf(-2.f * M_PI * 25.f * 64.f / self->sample_rate));
-  self->crossfade_spectrum.wet_dry = 0.f;
 
   self->whiten_spectrum.whitened_residual_spectrum =
       (float *)calloc((self->half_fft_size + 1), sizeof(float));
@@ -137,8 +124,6 @@ void spectral_denoiser_free(SpectralDenoiser *self) {
 void spectral_denoiser_run(SPECTRAL_PROCESSOR instance, float *fft_spectrum) {
   SpectralDenoiser *self = (SpectralDenoiser *)instance;
 
-  fft_denoiser_update_wetdry_target(self);
-
   memcpy(self->fft_spectrum, fft_spectrum,
          sizeof(float) * self->half_fft_size + 1);
 
@@ -156,8 +141,6 @@ void spectral_denoiser_run(SPECTRAL_PROCESSOR instance, float *fft_spectrum) {
   get_residual_spectrum(self);
 
   get_final_spectrum(self);
-
-  fft_denoiser_soft_bypass(self);
 
   memcpy(fft_spectrum, self->processed_fft_spectrum,
          sizeof(float) * self->half_fft_size + 1);
@@ -191,27 +174,6 @@ static void residual_spectrum_whitening(SpectralDenoiser *self,
           whitening_factor *
               self->whiten_spectrum.whitened_residual_spectrum[k];
     }
-  }
-}
-
-static void fft_denoiser_update_wetdry_target(SpectralDenoiser *self) {
-  if (self->denoise_parameters->enable) {
-    self->crossfade_spectrum.wet_dry_target = 1.f;
-  } else {
-    self->crossfade_spectrum.wet_dry_target = 0.f;
-  }
-
-  self->crossfade_spectrum.wet_dry +=
-      self->crossfade_spectrum.tau * (self->crossfade_spectrum.wet_dry_target -
-                                      self->crossfade_spectrum.wet_dry) +
-      FLT_MIN;
-}
-
-static void fft_denoiser_soft_bypass(SpectralDenoiser *self) {
-  for (uint32_t k = 1; k <= self->half_fft_size; k++) {
-    self->processed_fft_spectrum[k] =
-        (1.f - self->crossfade_spectrum.wet_dry) * self->fft_spectrum[k] +
-        self->processed_fft_spectrum[k] * self->crossfade_spectrum.wet_dry;
   }
 }
 

@@ -5,6 +5,7 @@ noise_repellent_lib = [
     'src/shared/spectral_utils.c',
     'src/shared/spectral_features.c',
     'src/shared/noise_profile.c',
+    'src/shared/signal_crossfade.c',
     'src/noisemodel/noise_estimator.c',
     'src/denoiser/transient_detector.c',
     'src/denoiser/masking_estimator.c',
