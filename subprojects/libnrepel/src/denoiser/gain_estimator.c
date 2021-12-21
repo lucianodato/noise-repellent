@@ -18,6 +18,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
 #include "gain_estimator.h"
+#include "../shared/spectral_features.h"
+#include "../shared/spectral_utils.h"
 #include "masking_estimator.h"
 #include "spectral_smoother.h"
 #include "transient_detector.h"
@@ -35,9 +37,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define BETA_MAX 0.02f
 #define BETA_MIN 0.0f
 
-static void wiener_subtraction(GainEstimator *self);
-static void spectral_gating(GainEstimator *self);
-static void compute_alpha_and_beta(GainEstimator *self,
+static void wiener_subtraction(GainEstimator *self, const float *spectrum,
+                               float *gain_spectrum);
+static void spectral_gating(GainEstimator *self, const float *spectrum,
+                            float *gain_spectrum);
+static void compute_alpha_and_beta(GainEstimator *self, const float *spectrum,
+                                   const float *noise_profile,
                                    float masking_ceiling_limit,
                                    float masking_floor_limit);
 
@@ -47,9 +52,8 @@ struct GainEstimator {
   uint32_t sample_rate;
   uint32_t hop;
 
-  float *gain_spectrum;
   float *noise_profile;
-  float *signal_spectrum;
+
   float *alpha;
   float *beta;
   float *masking_thresholds;
@@ -61,6 +65,7 @@ struct GainEstimator {
   MaskingEstimator *masking_estimation;
   TransientDetector *transient_detection;
   SpectralSmoother *spectrum_smoothing;
+  SpectralFeatures *spectral_features;
 };
 
 GainEstimator *gain_estimation_initialize(const uint32_t fft_size,
@@ -74,13 +79,10 @@ GainEstimator *gain_estimation_initialize(const uint32_t fft_size,
   self->sample_rate = sample_rate;
   self->hop = hop;
 
-  self->signal_spectrum =
-      (float *)calloc((self->half_fft_size + 1), sizeof(float));
-  self->gain_spectrum =
-      (float *)calloc((self->half_fft_size + 1), sizeof(float));
   self->noise_profile =
       (float *)calloc((self->half_fft_size + 1), sizeof(float));
   self->alpha = (float *)calloc((self->half_fft_size + 1), sizeof(float));
+  initialize_spectrum_to_ones(self->alpha, self->half_fft_size + 1);
   self->beta = (float *)calloc((self->half_fft_size + 1), sizeof(float));
   self->masking_thresholds =
       (float *)calloc((self->half_fft_size + 1), sizeof(float));
@@ -93,6 +95,8 @@ GainEstimator *gain_estimation_initialize(const uint32_t fft_size,
   self->spectrum_smoothing = spectral_smoothing_initialize(
       self->fft_size, self->sample_rate, self->hop);
 
+  self->spectral_features = spectral_features_initialize(self->half_fft_size);
+
   self->denoise_parameters = parameters;
 
   return self;
@@ -102,10 +106,9 @@ void gain_estimation_free(GainEstimator *self) {
   masking_estimation_free(self->masking_estimation);
   transient_detector_free(self->transient_detection);
   spectral_smoothing_free(self->spectrum_smoothing);
+  spectral_features_free(self->spectral_features);
 
   free(self->noise_profile);
-  free(self->gain_spectrum);
-  free(self->signal_spectrum);
   free(self->alpha);
   free(self->beta);
   free(self->masking_thresholds);
@@ -115,45 +118,75 @@ void gain_estimation_free(GainEstimator *self) {
 
 void gain_estimation_run(GainEstimator *self, const float *signal_spectrum,
                          const float *noise_profile, float *gain_spectrum) {
-  memcpy(self->signal_spectrum, signal_spectrum,
-         sizeof(float) * self->half_fft_size + 1);
-  memcpy(self->noise_profile, noise_profile,
-         sizeof(float) * self->half_fft_size + 1);
+  compute_power_spectrum(self->spectral_features, signal_spectrum,
+                         self->fft_size);
+
+  float *reference_spectrum = get_power_spectrum(self->spectral_features);
 
   if (self->denoise_parameters->transient_threshold > 1.f) {
-    self->transient_detected =
-        transient_detector_run(self->transient_detection,
-                               self->denoise_parameters->transient_threshold);
+    self->transient_detected = transient_detector_run(
+        self->transient_detection,
+        self->denoise_parameters->transient_threshold, reference_spectrum);
   }
 
   if (self->denoise_parameters->masking_ceiling_limit > 1.f) {
-    compute_alpha_and_beta(
-        self, self->denoise_parameters->masking_ceiling_limit, 0.f);
+    compute_alpha_and_beta(self, reference_spectrum, noise_profile,
+                           self->denoise_parameters->masking_ceiling_limit,
+                           0.f);
   } else {
-    memset(self->alpha, 0, self->half_fft_size + 1);
+    initialize_spectrum_to_ones(self->alpha, self->half_fft_size + 1);
   }
 
   for (uint32_t k = 1; k <= self->half_fft_size; k++) {
-    self->noise_profile[k] = self->noise_profile[k] *
+    self->noise_profile[k] = noise_profile[k] *
                              self->denoise_parameters->noise_rescale *
                              self->alpha[k];
   }
 
   spectral_smoothing_run(self->spectrum_smoothing,
-                         self->denoise_parameters->release_time);
+                         self->denoise_parameters->release_time,
+                         reference_spectrum);
 
   if (self->transient_detected &&
       self->denoise_parameters->transient_threshold > 1.f) {
-    wiener_subtraction(self);
+    wiener_subtraction(self, reference_spectrum, gain_spectrum);
   } else {
-    spectral_gating(self);
+    spectral_gating(self, reference_spectrum, gain_spectrum);
   }
-
-  memcpy(gain_spectrum, self->gain_spectrum,
-         sizeof(float) * self->half_fft_size + 1);
 }
 
-static float max_spectral_value(float *spectrum, uint32_t half_fft_size) {
+static void wiener_subtraction(GainEstimator *self, const float *spectrum,
+                               float *gain_spectrum) {
+  for (uint32_t k = 1; k <= self->half_fft_size; k++) {
+    if (self->noise_profile[k] > FLT_MIN) {
+      if (spectrum[k] > self->noise_profile[k]) {
+        gain_spectrum[k] = (spectrum[k] - self->noise_profile[k]) / spectrum[k];
+      } else {
+        gain_spectrum[k] = 0.f;
+      }
+    } else {
+      gain_spectrum[k] = 1.f;
+    }
+  }
+}
+
+static void spectral_gating(GainEstimator *self, const float *spectrum,
+                            float *gain_spectrum) {
+  for (uint32_t k = 1; k <= self->half_fft_size; k++) {
+    if (self->noise_profile[k] > FLT_MIN) {
+      if (spectrum[k] >= self->noise_profile[k]) {
+        gain_spectrum[k] = 1.f;
+      } else {
+        gain_spectrum[k] = 0.f;
+      }
+    } else {
+      gain_spectrum[k] = 1.f;
+    }
+  }
+}
+
+static float max_spectral_value(const float *spectrum,
+                                const uint32_t half_fft_size) {
   float max = spectrum[0];
   for (uint32_t k = 1; k <= half_fft_size; k++) {
     max = fmaxf(spectrum[k], max);
@@ -161,7 +194,8 @@ static float max_spectral_value(float *spectrum, uint32_t half_fft_size) {
   return max;
 }
 
-static float min_spectral_value(float *spectrum, uint32_t half_fft_size) {
+static float min_spectral_value(const float *spectrum,
+                                const uint32_t half_fft_size) {
   float min = spectrum[0];
   for (uint32_t k = 1; k <= half_fft_size; k++) {
     min = fminf(spectrum[k], min);
@@ -169,45 +203,16 @@ static float min_spectral_value(float *spectrum, uint32_t half_fft_size) {
   return min;
 }
 
-static void wiener_subtraction(GainEstimator *self) {
-  for (uint32_t k = 1; k <= self->half_fft_size; k++) {
-    if (self->noise_profile[k] > FLT_MIN) {
-      if (self->signal_spectrum[k] > self->noise_profile[k]) {
-        self->gain_spectrum[k] =
-            (self->signal_spectrum[k] - self->noise_profile[k]) /
-            self->signal_spectrum[k];
-      } else {
-        self->gain_spectrum[k] = 0.f;
-      }
-    } else {
-      self->gain_spectrum[k] = 1.f;
-    }
-  }
-}
-
-static void spectral_gating(GainEstimator *self) {
-  for (uint32_t k = 1; k <= self->half_fft_size; k++) {
-    if (self->noise_profile[k] > FLT_MIN) {
-      if (self->signal_spectrum[k] >= self->noise_profile[k]) {
-        self->gain_spectrum[k] = 1.f;
-      } else {
-        self->gain_spectrum[k] = 0.f;
-      }
-    } else {
-      self->gain_spectrum[k] = 1.f;
-    }
-  }
-}
-
-static void compute_alpha_and_beta(GainEstimator *self,
+static void compute_alpha_and_beta(GainEstimator *self, const float *spectrum,
+                                   const float *noise_profile,
                                    const float masking_ceiling_limit,
                                    const float masking_floor_limit) {
   for (uint32_t k = 1; k <= self->half_fft_size; k++) {
     self->clean_signal_estimation[k] =
-        fmaxf(self->signal_spectrum[k] - self->noise_profile[k], FLT_MIN);
+        fmaxf(spectrum[k] - noise_profile[k], FLT_MIN);
   }
 
-  compute_masking_thresholds(self->masking_estimation, self->signal_spectrum,
+  compute_masking_thresholds(self->masking_estimation, spectrum,
                              self->masking_thresholds);
 
   float max_masked_tmp =

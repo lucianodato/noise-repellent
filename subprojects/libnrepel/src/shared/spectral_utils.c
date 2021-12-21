@@ -67,3 +67,15 @@ bool get_fft_window(float *window, const uint32_t fft_size,
 
   return true;
 }
+
+bool initialize_spectrum_to_ones(float *spectrum, uint32_t spectrum_size) {
+  if (!spectrum || spectrum_size <= 0) {
+    return false;
+  }
+
+  for (uint32_t i = 0; i < spectrum_size; i++) {
+    spectrum[i] = 1.f;
+  }
+
+  return true;
+}

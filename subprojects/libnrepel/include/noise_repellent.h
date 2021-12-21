@@ -39,6 +39,7 @@ bool nr_load_parameters(NoiseRepellent *self, bool enable, bool learn_noise,
                         float masking_ceiling_limit, float noise_rescale,
                         float reduction_amount, float release_time,
                         float residual_listen, float transient_threshold,
-                        float whitening_factor);
+                        float whitening_factor); // TODO Expose parameters in
+                                                 // struct and internal options
 
 #endif

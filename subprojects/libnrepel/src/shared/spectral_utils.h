@@ -31,5 +31,6 @@ typedef enum {
 } WindowTypes;
 
 bool get_fft_window(float *window, uint32_t fft_size, WindowTypes window_type);
+bool initialize_spectrum_to_ones(float *spectrum, uint32_t spectrum_size);
 
 #endif

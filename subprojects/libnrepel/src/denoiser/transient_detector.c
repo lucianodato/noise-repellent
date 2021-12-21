@@ -24,14 +24,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 #define TP_UPPER_LIMIT 5.f
 
-static float spectral_flux(float *spectrum, float *spectrum_prev,
-                           float half_fft_size);
+static float spectral_flux(const float *spectrum, float *spectrum_prev,
+                           uint32_t half_fft_size);
 
 struct TransientDetector {
   uint32_t fft_size;
   uint32_t half_fft_size;
-
-  float *spectrum;
 
   float *previous_spectrum;
   float rolling_mean;
@@ -46,7 +44,6 @@ TransientDetector *transient_detector_initialize(const uint32_t fft_size) {
   self->fft_size = fft_size;
   self->half_fft_size = self->fft_size / 2;
 
-  self->spectrum = (float *)calloc((self->half_fft_size + 1), sizeof(float));
   self->previous_spectrum =
       (float *)calloc((self->half_fft_size + 1), sizeof(float));
 
@@ -58,15 +55,15 @@ TransientDetector *transient_detector_initialize(const uint32_t fft_size) {
 }
 
 void transient_detector_free(TransientDetector *self) {
-  free(self->spectrum);
   free(self->previous_spectrum);
   free(self);
 }
 
 bool transient_detector_run(TransientDetector *self,
-                            const float transient_threshold) {
-  const float reduction_function = spectral_flux(
-      self->spectrum, self->previous_spectrum, self->half_fft_size);
+                            const float transient_threshold,
+                            const float *spectrum) {
+  const float reduction_function =
+      spectral_flux(spectrum, self->previous_spectrum, self->half_fft_size);
 
   self->window_count += 1.f;
 
@@ -80,7 +77,7 @@ bool transient_detector_run(TransientDetector *self,
   const float adapted_threshold =
       (TP_UPPER_LIMIT - transient_threshold) * self->rolling_mean;
 
-  memcpy(self->previous_spectrum, self->spectrum,
+  memcpy(self->previous_spectrum, spectrum,
          sizeof(float) * (self->half_fft_size + 1));
 
   if (reduction_function > adapted_threshold) {
@@ -89,8 +86,8 @@ bool transient_detector_run(TransientDetector *self,
   return false;
 }
 
-static float spectral_flux(float *spectrum, float *spectrum_prev,
-                           const float half_fft_size) {
+static float spectral_flux(const float *spectrum, float *spectrum_prev,
+                           const uint32_t half_fft_size) {
   float spectral_flux = 0.f;
 
   for (uint32_t i = 1; i <= half_fft_size; i++) {

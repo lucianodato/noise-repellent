@@ -32,7 +32,6 @@ struct SpectralSmoother {
   uint32_t hop;
 
   float *noise_spectrum;
-  float *signal_spectrum;
 
   float *smoothed_spectrum;
   float *smoothed_spectrum_previous;
@@ -51,8 +50,6 @@ SpectralSmoother *spectral_smoothing_initialize(const uint32_t fft_size,
   self->sample_rate = sample_rate;
   self->hop = hop;
 
-  self->signal_spectrum =
-      (float *)calloc((self->half_fft_size + 1), sizeof(float));
   self->noise_spectrum =
       (float *)calloc((self->half_fft_size + 1), sizeof(float));
   self->smoothed_spectrum =
@@ -67,16 +64,16 @@ SpectralSmoother *spectral_smoothing_initialize(const uint32_t fft_size,
 
 void spectral_smoothing_free(SpectralSmoother *self) {
   free(self->noise_spectrum);
-  free(self->signal_spectrum);
   free(self->smoothed_spectrum);
   free(self->smoothed_spectrum_previous);
   free(self);
 }
 
-void spectral_smoothing_run(SpectralSmoother *self, const float release) {
+void spectral_smoothing_run(SpectralSmoother *self, const float release,
+                            const float *signal_spectrum) {
   get_release_coefficient(self, release);
 
-  memcpy(self->smoothed_spectrum, self->signal_spectrum,
+  memcpy(self->smoothed_spectrum, signal_spectrum,
          sizeof(float) * (self->half_fft_size + 1));
 
   apply_time_envelope(self);

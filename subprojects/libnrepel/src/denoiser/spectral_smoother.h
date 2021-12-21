@@ -28,6 +28,7 @@ SpectralSmoother *spectral_smoothing_initialize(uint32_t fft_size,
                                                 uint32_t sample_rate,
                                                 uint32_t hop);
 void spectral_smoothing_free(SpectralSmoother *self);
-void spectral_smoothing_run(SpectralSmoother *self, float release);
+void spectral_smoothing_run(SpectralSmoother *self, float release,
+                            const float *signal_spectrum);
 
 #endif

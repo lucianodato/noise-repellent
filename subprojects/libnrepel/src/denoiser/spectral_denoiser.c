@@ -18,12 +18,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
 #include "spectral_denoiser.h"
-#include "../shared/spectral_features.h"
-#include "denoise_builder.h"
+#include "../shared/spectral_utils.h"
 #include "gain_estimator.h"
+#include "spectral_whitening.h"
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
+
+static void denoise_build(SpectralDenoiser *self, float *fft_spectrum);
 
 struct SpectralDenoiser {
   uint32_t fft_size;
@@ -32,12 +34,13 @@ struct SpectralDenoiser {
   uint32_t hop;
 
   float *gain_spectrum;
+  float *residual_spectrum;
+  float *denoised_spectrum;
 
+  SpectralWhitening *whitener;
   NoiseProfile *noise_profile;
-  DenoiseBuilder *denoise_builder;
   GainEstimator *gain_estimation;
   ProcessorParameters *denoise_parameters;
-  SpectralFeatures *spectral_features;
 };
 
 SpectralDenoiser *spectral_denoiser_initialize(
@@ -54,9 +57,7 @@ SpectralDenoiser *spectral_denoiser_initialize(
 
   self->gain_spectrum =
       (float *)calloc((self->half_fft_size + 1), sizeof(float));
-
-  self->denoise_builder = denoise_builder_initialize(
-      self->half_fft_size, self->fft_size, self->hop, self->sample_rate);
+  initialize_spectrum_to_ones(self->gain_spectrum, self->half_fft_size + 1);
 
   self->noise_profile = noise_profile;
   self->denoise_parameters = parameters;
@@ -64,16 +65,23 @@ SpectralDenoiser *spectral_denoiser_initialize(
   self->gain_estimation = gain_estimation_initialize(
       self->fft_size, self->sample_rate, self->hop, self->denoise_parameters);
 
-  self->spectral_features = spectral_features_initialize(self->half_fft_size);
+  self->residual_spectrum =
+      (float *)calloc((self->half_fft_size + 1), sizeof(float));
+  self->denoised_spectrum =
+      (float *)calloc((self->half_fft_size + 1), sizeof(float));
+
+  self->whitener = spectral_whitening_initialize(self->fft_size,
+                                                 self->sample_rate, self->hop);
 
   return self;
 }
 
 void spectral_denoiser_free(SpectralDenoiser *self) {
   gain_estimation_free(self->gain_estimation);
-  spectral_features_free(self->spectral_features);
-  denoise_builder_free(self->denoise_builder);
+  spectral_whitening_free(self->whitener);
 
+  free(self->residual_spectrum);
+  free(self->denoised_spectrum);
   free(self->gain_spectrum);
   free(self);
 }
@@ -81,17 +89,48 @@ void spectral_denoiser_free(SpectralDenoiser *self) {
 void spectral_denoiser_run(SPECTRAL_PROCESSOR instance, float *fft_spectrum) {
   SpectralDenoiser *self = (SpectralDenoiser *)instance;
 
-  compute_power_spectrum(
-      self->spectral_features, fft_spectrum,
-      self->fft_size); // TODO Move this inside gain estimation
+  gain_estimation_run(self->gain_estimation, fft_spectrum,
+                      get_noise_profile(self->noise_profile),
+                      self->gain_spectrum);
 
-  gain_estimation_run(
-      self->gain_estimation, get_power_spectrum(self->spectral_features),
-      get_noise_profile(self->noise_profile), self->gain_spectrum);
+  denoise_build(self, fft_spectrum);
+}
 
-  denoise_build(self->denoise_builder,
-                self->denoise_parameters->residual_listen,
-                self->denoise_parameters->reduction_amount,
-                self->denoise_parameters->whitening_factor, self->gain_spectrum,
-                fft_spectrum);
+static void get_denoised_spectrum(SpectralDenoiser *self,
+                                  const float *fft_spectrum) {
+  for (uint32_t k = 1; k <= self->half_fft_size; k++) {
+    self->denoised_spectrum[k] = fft_spectrum[k] * self->gain_spectrum[k];
+  }
+}
+
+static void get_residual_spectrum(SpectralDenoiser *self,
+                                  const float *fft_spectrum) {
+  for (uint32_t k = 1; k <= self->half_fft_size; k++) {
+    self->residual_spectrum[k] = fft_spectrum[k] - self->denoised_spectrum[k];
+  }
+
+  if (self->denoise_parameters->whitening_factor > 0.f) {
+    spectral_whitening_run(self->whitener,
+                           self->denoise_parameters->whitening_factor,
+                           self->residual_spectrum);
+  }
+}
+
+static void denoise_build(SpectralDenoiser *self, float *fft_spectrum) {
+
+  get_denoised_spectrum(self, fft_spectrum);
+
+  get_residual_spectrum(self, fft_spectrum);
+
+  if (self->denoise_parameters->residual_listen) {
+    for (uint32_t k = 1; k <= self->half_fft_size; k++) {
+      fft_spectrum[k] = self->residual_spectrum[k];
+    }
+  } else {
+    for (uint32_t k = 1; k <= self->half_fft_size; k++) {
+      fft_spectrum[k] = self->denoised_spectrum[k] +
+                        self->residual_spectrum[k] *
+                            self->denoise_parameters->reduction_amount;
+    }
+  }
 }

@@ -27,6 +27,7 @@ typedef struct TransientDetector TransientDetector;
 
 TransientDetector *transient_detector_initialize(uint32_t fft_size);
 void transient_detector_free(TransientDetector *self);
-bool transient_detector_run(TransientDetector *self, float transient_threshold);
+bool transient_detector_run(TransientDetector *self, float transient_threshold,
+                            const float *spectrum);
 
 #endif
