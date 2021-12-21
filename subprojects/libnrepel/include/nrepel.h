@@ -17,8 +17,8 @@ You should have received a copy of the GNU Lesser General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
-#ifndef NOISE_REPELLENT_H
-#define NOISE_REPELLENT_H
+#ifndef NREPEL_H
+#define NREPEL_H
 
 #include <stdbool.h>
 #include <stdint.h>

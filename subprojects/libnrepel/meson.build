@@ -1,7 +1,7 @@
 project('libnrepel', 'c', version: '0.1.0',default_options: ['c_std=c99'])
 
 #sources to compile
-noise_repellent_lib = [
+nrepel_sources = [
     'src/shared/spectral_utils.c',
     'src/shared/spectral_features.c',
     'src/shared/noise_profile.c',
@@ -17,7 +17,7 @@ noise_repellent_lib = [
     'src/denoiser/spectral_denoiser.c',
     'src/stft/stft_windows.c',
     'src/stft/stft_processor.c',
-    'src/noise_repellent.c',
+    'src/nrepel.c',
 ]
 
 # public header
@@ -46,7 +46,7 @@ if get_option('buildtype') == 'release'
 endif
 
 libnrepel = static_library('nrepel',
-  noise_repellent_lib,
+  nrepel_sources,
   include_directories : inc,
   c_args: cflags,
   dependencies: dep,

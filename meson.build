@@ -9,7 +9,7 @@ else
     install_folder = join_paths('.lv2', meson.project_name())
 endif
 
-noise_repellent_src = 'plugin/plugin.c'
+noise_repellent_src = 'plugin/nrepellent.c'
 
 #dependencies for noise repellent
 lv2_dep = dependency('lv2', required : true)
