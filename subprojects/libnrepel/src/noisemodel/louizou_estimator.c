@@ -18,6 +18,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
 #include "louizou_estimator.h"
+#include "../shared/modules_configurations.h"
 #include "../shared/spectral_utils.h"
 #include <math.h>
 #include <stdlib.h>

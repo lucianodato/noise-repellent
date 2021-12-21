@@ -20,7 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #ifndef GAIN_ESTIMATOR_H
 #define GAIN_ESTIMATOR_H
 
-#include "../shared/common.h"
+#include "../shared/denoise_parameters.h"
 #include <stdint.h>
 
 typedef struct GainEstimator GainEstimator;

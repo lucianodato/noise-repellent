@@ -17,12 +17,8 @@ You should have received a copy of the GNU Lesser General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
-#ifndef COMMON_H
-#define COMMON_H
-
-#ifndef M_PI
-#define M_PI (3.14159265358979323846)
-#endif
+#ifndef DENOISE_PARAMETERS_H
+#define DENOISE_PARAMETERS_H
 
 #include <stdbool.h>
 #include <stdint.h>

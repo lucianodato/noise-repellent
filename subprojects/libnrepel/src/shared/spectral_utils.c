@@ -18,7 +18,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
 #include "spectral_utils.h"
-#include "common.h"
+#include "modules_configurations.h"
 #include <math.h>
 
 static inline float blackman(const uint32_t bin_index,

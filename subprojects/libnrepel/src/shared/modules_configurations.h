@@ -17,20 +17,14 @@ You should have received a copy of the GNU Lesser General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
-#ifndef LOUIZOU_ESTIMATOR_H
-#define LOUIZOU_ESTIMATOR_H
+#ifndef MODULES_CONFIGURATIONS_H
+#define MODULES_CONFIGURATIONS_H
 
-#include "../shared/noise_profile.h"
 #include <stdbool.h>
 #include <stdint.h>
 
-typedef struct LouizouEstimator LouizouEstimator;
-
-LouizouEstimator *louizou_estimator_initialize(uint32_t noise_spectrum_size,
-                                               uint32_t sample_rate,
-                                               uint32_t fft_size);
-void louizou_estimator_free(LouizouEstimator *self);
-void louizou_estimator_run(LouizouEstimator *self, const float *spectrum,
-                           float *noise_spectrum);
+#ifndef M_PI
+#define M_PI (3.14159265358979323846)
+#endif
 
 #endif

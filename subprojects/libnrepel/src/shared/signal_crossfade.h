@@ -20,7 +20,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #ifndef SIGNAL_CROSSFADE_H
 #define SIGNAL_CROSSFADE_H
 
-#include "../shared/common.h"
 #include <float.h>
 #include <math.h>
 #include <stdbool.h>

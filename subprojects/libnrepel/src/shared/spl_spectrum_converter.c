@@ -18,7 +18,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
 #include "spl_spectrum_converter.h"
-#include "../shared/common.h"
+#include "../shared/modules_configurations.h"
 #include "../shared/spectral_features.h"
 #include "../shared/spectral_utils.h"
 #include <fftw3.h>
