@@ -104,7 +104,6 @@ float min_spectral_value(const float *spectrum, const uint32_t spectrum_size) {
   return min;
 }
 
-// TODO This could be easily optimized for larger spectums using FFT
 bool naive_matrix_to_vector_spectral_convolution(const float *matrix_spectum,
                                                  const float *spectrum,
                                                  float *out_spectrum,
