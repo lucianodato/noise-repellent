@@ -68,7 +68,8 @@ SplSpectrumConverter *reference_spectrum_initialize(uint32_t fft_size,
   self->forward_fft =
       fftwf_plan_r2r_1d(self->fft_size, self->input_fft_buffer_at,
                         self->output_fft_buffer_at, FFTW_R2HC, FFTW_ESTIMATE);
-  self->spectral_features = spectral_features_initialize(self->half_fft_size);
+  self->spectral_features =
+      spectral_features_initialize(self->half_fft_size + 1);
 
   generate_sinewave(self);
   get_fft_window(self->window, self->fft_size, HANN_WINDOW);

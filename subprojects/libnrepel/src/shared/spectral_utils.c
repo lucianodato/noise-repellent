@@ -128,6 +128,11 @@ inline float fft_bin_to_freq(const uint32_t bin_index,
   return (float)bin_index * ((float)sample_rate / (float)fft_size);
 }
 
+inline uint32_t freq_to_fft_bin(const float freq, const uint32_t sample_rate,
+                                const uint32_t fft_size) {
+  return (uint32_t)(freq / ((float)sample_rate / (float)fft_size / 2.f));
+}
+
 float spectral_flux(const float *spectrum, const float *previous_spectrum,
                     const uint32_t spectrum_size) {
   if (!spectrum || !previous_spectrum || spectrum_size <= 0) {

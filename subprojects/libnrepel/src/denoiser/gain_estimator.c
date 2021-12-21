@@ -95,7 +95,8 @@ GainEstimator *gain_estimation_initialize(const uint32_t fft_size,
   self->spectrum_smoothing = spectral_smoothing_initialize(
       self->fft_size, self->sample_rate, self->hop);
 
-  self->spectral_features = spectral_features_initialize(self->half_fft_size);
+  self->spectral_features =
+      spectral_features_initialize(self->half_fft_size + 1);
 
   self->denoise_parameters = parameters;
 

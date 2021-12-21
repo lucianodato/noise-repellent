@@ -79,7 +79,7 @@ NoiseRepellent *nr_initialize(const uint32_t sample_rate) {
   }
 
   self->noise_estimator = noise_estimation_initialize(
-      fft_size, self->noise_profile, self->denoise_parameters);
+      fft_size, sample_rate, self->noise_profile, self->denoise_parameters);
 
   if (!self->noise_estimator) {
     nr_free(self);
