@@ -185,24 +185,6 @@ static void spectral_gating(GainEstimator *self, const float *spectrum,
   }
 }
 
-static float max_spectral_value(const float *spectrum,
-                                const uint32_t half_fft_size) {
-  float max = spectrum[0];
-  for (uint32_t k = 1; k <= half_fft_size; k++) {
-    max = fmaxf(spectrum[k], max);
-  }
-  return max;
-}
-
-static float min_spectral_value(const float *spectrum,
-                                const uint32_t half_fft_size) {
-  float min = spectrum[0];
-  for (uint32_t k = 1; k <= half_fft_size; k++) {
-    min = fminf(spectrum[k], min);
-  }
-  return min;
-}
-
 static void compute_alpha_and_beta(GainEstimator *self, const float *spectrum,
                                    const float *noise_profile,
                                    const float masking_ceiling_limit,

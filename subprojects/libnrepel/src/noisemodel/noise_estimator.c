@@ -69,15 +69,15 @@ void noise_estimation_run(SPECTRAL_PROCESSOR instance, float *fft_spectrum) {
 
   compute_power_spectrum(self->spectral_features, fft_spectrum, self->fft_size);
 
+  float *noise_profile = get_noise_profile(self->noise_profile);
+  float *reference_spectrum = get_power_spectrum(self->spectral_features);
+
   for (uint32_t k = 1; k <= self->half_fft_size; k++) {
     if (self->noise_blocks_count <= 1.f) {
-      get_noise_profile(self->noise_profile)[k] =
-          get_power_spectrum(self->spectral_features)[k];
+      noise_profile[k] = reference_spectrum[k];
     } else {
-      get_noise_profile(self->noise_profile)[k] +=
-          ((get_power_spectrum(self->spectral_features)[k] -
-            get_noise_profile(self->noise_profile)[k]) /
-           self->noise_blocks_count);
+      noise_profile[k] += ((reference_spectrum[k] - noise_profile[k]) /
+                           self->noise_blocks_count);
     }
   }
 

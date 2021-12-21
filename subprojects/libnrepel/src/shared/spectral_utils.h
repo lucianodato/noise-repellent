@@ -32,5 +32,15 @@ typedef enum {
 
 bool get_fft_window(float *window, uint32_t fft_size, WindowTypes window_type);
 bool initialize_spectrum_to_ones(float *spectrum, uint32_t spectrum_size);
+bool naive_matrix_to_vector_spectral_convolution(const float *matrix_spectum,
+                                                 const float *spectrum,
+                                                 float *out_spectrum,
+                                                 uint32_t spectrum_size);
+float max_spectral_value(const float *spectrum, uint32_t spectrum_size);
+float min_spectral_value(const float *spectrum, uint32_t spectrum_size);
+float fft_bin_to_freq(uint32_t bin_index, uint32_t sample_rate,
+                      uint32_t fft_size);
+float spectral_flux(const float *spectrum, const float *previous_spectrum,
+                    uint32_t spectrum_size);
 
 #endif

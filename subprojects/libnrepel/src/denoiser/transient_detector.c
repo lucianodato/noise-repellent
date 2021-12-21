@@ -18,14 +18,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
 #include "transient_detector.h"
+#include "../shared/spectral_utils.h"
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
 
 #define TP_UPPER_LIMIT 5.f
-
-static float spectral_flux(const float *spectrum, float *spectrum_prev,
-                           uint32_t half_fft_size);
 
 struct TransientDetector {
   uint32_t fft_size;
@@ -63,7 +61,7 @@ bool transient_detector_run(TransientDetector *self,
                             const float transient_threshold,
                             const float *spectrum) {
   const float reduction_function =
-      spectral_flux(spectrum, self->previous_spectrum, self->half_fft_size);
+      spectral_flux(spectrum, self->previous_spectrum, self->half_fft_size + 1);
 
   self->window_count += 1.f;
 
@@ -84,15 +82,4 @@ bool transient_detector_run(TransientDetector *self,
     return true;
   }
   return false;
-}
-
-static float spectral_flux(const float *spectrum, float *spectrum_prev,
-                           const uint32_t half_fft_size) {
-  float spectral_flux = 0.f;
-
-  for (uint32_t i = 1; i <= half_fft_size; i++) {
-    const float temp = sqrtf(spectrum[i]) - sqrtf(spectrum_prev[i]);
-    spectral_flux += (temp + fabsf(temp)) / 2.f;
-  }
-  return spectral_flux;
 }
