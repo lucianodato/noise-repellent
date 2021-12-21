@@ -18,7 +18,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
 #include "noise_estimator.h"
-#include "../shared/common.h"
 #include "../shared/spectral_features.h"
 #include <math.h>
 #include <stdlib.h>
@@ -33,12 +32,14 @@ struct NoiseEstimator {
   float noise_blocks_count;
 
   SpectralFeatures *spectral_features;
+  ProcessorParameters *parameters;
 
   NoiseProfile *noise_profile;
 };
 
 NoiseEstimator *noise_estimation_initialize(const uint32_t fft_size,
-                                            NoiseProfile *noise_profile) {
+                                            NoiseProfile *noise_profile,
+                                            ProcessorParameters *parameters) {
   NoiseEstimator *self = (NoiseEstimator *)calloc(1, sizeof(NoiseEstimator));
 
   self->fft_size = fft_size;
@@ -47,6 +48,7 @@ NoiseEstimator *noise_estimation_initialize(const uint32_t fft_size,
   self->noise_spectrum_available = false;
 
   self->noise_profile = noise_profile;
+  self->parameters = parameters;
 
   self->spectral_features = spectral_features_initialize(self->half_fft_size);
 
@@ -62,6 +64,19 @@ bool is_noise_estimation_available(NoiseEstimator *self) {
   return self->noise_spectrum_available;
 }
 
+static void get_rolling_mean_noise_spectrum(NoiseEstimator *self,
+                                            const float *spectrum,
+                                            float *noise_spectrum) {
+  for (uint32_t k = 1; k <= self->half_fft_size; k++) {
+    if (self->noise_blocks_count <= 1.f) {
+      noise_spectrum[k] = spectrum[k];
+    } else {
+      noise_spectrum[k] +=
+          ((spectrum[k] - noise_spectrum[k]) / self->noise_blocks_count);
+    }
+  }
+}
+
 void noise_estimation_run(SPECTRAL_PROCESSOR instance, float *fft_spectrum) {
   NoiseEstimator *self = (NoiseEstimator *)instance;
 
@@ -72,13 +87,10 @@ void noise_estimation_run(SPECTRAL_PROCESSOR instance, float *fft_spectrum) {
   float *noise_profile = get_noise_profile(self->noise_profile);
   float *reference_spectrum = get_power_spectrum(self->spectral_features);
 
-  for (uint32_t k = 1; k <= self->half_fft_size; k++) {
-    if (self->noise_blocks_count <= 1.f) {
-      noise_profile[k] = reference_spectrum[k];
-    } else {
-      noise_profile[k] += ((reference_spectrum[k] - noise_profile[k]) /
-                           self->noise_blocks_count);
-    }
+  if (self->parameters->auto_learn_noise) {
+    // TODO Any automatic estimation algorithm
+  } else {
+    get_rolling_mean_noise_spectrum(self, reference_spectrum, noise_profile);
   }
 
   self->noise_spectrum_available = true;

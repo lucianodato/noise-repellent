@@ -33,6 +33,7 @@ typedef struct {
   bool enable;
   bool learn_noise;
   bool residual_listen;
+  bool auto_learn_noise;
   float reduction_amount;
   float release_time;
   float masking_ceiling_limit;

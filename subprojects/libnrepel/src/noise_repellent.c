@@ -78,8 +78,8 @@ NoiseRepellent *nr_initialize(const uint32_t sample_rate) {
     return NULL;
   }
 
-  self->noise_estimator =
-      noise_estimation_initialize(fft_size, self->noise_profile);
+  self->noise_estimator = noise_estimation_initialize(
+      fft_size, self->noise_profile, self->denoise_parameters);
 
   if (!self->noise_estimator) {
     nr_free(self);
@@ -145,15 +145,14 @@ float *nr_get_noise_profile(NoiseRepellent *self) {
   return get_noise_profile(self->noise_profile);
 }
 
-bool nr_load_noise_profile(NoiseRepellent *self,
-                           const float *restored_profile) {
-  if (!self || !restored_profile) { // TODO check if size corresponds to the
-                                    // configured one
+bool nr_load_noise_profile(NoiseRepellent *self, const float *restored_profile,
+                           const uint32_t profile_size) {
+  if (!self || !restored_profile ||
+      profile_size != get_noise_profile_size(self->noise_profile)) {
     return false;
   }
 
-  set_noise_profile(self->noise_profile, restored_profile,
-                    get_noise_profile_size(self->noise_profile));
+  set_noise_profile(self->noise_profile, restored_profile, profile_size);
 
   return true;
 }
@@ -168,13 +167,15 @@ bool nr_load_parameters(NoiseRepellent *self, const bool enable,
                         const float noise_rescale, const float reduction_amount,
                         const float release_time, const float residual_listen,
                         const float transient_threshold,
-                        const float whitening_factor) {
+                        const float whitening_factor,
+                        const bool auto_learn_noise) {
   if (!self) {
     return false;
   }
 
   self->denoise_parameters->enable = enable;
   self->denoise_parameters->learn_noise = learn_noise;
+  self->denoise_parameters->auto_learn_noise = auto_learn_noise;
   self->denoise_parameters->residual_listen = residual_listen;
   self->denoise_parameters->reduction_amount =
       from_db_to_coefficient(reduction_amount * -1.f);

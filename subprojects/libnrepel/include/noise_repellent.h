@@ -34,12 +34,14 @@ bool nr_process(NoiseRepellent *self, uint32_t number_of_samples,
 uint32_t nr_get_latency(NoiseRepellent *self);
 uint32_t nr_get_noise_profile_size(NoiseRepellent *self);
 float *nr_get_noise_profile(NoiseRepellent *self);
-bool nr_load_noise_profile(NoiseRepellent *self, const float *restored_profile);
+bool nr_load_noise_profile(NoiseRepellent *self, const float *restored_profile,
+                           uint32_t profile_size);
 bool nr_load_parameters(NoiseRepellent *self, bool enable, bool learn_noise,
                         float masking_ceiling_limit, float noise_rescale,
                         float reduction_amount, float release_time,
                         float residual_listen, float transient_threshold,
-                        float whitening_factor); // TODO Expose parameters in
-                                                 // struct and internal options
+                        float whitening_factor,
+                        bool auto_learn_noise); // TODO Expose parameters in
+                                                // struct and internal options
 
 #endif

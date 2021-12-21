@@ -30,24 +30,29 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define NOISEREPELLENT_URI "https://github.com/lucianodato/noise-repellent"
 
 typedef struct {
+  LV2_URID atom_Int;
   LV2_URID atom_Vector;
   LV2_URID plugin;
   LV2_URID atom_URID;
 } URIs;
 
 typedef struct {
-  LV2_URID property_saved_noise_profile;
+  LV2_URID property_noise_profile;
+  LV2_URID property_noise_profile_size;
 } State;
 
 static inline void map_uris(LV2_URID_Map *map, URIs *uris) {
   uris->plugin = map->map(map->handle, NOISEREPELLENT_URI);
+  uris->atom_Int = map->map(map->handle, LV2_ATOM__Int);
   uris->atom_Vector = map->map(map->handle, LV2_ATOM__Vector);
   uris->atom_URID = map->map(map->handle, LV2_ATOM__URID);
 }
 
 static inline void map_state(LV2_URID_Map *map, State *state) {
-  state->property_saved_noise_profile =
-      map->map(map->handle, NOISEREPELLENT_URI "#savednoiseprofile");
+  state->property_noise_profile =
+      map->map(map->handle, NOISEREPELLENT_URI "#noiseprofile");
+  state->property_noise_profile_size =
+      map->map(map->handle, NOISEREPELLENT_URI "#noiseprofilesize");
 }
 
 typedef enum {
@@ -58,11 +63,12 @@ typedef enum {
   NOISEREPELLENT_TRANSIENT_PROTECT = 4,
   NOISEREPELLENT_WHITENING = 5,
   NOISEREPELLENT_NOISE_LEARN = 6,
-  NOISEREPELLENT_RESIDUAL_LISTEN = 7,
-  NOISEREPELLENT_ENABLE = 8,
-  NOISEREPELLENT_LATENCY = 9,
-  NOISEREPELLENT_INPUT = 10,
-  NOISEREPELLENT_OUTPUT = 11,
+  NOISEREPELLENT_AUTO_NOISE_LEARN = 7,
+  NOISEREPELLENT_RESIDUAL_LISTEN = 8,
+  NOISEREPELLENT_ENABLE = 9,
+  NOISEREPELLENT_LATENCY = 10,
+  NOISEREPELLENT_INPUT = 11,
+  NOISEREPELLENT_OUTPUT = 12,
 } PortIndex;
 
 typedef struct {
@@ -80,6 +86,7 @@ typedef struct {
 
   float *enable;
   float *learn_noise;
+  float *auto_learn_noise;
   float *residual_listen;
   float *reduction_amount;
   float *release_time;
@@ -156,6 +163,9 @@ static void connect_port(LV2_Handle instance, uint32_t port, void *data) {
   case NOISEREPELLENT_NOISE_LEARN:
     self->learn_noise = (float *)data;
     break;
+  case NOISEREPELLENT_AUTO_NOISE_LEARN:
+    self->auto_learn_noise = (float *)data;
+    break;
   case NOISEREPELLENT_RESIDUAL_LISTEN:
     self->residual_listen = (float *)data;
     break;
@@ -184,7 +194,8 @@ static void run(LV2_Handle instance, uint32_t number_of_samples) {
                      (bool)*self->learn_noise, *self->masking_ceiling_limit,
                      *self->noise_rescale, *self->reduction_amount,
                      *self->release_time, (bool)*self->residual_listen,
-                     *self->transient_threshold, *self->whitening_factor);
+                     *self->transient_threshold, *self->whitening_factor,
+                     (bool)*self->auto_learn_noise);
 
   *self->report_latency = (float)nr_get_latency(self->lib_instance);
 
@@ -200,7 +211,11 @@ static LV2_State_Status save(LV2_Handle instance,
   uint32_t noise_profile_size = nr_get_noise_profile_size(self->lib_instance);
   float *noise_profile = nr_get_noise_profile(self->lib_instance);
 
-  store(handle, self->state.property_saved_noise_profile, (void *)noise_profile,
+  store(handle, self->state.property_noise_profile_size, &noise_profile_size,
+        sizeof(uint32_t), self->uris.atom_Int,
+        LV2_STATE_IS_POD | LV2_STATE_IS_PORTABLE);
+
+  store(handle, self->state.property_noise_profile, (void *)noise_profile,
         sizeof(float) * noise_profile_size, self->uris.atom_Vector,
         LV2_STATE_IS_POD | LV2_STATE_IS_PORTABLE);
 
@@ -217,9 +232,14 @@ static LV2_State_Status restore(LV2_Handle instance,
   uint32_t type = 0;
   uint32_t valflags = 0;
 
-  const void *saved_noise_profile =
-      retrieve(handle, self->state.property_saved_noise_profile, &size, &type,
-               &valflags);
+  const uint32_t *fftsize = (const uint32_t *)retrieve(
+      handle, self->state.property_noise_profile_size, &size, &type, &valflags);
+  if (fftsize == NULL || type != self->uris.atom_Int) {
+    return LV2_STATE_ERR_NO_PROPERTY;
+  }
+
+  const void *saved_noise_profile = retrieve(
+      handle, self->state.property_noise_profile, &size, &type, &valflags);
   if (!saved_noise_profile ||
       size != sizeof(float) * nr_get_noise_profile_size(self->lib_instance) ||
       type != self->uris.atom_Vector) {
@@ -227,7 +247,7 @@ static LV2_State_Status restore(LV2_Handle instance,
   }
 
   nr_load_noise_profile(self->lib_instance,
-                        (float *)LV2_ATOM_BODY(saved_noise_profile));
+                        (float *)LV2_ATOM_BODY(saved_noise_profile), *fftsize);
 
   return LV2_STATE_SUCCESS;
 }
