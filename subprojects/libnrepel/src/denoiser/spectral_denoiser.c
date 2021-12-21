@@ -43,7 +43,7 @@ struct SpectralDenoiser {
   ProcessorParameters *denoise_parameters;
 };
 
-SpectralDenoiser *spectral_denoiser_initialize(
+SpectralDenoiserHandle spectral_denoiser_initialize(
     const uint32_t sample_rate, const uint32_t fft_size,
     const uint32_t overlap_factor, NoiseProfile *noise_profile,
     ProcessorParameters *parameters) {
@@ -76,7 +76,9 @@ SpectralDenoiser *spectral_denoiser_initialize(
   return self;
 }
 
-void spectral_denoiser_free(SpectralDenoiser *self) {
+void spectral_denoiser_free(SpectralDenoiserHandle instance) {
+  SpectralDenoiser *self = (SpectralDenoiser *)instance;
+
   gain_estimation_free(self->gain_estimation);
   spectral_whitening_free(self->whitener);
 
@@ -86,7 +88,8 @@ void spectral_denoiser_free(SpectralDenoiser *self) {
   free(self);
 }
 
-void spectral_denoiser_run(SPECTRAL_PROCESSOR instance, float *fft_spectrum) {
+void spectral_denoiser_run(SpectralDenoiserHandle instance,
+                           float *fft_spectrum) {
   SpectralDenoiser *self = (SpectralDenoiser *)instance;
 
   gain_estimation_run(self->gain_estimation, fft_spectrum,

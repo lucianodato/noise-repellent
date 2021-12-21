@@ -28,7 +28,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <stdlib.h>
 #include <string.h>
 
-struct NoiseRepellent {
+typedef struct {
   ProcessorParameters *denoise_parameters;
   NoiseProfile *noise_profile;
 
@@ -38,9 +38,9 @@ struct NoiseRepellent {
   SignalCrossfade *soft_bypass;
 
   uint32_t sample_rate;
-};
+} NoiseRepellent;
 
-NoiseRepellent *nr_initialize(const uint32_t sample_rate) {
+NoiseRepellentHandle nr_initialize(const uint32_t sample_rate) {
   NoiseRepellent *self = (NoiseRepellent *)calloc(1, sizeof(NoiseRepellent));
   self->sample_rate = sample_rate;
 
@@ -98,7 +98,9 @@ NoiseRepellent *nr_initialize(const uint32_t sample_rate) {
   return self;
 }
 
-void nr_free(NoiseRepellent *self) {
+void nr_free(NoiseRepellentHandle instance) {
+  NoiseRepellent *self = (NoiseRepellent *)instance;
+
   free(self->denoise_parameters);
   signal_crossfade_free(self->soft_bypass);
   noise_profile_free(self->noise_profile);
@@ -108,24 +110,28 @@ void nr_free(NoiseRepellent *self) {
   free(self);
 }
 
-uint32_t nr_get_latency(NoiseRepellent *self) {
+uint32_t nr_get_latency(NoiseRepellentHandle instance) {
+  NoiseRepellent *self = (NoiseRepellent *)instance;
+
   return get_stft_latency(self->stft_processor);
 }
 
-bool nr_process(NoiseRepellent *self, const uint32_t number_of_samples,
+bool nr_process(NoiseRepellentHandle instance, const uint32_t number_of_samples,
                 const float *input, float *output) {
-  if (!self || !number_of_samples || !input || !output) {
+  if (!instance || !number_of_samples || !input || !output) {
     return false;
   }
 
+  NoiseRepellent *self = (NoiseRepellent *)instance;
+
   if (self->denoise_parameters->learn_noise) {
     stft_processor_run(self->stft_processor, &noise_estimation_run,
-                       (SPECTRAL_PROCESSOR)self->noise_estimator,
-                       number_of_samples, input, output); // estimating noise
+                       self->noise_estimator, number_of_samples, input,
+                       output); // estimating noise
   } else if (is_noise_estimation_available(self->noise_estimator)) {
     stft_processor_run(self->stft_processor, &spectral_denoiser_run,
-                       (SPECTRAL_PROCESSOR)self->spectral_denoiser,
-                       number_of_samples, input, output); // denoising
+                       self->spectral_denoiser, number_of_samples, input,
+                       output); // denoising
   } else {
     memcpy(output, input,
            sizeof(float) * number_of_samples); // bypassed
@@ -137,18 +143,28 @@ bool nr_process(NoiseRepellent *self, const uint32_t number_of_samples,
   return true;
 }
 
-uint32_t nr_get_noise_profile_size(NoiseRepellent *self) {
+uint32_t nr_get_noise_profile_size(NoiseRepellentHandle instance) {
+  NoiseRepellent *self = (NoiseRepellent *)instance;
+
   return get_noise_profile_size(self->noise_profile);
 }
 
-float *nr_get_noise_profile(NoiseRepellent *self) {
+float *nr_get_noise_profile(NoiseRepellentHandle instance) {
+  NoiseRepellent *self = (NoiseRepellent *)instance;
+
   return get_noise_profile(self->noise_profile);
 }
 
-bool nr_load_noise_profile(NoiseRepellent *self, const float *restored_profile,
+bool nr_load_noise_profile(NoiseRepellentHandle instance,
+                           const float *restored_profile,
                            const uint32_t profile_size) {
-  if (!self || !restored_profile ||
-      profile_size != get_noise_profile_size(self->noise_profile)) {
+  if (!instance || !restored_profile) {
+    return false;
+  }
+
+  NoiseRepellent *self = (NoiseRepellent *)instance;
+
+  if (profile_size != get_noise_profile_size(self->noise_profile)) {
     return false;
   }
 
@@ -161,7 +177,7 @@ static inline float from_db_to_coefficient(const float gain_db) {
   return expf(gain_db / 10.f * logf(10.f));
 }
 
-bool nr_load_parameters(NoiseRepellent *self, const bool enable,
+bool nr_load_parameters(NoiseRepellentHandle instance, const bool enable,
                         const bool learn_noise,
                         const float masking_ceiling_limit,
                         const float noise_rescale, const float reduction_amount,
@@ -169,9 +185,11 @@ bool nr_load_parameters(NoiseRepellent *self, const bool enable,
                         const float transient_threshold,
                         const float whitening_factor,
                         const bool auto_learn_noise) {
-  if (!self) {
+  if (!instance) {
     return false;
   }
+
+  NoiseRepellent *self = (NoiseRepellent *)instance;
 
   self->denoise_parameters->enable = enable;
   self->denoise_parameters->learn_noise = learn_noise;

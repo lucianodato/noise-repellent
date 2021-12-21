@@ -24,8 +24,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <stdlib.h>
 #include <string.h>
 
-// TODO reincorporate automatic estimation
-
 struct NoiseEstimator {
   uint32_t fft_size;
   uint32_t half_fft_size;
@@ -38,10 +36,10 @@ struct NoiseEstimator {
   LouizouEstimator *adaptive_estimator;
 };
 
-NoiseEstimator *noise_estimation_initialize(const uint32_t fft_size,
-                                            const uint32_t sample_rate,
-                                            NoiseProfile *noise_profile,
-                                            ProcessorParameters *parameters) {
+NoiseEstimatorHandle
+noise_estimation_initialize(const uint32_t fft_size, const uint32_t sample_rate,
+                            NoiseProfile *noise_profile,
+                            ProcessorParameters *parameters) {
   NoiseEstimator *self = (NoiseEstimator *)calloc(1, sizeof(NoiseEstimator));
 
   self->fft_size = fft_size;
@@ -60,13 +58,17 @@ NoiseEstimator *noise_estimation_initialize(const uint32_t fft_size,
   return self;
 }
 
-void noise_estimation_free(NoiseEstimator *self) {
+void noise_estimation_free(NoiseEstimatorHandle instance) {
+  NoiseEstimator *self = (NoiseEstimator *)instance;
+
   spectral_features_free(self->spectral_features);
   louizou_estimator_free(self->adaptive_estimator);
   free(self);
 }
 
-bool is_noise_estimation_available(NoiseEstimator *self) {
+bool is_noise_estimation_available(NoiseEstimatorHandle instance) {
+  NoiseEstimator *self = (NoiseEstimator *)instance;
+
   return self->noise_spectrum_available;
 }
 
@@ -83,7 +85,7 @@ static void get_rolling_mean_noise_spectrum(NoiseEstimator *self,
   }
 }
 
-void noise_estimation_run(SPECTRAL_PROCESSOR instance, float *fft_spectrum) {
+void noise_estimation_run(NoiseEstimatorHandle instance, float *fft_spectrum) {
   NoiseEstimator *self = (NoiseEstimator *)instance;
 
   self->noise_blocks_count++;

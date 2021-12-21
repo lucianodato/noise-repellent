@@ -33,7 +33,7 @@ static void stft_synthesis(StftProcessor *self);
 static void stft_write_results(StftProcessor *self);
 static void stft_transform_and_process(StftProcessor *self,
                                        spectral_processing *spectral_processing,
-                                       SPECTRAL_PROCESSOR spectral_processor);
+                                       void *spectral_processor);
 
 typedef struct {
   float overlap_scale_factor;
@@ -118,7 +118,7 @@ uint32_t get_spectral_processing_size(StftProcessor *self) {
 
 void stft_processor_run(StftProcessor *self,
                         spectral_processing *spectral_processing,
-                        SPECTRAL_PROCESSOR spectral_processor,
+                        void *spectral_processor,
                         const uint32_t number_of_samples, const float *input,
                         float *output) {
   // TODO Use circular buffer instead
@@ -143,7 +143,7 @@ void stft_processor_run(StftProcessor *self,
 
 static void stft_transform_and_process(StftProcessor *self,
                                        spectral_processing *spectral_processing,
-                                       SPECTRAL_PROCESSOR spectral_processor) {
+                                       void *spectral_processor) {
   stft_analysis(self);
 
   spectral_processing(spectral_processor, self->output_fft_buffer);

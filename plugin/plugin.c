@@ -82,7 +82,7 @@ typedef struct {
   URIs uris;
   State state;
 
-  NoiseRepellent *lib_instance;
+  NoiseRepellentHandle lib_instance;
 
   float *enable;
   float *learn_noise;

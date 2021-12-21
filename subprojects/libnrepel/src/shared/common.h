@@ -27,8 +27,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <stdbool.h>
 #include <stdint.h>
 
-typedef void *SPECTRAL_PROCESSOR;
-
 typedef struct {
   bool enable;
   bool learn_noise;

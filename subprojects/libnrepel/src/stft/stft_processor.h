@@ -20,14 +20,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #ifndef STFT_PROCESSOR_H
 #define STFT_PROCESSOR_H
 
-#include "../shared/common.h"
 #include <stdbool.h>
 #include <stdint.h>
 
 typedef struct StftProcessor StftProcessor;
 
 typedef void spectral_processing(
-    SPECTRAL_PROCESSOR spectral_processor,
+    void *spectral_processor,
     float *fft_spectrum); // Generic Spectral Processing function
 
 StftProcessor *stft_processor_initialize();
@@ -35,9 +34,8 @@ void stft_processor_free(StftProcessor *self);
 uint32_t get_stft_latency(StftProcessor *self);
 void stft_processor_run(StftProcessor *self,
                         spectral_processing *spectral_processing,
-                        SPECTRAL_PROCESSOR spectral_processor,
-                        uint32_t number_of_samples, const float *input,
-                        float *output);
+                        void *spectral_processor, uint32_t number_of_samples,
+                        const float *input, float *output);
 uint32_t get_fft_size(StftProcessor *self);
 uint32_t get_overlap_factor(StftProcessor *self);
 uint32_t get_spectral_processing_size(StftProcessor *self);
