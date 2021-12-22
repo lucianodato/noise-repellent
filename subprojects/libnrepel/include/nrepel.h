@@ -23,9 +23,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <stdbool.h>
 #include <stdint.h>
 
-// TODO -> Document interface
-// TODO test main file and increase coverage
-// TODO use size_t for unsigned int where possible
+// TODO Document interface
+// TODO Test main file and increase coverage
 
 typedef void *NoiseRepellentHandle;
 

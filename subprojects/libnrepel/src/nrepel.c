@@ -20,7 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include "../include/nrepel.h"
 #include "denoiser/spectral_denoiser.h"
 #include "noisemodel/noise_estimator.h"
-#include "shared/modules_configurations.h"
+#include "shared/configurations.h"
 #include "shared/noise_profile.h"
 #include "shared/signal_crossfade.h"
 #include "stft/stft_processor.h"

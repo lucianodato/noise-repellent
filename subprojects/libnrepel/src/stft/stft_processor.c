@@ -18,14 +18,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
 #include "stft_processor.h"
+#include "../shared/configurations.h"
 #include "../shared/fft_transform.h"
 #include "../shared/spectral_features.h"
 #include "stft_windows.h"
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
-
-#define OVERLAP_FACTOR 2
 
 static void stft_analysis(StftProcessor *self);
 static void stft_synthesis(StftProcessor *self);

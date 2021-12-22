@@ -18,6 +18,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
 #include "gain_estimator.h"
+#include "../shared/configurations.h"
 #include "../shared/spectral_features.h"
 #include "../shared/spectral_utils.h"
 #include "masking_estimator.h"
@@ -28,14 +29,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
-
-#define GAMMA1 2.f
-#define GAMMA2 0.5f
-
-#define ALPHA_MAX 6.f
-#define ALPHA_MIN 1.f
-#define BETA_MAX 0.02f
-#define BETA_MIN 0.0f
 
 static void wiener_subtraction(GainEstimator *self, const float *spectrum,
                                float *gain_spectrum);

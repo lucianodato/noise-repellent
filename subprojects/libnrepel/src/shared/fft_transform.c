@@ -18,11 +18,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
 #include "fft_transform.h"
+#include "../shared/configurations.h"
 #include <fftw3.h>
 #include <stdlib.h>
 #include <string.h>
-
-#define FFT_SIZE 2048
 
 struct FftTransform {
   fftwf_plan forward;

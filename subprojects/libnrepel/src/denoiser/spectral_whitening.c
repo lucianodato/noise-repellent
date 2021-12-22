@@ -18,13 +18,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
 #include "spectral_whitening.h"
+#include "../shared/configurations.h"
 #include <float.h>
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
-
-#define WHITENING_DECAY_RATE 1000.f
-#define WHITENING_FLOOR 0.02f
 
 struct SpectralWhitening {
   float *residual_max_spectrum;

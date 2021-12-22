@@ -18,7 +18,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
 #include "signal_crossfade.h"
-#include "../shared/modules_configurations.h"
+#include "../shared/configurations.h"
 #include <float.h>
 #include <math.h>
 #include <stdlib.h>

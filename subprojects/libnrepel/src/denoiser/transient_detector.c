@@ -18,12 +18,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
 #include "transient_detector.h"
+#include "../shared/configurations.h"
 #include "../shared/spectral_utils.h"
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
-
-#define TP_UPPER_LIMIT 5.f
 
 struct TransientDetector {
   uint32_t fft_size;
@@ -73,7 +72,7 @@ bool transient_detector_run(TransientDetector *self,
   }
 
   const float adapted_threshold =
-      (TP_UPPER_LIMIT - transient_threshold) * self->rolling_mean;
+      (UPPER_LIMIT - transient_threshold) * self->rolling_mean;
 
   memcpy(self->previous_spectrum, spectrum,
          sizeof(float) * (self->half_fft_size + 1U));

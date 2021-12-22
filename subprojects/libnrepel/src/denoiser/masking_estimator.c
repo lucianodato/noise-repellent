@@ -18,22 +18,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
 #include "masking_estimator.h"
+#include "../shared/configurations.h"
 #include "../shared/spectral_utils.h"
-#include "../shared/spl_spectrum_converter.h"
+#include "spl_spectrum_converter.h"
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
-
-#define N_BARK_BANDS 25
-#define BIAS 0
-#define HIGH_FREQ_BIAS 20.f
-
-#if BIAS
-static const float relative_thresholds[N_BARK_BANDS] = {
-    -16.f, -17.f, -18.f, -19.f, -20.f, -21.f, -22.f, -23.f, -24.f,
-    -25.f, -25.f, -25.f, -25.f, -25.f, -25.f, -24.f, -23.f, -22.f,
-    -19.f, -18.f, -18.f, -18.f, -18.f, -18.f, -18.f};
-#endif
 
 static void compute_spectral_spreading_function(MaskingEstimator *self);
 static void compute_bark_mapping(MaskingEstimator *self);

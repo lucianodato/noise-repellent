@@ -18,17 +18,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
 #include "spl_spectrum_converter.h"
+#include "../shared/configurations.h"
 #include "../shared/fft_transform.h"
-#include "../shared/modules_configurations.h"
 #include "../shared/spectral_features.h"
 #include "../shared/spectral_utils.h"
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
-
-#define AT_SINE_WAVE_FREQ 1000.f
-#define REFERENCE_LEVEL 90.f
-#define S_AMP 1.f
 
 static void generate_sinewave(SplSpectrumConverter *self);
 static void compute_spl_reference_spectrum(SplSpectrumConverter *self);
@@ -81,8 +77,9 @@ void reference_spectrum_free(SplSpectrumConverter *self) {
 
 static void generate_sinewave(SplSpectrumConverter *self) {
   for (uint32_t k = 0; k < self->fft_size; k++) {
-    self->sinewave[k] = S_AMP * sinf((2.f * M_PI * k * AT_SINE_WAVE_FREQ) /
-                                     (float)self->sample_rate);
+    self->sinewave[k] =
+        SINE_AMPLITUDE * sinf((2.f * M_PI * k * REFERENCE_SINE_WAVE_FREQ) /
+                              (float)self->sample_rate);
   }
 }
 

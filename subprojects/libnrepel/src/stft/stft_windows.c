@@ -18,11 +18,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
 #include "stft_windows.h"
+#include "../shared/configurations.h"
 #include "../shared/spectral_utils.h"
 #include <stdlib.h>
-
-#define INPUT_WINDOW_TYPE 3
-#define OUTPUT_WINDOW_TYPE 3
 
 static float get_windows_scale_factor(StftWindows *self,
                                       uint32_t overlap_factor);
