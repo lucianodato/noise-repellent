@@ -28,7 +28,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <string.h>
 
 typedef struct {
-  ProcessorParameters *denoise_parameters;
+  ProcessorParameters denoise_parameters;
   NoiseProfile *noise_profile;
 
   NoiseEstimator *noise_estimator;
@@ -70,7 +70,7 @@ NoiseRepellentHandle nr_initialize(const uint32_t sample_rate) {
   }
 
   self->noise_estimator = noise_estimation_initialize(
-      fft_size, sample_rate, self->noise_profile, self->denoise_parameters);
+      fft_size, sample_rate, self->noise_profile, &self->denoise_parameters);
 
   if (!self->noise_estimator) {
     nr_free(self);
@@ -79,7 +79,7 @@ NoiseRepellentHandle nr_initialize(const uint32_t sample_rate) {
 
   self->spectral_denoiser = spectral_denoiser_initialize(
       self->sample_rate, fft_size, overlap_factor, self->noise_profile,
-      self->denoise_parameters);
+      &self->denoise_parameters);
 
   if (!self->spectral_denoiser) {
     nr_free(self);
@@ -114,7 +114,7 @@ bool nr_process(NoiseRepellentHandle instance, const uint32_t number_of_samples,
 
   NoiseRepellent *self = (NoiseRepellent *)instance;
 
-  if (self->denoise_parameters->learn_noise) {
+  if (self->denoise_parameters.learn_noise) {
     stft_processor_run(self->stft_processor, &noise_estimation_run,
                        self->noise_estimator, number_of_samples, input,
                        output); // estimating noise
@@ -128,7 +128,7 @@ bool nr_process(NoiseRepellentHandle instance, const uint32_t number_of_samples,
   }
 
   signal_crossfade_run(self->soft_bypass, number_of_samples, input, output,
-                       self->denoise_parameters->enable);
+                       self->denoise_parameters.enable);
 
   return true;
 }
@@ -163,15 +163,33 @@ bool nr_load_noise_profile(NoiseRepellentHandle instance,
   return true;
 }
 
+static inline float from_db_to_coefficient(const float gain_db) {
+  return expf(gain_db / 10.f * logf(10.f));
+}
+
 bool nr_load_parameters(NoiseRepellentHandle instance,
-                        ProcessorParameters *parameters) {
-  if (!instance || !parameters) {
+                        ProcessorParameters parameters) {
+  if (!instance) {
     return false;
   }
 
   NoiseRepellent *self = (NoiseRepellent *)instance;
 
-  self->denoise_parameters = parameters;
+  // clang-format off
+  self->denoise_parameters = (ProcessorParameters){
+      .enable = parameters.enable,
+      .auto_learn_noise = parameters.auto_learn_noise,
+      .learn_noise = parameters.learn_noise,
+      .residual_listen = parameters.residual_listen,
+      .masking_ceiling_limit = parameters.masking_ceiling_limit,
+      .reduction_amount =
+          from_db_to_coefficient(parameters.reduction_amount * -1.f),
+      .noise_rescale = parameters.noise_rescale,
+      .release_time = parameters.reduction_amount,
+      .transient_threshold = parameters.transient_threshold,
+      .whitening_factor = parameters.whitening_factor / 100.f,
+  };
+  // clang-format on
 
   return true;
 }

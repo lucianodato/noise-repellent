@@ -52,5 +52,5 @@ bool nr_load_noise_profile(NoiseRepellentHandle instance,
                            const float *restored_profile,
                            uint32_t profile_size);
 bool nr_load_parameters(NoiseRepellentHandle instance,
-                        ProcessorParameters *parameters);
+                        ProcessorParameters parameters);
 #endif

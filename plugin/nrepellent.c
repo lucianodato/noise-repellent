@@ -84,7 +84,7 @@ typedef struct {
   State state;
 
   NoiseRepellentHandle lib_instance;
-  ProcessorParameters *parameters;
+  ProcessorParameters parameters;
 
   float *enable;
   float *learn_noise;
@@ -98,10 +98,6 @@ typedef struct {
   float *noise_rescale;
 
 } NoiseRepellentPlugin;
-
-static inline float from_db_to_coefficient(const float gain_db) {
-  return expf(gain_db / 10.f * logf(10.f));
-}
 
 static void cleanup(LV2_Handle instance) {
   NoiseRepellentPlugin *self = (NoiseRepellentPlugin *)instance;
@@ -197,13 +193,13 @@ static void run(LV2_Handle instance, uint32_t number_of_samples) {
   NoiseRepellentPlugin *self = (NoiseRepellentPlugin *)instance;
 
   // clang-format off
-  self->parameters = &(ProcessorParameters){
+  self->parameters = (ProcessorParameters){
       .enable = (bool)*self->enable,
       .auto_learn_noise = (bool)*self->auto_learn_noise,
       .learn_noise = (bool)*self->learn_noise,
       .residual_listen = (bool)*self->residual_listen,
-      .masking_ceiling_limit = *self->masking_ceiling_limit / 100.f,
-      .reduction_amount = from_db_to_coefficient(*self->reduction_amount * -1.f),
+      .masking_ceiling_limit = *self->masking_ceiling_limit,
+      .reduction_amount = *self->reduction_amount,
       .noise_rescale = *self->noise_rescale,
       .release_time = *self->reduction_amount,
       .transient_threshold = *self->transient_threshold,
