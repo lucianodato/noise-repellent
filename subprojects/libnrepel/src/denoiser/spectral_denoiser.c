@@ -18,6 +18,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
 #include "spectral_denoiser.h"
+#include "../noisemodel/noise_estimator.h"
 #include "../shared/spectral_utils.h"
 #include "gain_estimator.h"
 #include "spectral_whitening.h"
@@ -38,6 +39,7 @@ struct SpectralDenoiser {
   float *residual_spectrum;
   float *denoised_spectrum;
 
+  NoiseEstimator *noise_estimator;
   SpectralWhitening *whitener;
   NoiseProfile *noise_profile;
   GainEstimator *gain_estimation;
@@ -59,6 +61,10 @@ SpectralDenoiserHandle spectral_denoiser_initialize(
   self->gain_spectrum =
       (float *)calloc((self->half_fft_size + 1U), sizeof(float));
   initialize_spectrum_to_ones(self->gain_spectrum, self->half_fft_size + 1U);
+
+  self->noise_estimator = noise_estimation_initialize(
+      self->fft_size, sample_rate, self->noise_profile,
+      self->denoise_parameters);
 
   self->noise_profile = noise_profile;
   self->denoise_parameters = parameters;
@@ -82,6 +88,7 @@ void spectral_denoiser_free(SpectralDenoiserHandle instance) {
 
   gain_estimation_free(self->gain_estimation);
   spectral_whitening_free(self->whitener);
+  noise_estimation_free(self->noise_estimator);
 
   free(self->residual_spectrum);
   free(self->denoised_spectrum);
@@ -97,11 +104,17 @@ bool spectral_denoiser_run(SpectralDenoiserHandle instance,
 
   SpectralDenoiser *self = (SpectralDenoiser *)instance;
 
-  gain_estimation_run(self->gain_estimation, fft_spectrum,
-                      get_noise_profile(self->noise_profile),
-                      self->gain_spectrum);
+  if (self->denoise_parameters->learn_noise ||
+      self->denoise_parameters->auto_learn_noise) {
+    noise_estimation_run(self->noise_estimator, fft_spectrum);
+  }
 
-  denoise_build(self, fft_spectrum);
+  if (is_noise_estimation_available(self->noise_estimator)) {
+    gain_estimation_run(self->gain_estimation, fft_spectrum,
+                        get_noise_profile(self->noise_profile),
+                        self->gain_spectrum);
+    denoise_build(self, fft_spectrum);
+  }
 
   return true;
 }

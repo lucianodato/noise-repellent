@@ -36,10 +36,10 @@ struct NoiseEstimator {
   LouizouEstimator *adaptive_estimator;
 };
 
-NoiseEstimatorHandle
-noise_estimation_initialize(const uint32_t fft_size, const uint32_t sample_rate,
-                            NoiseProfile *noise_profile,
-                            ProcessorParameters *parameters) {
+NoiseEstimator *noise_estimation_initialize(const uint32_t fft_size,
+                                            const uint32_t sample_rate,
+                                            NoiseProfile *noise_profile,
+                                            ProcessorParameters *parameters) {
   NoiseEstimator *self = (NoiseEstimator *)calloc(1U, sizeof(NoiseEstimator));
 
   self->fft_size = fft_size;
@@ -58,17 +58,13 @@ noise_estimation_initialize(const uint32_t fft_size, const uint32_t sample_rate,
   return self;
 }
 
-void noise_estimation_free(NoiseEstimatorHandle instance) {
-  NoiseEstimator *self = (NoiseEstimator *)instance;
-
+void noise_estimation_free(NoiseEstimator *self) {
   spectral_features_free(self->spectral_features);
   louizou_estimator_free(self->adaptive_estimator);
   free(self);
 }
 
-bool is_noise_estimation_available(NoiseEstimatorHandle instance) {
-  NoiseEstimator *self = (NoiseEstimator *)instance;
-
+bool is_noise_estimation_available(NoiseEstimator *self) {
   return self->noise_spectrum_available;
 }
 
@@ -85,12 +81,10 @@ static void get_rolling_mean_noise_spectrum(NoiseEstimator *self,
   }
 }
 
-bool noise_estimation_run(NoiseEstimatorHandle instance, float *fft_spectrum) {
-  if (!instance || !fft_spectrum) {
+bool noise_estimation_run(NoiseEstimator *self, float *fft_spectrum) {
+  if (!self || !fft_spectrum) {
     return false;
   }
-
-  NoiseEstimator *self = (NoiseEstimator *)instance;
 
   self->noise_blocks_count++;
 

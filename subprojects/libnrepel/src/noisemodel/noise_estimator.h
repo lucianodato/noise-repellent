@@ -26,14 +26,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <stdint.h>
 
 typedef struct NoiseEstimator NoiseEstimator;
-typedef void *NoiseEstimatorHandle;
 
-NoiseEstimatorHandle
-noise_estimation_initialize(uint32_t fft_size, uint32_t sample_rate,
-                            NoiseProfile *noise_profile,
-                            ProcessorParameters *parameters);
-void noise_estimation_free(NoiseEstimatorHandle instance);
-bool is_noise_estimation_available(NoiseEstimatorHandle instance);
-bool noise_estimation_run(NoiseEstimatorHandle instance, float *spectrum);
+NoiseEstimator *noise_estimation_initialize(uint32_t fft_size,
+                                            uint32_t sample_rate,
+                                            NoiseProfile *noise_profile,
+                                            ProcessorParameters *parameters);
+void noise_estimation_free(NoiseEstimator *self);
+bool is_noise_estimation_available(NoiseEstimator *self);
+bool noise_estimation_run(NoiseEstimator *self, float *spectrum);
 
 #endif

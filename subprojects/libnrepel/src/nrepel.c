@@ -19,7 +19,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 #include "../include/nrepel.h"
 #include "denoiser/spectral_denoiser.h"
-#include "noisemodel/noise_estimator.h"
 #include "shared/configurations.h"
 #include "shared/noise_profile.h"
 #include "shared/signal_crossfade.h"
@@ -32,7 +31,6 @@ typedef struct {
   ProcessorParameters denoise_parameters;
   NoiseProfile *noise_profile;
 
-  NoiseEstimator *noise_estimator;
   SpectralDenoiser *spectral_denoiser;
   StftProcessor *stft_processor;
   SignalCrossfade *soft_bypass;
@@ -70,14 +68,6 @@ NoiseRepellentHandle nr_initialize(const uint32_t sample_rate) {
     return NULL;
   }
 
-  self->noise_estimator = noise_estimation_initialize(
-      buffer_size, sample_rate, self->noise_profile, &self->denoise_parameters);
-
-  if (!self->noise_estimator) {
-    nr_free(self);
-    return NULL;
-  }
-
   self->spectral_denoiser = spectral_denoiser_initialize(
       self->sample_rate, buffer_size, overlap_factor, self->noise_profile,
       &self->denoise_parameters);
@@ -95,7 +85,6 @@ void nr_free(NoiseRepellentHandle instance) {
 
   signal_crossfade_free(self->soft_bypass);
   noise_profile_free(self->noise_profile);
-  noise_estimation_free(self->noise_estimator);
   spectral_denoiser_free(self->spectral_denoiser);
   stft_processor_free(self->stft_processor);
   free(self);
@@ -115,19 +104,8 @@ bool nr_process(NoiseRepellentHandle instance, const uint32_t number_of_samples,
 
   NoiseRepellent *self = (NoiseRepellent *)instance;
 
-  if (self->denoise_parameters.learn_noise &&
-      !self->denoise_parameters.auto_learn_noise) {
-    stft_processor_run(self->stft_processor, &noise_estimation_run,
-                       self->noise_estimator, number_of_samples, input,
-                       output); // manual noise estimation
-  } else if (is_noise_estimation_available(self->noise_estimator)) {
-    stft_processor_run(self->stft_processor, &spectral_denoiser_run,
-                       self->spectral_denoiser, number_of_samples, input,
-                       output); // denoising
-  } else {
-    memcpy(output, input,
-           sizeof(float) * number_of_samples); // bypassed
-  }
+  stft_processor_run(self->stft_processor, &spectral_denoiser_run,
+                     self->spectral_denoiser, number_of_samples, input, output);
 
   signal_crossfade_run(self->soft_bypass, number_of_samples, input, output,
                        self->denoise_parameters.enable);
