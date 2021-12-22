@@ -113,7 +113,7 @@ bool stft_processor_run(StftProcessor *self,
     return false;
   }
 
-  for (uint32_t k = 0; k < number_of_samples; k++) {
+  for (uint32_t k = 0U; k < number_of_samples; k++) {
     self->stft_buffer.in_fifo[self->stft_buffer.read_position] = input[k];
     output[k] = self->stft_buffer.out_fifo[self->stft_buffer.read_position -
                                            self->stft_buffer.input_latency];
@@ -156,7 +156,7 @@ static void stft_synthesis(StftProcessor *self) {
 
 static void stft_overlap_add(StftProcessor *self) {
 
-  for (uint32_t k = 0; k < self->stft_buffer.buffer_size; k++) {
+  for (uint32_t k = 0U; k < self->stft_buffer.buffer_size; k++) {
     self->stft_buffer.output_accumulator[k] +=
         get_fft_input_buffer(self->fft_transform)[k];
   }

@@ -48,7 +48,7 @@ bool get_fft_window(float *window, const uint32_t fft_size,
     return false;
   }
 
-  for (uint32_t k = 0; k < fft_size; k++) {
+  for (uint32_t k = 0U; k < fft_size; k++) {
     switch (window_type) {
     case BLACKMAN_WINDOW:
       window[k] = blackman(k, fft_size);
@@ -73,7 +73,7 @@ bool initialize_spectrum_to_ones(float *spectrum, uint32_t spectrum_size) {
     return false;
   }
 
-  for (uint32_t i = 0; i < spectrum_size; i++) {
+  for (uint32_t i = 0U; i < spectrum_size; i++) {
     spectrum[i] = 1.f;
   }
 
@@ -86,7 +86,7 @@ float max_spectral_value(const float *spectrum, const uint32_t spectrum_size) {
   }
 
   float max = spectrum[0];
-  for (uint32_t k = 1; k <= spectrum_size; k++) {
+  for (uint32_t k = 1U; k <= spectrum_size; k++) {
     max = fmaxf(spectrum[k], max);
   }
   return max;
@@ -98,7 +98,7 @@ float min_spectral_value(const float *spectrum, const uint32_t spectrum_size) {
   }
 
   float min = spectrum[0];
-  for (uint32_t k = 1; k <= spectrum_size; k++) {
+  for (uint32_t k = 1U; k <= spectrum_size; k++) {
     min = fminf(spectrum[k], min);
   }
   return min;
@@ -112,9 +112,9 @@ bool naive_matrix_to_vector_spectral_convolution(const float *matrix_spectum,
     return false;
   }
 
-  for (uint32_t i = 0; i < spectrum_size; i++) {
+  for (uint32_t i = 0U; i < spectrum_size; i++) {
     out_spectrum[i] = 0.f;
-    for (uint32_t j = 0; j < spectrum_size; j++) {
+    for (uint32_t j = 0U; j < spectrum_size; j++) {
       out_spectrum[i] += matrix_spectum[i * spectrum_size + j] * spectrum[j];
     }
   }
@@ -141,7 +141,7 @@ float spectral_flux(const float *spectrum, const float *previous_spectrum,
 
   float spectral_flux = 0.f;
 
-  for (uint32_t i = 0; i < spectrum_size; i++) {
+  for (uint32_t i = 0U; i < spectrum_size; i++) {
     const float temp = sqrtf(spectrum[i]) - sqrtf(previous_spectrum[i]);
     spectral_flux += (temp + fabsf(temp)) / 2.f;
   }

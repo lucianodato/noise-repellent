@@ -123,7 +123,7 @@ bool compute_masking_thresholds(MaskingEstimator *self, const float *spectrum,
       self->spectral_spreading_function, self->bark_spectrum,
       self->spreaded_spectrum, N_BARK_BANDS);
 
-  for (uint32_t j = 0; j < N_BARK_BANDS; j++) {
+  for (uint32_t j = 0U; j < N_BARK_BANDS; j++) {
 
     const float tonality_factor = compute_tonality_factor(self, spectrum, j);
 
@@ -158,7 +158,7 @@ bool compute_masking_thresholds(MaskingEstimator *self, const float *spectrum,
 
   convert_spectrum_to_dbspl(self->reference_spectrum, masking_thresholds);
 
-  for (uint32_t k = 1; k <= self->half_fft_size; k++) {
+  for (uint32_t k = 1U; k <= self->half_fft_size; k++) {
     masking_thresholds[k] =
         fmaxf(masking_thresholds[k], self->absolute_thresholds[k]);
   }
@@ -167,7 +167,7 @@ bool compute_masking_thresholds(MaskingEstimator *self, const float *spectrum,
 }
 
 static void compute_bark_mapping(MaskingEstimator *self) {
-  for (uint32_t k = 1; k <= self->half_fft_size; k++) {
+  for (uint32_t k = 1U; k <= self->half_fft_size; k++) {
     const float frequency =
         fft_bin_to_freq(k, self->sample_rate, self->half_fft_size);
     self->bark_z_spectrum[k] = 1.f + 13.f * atanf(0.00076f * frequency) +
@@ -176,7 +176,7 @@ static void compute_bark_mapping(MaskingEstimator *self) {
 }
 
 static void compute_absolute_thresholds(MaskingEstimator *self) {
-  for (uint32_t k = 1; k <= self->half_fft_size; k++) {
+  for (uint32_t k = 1U; k <= self->half_fft_size; k++) {
 
     const float frequency =
         fft_bin_to_freq(k, self->sample_rate, self->half_fft_size);
@@ -188,8 +188,8 @@ static void compute_absolute_thresholds(MaskingEstimator *self) {
 }
 
 static void compute_spectral_spreading_function(MaskingEstimator *self) {
-  for (uint32_t i = 0; i < N_BARK_BANDS; i++) {
-    for (uint32_t j = 0; j < N_BARK_BANDS; j++) {
+  for (uint32_t i = 0U; i < N_BARK_BANDS; i++) {
+    for (uint32_t j = 0U; j < N_BARK_BANDS; j++) {
       const float y = (i + 1) - (j + 1);
 
       self->spectral_spreading_function[i * N_BARK_BANDS + j] =
@@ -206,7 +206,7 @@ static void compute_bark_spectrum(MaskingEstimator *self,
                                   const float *spectrum) {
   uint32_t last_position = 0U;
 
-  for (uint32_t j = 0; j < N_BARK_BANDS; j++) {
+  for (uint32_t j = 0U; j < N_BARK_BANDS; j++) {
     uint32_t counter = 0U;
     if (j == 0) {
       counter = 1U;

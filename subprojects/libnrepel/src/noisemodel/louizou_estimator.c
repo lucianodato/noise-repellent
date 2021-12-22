@@ -104,7 +104,7 @@ bool louizou_estimator_run(LouizouEstimator *self, const float *spectrum,
     return false;
   }
 
-  for (uint32_t k = 0; k < self->noise_spectrum_size; k++) {
+  for (uint32_t k = 0U; k < self->noise_spectrum_size; k++) {
     self->current->smoothed_power_spectrum[k] =
         N_SMOOTH * self->previous->smoothed_power_spectrum[k] +
         (1.f - N_SMOOTH) * spectrum[k];
@@ -184,7 +184,7 @@ static void compute_auto_thresholds(LouizouEstimator *self,
                                     const uint32_t fft_size) {
   int LF = freq_to_fft_bin(CROSSOVER_POINT1, sample_rate, fft_size);
   int MF = freq_to_fft_bin(CROSSOVER_POINT2, sample_rate, fft_size);
-  for (int k = 0; k < noise_spectrum_size; k++) {
+  for (int k = 0U; k < noise_spectrum_size; k++) {
     if (k <= LF) {
       self->auto_thresholds[k] = BAND_1_GAIN;
     }

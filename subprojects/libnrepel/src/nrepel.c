@@ -115,10 +115,11 @@ bool nr_process(NoiseRepellentHandle instance, const uint32_t number_of_samples,
 
   NoiseRepellent *self = (NoiseRepellent *)instance;
 
-  if (self->denoise_parameters.learn_noise) {
+  if (self->denoise_parameters.learn_noise &&
+      !self->denoise_parameters.auto_learn_noise) {
     stft_processor_run(self->stft_processor, &noise_estimation_run,
                        self->noise_estimator, number_of_samples, input,
-                       output); // estimating noise
+                       output); // manual noise estimation
   } else if (is_noise_estimation_available(self->noise_estimator)) {
     stft_processor_run(self->stft_processor, &spectral_denoiser_run,
                        self->spectral_denoiser, number_of_samples, input,

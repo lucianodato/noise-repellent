@@ -70,7 +70,7 @@ bool compute_power_spectrum(SpectralFeatures *self, const float *fft_spectrum,
 
   self->power_spectrum[0] = real_bin * real_bin;
 
-  for (uint32_t k = 1; k < self->spectral_size; k++) {
+  for (uint32_t k = 1U; k < self->spectral_size; k++) {
     float power = 0.f;
 
     real_bin = fft_spectrum[k];
@@ -99,7 +99,7 @@ bool compute_magnitude_spectrum(SpectralFeatures *self,
 
   self->magnitude_spectrum[0] = real_bin;
 
-  for (uint32_t k = 1; k < self->spectral_size; k++) {
+  for (uint32_t k = 1U; k < self->spectral_size; k++) {
     float magnitude = 0.f;
 
     real_bin = fft_spectrum[k];
@@ -127,7 +127,7 @@ bool compute_phase_spectrum(SpectralFeatures *self, const float *fft_spectrum,
   float real_bin = fft_spectrum[0];
   self->phase_spectrum[0] = atan2f(real_bin, 0.f);
 
-  for (uint32_t k = 1; k < self->spectral_size; k++) {
+  for (uint32_t k = 1U; k < self->spectral_size; k++) {
     float phase = 0.f;
 
     real_bin = fft_spectrum[k];

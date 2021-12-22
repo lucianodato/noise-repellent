@@ -98,7 +98,7 @@ static void get_release_coefficient(SpectralSmoother *self,
 }
 
 static void apply_time_envelope(SpectralSmoother *self) {
-  for (uint32_t k = 1; k <= self->half_fft_size; k++) {
+  for (uint32_t k = 1U; k <= self->half_fft_size; k++) {
     if (self->smoothed_spectrum[k] > self->smoothed_spectrum_previous[k]) {
       self->smoothed_spectrum[k] =
           self->release_coefficient * self->smoothed_spectrum_previous[k] +

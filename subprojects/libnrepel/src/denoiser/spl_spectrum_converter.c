@@ -76,7 +76,7 @@ void reference_spectrum_free(SplSpectrumConverter *self) {
 }
 
 static void generate_sinewave(SplSpectrumConverter *self) {
-  for (uint32_t k = 0; k < self->fft_size; k++) {
+  for (uint32_t k = 0U; k < self->fft_size; k++) {
     self->sinewave[k] =
         SINE_AMPLITUDE * sinf((2.f * M_PI * k * REFERENCE_SINE_WAVE_FREQ) /
                               (float)self->sample_rate);
@@ -84,7 +84,7 @@ static void generate_sinewave(SplSpectrumConverter *self) {
 }
 
 static void compute_spl_reference_spectrum(SplSpectrumConverter *self) {
-  for (uint32_t k = 0; k < self->fft_size; k++) {
+  for (uint32_t k = 0U; k < self->fft_size; k++) {
     get_fft_input_buffer(self->fft_transform)[k] =
         self->sinewave[k] * self->window[k];
   }
@@ -96,7 +96,7 @@ static void compute_spl_reference_spectrum(SplSpectrumConverter *self) {
                          self->fft_size);
   float *reference_spectrum = get_power_spectrum(self->spectral_features);
 
-  for (uint32_t k = 1; k <= self->half_fft_size; k++) {
+  for (uint32_t k = 1U; k <= self->half_fft_size; k++) {
     self->spl_reference_values[k] =
         REFERENCE_LEVEL - 10.f * log10f(reference_spectrum[k]);
   }
@@ -106,7 +106,7 @@ bool convert_spectrum_to_dbspl(SplSpectrumConverter *self, float *spectrum) {
   if (!self || !spectrum) {
     return false;
   }
-  for (uint32_t k = 1; k <= self->half_fft_size; k++) {
+  for (uint32_t k = 1U; k <= self->half_fft_size; k++) {
     spectrum[k] += self->spl_reference_values[k];
   }
 

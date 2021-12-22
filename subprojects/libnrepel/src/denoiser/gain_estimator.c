@@ -135,7 +135,7 @@ bool gain_estimation_run(GainEstimator *self, const float *signal_spectrum,
     initialize_spectrum_to_ones(self->alpha, self->half_fft_size + 1U);
   }
 
-  for (uint32_t k = 1; k <= self->half_fft_size; k++) {
+  for (uint32_t k = 1U; k <= self->half_fft_size; k++) {
     self->noise_profile[k] = noise_profile[k] *
                              self->denoise_parameters->noise_rescale *
                              self->alpha[k];
@@ -157,7 +157,7 @@ bool gain_estimation_run(GainEstimator *self, const float *signal_spectrum,
 
 static void wiener_subtraction(GainEstimator *self, const float *spectrum,
                                float *gain_spectrum) {
-  for (uint32_t k = 1; k <= self->half_fft_size; k++) {
+  for (uint32_t k = 1U; k <= self->half_fft_size; k++) {
     if (self->noise_profile[k] > FLT_MIN) {
       if (spectrum[k] > self->noise_profile[k]) {
         gain_spectrum[k] = (spectrum[k] - self->noise_profile[k]) / spectrum[k];
@@ -172,7 +172,7 @@ static void wiener_subtraction(GainEstimator *self, const float *spectrum,
 
 static void spectral_gating(GainEstimator *self, const float *spectrum,
                             float *gain_spectrum) {
-  for (uint32_t k = 1; k <= self->half_fft_size; k++) {
+  for (uint32_t k = 1U; k <= self->half_fft_size; k++) {
     if (self->noise_profile[k] > FLT_MIN) {
       if (spectrum[k] >= self->noise_profile[k]) {
         gain_spectrum[k] = 1.f;
@@ -189,7 +189,7 @@ static void compute_alpha_and_beta(GainEstimator *self, const float *spectrum,
                                    const float *noise_profile,
                                    const float masking_ceiling_limit,
                                    const float masking_floor_limit) {
-  for (uint32_t k = 1; k <= self->half_fft_size; k++) {
+  for (uint32_t k = 1U; k <= self->half_fft_size; k++) {
     self->clean_signal_estimation[k] =
         fmaxf(spectrum[k] - noise_profile[k], FLT_MIN);
   }
@@ -202,7 +202,7 @@ static void compute_alpha_and_beta(GainEstimator *self, const float *spectrum,
   float min_masked_tmp =
       min_spectral_value(self->masking_thresholds, self->half_fft_size);
 
-  for (uint32_t k = 1; k <= self->half_fft_size; k++) {
+  for (uint32_t k = 1U; k <= self->half_fft_size; k++) {
     if (self->masking_thresholds[k] == max_masked_tmp) {
       self->alpha[k] = ALPHA_MIN;
       self->beta[k] = BETA_MIN;

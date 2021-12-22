@@ -75,7 +75,7 @@ bool is_noise_estimation_available(NoiseEstimatorHandle instance) {
 static void get_rolling_mean_noise_spectrum(NoiseEstimator *self,
                                             const float *spectrum,
                                             float *noise_spectrum) {
-  for (uint32_t k = 1; k <= self->half_fft_size; k++) {
+  for (uint32_t k = 1U; k <= self->half_fft_size; k++) {
     if (self->noise_blocks_count <= 1U) {
       noise_spectrum[k] = spectrum[k];
     } else {

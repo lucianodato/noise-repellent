@@ -68,7 +68,7 @@ static float get_windows_scale_factor(StftWindows *self,
     return 0.f;
   }
   float sum = 0.f;
-  for (uint32_t i = 0; i < self->window_size; i++) {
+  for (uint32_t i = 0U; i < self->window_size; i++) {
     sum += self->input_window[i] * self->output_window[i];
   }
 
@@ -81,7 +81,7 @@ bool apply_window(StftWindows *self, float *frame, const uint32_t frame_size,
     return false;
   }
 
-  for (uint32_t i = 0; i < self->window_size; i++) {
+  for (uint32_t i = 0U; i < self->window_size; i++) {
     switch (place) {
     case INPUT_WINDOW:
       frame[i] *= self->input_window[i];

@@ -72,7 +72,7 @@ bool spectral_whitening_run(SpectralWhitening *self,
 
   self->whitening_window_count++;
 
-  for (uint32_t k = 1; k <= self->half_fft_size; k++) {
+  for (uint32_t k = 1U; k <= self->half_fft_size; k++) {
     if (self->whitening_window_count > 1U) {
       self->residual_max_spectrum[k] =
           fmaxf(fmaxf(fft_spectrum[k], WHITENING_FLOOR),
@@ -82,7 +82,7 @@ bool spectral_whitening_run(SpectralWhitening *self,
     }
   }
 
-  for (uint32_t k = 1; k <= self->half_fft_size; k++) {
+  for (uint32_t k = 1U; k <= self->half_fft_size; k++) {
     if (fft_spectrum[k] > FLT_MIN) {
       self->whitened_residual_spectrum[k] =
           fft_spectrum[k] / self->residual_max_spectrum[k];

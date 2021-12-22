@@ -24,7 +24,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define M_PI (3.14159265358979323846)
 #endif
 
-// Stft configurations
+/* --- Stft configurations --- */
 
 // Fft configurations
 #define FFT_SIZE 2048
@@ -36,9 +36,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define INPUT_WINDOW_TYPE 3
 #define OUTPUT_WINDOW_TYPE 3
 
-// ------------------------
-
-// Denoiser configurations
+/* --- Denoiser configurations --- */
 
 // Transient protection
 #define UPPER_LIMIT 5.f
@@ -75,6 +73,4 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define BETA_MAX 0.02f
 #define BETA_MIN 0.0f
 
-// ------------------------
-
-#endif
+#endif // ifndef
