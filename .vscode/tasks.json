@@ -72,6 +72,21 @@
             ]
         },
         {
+            "label": "ValgrindLv2Apply",
+            "type": "shell",
+            "command": "valgrind",
+            "args": [
+                "--leak-check=full",
+                "--track-origins=yes",
+                "lv2apply",
+                "-i",
+                "~/Music/noise.wav",
+                "-o",
+                "~/Music/denoised.wav",
+                "https://github.com/lucianodato/noise-repellent"
+            ]
+        },
+        {
             "label": "DebugPlugin",
             "dependsOn": [
                 "CleanBuildFolder",
