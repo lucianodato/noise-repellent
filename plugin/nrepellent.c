@@ -24,9 +24,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include "lv2/log/logger.h"
 #include "lv2/state/state.h"
 #include "lv2/urid/urid.h"
-#include <math.h>
 #include <stdlib.h>
-#include <string.h>
 
 #define NOISEREPELLENT_URI "https://github.com/lucianodato/noise-repellent"
 
