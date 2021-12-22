@@ -51,17 +51,17 @@ struct SplSpectrumConverter {
 SplSpectrumConverter *reference_spectrum_initialize(uint32_t fft_size,
                                                     uint32_t sample_rate) {
   SplSpectrumConverter *self =
-      (SplSpectrumConverter *)calloc(1, sizeof(SplSpectrumConverter));
+      (SplSpectrumConverter *)calloc(1U, sizeof(SplSpectrumConverter));
 
   self->fft_size = fft_size;
-  self->half_fft_size = self->fft_size / 2;
+  self->half_fft_size = self->fft_size / 2U;
   self->sample_rate = self->sample_rate;
 
   self->input_fft_buffer_at = (float *)calloc((self->fft_size), sizeof(float));
   self->output_fft_buffer_at = (float *)calloc((self->fft_size), sizeof(float));
 
   self->spl_reference_values =
-      (float *)calloc((self->half_fft_size + 1), sizeof(float));
+      (float *)calloc((self->half_fft_size + 1U), sizeof(float));
 
   self->sinewave = (float *)calloc(self->fft_size, sizeof(float));
   self->window = (float *)calloc(self->fft_size, sizeof(float));
@@ -69,7 +69,7 @@ SplSpectrumConverter *reference_spectrum_initialize(uint32_t fft_size,
       fftwf_plan_r2r_1d(self->fft_size, self->input_fft_buffer_at,
                         self->output_fft_buffer_at, FFTW_R2HC, FFTW_ESTIMATE);
   self->spectral_features =
-      spectral_features_initialize(self->half_fft_size + 1);
+      spectral_features_initialize(self->half_fft_size + 1U);
 
   generate_sinewave(self);
   get_fft_window(self->window, self->fft_size, HANN_WINDOW);

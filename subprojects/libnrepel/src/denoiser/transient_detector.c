@@ -32,20 +32,20 @@ struct TransientDetector {
   float *previous_spectrum;
   float rolling_mean;
   bool transient_present;
-  float window_count;
+  uint32_t window_count;
 };
 
 TransientDetector *transient_detector_initialize(const uint32_t fft_size) {
   TransientDetector *self =
-      (TransientDetector *)calloc(1, sizeof(TransientDetector));
+      (TransientDetector *)calloc(1U, sizeof(TransientDetector));
 
   self->fft_size = fft_size;
-  self->half_fft_size = self->fft_size / 2;
+  self->half_fft_size = self->fft_size / 2U;
 
   self->previous_spectrum =
-      (float *)calloc((self->half_fft_size + 1), sizeof(float));
+      (float *)calloc((self->half_fft_size + 1U), sizeof(float));
 
-  self->window_count = 0.f;
+  self->window_count = 0U;
   self->rolling_mean = 0.f;
   self->transient_present = false;
 
@@ -60,14 +60,14 @@ void transient_detector_free(TransientDetector *self) {
 bool transient_detector_run(TransientDetector *self,
                             const float transient_threshold,
                             const float *spectrum) {
-  const float reduction_function =
-      spectral_flux(spectrum, self->previous_spectrum, self->half_fft_size + 1);
+  const float reduction_function = spectral_flux(
+      spectrum, self->previous_spectrum, self->half_fft_size + 1U);
 
-  self->window_count += 1.f;
+  self->window_count += 1U;
 
-  if (self->window_count > 1.f) {
+  if (self->window_count > 1U) {
     self->rolling_mean +=
-        ((reduction_function - self->rolling_mean) / self->window_count);
+        ((reduction_function - self->rolling_mean) / (float)self->window_count);
   } else {
     self->rolling_mean = reduction_function;
   }
@@ -76,7 +76,7 @@ bool transient_detector_run(TransientDetector *self,
       (TP_UPPER_LIMIT - transient_threshold) * self->rolling_mean;
 
   memcpy(self->previous_spectrum, spectrum,
-         sizeof(float) * (self->half_fft_size + 1));
+         sizeof(float) * (self->half_fft_size + 1U));
 
   if (reduction_function > adapted_threshold) {
     return true;

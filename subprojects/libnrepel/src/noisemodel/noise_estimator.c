@@ -40,20 +40,20 @@ NoiseEstimatorHandle
 noise_estimation_initialize(const uint32_t fft_size, const uint32_t sample_rate,
                             NoiseProfile *noise_profile,
                             ProcessorParameters *parameters) {
-  NoiseEstimator *self = (NoiseEstimator *)calloc(1, sizeof(NoiseEstimator));
+  NoiseEstimator *self = (NoiseEstimator *)calloc(1U, sizeof(NoiseEstimator));
 
   self->fft_size = fft_size;
-  self->half_fft_size = self->fft_size / 2;
-  self->noise_blocks_count = 0;
+  self->half_fft_size = self->fft_size / 2U;
+  self->noise_blocks_count = 0U;
   self->noise_spectrum_available = false;
 
   self->noise_profile = noise_profile;
   self->parameters = parameters;
 
   self->spectral_features =
-      spectral_features_initialize(self->half_fft_size + 1);
+      spectral_features_initialize(self->half_fft_size + 1U);
   self->adaptive_estimator = louizou_estimator_initialize(
-      self->half_fft_size + 1, sample_rate, fft_size);
+      self->half_fft_size + 1U, sample_rate, fft_size);
 
   return self;
 }
@@ -76,7 +76,7 @@ static void get_rolling_mean_noise_spectrum(NoiseEstimator *self,
                                             const float *spectrum,
                                             float *noise_spectrum) {
   for (uint32_t k = 1; k <= self->half_fft_size; k++) {
-    if (self->noise_blocks_count <= 1.f) {
+    if (self->noise_blocks_count <= 1U) {
       noise_spectrum[k] = spectrum[k];
     } else {
       noise_spectrum[k] +=

@@ -49,16 +49,16 @@ SpectralDenoiserHandle spectral_denoiser_initialize(
     const uint32_t overlap_factor, NoiseProfile *noise_profile,
     ProcessorParameters *parameters) {
   SpectralDenoiser *self =
-      (SpectralDenoiser *)calloc(1, sizeof(SpectralDenoiser));
+      (SpectralDenoiser *)calloc(1U, sizeof(SpectralDenoiser));
 
   self->fft_size = fft_size;
-  self->half_fft_size = self->fft_size / 2;
+  self->half_fft_size = self->fft_size / 2U;
   self->hop = self->fft_size / overlap_factor;
   self->sample_rate = sample_rate;
 
   self->gain_spectrum =
-      (float *)calloc((self->half_fft_size + 1), sizeof(float));
-  initialize_spectrum_to_ones(self->gain_spectrum, self->half_fft_size + 1);
+      (float *)calloc((self->half_fft_size + 1U), sizeof(float));
+  initialize_spectrum_to_ones(self->gain_spectrum, self->half_fft_size + 1U);
 
   self->noise_profile = noise_profile;
   self->denoise_parameters = parameters;
@@ -67,9 +67,9 @@ SpectralDenoiserHandle spectral_denoiser_initialize(
       self->fft_size, self->sample_rate, self->hop, self->denoise_parameters);
 
   self->residual_spectrum =
-      (float *)calloc((self->half_fft_size + 1), sizeof(float));
+      (float *)calloc((self->half_fft_size + 1U), sizeof(float));
   self->denoised_spectrum =
-      (float *)calloc((self->half_fft_size + 1), sizeof(float));
+      (float *)calloc((self->half_fft_size + 1U), sizeof(float));
 
   self->whitener = spectral_whitening_initialize(self->fft_size,
                                                  self->sample_rate, self->hop);

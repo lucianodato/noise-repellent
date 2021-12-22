@@ -27,7 +27,7 @@ struct NoiseProfile {
 };
 
 NoiseProfile *noise_profile_initialize(const uint32_t size) {
-  NoiseProfile *self = (NoiseProfile *)calloc(1, sizeof(NoiseProfile));
+  NoiseProfile *self = (NoiseProfile *)calloc(1U, sizeof(NoiseProfile));
   self->noise_profile_size = size;
   self->noise_profile = (float *)calloc(size, sizeof(float));
 

@@ -31,7 +31,7 @@ struct SpectralFeatures {
 
 SpectralFeatures *spectral_features_initialize(const uint32_t spectral_size) {
   SpectralFeatures *self =
-      (SpectralFeatures *)calloc(1, sizeof(SpectralFeatures));
+      (SpectralFeatures *)calloc(1U, sizeof(SpectralFeatures));
 
   self->spectral_size = spectral_size;
 

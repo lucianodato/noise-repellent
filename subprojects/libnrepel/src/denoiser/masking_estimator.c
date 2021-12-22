@@ -68,16 +68,16 @@ MaskingEstimator *masking_estimation_initialize(const uint32_t fft_size,
                                                 const uint32_t sample_rate) {
 
   MaskingEstimator *self =
-      (MaskingEstimator *)calloc(1, sizeof(MaskingEstimator));
+      (MaskingEstimator *)calloc(1U, sizeof(MaskingEstimator));
 
   self->fft_size = fft_size;
-  self->half_fft_size = self->fft_size / 2;
+  self->half_fft_size = self->fft_size / 2U;
   self->sample_rate = sample_rate;
 
   self->absolute_thresholds =
-      (float *)calloc((self->half_fft_size + 1), sizeof(float));
+      (float *)calloc((self->half_fft_size + 1U), sizeof(float));
   self->bark_z_spectrum =
-      (float *)calloc((self->half_fft_size + 1), sizeof(float));
+      (float *)calloc((self->half_fft_size + 1U), sizeof(float));
 
   self->spectral_spreading_function =
       (float *)calloc((N_BARK_BANDS * N_BARK_BANDS), sizeof(float));
@@ -154,9 +154,9 @@ bool compute_masking_thresholds(MaskingEstimator *self, const float *spectrum,
                        (self->masking_offset[j] / 10.f)) -
         (10.f * log10f(self->spreaded_unity_gain_bark_spectrum[j]));
 
-    float start_pos = 0.f;
+    uint32_t start_pos = 0U;
     if (j == 0) {
-      start_pos = 0;
+      start_pos = 0U;
     } else {
       start_pos = self->intermediate_band_bins[j - 1];
     }
@@ -215,12 +215,12 @@ static void compute_spectral_spreading_function(MaskingEstimator *self) {
 
 static void compute_bark_spectrum(MaskingEstimator *self,
                                   const float *spectrum) {
-  uint32_t last_position = 0;
+  uint32_t last_position = 0U;
 
   for (uint32_t j = 0; j < N_BARK_BANDS; j++) {
-    uint32_t counter = 0;
+    uint32_t counter = 0U;
     if (j == 0) {
-      counter = 1;
+      counter = 1U;
     }
 
     self->bark_spectrum[j] = 0.f;
@@ -241,8 +241,8 @@ static float compute_tonality_factor(MaskingEstimator *self,
                                      const float *spectrum, uint32_t band) {
   float sum_bins = 0.f;
   float sum_log_bins = 0.f;
-  uint32_t start_pos = 0;
-  uint32_t end_pos = 0;
+  uint32_t start_pos = 0U;
+  uint32_t end_pos = 0U;
 
   if (band == 0) {
     start_pos = band;

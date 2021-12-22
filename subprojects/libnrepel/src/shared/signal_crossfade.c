@@ -31,7 +31,8 @@ struct SignalCrossfade {
 };
 
 SignalCrossfade *signal_crossfade_initialize(const uint32_t sample_rate) {
-  SignalCrossfade *self = (SignalCrossfade *)calloc(1, sizeof(SignalCrossfade));
+  SignalCrossfade *self =
+      (SignalCrossfade *)calloc(1U, sizeof(SignalCrossfade));
 
   self->tau = (1.f - expf(-2.f * M_PI * 25.f * 64.f / (float)sample_rate));
   self->wet_dry = 0.f;

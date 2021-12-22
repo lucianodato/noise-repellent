@@ -72,22 +72,22 @@ GainEstimator *gain_estimation_initialize(const uint32_t fft_size,
                                           const uint32_t sample_rate,
                                           const uint32_t hop,
                                           ProcessorParameters *parameters) {
-  GainEstimator *self = (GainEstimator *)calloc(1, sizeof(GainEstimator));
+  GainEstimator *self = (GainEstimator *)calloc(1U, sizeof(GainEstimator));
 
   self->fft_size = fft_size;
-  self->half_fft_size = self->fft_size / 2;
+  self->half_fft_size = self->fft_size / 2U;
   self->sample_rate = sample_rate;
   self->hop = hop;
 
   self->noise_profile =
-      (float *)calloc((self->half_fft_size + 1), sizeof(float));
-  self->alpha = (float *)calloc((self->half_fft_size + 1), sizeof(float));
-  initialize_spectrum_to_ones(self->alpha, self->half_fft_size + 1);
-  self->beta = (float *)calloc((self->half_fft_size + 1), sizeof(float));
+      (float *)calloc((self->half_fft_size + 1U), sizeof(float));
+  self->alpha = (float *)calloc((self->half_fft_size + 1U), sizeof(float));
+  initialize_spectrum_to_ones(self->alpha, self->half_fft_size + 1U);
+  self->beta = (float *)calloc((self->half_fft_size + 1U), sizeof(float));
   self->masking_thresholds =
-      (float *)calloc((self->half_fft_size + 1), sizeof(float));
+      (float *)calloc((self->half_fft_size + 1U), sizeof(float));
   self->clean_signal_estimation =
-      (float *)calloc((self->half_fft_size + 1), sizeof(float));
+      (float *)calloc((self->half_fft_size + 1U), sizeof(float));
 
   self->masking_estimation =
       masking_estimation_initialize(self->fft_size, self->sample_rate);
@@ -96,7 +96,7 @@ GainEstimator *gain_estimation_initialize(const uint32_t fft_size,
       self->fft_size, self->sample_rate, self->hop);
 
   self->spectral_features =
-      spectral_features_initialize(self->half_fft_size + 1);
+      spectral_features_initialize(self->half_fft_size + 1U);
 
   self->denoise_parameters = parameters;
 
@@ -139,7 +139,7 @@ bool gain_estimation_run(GainEstimator *self, const float *signal_spectrum,
                            self->denoise_parameters->masking_ceiling_limit,
                            0.f);
   } else {
-    initialize_spectrum_to_ones(self->alpha, self->half_fft_size + 1);
+    initialize_spectrum_to_ones(self->alpha, self->half_fft_size + 1U);
   }
 
   for (uint32_t k = 1; k <= self->half_fft_size; k++) {

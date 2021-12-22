@@ -30,16 +30,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 static void stft_analysis(StftProcessor *self);
 static void stft_synthesis(StftProcessor *self);
-static void stft_write_results(StftProcessor *self);
-static void stft_transform_and_process(StftProcessor *self,
-                                       spectral_processing *spectral_processing,
-                                       void *spectral_processor);
+static void stft_overlap_add(StftProcessor *self);
+static void stft_update_buffers(StftProcessor *self);
 
 typedef struct {
   float overlap_scale_factor;
   uint32_t input_latency;
   uint32_t read_position;
-  uint32_t remaining_samples;
   uint32_t hop;
   uint32_t overlap_factor;
   float *in_fifo;
@@ -48,8 +45,9 @@ typedef struct {
 } SamplesBuffer;
 
 struct StftProcessor {
+  // TODO create a wrapper for the library separated in fft and ifft so fftw3
+  // can easily be replaced if needed
   uint32_t fft_size;
-  uint32_t half_fft_size;
   fftwf_plan forward;
   fftwf_plan backward;
 
@@ -61,10 +59,9 @@ struct StftProcessor {
 };
 
 StftProcessor *stft_processor_initialize() {
-  StftProcessor *self = (StftProcessor *)calloc(1, sizeof(StftProcessor));
+  StftProcessor *self = (StftProcessor *)calloc(1U, sizeof(StftProcessor));
 
   self->fft_size = FFT_SIZE;
-  self->half_fft_size = self->fft_size / 2;
 
   self->stft_buffer.overlap_factor = OVERLAP_FACTOR;
   self->stft_buffer.hop = self->fft_size / self->stft_buffer.overlap_factor;
@@ -113,7 +110,7 @@ uint32_t get_overlap_factor(StftProcessor *self) {
   return self->stft_buffer.overlap_factor;
 }
 uint32_t get_spectral_processing_size(StftProcessor *self) {
-  return self->half_fft_size + 1;
+  return self->fft_size / 2U + 1U;
 }
 
 bool stft_processor_run(StftProcessor *self,
@@ -122,11 +119,10 @@ bool stft_processor_run(StftProcessor *self,
                         const uint32_t number_of_samples, const float *input,
                         float *output) {
   if (!self || !spectral_processing || !spectral_processor || !input ||
-      !output || number_of_samples <= 0) {
+      !output || number_of_samples <= 0U) {
     return false;
   }
 
-  // TODO Use circular buffer instead
   for (uint32_t k = 0; k < number_of_samples; k++) {
     self->stft_buffer.in_fifo[self->stft_buffer.read_position] = input[k];
     output[k] = self->stft_buffer.out_fifo[self->stft_buffer.read_position -
@@ -139,23 +135,19 @@ bool stft_processor_run(StftProcessor *self,
       memcpy(self->input_fft_buffer, self->stft_buffer.in_fifo,
              sizeof(float) * self->fft_size);
 
-      stft_transform_and_process(self, spectral_processing, spectral_processor);
+      stft_analysis(self);
 
-      stft_write_results(self);
+      spectral_processing(spectral_processor, self->output_fft_buffer);
+
+      stft_synthesis(self);
+
+      stft_overlap_add(self);
+
+      stft_update_buffers(self);
     }
   }
 
   return true;
-}
-
-static void stft_transform_and_process(StftProcessor *self,
-                                       spectral_processing *spectral_processing,
-                                       void *spectral_processor) {
-  stft_analysis(self);
-
-  spectral_processing(spectral_processor, self->output_fft_buffer);
-
-  stft_synthesis(self);
 }
 
 static void stft_analysis(StftProcessor *self) {
@@ -172,21 +164,22 @@ static void stft_synthesis(StftProcessor *self) {
                OUTPUT_WINDOW);
 }
 
-static void stft_write_results(StftProcessor *self) {
+static void stft_overlap_add(StftProcessor *self) {
+
   for (uint32_t k = 0; k < self->fft_size; k++) {
     self->stft_buffer.output_accumulator[k] += self->input_fft_buffer[k];
   }
 
-  for (uint32_t k = 0; k < self->stft_buffer.hop; k++) {
-    self->stft_buffer.out_fifo[k] = self->stft_buffer.output_accumulator[k];
-  }
+  memcpy(self->stft_buffer.out_fifo, self->stft_buffer.output_accumulator,
+         sizeof(float) * self->stft_buffer.hop);
+}
 
+static void stft_update_buffers(StftProcessor *self) {
   memmove(self->stft_buffer.output_accumulator,
           &self->stft_buffer.output_accumulator[self->stft_buffer.hop],
           self->fft_size * sizeof(float));
 
-  for (uint32_t k = 0; k < self->stft_buffer.input_latency; k++) {
-    self->stft_buffer.in_fifo[k] =
-        self->stft_buffer.in_fifo[k + self->stft_buffer.hop];
-  }
+  memcpy(self->stft_buffer.in_fifo,
+         &self->stft_buffer.in_fifo[self->stft_buffer.hop],
+         sizeof(float) * self->stft_buffer.input_latency);
 }

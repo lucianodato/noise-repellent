@@ -58,7 +58,7 @@ struct LouizouEstimator {
   float *auto_thresholds;
   float *previous_noise_spectrum;
   float *time_frequency_smoothing_constant;
-  float *speech_presence_detection;
+  uint32_t *speech_presence_detection;
 };
 
 LouizouEstimator *
@@ -66,7 +66,7 @@ louizou_estimator_initialize(const uint32_t noise_spectrum_size,
                              const uint32_t sample_rate,
                              const uint32_t fft_size) {
   LouizouEstimator *self =
-      (LouizouEstimator *)calloc(1, sizeof(LouizouEstimator));
+      (LouizouEstimator *)calloc(1U, sizeof(LouizouEstimator));
 
   self->noise_spectrum_size = noise_spectrum_size;
 
@@ -75,7 +75,7 @@ louizou_estimator_initialize(const uint32_t noise_spectrum_size,
   self->time_frequency_smoothing_constant =
       (float *)calloc(self->noise_spectrum_size, sizeof(float));
   self->speech_presence_detection =
-      (float *)calloc(self->noise_spectrum_size, sizeof(float));
+      (uint32_t *)calloc(self->noise_spectrum_size, sizeof(uint32_t));
   self->previous_noise_spectrum =
       (float *)calloc(self->noise_spectrum_size, sizeof(float));
 
@@ -125,14 +125,14 @@ bool louizou_estimator_run(LouizouEstimator *self, const float *spectrum,
                                self->current->local_minimum_spectrum[k];
 
     if (noisy_speech_ratio > self->auto_thresholds[k]) {
-      self->speech_presence_detection[k] = 1.f;
+      self->speech_presence_detection[k] = 1U;
     } else {
-      self->speech_presence_detection[k] = 0.f;
+      self->speech_presence_detection[k] = 0U;
     }
 
     self->current->speech_present_probability_spectrum[k] =
         ALPHA_P * self->previous->speech_present_probability_spectrum[k] +
-        (1.f - ALPHA_P) * self->speech_presence_detection[k];
+        (1.f - ALPHA_P) * (float)self->speech_presence_detection[k];
 
     self->time_frequency_smoothing_constant[k] =
         ALPHA_D +
@@ -160,7 +160,7 @@ bool louizou_estimator_run(LouizouEstimator *self, const float *spectrum,
 }
 
 static FrameSpectrum *frame_spectrum_initialize(const uint32_t frame_size) {
-  FrameSpectrum *self = (FrameSpectrum *)calloc(1, sizeof(FrameSpectrum));
+  FrameSpectrum *self = (FrameSpectrum *)calloc(1U, sizeof(FrameSpectrum));
 
   self->smoothed_power_spectrum = (float *)calloc(frame_size, sizeof(float));
   self->local_minimum_spectrum = (float *)calloc(frame_size, sizeof(float));

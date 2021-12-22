@@ -108,7 +108,7 @@ static LV2_Handle instantiate(const LV2_Descriptor *descriptor,
                               const double rate, const char *bundle_path,
                               const LV2_Feature *const *features) {
   NoiseRepellentPlugin *self =
-      (NoiseRepellentPlugin *)calloc(1, sizeof(NoiseRepellentPlugin));
+      (NoiseRepellentPlugin *)calloc(1U, sizeof(NoiseRepellentPlugin));
 
   // clang-format off
   const char *missing =
@@ -238,9 +238,9 @@ static LV2_State_Status restore(LV2_Handle instance,
                                 const LV2_Feature *const *features) {
   NoiseRepellentPlugin *self = (NoiseRepellentPlugin *)instance;
 
-  size_t size = 0;
-  uint32_t type = 0;
-  uint32_t valflags = 0;
+  size_t size = 0U;
+  uint32_t type = 0U;
+  uint32_t valflags = 0U;
 
   const uint32_t *fftsize = (const uint32_t *)retrieve(
       handle, self->state.property_noise_profile_size, &size, &type, &valflags);

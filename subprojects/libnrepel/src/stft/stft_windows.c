@@ -38,7 +38,7 @@ struct StftWindows {
 
 StftWindows *stft_window_initialize(const uint32_t window_size,
                                     const uint32_t overlap_factor) {
-  StftWindows *self = (StftWindows *)calloc(1, sizeof(StftWindows));
+  StftWindows *self = (StftWindows *)calloc(1U, sizeof(StftWindows));
 
   self->window_size = window_size;
   self->window_option_input = INPUT_WINDOW_TYPE;
