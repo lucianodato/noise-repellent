@@ -24,10 +24,23 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <stdint.h>
 
 // TODO -> Document interface
+// TODO test main file and increase coverage
 
 typedef void *NoiseRepellentHandle;
 
-// TODO test main file and increase coverage
+typedef struct {
+  bool enable;
+  bool learn_noise;
+  bool residual_listen;
+  bool auto_learn_noise;
+  float reduction_amount;
+  float release_time;
+  float masking_ceiling_limit;
+  float whitening_factor;
+  float transient_threshold;
+  float noise_rescale;
+} ProcessorParameters;
+
 NoiseRepellentHandle nr_initialize(uint32_t sample_rate);
 void nr_free(NoiseRepellentHandle instance);
 bool nr_process(NoiseRepellentHandle instance, uint32_t number_of_samples,
@@ -38,13 +51,6 @@ float *nr_get_noise_profile(NoiseRepellentHandle instance);
 bool nr_load_noise_profile(NoiseRepellentHandle instance,
                            const float *restored_profile,
                            uint32_t profile_size);
-bool nr_load_parameters(NoiseRepellentHandle instance, bool enable,
-                        bool learn_noise, float masking_ceiling_limit,
-                        float noise_rescale, float reduction_amount,
-                        float release_time, float residual_listen,
-                        float transient_threshold, float whitening_factor,
-                        bool auto_learn_noise); // TODO Expose parameters in
-                                                // struct and group internal
-                                                // options into a config file
-
+bool nr_load_parameters(NoiseRepellentHandle instance,
+                        ProcessorParameters *parameters);
 #endif

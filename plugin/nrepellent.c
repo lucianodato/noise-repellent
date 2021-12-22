@@ -24,6 +24,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include "lv2/log/logger.h"
 #include "lv2/state/state.h"
 #include "lv2/urid/urid.h"
+#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -83,6 +84,7 @@ typedef struct {
   State state;
 
   NoiseRepellentHandle lib_instance;
+  ProcessorParameters *parameters;
 
   float *enable;
   float *learn_noise;
@@ -96,6 +98,10 @@ typedef struct {
   float *noise_rescale;
 
 } NoiseRepellentPlugin;
+
+static inline float from_db_to_coefficient(const float gain_db) {
+  return expf(gain_db / 10.f * logf(10.f));
+}
 
 static void cleanup(LV2_Handle instance) {
   NoiseRepellentPlugin *self = (NoiseRepellentPlugin *)instance;
@@ -160,6 +166,9 @@ static void connect_port(LV2_Handle instance, uint32_t port, void *data) {
   case NOISEREPELLENT_WHITENING:
     self->whitening_factor = (float *)data;
     break;
+  case NOISEREPELLENT_TRANSIENT_PROTECT:
+    self->transient_threshold = (float *)data;
+    break;
   case NOISEREPELLENT_NOISE_LEARN:
     self->learn_noise = (float *)data;
     break;
@@ -168,9 +177,6 @@ static void connect_port(LV2_Handle instance, uint32_t port, void *data) {
     break;
   case NOISEREPELLENT_RESIDUAL_LISTEN:
     self->residual_listen = (float *)data;
-    break;
-  case NOISEREPELLENT_TRANSIENT_PROTECT:
-    self->transient_threshold = (float *)data;
     break;
   case NOISEREPELLENT_ENABLE:
     self->enable = (float *)data;
@@ -190,12 +196,22 @@ static void connect_port(LV2_Handle instance, uint32_t port, void *data) {
 static void run(LV2_Handle instance, uint32_t number_of_samples) {
   NoiseRepellentPlugin *self = (NoiseRepellentPlugin *)instance;
 
-  nr_load_parameters(self->lib_instance, (bool)*self->enable,
-                     (bool)*self->learn_noise, *self->masking_ceiling_limit,
-                     *self->noise_rescale, *self->reduction_amount,
-                     *self->release_time, (bool)*self->residual_listen,
-                     *self->transient_threshold, *self->whitening_factor,
-                     (bool)*self->auto_learn_noise);
+  // clang-format off
+  self->parameters = &(ProcessorParameters){
+      .enable = (bool)*self->enable,
+      .auto_learn_noise = (bool)*self->auto_learn_noise,
+      .learn_noise = (bool)*self->learn_noise,
+      .residual_listen = (bool)*self->residual_listen,
+      .masking_ceiling_limit = *self->masking_ceiling_limit / 100.f,
+      .reduction_amount = from_db_to_coefficient(*self->reduction_amount * -1.f),
+      .noise_rescale = *self->noise_rescale,
+      .release_time = *self->reduction_amount,
+      .transient_threshold = *self->transient_threshold,
+      .whitening_factor = *self->whitening_factor,
+  };
+  // clang-format on
+
+  nr_load_parameters(self->lib_instance, self->parameters);
 
   *self->report_latency = (float)nr_get_latency(self->lib_instance);
 

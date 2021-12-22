@@ -24,7 +24,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include "shared/noise_profile.h"
 #include "shared/signal_crossfade.h"
 #include "stft/stft_processor.h"
-#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -70,14 +69,6 @@ NoiseRepellentHandle nr_initialize(const uint32_t sample_rate) {
     return NULL;
   }
 
-  self->denoise_parameters =
-      (ProcessorParameters *)calloc(1, sizeof(ProcessorParameters));
-
-  if (!self->denoise_parameters) {
-    nr_free(self);
-    return NULL;
-  }
-
   self->noise_estimator = noise_estimation_initialize(
       fft_size, sample_rate, self->noise_profile, self->denoise_parameters);
 
@@ -101,7 +92,6 @@ NoiseRepellentHandle nr_initialize(const uint32_t sample_rate) {
 void nr_free(NoiseRepellentHandle instance) {
   NoiseRepellent *self = (NoiseRepellent *)instance;
 
-  free(self->denoise_parameters);
   signal_crossfade_free(self->soft_bypass);
   noise_profile_free(self->noise_profile);
   noise_estimation_free(self->noise_estimator);
@@ -173,36 +163,15 @@ bool nr_load_noise_profile(NoiseRepellentHandle instance,
   return true;
 }
 
-static inline float from_db_to_coefficient(const float gain_db) {
-  return expf(gain_db / 10.f * logf(10.f));
-}
-
-bool nr_load_parameters(NoiseRepellentHandle instance, const bool enable,
-                        const bool learn_noise,
-                        const float masking_ceiling_limit,
-                        const float noise_rescale, const float reduction_amount,
-                        const float release_time, const float residual_listen,
-                        const float transient_threshold,
-                        const float whitening_factor,
-                        const bool auto_learn_noise) {
-  if (!instance) {
+bool nr_load_parameters(NoiseRepellentHandle instance,
+                        ProcessorParameters *parameters) {
+  if (!instance || !parameters) {
     return false;
   }
 
   NoiseRepellent *self = (NoiseRepellent *)instance;
 
-  self->denoise_parameters->enable = enable;
-  self->denoise_parameters->learn_noise = learn_noise;
-  self->denoise_parameters->auto_learn_noise = auto_learn_noise;
-  self->denoise_parameters->residual_listen = residual_listen;
-  self->denoise_parameters->reduction_amount =
-      from_db_to_coefficient(reduction_amount * -1.f);
-  self->denoise_parameters->release_time = release_time;
-  self->denoise_parameters->masking_ceiling_limit =
-      masking_ceiling_limit / 100.f;
-  self->denoise_parameters->whitening_factor = whitening_factor;
-  self->denoise_parameters->transient_threshold = transient_threshold;
-  self->denoise_parameters->noise_rescale = noise_rescale;
+  self->denoise_parameters = parameters;
 
   return true;
 }
