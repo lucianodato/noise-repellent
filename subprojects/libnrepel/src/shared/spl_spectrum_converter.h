@@ -1,7 +1,7 @@
 /*
 noise-repellent -- Noise Reduction LV2
 
-Copyright 2016 Luciano Dato <lucianodato@gmail.com>
+Copyright 2021 Luciano Dato <lucianodato@gmail.com>
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Lesser General Public License as published by
@@ -25,8 +25,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 typedef struct SplSpectrumConverter SplSpectrumConverter;
 
-SplSpectrumConverter *reference_spectrum_initialize(uint32_t fft_size,
-                                                    uint32_t sample_rate);
+SplSpectrumConverter *reference_spectrum_initialize(uint32_t sample_rate);
 void reference_spectrum_free(SplSpectrumConverter *self);
 bool convert_spectrum_to_dbspl(SplSpectrumConverter *self, float *spectrum);
 

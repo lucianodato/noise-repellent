@@ -7,6 +7,7 @@ nrepel_sources = [
     'src/shared/noise_profile.c',
     'src/shared/signal_crossfade.c',
     'src/shared/spl_spectrum_converter.c',
+    'src/shared/fft_transform.c',
     'src/noisemodel/louizou_estimator.c',
     'src/noisemodel/noise_estimator.c',
     'src/denoiser/transient_detector.c',

@@ -1,7 +1,7 @@
 /*
 noise-repellent -- Noise Reduction LV2
 
-Copyright 2016 Luciano Dato <lucianodato@gmail.com>
+Copyright 2021 Luciano Dato <lucianodato@gmail.com>
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Lesser General Public License as published by
@@ -18,14 +18,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
 #include "stft_processor.h"
+#include "../shared/fft_transform.h"
 #include "../shared/spectral_features.h"
 #include "stft_windows.h"
-#include <fftw3.h>
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
 
-#define FFT_SIZE 2048
 #define OVERLAP_FACTOR 2
 
 static void stft_analysis(StftProcessor *self);
@@ -35,25 +34,21 @@ static void stft_update_buffers(StftProcessor *self);
 
 typedef struct {
   float overlap_scale_factor;
+
   uint32_t input_latency;
   uint32_t read_position;
   uint32_t hop;
   uint32_t overlap_factor;
+  uint32_t buffer_size;
+
   float *in_fifo;
   float *out_fifo;
   float *output_accumulator;
+
 } SamplesBuffer;
 
 struct StftProcessor {
-  // TODO create a wrapper for the library separated in fft and ifft so fftw3
-  // can easily be replaced if needed
-  uint32_t fft_size;
-  fftwf_plan forward;
-  fftwf_plan backward;
-
-  float *input_fft_buffer;
-  float *output_fft_buffer;
-
+  FftTransform *fft_transform;
   SamplesBuffer stft_buffer;
   StftWindows *stft_windows;
 };
@@ -61,41 +56,35 @@ struct StftProcessor {
 StftProcessor *stft_processor_initialize() {
   StftProcessor *self = (StftProcessor *)calloc(1U, sizeof(StftProcessor));
 
-  self->fft_size = FFT_SIZE;
+  self->fft_transform = fft_transform_initialize();
+
+  self->stft_buffer.buffer_size = get_fft_size(self->fft_transform);
 
   self->stft_buffer.overlap_factor = OVERLAP_FACTOR;
-  self->stft_buffer.hop = self->fft_size / self->stft_buffer.overlap_factor;
-  self->stft_buffer.input_latency = self->fft_size - self->stft_buffer.hop;
+  self->stft_buffer.hop =
+      self->stft_buffer.buffer_size / self->stft_buffer.overlap_factor;
+  self->stft_buffer.input_latency =
+      self->stft_buffer.buffer_size - self->stft_buffer.hop;
   self->stft_buffer.read_position = self->stft_buffer.input_latency;
-  self->stft_buffer.in_fifo = (float *)calloc(self->fft_size, sizeof(float));
-  self->stft_buffer.out_fifo = (float *)calloc(self->fft_size, sizeof(float));
+  self->stft_buffer.in_fifo =
+      (float *)calloc(self->stft_buffer.buffer_size, sizeof(float));
+  self->stft_buffer.out_fifo =
+      (float *)calloc(self->stft_buffer.buffer_size, sizeof(float));
   self->stft_buffer.output_accumulator =
-      (float *)calloc((self->fft_size * 2), sizeof(float));
+      (float *)calloc(self->stft_buffer.buffer_size * 2U, sizeof(float));
 
-  self->input_fft_buffer = (float *)calloc(self->fft_size, sizeof(float));
-  self->output_fft_buffer = (float *)calloc(self->fft_size, sizeof(float));
-  self->forward =
-      fftwf_plan_r2r_1d(self->fft_size, self->input_fft_buffer,
-                        self->output_fft_buffer, FFTW_R2HC, FFTW_ESTIMATE);
-  self->backward =
-      fftwf_plan_r2r_1d(self->fft_size, self->output_fft_buffer,
-                        self->input_fft_buffer, FFTW_HC2R, FFTW_ESTIMATE);
-
-  self->stft_windows =
-      stft_window_initialize(self->fft_size, self->stft_buffer.overlap_factor);
+  self->stft_windows = stft_window_initialize(self->stft_buffer.buffer_size,
+                                              self->stft_buffer.overlap_factor);
 
   return self;
 }
 
 void stft_processor_free(StftProcessor *self) {
-  free(self->input_fft_buffer);
-  free(self->output_fft_buffer);
-  fftwf_destroy_plan(self->forward);
-  fftwf_destroy_plan(self->backward);
-
   free(self->stft_buffer.in_fifo);
   free(self->stft_buffer.out_fifo);
   free(self->stft_buffer.output_accumulator);
+
+  fft_transform_free(self->fft_transform);
 
   stft_window_free(self->stft_windows);
 
@@ -105,12 +94,14 @@ void stft_processor_free(StftProcessor *self) {
 uint32_t get_stft_latency(StftProcessor *self) {
   return self->stft_buffer.input_latency;
 }
-uint32_t get_fft_size(StftProcessor *self) { return self->fft_size; }
+uint32_t get_buffer_size(StftProcessor *self) {
+  return self->stft_buffer.buffer_size;
+}
 uint32_t get_overlap_factor(StftProcessor *self) {
   return self->stft_buffer.overlap_factor;
 }
 uint32_t get_spectral_processing_size(StftProcessor *self) {
-  return self->fft_size / 2U + 1U;
+  return get_real_spectrum_size(self->fft_transform);
 }
 
 bool stft_processor_run(StftProcessor *self,
@@ -129,15 +120,15 @@ bool stft_processor_run(StftProcessor *self,
                                            self->stft_buffer.input_latency];
     self->stft_buffer.read_position++;
 
-    if (self->stft_buffer.read_position >= self->fft_size) {
+    if (self->stft_buffer.read_position >= self->stft_buffer.buffer_size) {
       self->stft_buffer.read_position = self->stft_buffer.input_latency;
 
-      memcpy(self->input_fft_buffer, self->stft_buffer.in_fifo,
-             sizeof(float) * self->fft_size);
+      load_input_samples(self->fft_transform, self->stft_buffer.in_fifo);
 
       stft_analysis(self);
 
-      spectral_processing(spectral_processor, self->output_fft_buffer);
+      spectral_processing(spectral_processor,
+                          get_fft_output_buffer(self->fft_transform));
 
       stft_synthesis(self);
 
@@ -151,23 +142,24 @@ bool stft_processor_run(StftProcessor *self,
 }
 
 static void stft_analysis(StftProcessor *self) {
-  apply_window(self->stft_windows, self->input_fft_buffer, self->fft_size,
-               INPUT_WINDOW);
+  apply_window(self->stft_windows, get_fft_input_buffer(self->fft_transform),
+               self->stft_buffer.buffer_size, INPUT_WINDOW);
 
-  fftwf_execute(self->forward);
+  compute_forward_fft(self->fft_transform);
 }
 
 static void stft_synthesis(StftProcessor *self) {
-  fftwf_execute(self->backward);
+  compute_backward_fft(self->fft_transform);
 
-  apply_window(self->stft_windows, self->input_fft_buffer, self->fft_size,
-               OUTPUT_WINDOW);
+  apply_window(self->stft_windows, get_fft_input_buffer(self->fft_transform),
+               self->stft_buffer.buffer_size, OUTPUT_WINDOW);
 }
 
 static void stft_overlap_add(StftProcessor *self) {
 
-  for (uint32_t k = 0; k < self->fft_size; k++) {
-    self->stft_buffer.output_accumulator[k] += self->input_fft_buffer[k];
+  for (uint32_t k = 0; k < self->stft_buffer.buffer_size; k++) {
+    self->stft_buffer.output_accumulator[k] +=
+        get_fft_input_buffer(self->fft_transform)[k];
   }
 
   memcpy(self->stft_buffer.out_fifo, self->stft_buffer.output_accumulator,
@@ -177,7 +169,7 @@ static void stft_overlap_add(StftProcessor *self) {
 static void stft_update_buffers(StftProcessor *self) {
   memmove(self->stft_buffer.output_accumulator,
           &self->stft_buffer.output_accumulator[self->stft_buffer.hop],
-          self->fft_size * sizeof(float));
+          self->stft_buffer.buffer_size * sizeof(float));
 
   memcpy(self->stft_buffer.in_fifo,
          &self->stft_buffer.in_fifo[self->stft_buffer.hop],

@@ -1,7 +1,7 @@
 /*
 noise-repellent -- Noise Reduction LV2
 
-Copyright 2016 Luciano Dato <lucianodato@gmail.com>
+Copyright 2021 Luciano Dato <lucianodato@gmail.com>
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Lesser General Public License as published by
@@ -36,7 +36,7 @@ bool stft_processor_run(StftProcessor *self,
                         spectral_processing *spectral_processing,
                         void *spectral_processor, uint32_t number_of_samples,
                         const float *input, float *output);
-uint32_t get_fft_size(StftProcessor *self);
+uint32_t get_buffer_size(StftProcessor *self);
 uint32_t get_overlap_factor(StftProcessor *self);
 uint32_t get_spectral_processing_size(StftProcessor *self);
 

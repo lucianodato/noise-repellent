@@ -17,22 +17,22 @@ You should have received a copy of the GNU Lesser General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
-#ifndef SPECTRAL_DENOISER_H
-#define SPECTRAL_DENOISER_H
+#ifndef FFT_TRANSFORM_H
+#define FFT_TRANSFORM_H
 
-#include "../../include/nrepel.h"
-#include "../shared/noise_profile.h"
 #include <stdbool.h>
 #include <stdint.h>
 
-typedef struct SpectralDenoiser SpectralDenoiser;
-typedef void *SpectralDenoiserHandle;
+typedef struct FftTransform FftTransform;
 
-SpectralDenoiserHandle spectral_denoiser_initialize(
-    uint32_t sample_rate, uint32_t fft_size, uint32_t overlap_factor,
-    NoiseProfile *noise_profile, ProcessorParameters *parameters);
-void spectral_denoiser_free(SpectralDenoiserHandle instance);
-bool spectral_denoiser_run(SpectralDenoiserHandle instance,
-                           float *fft_spectrum);
+FftTransform *fft_transform_initialize();
+void fft_transform_free(FftTransform *self);
+bool load_input_samples(FftTransform *self, const float *input);
+uint32_t get_fft_size(FftTransform *self);
+uint32_t get_real_spectrum_size(FftTransform *self);
+bool compute_forward_fft(FftTransform *self);
+bool compute_backward_fft(FftTransform *self);
+float *get_fft_input_buffer(FftTransform *self);
+float *get_fft_output_buffer(FftTransform *self);
 
 #endif

@@ -1,7 +1,7 @@
 /*
 noise-repellent -- Noise Reduction LV2
 
-Copyright 2016 Luciano Dato <lucianodato@gmail.com>
+Copyright 2021 Luciano Dato <lucianodato@gmail.com>
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Lesser General Public License as published by
@@ -51,7 +51,7 @@ NoiseRepellentHandle nr_initialize(const uint32_t sample_rate) {
     return NULL;
   }
 
-  const uint32_t fft_size = get_fft_size(self->stft_processor);
+  const uint32_t buffer_size = get_buffer_size(self->stft_processor);
   const uint32_t overlap_factor = get_overlap_factor(self->stft_processor);
   const uint32_t spectral_size =
       get_spectral_processing_size(self->stft_processor);
@@ -71,7 +71,7 @@ NoiseRepellentHandle nr_initialize(const uint32_t sample_rate) {
   }
 
   self->noise_estimator = noise_estimation_initialize(
-      fft_size, sample_rate, self->noise_profile, &self->denoise_parameters);
+      buffer_size, sample_rate, self->noise_profile, &self->denoise_parameters);
 
   if (!self->noise_estimator) {
     nr_free(self);
@@ -79,7 +79,7 @@ NoiseRepellentHandle nr_initialize(const uint32_t sample_rate) {
   }
 
   self->spectral_denoiser = spectral_denoiser_initialize(
-      self->sample_rate, fft_size, overlap_factor, self->noise_profile,
+      self->sample_rate, buffer_size, overlap_factor, self->noise_profile,
       &self->denoise_parameters);
 
   if (!self->spectral_denoiser) {

@@ -1,7 +1,7 @@
 /*
 noise-repellent -- Noise Reduction LV2
 
-Copyright 2016 Luciano Dato <lucianodato@gmail.com>
+Copyright 2021 Luciano Dato <lucianodato@gmail.com>
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Lesser General Public License as published by
@@ -18,10 +18,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
 #include "spl_spectrum_converter.h"
+#include "../shared/fft_transform.h"
 #include "../shared/modules_configurations.h"
 #include "../shared/spectral_features.h"
 #include "../shared/spectral_utils.h"
-#include <fftw3.h>
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
@@ -36,38 +36,32 @@ static void compute_spl_reference_spectrum(SplSpectrumConverter *self);
 struct SplSpectrumConverter {
   float *sinewave;
   float *window;
-  float *input_fft_buffer_at;
-  float *output_fft_buffer_at;
   float *spl_reference_values;
 
-  fftwf_plan forward_fft;
   SpectralFeatures *spectral_features;
+  FftTransform *fft_transform;
 
   uint32_t fft_size;
   uint32_t half_fft_size;
   uint32_t sample_rate;
 };
 
-SplSpectrumConverter *reference_spectrum_initialize(uint32_t fft_size,
-                                                    uint32_t sample_rate) {
+SplSpectrumConverter *reference_spectrum_initialize(uint32_t sample_rate) {
   SplSpectrumConverter *self =
       (SplSpectrumConverter *)calloc(1U, sizeof(SplSpectrumConverter));
 
-  self->fft_size = fft_size;
+  self->fft_transform = fft_transform_initialize();
+
+  self->fft_size = get_fft_size(self->fft_transform);
   self->half_fft_size = self->fft_size / 2U;
   self->sample_rate = self->sample_rate;
-
-  self->input_fft_buffer_at = (float *)calloc((self->fft_size), sizeof(float));
-  self->output_fft_buffer_at = (float *)calloc((self->fft_size), sizeof(float));
 
   self->spl_reference_values =
       (float *)calloc((self->half_fft_size + 1U), sizeof(float));
 
   self->sinewave = (float *)calloc(self->fft_size, sizeof(float));
   self->window = (float *)calloc(self->fft_size, sizeof(float));
-  self->forward_fft =
-      fftwf_plan_r2r_1d(self->fft_size, self->input_fft_buffer_at,
-                        self->output_fft_buffer_at, FFTW_R2HC, FFTW_ESTIMATE);
+
   self->spectral_features =
       spectral_features_initialize(self->half_fft_size + 1U);
 
@@ -79,14 +73,10 @@ SplSpectrumConverter *reference_spectrum_initialize(uint32_t fft_size,
 }
 
 void reference_spectrum_free(SplSpectrumConverter *self) {
-  free(self->input_fft_buffer_at);
-  free(self->output_fft_buffer_at);
   free(self->sinewave);
   free(self->window);
   free(self->spl_reference_values);
   spectral_features_free(self->spectral_features);
-
-  fftwf_destroy_plan(self->forward_fft);
 }
 
 static void generate_sinewave(SplSpectrumConverter *self) {
@@ -98,12 +88,14 @@ static void generate_sinewave(SplSpectrumConverter *self) {
 
 static void compute_spl_reference_spectrum(SplSpectrumConverter *self) {
   for (uint32_t k = 0; k < self->fft_size; k++) {
-    self->input_fft_buffer_at[k] = self->sinewave[k] * self->window[k];
+    get_fft_input_buffer(self->fft_transform)[k] =
+        self->sinewave[k] * self->window[k];
   }
 
-  fftwf_execute(self->forward_fft);
+  compute_forward_fft(self->fft_transform);
 
-  compute_power_spectrum(self->spectral_features, self->output_fft_buffer_at,
+  compute_power_spectrum(self->spectral_features,
+                         get_fft_output_buffer(self->fft_transform),
                          self->fft_size);
   float *reference_spectrum = get_power_spectrum(self->spectral_features);
 

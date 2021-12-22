@@ -1,7 +1,7 @@
 /*
 noise-repellent -- Noise Reduction LV2
 
-Copyright 2016 Luciano Dato <lucianodato@gmail.com>
+Copyright 2021 Luciano Dato <lucianodato@gmail.com>
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Lesser General Public License as published by
@@ -91,8 +91,7 @@ MaskingEstimator *masking_estimation_initialize(const uint32_t fft_size,
   self->masking_offset = (float *)calloc(N_BARK_BANDS, sizeof(float));
   self->spreaded_spectrum = (float *)calloc(N_BARK_BANDS, sizeof(float));
 
-  self->reference_spectrum =
-      reference_spectrum_initialize(self->fft_size, self->sample_rate);
+  self->reference_spectrum = reference_spectrum_initialize(self->sample_rate);
 
   compute_bark_mapping(self);
   compute_absolute_thresholds(self);
