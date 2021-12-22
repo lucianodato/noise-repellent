@@ -117,8 +117,12 @@ void gain_estimation_free(GainEstimator *self) {
   free(self);
 }
 
-void gain_estimation_run(GainEstimator *self, const float *signal_spectrum,
+bool gain_estimation_run(GainEstimator *self, const float *signal_spectrum,
                          const float *noise_profile, float *gain_spectrum) {
+  if (!self || !signal_spectrum || !noise_profile || !gain_spectrum) {
+    return false;
+  }
+
   compute_power_spectrum(self->spectral_features, signal_spectrum,
                          self->fft_size);
 
@@ -154,6 +158,8 @@ void gain_estimation_run(GainEstimator *self, const float *signal_spectrum,
   } else {
     spectral_gating(self, reference_spectrum, gain_spectrum);
   }
+
+  return true;
 }
 
 static void wiener_subtraction(GainEstimator *self, const float *spectrum,

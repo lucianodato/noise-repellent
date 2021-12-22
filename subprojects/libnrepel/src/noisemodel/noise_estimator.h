@@ -34,6 +34,6 @@ noise_estimation_initialize(uint32_t fft_size, uint32_t sample_rate,
                             ProcessorParameters *parameters);
 void noise_estimation_free(NoiseEstimatorHandle instance);
 bool is_noise_estimation_available(NoiseEstimatorHandle instance);
-void noise_estimation_run(NoiseEstimatorHandle instance, float *spectrum);
+bool noise_estimation_run(NoiseEstimatorHandle instance, float *spectrum);
 
 #endif

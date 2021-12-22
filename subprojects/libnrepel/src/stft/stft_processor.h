@@ -25,14 +25,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 typedef struct StftProcessor StftProcessor;
 
-typedef void spectral_processing(
-    void *spectral_processor,
-    float *fft_spectrum); // Generic Spectral Processing function
+// Generic Spectral Processing function over an FFT spectrum. Receives any
+// spectral processing module handle (void *) and the FFT of a audio block.
+typedef bool spectral_processing(void *spectral_processor, float *fft_spectrum);
 
 StftProcessor *stft_processor_initialize();
 void stft_processor_free(StftProcessor *self);
 uint32_t get_stft_latency(StftProcessor *self);
-void stft_processor_run(StftProcessor *self,
+bool stft_processor_run(StftProcessor *self,
                         spectral_processing *spectral_processing,
                         void *spectral_processor, uint32_t number_of_samples,
                         const float *input, float *output);

@@ -122,8 +122,12 @@ void masking_estimation_free(MaskingEstimator *self) {
   free(self);
 }
 
-void compute_masking_thresholds(MaskingEstimator *self, const float *spectrum,
+bool compute_masking_thresholds(MaskingEstimator *self, const float *spectrum,
                                 float *masking_thresholds) {
+  if (!self || !spectrum || !masking_thresholds) {
+    return false;
+  }
+
   compute_bark_spectrum(self, spectrum);
 
   naive_matrix_to_vector_spectral_convolution(
@@ -169,6 +173,8 @@ void compute_masking_thresholds(MaskingEstimator *self, const float *spectrum,
     masking_thresholds[k] =
         fmaxf(masking_thresholds[k], self->absolute_thresholds[k]);
   }
+
+  return true;
 }
 
 static void compute_bark_mapping(MaskingEstimator *self) {

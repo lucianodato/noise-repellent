@@ -24,6 +24,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include "shared/noise_profile.h"
 #include "shared/signal_crossfade.h"
 #include "stft/stft_processor.h"
+#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 

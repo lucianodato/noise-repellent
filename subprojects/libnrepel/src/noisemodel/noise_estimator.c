@@ -85,7 +85,11 @@ static void get_rolling_mean_noise_spectrum(NoiseEstimator *self,
   }
 }
 
-void noise_estimation_run(NoiseEstimatorHandle instance, float *fft_spectrum) {
+bool noise_estimation_run(NoiseEstimatorHandle instance, float *fft_spectrum) {
+  if (!instance || !fft_spectrum) {
+    return false;
+  }
+
   NoiseEstimator *self = (NoiseEstimator *)instance;
 
   self->noise_blocks_count++;
@@ -103,4 +107,6 @@ void noise_estimation_run(NoiseEstimatorHandle instance, float *fft_spectrum) {
   }
 
   self->noise_spectrum_available = true;
+
+  return true;
 }

@@ -20,12 +20,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #ifndef SIGNAL_CROSSFADE_H
 #define SIGNAL_CROSSFADE_H
 
-#include <float.h>
-#include <math.h>
 #include <stdbool.h>
 #include <stdint.h>
-#include <stdlib.h>
-#include <string.h>
 
 typedef struct SignalCrossfade SignalCrossfade;
 

@@ -22,7 +22,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 #include "../../include/nrepel.h"
 #include "../shared/noise_profile.h"
-#include <float.h>
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -33,7 +32,7 @@ SpectralDenoiserHandle spectral_denoiser_initialize(
     uint32_t sample_rate, uint32_t fft_size, uint32_t overlap_factor,
     NoiseProfile *noise_profile, ProcessorParameters *parameters);
 void spectral_denoiser_free(SpectralDenoiserHandle instance);
-void spectral_denoiser_run(SpectralDenoiserHandle instance,
+bool spectral_denoiser_run(SpectralDenoiserHandle instance,
                            float *fft_spectrum);
 
 #endif

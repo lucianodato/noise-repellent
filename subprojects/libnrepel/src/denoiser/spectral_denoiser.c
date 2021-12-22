@@ -21,6 +21,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include "../shared/spectral_utils.h"
 #include "gain_estimator.h"
 #include "spectral_whitening.h"
+#include <float.h>
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
@@ -88,8 +89,12 @@ void spectral_denoiser_free(SpectralDenoiserHandle instance) {
   free(self);
 }
 
-void spectral_denoiser_run(SpectralDenoiserHandle instance,
+bool spectral_denoiser_run(SpectralDenoiserHandle instance,
                            float *fft_spectrum) {
+  if (!fft_spectrum || !instance) {
+    return false;
+  }
+
   SpectralDenoiser *self = (SpectralDenoiser *)instance;
 
   gain_estimation_run(self->gain_estimation, fft_spectrum,
@@ -97,6 +102,8 @@ void spectral_denoiser_run(SpectralDenoiserHandle instance,
                       self->gain_spectrum);
 
   denoise_build(self, fft_spectrum);
+
+  return true;
 }
 
 static void get_denoised_spectrum(SpectralDenoiser *self,

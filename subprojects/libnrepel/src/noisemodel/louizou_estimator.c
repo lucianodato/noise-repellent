@@ -56,7 +56,7 @@ struct LouizouEstimator {
   FrameSpectrum *previous;
 
   float *auto_thresholds;
-  float *previouse_noise_spectrum;
+  float *previous_noise_spectrum;
   float *time_frequency_smoothing_constant;
   float *speech_presence_detection;
 };
@@ -76,7 +76,7 @@ louizou_estimator_initialize(const uint32_t noise_spectrum_size,
       (float *)calloc(self->noise_spectrum_size, sizeof(float));
   self->speech_presence_detection =
       (float *)calloc(self->noise_spectrum_size, sizeof(float));
-  self->previouse_noise_spectrum =
+  self->previous_noise_spectrum =
       (float *)calloc(self->noise_spectrum_size, sizeof(float));
 
   compute_auto_thresholds(self, sample_rate, noise_spectrum_size, fft_size);
@@ -90,7 +90,7 @@ void louizou_estimator_free(LouizouEstimator *self) {
   free(self->auto_thresholds);
   free(self->time_frequency_smoothing_constant);
   free(self->speech_presence_detection);
-  free(self->previouse_noise_spectrum);
+  free(self->previous_noise_spectrum);
 
   frame_spectrum_free(self->current);
   frame_spectrum_free(self->previous);
@@ -98,8 +98,12 @@ void louizou_estimator_free(LouizouEstimator *self) {
   free(self);
 }
 
-void louizou_estimator_run(LouizouEstimator *self, const float *spectrum,
+bool louizou_estimator_run(LouizouEstimator *self, const float *spectrum,
                            float *noise_spectrum) {
+  if (!self || !spectrum || !noise_spectrum) {
+    return false;
+  }
+
   for (uint32_t k = 0; k < self->noise_spectrum_size; k++) {
     self->current->smoothed_power_spectrum[k] =
         N_SMOOTH * self->previous->smoothed_power_spectrum[k] +
@@ -136,11 +140,11 @@ void louizou_estimator_run(LouizouEstimator *self, const float *spectrum,
 
     noise_spectrum[k] =
         self->time_frequency_smoothing_constant[k] *
-            self->previouse_noise_spectrum[k] +
+            self->previous_noise_spectrum[k] +
         (1.f - self->time_frequency_smoothing_constant[k]) * spectrum[k];
   }
 
-  memcpy(self->previouse_noise_spectrum, noise_spectrum,
+  memcpy(self->previous_noise_spectrum, noise_spectrum,
          sizeof(float) * self->noise_spectrum_size);
   memcpy(self->previous->local_minimum_spectrum,
          self->current->local_minimum_spectrum,
@@ -151,6 +155,8 @@ void louizou_estimator_run(LouizouEstimator *self, const float *spectrum,
   memcpy(self->previous->speech_present_probability_spectrum,
          self->current->speech_present_probability_spectrum,
          sizeof(float) * self->noise_spectrum_size);
+
+  return true;
 }
 
 static FrameSpectrum *frame_spectrum_initialize(const uint32_t frame_size) {

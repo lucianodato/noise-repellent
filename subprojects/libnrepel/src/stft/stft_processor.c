@@ -116,11 +116,16 @@ uint32_t get_spectral_processing_size(StftProcessor *self) {
   return self->half_fft_size + 1;
 }
 
-void stft_processor_run(StftProcessor *self,
+bool stft_processor_run(StftProcessor *self,
                         spectral_processing *spectral_processing,
                         void *spectral_processor,
                         const uint32_t number_of_samples, const float *input,
                         float *output) {
+  if (!self || !spectral_processing || !spectral_processor || !input ||
+      !output || number_of_samples <= 0) {
+    return false;
+  }
+
   // TODO Use circular buffer instead
   for (uint32_t k = 0; k < number_of_samples; k++) {
     self->stft_buffer.in_fifo[self->stft_buffer.read_position] = input[k];
@@ -139,6 +144,8 @@ void stft_processor_run(StftProcessor *self,
       stft_write_results(self);
     }
   }
+
+  return true;
 }
 
 static void stft_transform_and_process(StftProcessor *self,

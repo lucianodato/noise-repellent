@@ -69,8 +69,11 @@ void spectral_smoothing_free(SpectralSmoother *self) {
   free(self);
 }
 
-void spectral_smoothing_run(SpectralSmoother *self, const float release,
+bool spectral_smoothing_run(SpectralSmoother *self, const float release,
                             const float *signal_spectrum) {
+  if (!self || !signal_spectrum) {
+    return false;
+  }
   get_release_coefficient(self, release);
 
   memcpy(self->smoothed_spectrum, signal_spectrum,
@@ -80,6 +83,8 @@ void spectral_smoothing_run(SpectralSmoother *self, const float release,
 
   memcpy(self->smoothed_spectrum_previous, self->smoothed_spectrum,
          sizeof(float) * (self->half_fft_size + 1));
+
+  return true;
 }
 
 static void get_release_coefficient(SpectralSmoother *self,
