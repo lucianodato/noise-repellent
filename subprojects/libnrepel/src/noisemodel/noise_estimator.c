@@ -18,6 +18,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
 #include "noise_estimator.h"
+#include "../shared/configurations.h"
 #include "../shared/spectral_features.h"
 #include "louizou_estimator.h"
 #include <math.h>
@@ -86,7 +87,7 @@ bool noise_estimation_run(NoiseEstimator *self, float *fft_spectrum) {
     return false;
   }
 
-  self->noise_blocks_count++;
+  self->noise_blocks_count++; // TODO Add back the reset noise profile button
 
   compute_power_spectrum(self->spectral_features, fft_spectrum, self->fft_size);
 
@@ -100,7 +101,10 @@ bool noise_estimation_run(NoiseEstimator *self, float *fft_spectrum) {
     get_rolling_mean_noise_spectrum(self, reference_spectrum, noise_profile);
   }
 
-  self->noise_spectrum_available = true;
+  if (self->noise_blocks_count > MIN_NUMBER_OF_WINDOWS_NOISE_AVERAGED ||
+      self->parameters->auto_learn_noise) {
+    self->noise_spectrum_available = true;
+  }
 
   return true;
 }

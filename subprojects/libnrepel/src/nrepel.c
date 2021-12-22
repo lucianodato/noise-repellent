@@ -28,14 +28,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <string.h>
 
 typedef struct {
+  uint32_t sample_rate;
   ProcessorParameters denoise_parameters;
-  NoiseProfile *noise_profile;
 
+  NoiseProfile *noise_profile;
   SpectralDenoiser *spectral_denoiser;
   StftProcessor *stft_processor;
   SignalCrossfade *soft_bypass;
-
-  uint32_t sample_rate;
 } NoiseRepellent;
 
 NoiseRepellentHandle nr_initialize(const uint32_t sample_rate) {

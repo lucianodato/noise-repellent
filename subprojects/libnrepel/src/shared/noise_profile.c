@@ -37,7 +37,9 @@ void noise_profile_free(NoiseProfile *self) {
   free(self->noise_profile);
   free(self);
 }
+
 float *get_noise_profile(NoiseProfile *self) { return self->noise_profile; }
+
 uint32_t get_noise_profile_size(NoiseProfile *self) {
   return self->noise_profile_size;
 }

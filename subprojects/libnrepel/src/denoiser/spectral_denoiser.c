@@ -50,6 +50,7 @@ SpectralDenoiserHandle spectral_denoiser_initialize(
     const uint32_t sample_rate, const uint32_t fft_size,
     const uint32_t overlap_factor, NoiseProfile *noise_profile,
     ProcessorParameters *parameters) {
+
   SpectralDenoiser *self =
       (SpectralDenoiser *)calloc(1U, sizeof(SpectralDenoiser));
 
@@ -62,12 +63,12 @@ SpectralDenoiserHandle spectral_denoiser_initialize(
       (float *)calloc((self->half_fft_size + 1U), sizeof(float));
   initialize_spectrum_to_ones(self->gain_spectrum, self->half_fft_size + 1U);
 
+  self->noise_profile = noise_profile;
+  self->denoise_parameters = parameters;
+
   self->noise_estimator = noise_estimation_initialize(
       self->fft_size, sample_rate, self->noise_profile,
       self->denoise_parameters);
-
-  self->noise_profile = noise_profile;
-  self->denoise_parameters = parameters;
 
   self->gain_estimation = gain_estimation_initialize(
       self->fft_size, self->sample_rate, self->hop, self->denoise_parameters);
@@ -106,13 +107,17 @@ bool spectral_denoiser_run(SpectralDenoiserHandle instance,
 
   if (self->denoise_parameters->learn_noise ||
       self->denoise_parameters->auto_learn_noise) {
-    noise_estimation_run(self->noise_estimator, fft_spectrum);
-  }
 
-  if (is_noise_estimation_available(self->noise_estimator)) {
+    // Estimating noise either adaptively or manual
+    noise_estimation_run(self->noise_estimator, fft_spectrum);
+
+  } else if (is_noise_estimation_available(self->noise_estimator)) {
+
+    // Denoising either adaptively or with the captured profile
     gain_estimation_run(self->gain_estimation, fft_spectrum,
                         get_noise_profile(self->noise_profile),
                         self->gain_spectrum);
+
     denoise_build(self, fft_spectrum);
   }
 
