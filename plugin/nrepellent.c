@@ -38,6 +38,7 @@ typedef struct {
 typedef struct {
   LV2_URID property_noise_profile;
   LV2_URID property_noise_profile_size;
+  LV2_URID property_averaged_blocks;
 } State;
 
 static inline void map_uris(LV2_URID_Map *map, URIs *uris) {
@@ -52,6 +53,8 @@ static inline void map_state(LV2_URID_Map *map, State *state) {
       map->map(map->handle, NOISEREPELLENT_URI "#noiseprofile");
   state->property_noise_profile_size =
       map->map(map->handle, NOISEREPELLENT_URI "#noiseprofilesize");
+  state->property_averaged_blocks =
+      map->map(map->handle, NOISEREPELLENT_URI "#noiseprofileaveragedblocks");
 }
 
 typedef enum {
@@ -64,10 +67,11 @@ typedef enum {
   NOISEREPELLENT_NOISE_LEARN = 6,
   NOISEREPELLENT_AUTO_NOISE_LEARN = 7,
   NOISEREPELLENT_RESIDUAL_LISTEN = 8,
-  NOISEREPELLENT_ENABLE = 9,
-  NOISEREPELLENT_LATENCY = 10,
-  NOISEREPELLENT_INPUT = 11,
-  NOISEREPELLENT_OUTPUT = 12,
+  NOISEREPELLENT_RESET_NOISE_PROFILE = 9,
+  NOISEREPELLENT_ENABLE = 10,
+  NOISEREPELLENT_LATENCY = 11,
+  NOISEREPELLENT_INPUT = 12,
+  NOISEREPELLENT_OUTPUT = 13,
 } PortIndex;
 
 typedef struct {
@@ -94,6 +98,7 @@ typedef struct {
   float *whitening_factor;
   float *transient_threshold;
   float *noise_rescale;
+  float *reset_noise_profile;
 
 } NoiseRepellentPlugin;
 
@@ -171,6 +176,9 @@ static void connect_port(LV2_Handle instance, uint32_t port, void *data) {
   case NOISEREPELLENT_AUTO_NOISE_LEARN:
     self->adaptive_noise_learn = (float *)data;
     break;
+  case NOISEREPELLENT_RESET_NOISE_PROFILE:
+    self->reset_noise_profile = (float *)data;
+    break;
   case NOISEREPELLENT_RESIDUAL_LISTEN:
     self->residual_listen = (float *)data;
     break;
@@ -221,10 +229,16 @@ static LV2_State_Status save(LV2_Handle instance,
   NoiseRepellentPlugin *self = (NoiseRepellentPlugin *)instance;
 
   uint32_t noise_profile_size = nr_get_noise_profile_size(self->lib_instance);
+  uint32_t noise_profile_averaged_blocks =
+      nr_get_noise_profile_blocks_averaged(self->lib_instance);
   float *noise_profile = nr_get_noise_profile(self->lib_instance);
 
   store(handle, self->state.property_noise_profile_size, &noise_profile_size,
         sizeof(uint32_t), self->uris.atom_Int,
+        LV2_STATE_IS_POD | LV2_STATE_IS_PORTABLE);
+
+  store(handle, self->state.property_averaged_blocks,
+        &noise_profile_averaged_blocks, sizeof(uint32_t), self->uris.atom_Int,
         LV2_STATE_IS_POD | LV2_STATE_IS_PORTABLE);
 
   store(handle, self->state.property_noise_profile, (void *)noise_profile,
@@ -250,6 +264,12 @@ static LV2_State_Status restore(LV2_Handle instance,
     return LV2_STATE_ERR_NO_PROPERTY;
   }
 
+  const uint32_t *averagedblocks = (const uint32_t *)retrieve(
+      handle, self->state.property_averaged_blocks, &size, &type, &valflags);
+  if (averagedblocks == NULL || type != self->uris.atom_Int) {
+    return LV2_STATE_ERR_NO_PROPERTY;
+  }
+
   const void *saved_noise_profile = retrieve(
       handle, self->state.property_noise_profile, &size, &type, &valflags);
   if (!saved_noise_profile ||
@@ -259,7 +279,8 @@ static LV2_State_Status restore(LV2_Handle instance,
   }
 
   nr_load_noise_profile(self->lib_instance,
-                        (float *)LV2_ATOM_BODY(saved_noise_profile), *fftsize);
+                        (float *)LV2_ATOM_BODY(saved_noise_profile), *fftsize,
+                        *averagedblocks);
 
   return LV2_STATE_SUCCESS;
 }

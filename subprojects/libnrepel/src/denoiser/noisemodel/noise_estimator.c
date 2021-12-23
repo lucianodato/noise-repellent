@@ -29,7 +29,6 @@ struct NoiseEstimator {
   uint32_t fft_size;
   uint32_t half_fft_size;
   bool noise_spectrum_available;
-  float noise_blocks_count;
 
   SpectralFeatures *spectral_features;
   ProcessorParameters *parameters;
@@ -45,7 +44,7 @@ NoiseEstimator *noise_estimation_initialize(const uint32_t fft_size,
 
   self->fft_size = fft_size;
   self->half_fft_size = self->fft_size / 2U;
-  self->noise_blocks_count = 0U;
+
   self->noise_spectrum_available = false;
 
   self->noise_profile = noise_profile;
@@ -73,11 +72,12 @@ static void get_rolling_mean_noise_spectrum(NoiseEstimator *self,
                                             const float *spectrum,
                                             float *noise_spectrum) {
   for (uint32_t k = 1U; k <= self->half_fft_size; k++) {
-    if (self->noise_blocks_count <= 1U) {
+    if (get_noise_profile_blocks_averaged(self->noise_profile) <= 1U) {
       noise_spectrum[k] = spectrum[k];
     } else {
       noise_spectrum[k] +=
-          ((spectrum[k] - noise_spectrum[k]) / self->noise_blocks_count);
+          ((spectrum[k] - noise_spectrum[k]) /
+           get_noise_profile_blocks_averaged(self->noise_profile));
     }
   }
 }
@@ -87,7 +87,7 @@ bool noise_estimation_run(NoiseEstimator *self, float *fft_spectrum) {
     return false;
   }
 
-  self->noise_blocks_count++; // TODO Add back the reset noise profile button
+  increment_blocks_averaged(self->noise_profile);
 
   compute_power_spectrum(self->spectral_features, fft_spectrum, self->fft_size);
 
@@ -101,7 +101,8 @@ bool noise_estimation_run(NoiseEstimator *self, float *fft_spectrum) {
     get_rolling_mean_noise_spectrum(self, reference_spectrum, noise_profile);
   }
 
-  if (self->noise_blocks_count > MIN_NUMBER_OF_WINDOWS_NOISE_AVERAGED ||
+  if (get_noise_profile_blocks_averaged(self->noise_profile) >
+          MIN_NUMBER_OF_WINDOWS_NOISE_AVERAGED ||
       self->parameters->adaptive_noise_learn) {
     self->noise_spectrum_available = true;
   }

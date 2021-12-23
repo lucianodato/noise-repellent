@@ -61,7 +61,8 @@ SpectralDenoiserHandle spectral_denoiser_initialize(
 
   self->gain_spectrum =
       (float *)calloc((self->half_fft_size + 1U), sizeof(float));
-  initialize_spectrum_to_ones(self->gain_spectrum, self->half_fft_size + 1U);
+  initialize_spectrum_with_value(self->gain_spectrum, self->half_fft_size + 1U,
+                                 1.f);
 
   self->noise_profile = noise_profile;
   self->denoise_parameters = parameters;

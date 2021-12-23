@@ -49,8 +49,10 @@ uint32_t nr_get_latency(NoiseRepellentHandle instance);
 uint32_t nr_get_noise_profile_size(NoiseRepellentHandle instance);
 float *nr_get_noise_profile(NoiseRepellentHandle instance);
 bool nr_load_noise_profile(NoiseRepellentHandle instance,
-                           const float *restored_profile,
-                           uint32_t profile_size);
+                           const float *restored_profile, uint32_t profile_size,
+                           uint32_t profile_blocks);
+uint32_t nr_get_noise_profile_blocks_averaged(NoiseRepellentHandle instance);
+bool nr_reset_noise_profile(NoiseRepellentHandle instance);
 bool nr_load_parameters(NoiseRepellentHandle instance,
                         ProcessorParameters parameters);
 #endif

@@ -118,6 +118,12 @@ uint32_t nr_get_noise_profile_size(NoiseRepellentHandle instance) {
   return get_noise_profile_size(self->noise_profile);
 }
 
+uint32_t nr_get_noise_profile_blocks_averaged(NoiseRepellentHandle instance) {
+  NoiseRepellent *self = (NoiseRepellent *)instance;
+
+  return get_noise_profile_blocks_averaged(self->noise_profile);
+}
+
 float *nr_get_noise_profile(NoiseRepellentHandle instance) {
   NoiseRepellent *self = (NoiseRepellent *)instance;
 
@@ -126,7 +132,8 @@ float *nr_get_noise_profile(NoiseRepellentHandle instance) {
 
 bool nr_load_noise_profile(NoiseRepellentHandle instance,
                            const float *restored_profile,
-                           const uint32_t profile_size) {
+                           const uint32_t profile_size,
+                           const uint32_t averaged_blocks) {
   if (!instance || !restored_profile) {
     return false;
   }
@@ -137,7 +144,20 @@ bool nr_load_noise_profile(NoiseRepellentHandle instance,
     return false;
   }
 
-  set_noise_profile(self->noise_profile, restored_profile, profile_size);
+  set_noise_profile(self->noise_profile, restored_profile, profile_size,
+                    averaged_blocks);
+
+  return true;
+}
+
+bool nr_reset_noise_profile(NoiseRepellentHandle instance) {
+  if (!instance) {
+    return false;
+  }
+
+  NoiseRepellent *self = (NoiseRepellent *)instance;
+
+  reset_noise_profile(self->noise_profile);
 
   return true;
 }

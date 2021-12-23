@@ -18,17 +18,20 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
 #include "noise_profile.h"
+#include "../../shared/spectral_utils.h"
 #include "string.h"
 #include <stdlib.h>
 
 struct NoiseProfile {
   uint32_t noise_profile_size;
+  uint32_t noise_profile_blocks_averaged;
   float *noise_profile;
 };
 
 NoiseProfile *noise_profile_initialize(const uint32_t size) {
   NoiseProfile *self = (NoiseProfile *)calloc(1U, sizeof(NoiseProfile));
   self->noise_profile_size = size;
+  self->noise_profile_blocks_averaged = 0U;
   self->noise_profile = (float *)calloc(size, sizeof(float));
 
   return self;
@@ -40,18 +43,48 @@ void noise_profile_free(NoiseProfile *self) {
 
 float *get_noise_profile(NoiseProfile *self) { return self->noise_profile; }
 
-uint32_t get_noise_profile_size(NoiseProfile *self) {
+uint32_t get_noise_profile_size(NoiseProfile *self) { // reset window count
   return self->noise_profile_size;
 }
 
+uint32_t get_noise_profile_blocks_averaged(NoiseProfile *self) {
+  return self->noise_profile_blocks_averaged;
+}
+
 bool set_noise_profile(NoiseProfile *self, const float *noise_profile,
-                       const uint32_t noise_profile_size) {
+                       const uint32_t noise_profile_size,
+                       const uint32_t noise_profile_blocks_averaged) {
   if (!self || !noise_profile ||
       noise_profile_size != self->noise_profile_size) {
     return false;
   }
   memcpy(self->noise_profile, noise_profile,
          noise_profile_size * sizeof(float));
+
+  self->noise_profile_size = noise_profile_size;
+  self->noise_profile_blocks_averaged = noise_profile_blocks_averaged;
+
+  return true;
+}
+
+bool increment_blocks_averaged(NoiseProfile *self) {
+  if (!self) {
+    return false;
+  }
+
+  self->noise_profile_blocks_averaged++;
+
+  return true;
+}
+
+bool reset_noise_profile(NoiseProfile *self) {
+  if (!self) {
+    return false;
+  }
+
+  initialize_spectrum_with_value(self->noise_profile, self->noise_profile_size,
+                                 0.f);
+  self->noise_profile_blocks_averaged = 0U;
 
   return true;
 }

@@ -86,7 +86,8 @@ MaskingEstimator *masking_estimation_initialize(const uint32_t fft_size,
   compute_bark_mapping(self);
   compute_absolute_thresholds(self);
   compute_spectral_spreading_function(self);
-  initialize_spectrum_to_ones(self->unity_gain_bark_spectrum, N_BARK_BANDS);
+  initialize_spectrum_with_value(self->unity_gain_bark_spectrum, N_BARK_BANDS,
+                                 1.f);
   naive_matrix_to_vector_spectral_convolution(
       self->spectral_spreading_function, self->unity_gain_bark_spectrum,
       self->spreaded_unity_gain_bark_spectrum, N_BARK_BANDS);

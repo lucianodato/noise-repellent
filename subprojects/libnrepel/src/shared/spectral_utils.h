@@ -31,7 +31,8 @@ typedef enum {
 } WindowTypes;
 
 bool get_fft_window(float *window, uint32_t fft_size, WindowTypes window_type);
-bool initialize_spectrum_to_ones(float *spectrum, uint32_t spectrum_size);
+bool initialize_spectrum_with_value(float *spectrum, uint32_t spectrum_size,
+                                    float value);
 bool naive_matrix_to_vector_spectral_convolution(const float *matrix_spectum,
                                                  const float *spectrum,
                                                  float *out_spectrum,

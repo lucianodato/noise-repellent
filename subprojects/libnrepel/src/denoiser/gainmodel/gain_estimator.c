@@ -75,7 +75,7 @@ GainEstimator *gain_estimation_initialize(const uint32_t fft_size,
   self->noise_profile =
       (float *)calloc((self->half_fft_size + 1U), sizeof(float));
   self->alpha = (float *)calloc((self->half_fft_size + 1U), sizeof(float));
-  initialize_spectrum_to_ones(self->alpha, self->half_fft_size + 1U);
+  initialize_spectrum_with_value(self->alpha, self->half_fft_size + 1U, 1.f);
   self->beta = (float *)calloc((self->half_fft_size + 1U), sizeof(float));
   self->masking_thresholds =
       (float *)calloc((self->half_fft_size + 1U), sizeof(float));
@@ -132,7 +132,7 @@ bool gain_estimation_run(GainEstimator *self, const float *signal_spectrum,
                            self->denoise_parameters->masking_ceiling_limit,
                            0.f);
   } else {
-    initialize_spectrum_to_ones(self->alpha, self->half_fft_size + 1U);
+    initialize_spectrum_with_value(self->alpha, self->half_fft_size + 1U, 1.f);
   }
 
   for (uint32_t k = 1U; k <= self->half_fft_size; k++) {
