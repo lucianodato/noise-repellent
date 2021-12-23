@@ -18,10 +18,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
 #include "spl_spectrum_converter.h"
-#include "../shared/configurations.h"
-#include "../shared/fft_transform.h"
-#include "../shared/spectral_features.h"
-#include "../shared/spectral_utils.h"
+#include "configurations.h"
+#include "fft_transform.h"
+#include "spectral_features.h"
+#include "spectral_utils.h"
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>

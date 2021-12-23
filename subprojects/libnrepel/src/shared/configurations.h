@@ -24,12 +24,25 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define M_PI (3.14159265358979323846)
 #endif
 
-/* ----------------------------------------------------------- */
-/* ------------------- Stft configurations ------------------- */
-/* ----------------------------------------------------------- */
+/* --------------------------------------------------------------------- */
+/* ------------------- Shared Modules configurations ------------------- */
+/* --------------------------------------------------------------------- */
 
 // Fft configurations
 #define FFT_SIZE 2048
+
+// dB to dBSPL converter
+#define REFERENCE_SINE_WAVE_FREQ 1000.f
+#define REFERENCE_LEVEL 90.f
+#define SINE_AMPLITUDE 1.f
+
+// Spectral Whitening
+#define WHITENING_DECAY_RATE 1000.f
+#define WHITENING_FLOOR 0.02f
+
+/* ----------------------------------------------------------- */
+/* ------------------- Stft configurations ------------------- */
+/* ----------------------------------------------------------- */
 
 // OverlapAdd configurations
 #define OVERLAP_FACTOR 2
@@ -44,15 +57,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 // Transient protection
 #define UPPER_LIMIT 5.f
-
-// dB to dBSPL converter
-#define REFERENCE_SINE_WAVE_FREQ 1000.f
-#define REFERENCE_LEVEL 90.f
-#define SINE_AMPLITUDE 1.f
-
-// Spectral Whitening
-#define WHITENING_DECAY_RATE 1000.f
-#define WHITENING_FLOOR 0.02f
 
 // Masking
 #define N_BARK_BANDS 25

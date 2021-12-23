@@ -18,8 +18,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
 #include "transient_detector.h"
-#include "../shared/configurations.h"
-#include "../shared/spectral_utils.h"
+#include "../../shared/configurations.h"
+#include "../../shared/spectral_utils.h"
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>

@@ -18,7 +18,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
 #include "spectral_whitening.h"
-#include "../shared/configurations.h"
+#include "configurations.h"
 #include <float.h>
 #include <math.h>
 #include <stdlib.h>

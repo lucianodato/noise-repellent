@@ -18,10 +18,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
 #include "spectral_denoiser.h"
-#include "../noisemodel/noise_estimator.h"
 #include "../shared/spectral_utils.h"
-#include "gain_estimator.h"
-#include "spectral_whitening.h"
+#include "../shared/spectral_whitening.h"
+#include "gainmodel/gain_estimator.h"
+#include "noisemodel/noise_estimator.h"
 #include <float.h>
 #include <math.h>
 #include <stdlib.h>

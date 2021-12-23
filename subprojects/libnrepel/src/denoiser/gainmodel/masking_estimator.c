@@ -18,9 +18,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
 #include "masking_estimator.h"
-#include "../shared/configurations.h"
-#include "../shared/spectral_utils.h"
-#include "spl_spectrum_converter.h"
+#include "../../shared/configurations.h"
+#include "../../shared/spectral_utils.h"
+#include "../../shared/spl_spectrum_converter.h"
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>

@@ -18,9 +18,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
 #include "gain_estimator.h"
-#include "../shared/configurations.h"
-#include "../shared/spectral_features.h"
-#include "../shared/spectral_utils.h"
+#include "../../shared/configurations.h"
+#include "../../shared/spectral_features.h"
+#include "../../shared/spectral_utils.h"
 #include "masking_estimator.h"
 #include "spectral_smoother.h"
 #include "transient_detector.h"
