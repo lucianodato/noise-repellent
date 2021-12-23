@@ -88,6 +88,7 @@ typedef struct {
   NoiseRepellentHandle lib_instance;
   ProcessorParameters parameters;
 
+  // TODO Use state mapping and unmapping instead
   float *enable;
   float *learn_noise;
   float *adaptive_noise_learn;
@@ -197,7 +198,7 @@ static void connect_port(LV2_Handle instance, uint32_t port, void *data) {
   }
 }
 
-static void run(LV2_Handle instance, uint32_t number_of_samples) {
+static void activate(LV2_Handle instance) {
   NoiseRepellentPlugin *self = (NoiseRepellentPlugin *)instance;
 
   // clang-format off
@@ -218,6 +219,20 @@ static void run(LV2_Handle instance, uint32_t number_of_samples) {
   nr_load_parameters(self->lib_instance, self->parameters);
 
   *self->report_latency = (float)nr_get_latency(self->lib_instance);
+
+  if ((bool)*self->reset_noise_profile) {
+    nr_reset_noise_profile(self->lib_instance);
+  }
+}
+
+static void deactivate(LV2_Handle instance) {
+  NoiseRepellentPlugin *self = (NoiseRepellentPlugin *)instance;
+
+  *self->reset_noise_profile = 0.f;
+}
+
+static void run(LV2_Handle instance, uint32_t number_of_samples) {
+  NoiseRepellentPlugin *self = (NoiseRepellentPlugin *)instance;
 
   nr_process(self->lib_instance, number_of_samples, self->input, self->output);
 }
@@ -298,9 +313,9 @@ static const LV2_Descriptor descriptor = {
     NOISEREPELLENT_URI,
     instantiate,
     connect_port,
-    NULL,
+    activate,
     run,
-    NULL,
+    deactivate,
     cleanup,
     extension_data
 };
