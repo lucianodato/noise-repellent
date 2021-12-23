@@ -100,7 +100,9 @@ typedef struct {
 static void cleanup(LV2_Handle instance) {
   NoiseRepellentPlugin *self = (NoiseRepellentPlugin *)instance;
 
-  nr_free(self->lib_instance);
+  if (self->lib_instance) {
+    nr_free(self->lib_instance);
+  }
   free(instance);
 }
 
@@ -112,7 +114,7 @@ static LV2_Handle instantiate(const LV2_Descriptor *descriptor,
 
   // clang-format off
   const char *missing =
-      lv2_features_query(features, 
+      lv2_features_query(features,
                          LV2_LOG__log, &self->log.log, false,
                          LV2_URID__map, &self->map, true,
                          NULL);

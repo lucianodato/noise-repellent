@@ -48,9 +48,14 @@
             "command": "ninja -C build -t clean"
         },
         {
-            "label": "SordValidate",
+            "label": "Lv2Validate",
             "type": "shell",
-            "command": "sord_validate $(find ./build -name *.ttl) $(find /usr/lib/lv2 -name *.ttl)"
+            "command": "lv2_validate $(find ./build -name *.ttl)"
+        },
+        {
+            "label": "Lv2Lint",
+            "type": "shell",
+            "command": "lv2lint https://github.com/lucianodato/noise-repellent"
         },
         {
             "label": "Lv2Bench",
