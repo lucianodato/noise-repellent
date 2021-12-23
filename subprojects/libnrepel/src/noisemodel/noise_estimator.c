@@ -94,7 +94,7 @@ bool noise_estimation_run(NoiseEstimator *self, float *fft_spectrum) {
   float *noise_profile = get_noise_profile(self->noise_profile);
   const float *reference_spectrum = get_power_spectrum(self->spectral_features);
 
-  if (self->parameters->auto_learn_noise) {
+  if (self->parameters->adaptive_noise_learn) {
     louizou_estimator_run(self->adaptive_estimator, reference_spectrum,
                           noise_profile);
   } else {
@@ -102,7 +102,7 @@ bool noise_estimation_run(NoiseEstimator *self, float *fft_spectrum) {
   }
 
   if (self->noise_blocks_count > MIN_NUMBER_OF_WINDOWS_NOISE_AVERAGED ||
-      self->parameters->auto_learn_noise) {
+      self->parameters->adaptive_noise_learn) {
     self->noise_spectrum_available = true;
   }
 

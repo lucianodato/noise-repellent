@@ -106,12 +106,13 @@ bool spectral_denoiser_run(SpectralDenoiserHandle instance,
   SpectralDenoiser *self = (SpectralDenoiser *)instance;
 
   if (self->denoise_parameters->learn_noise ||
-      self->denoise_parameters->auto_learn_noise) {
+      self->denoise_parameters->adaptive_noise_learn) {
 
     // Estimating noise either adaptively or manual
     noise_estimation_run(self->noise_estimator, fft_spectrum);
+  }
 
-  } else if (is_noise_estimation_available(self->noise_estimator)) {
+  if (is_noise_estimation_available(self->noise_estimator)) {
 
     // Denoising either adaptively or with the captured profile
     gain_estimation_run(self->gain_estimation, fft_spectrum,

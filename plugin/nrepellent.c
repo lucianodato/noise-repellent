@@ -86,7 +86,7 @@ typedef struct {
 
   float *enable;
   float *learn_noise;
-  float *auto_learn_noise;
+  float *adaptive_noise_learn;
   float *residual_listen;
   float *reduction_amount;
   float *release_time;
@@ -169,7 +169,7 @@ static void connect_port(LV2_Handle instance, uint32_t port, void *data) {
     self->learn_noise = (float *)data;
     break;
   case NOISEREPELLENT_AUTO_NOISE_LEARN:
-    self->auto_learn_noise = (float *)data;
+    self->adaptive_noise_learn = (float *)data;
     break;
   case NOISEREPELLENT_RESIDUAL_LISTEN:
     self->residual_listen = (float *)data;
@@ -195,7 +195,7 @@ static void run(LV2_Handle instance, uint32_t number_of_samples) {
   // clang-format off
   self->parameters = (ProcessorParameters){
       .enable = (bool)*self->enable,
-      .auto_learn_noise = (bool)*self->auto_learn_noise,
+      .adaptive_noise_learn = (bool)*self->adaptive_noise_learn,
       .learn_noise = (bool)*self->learn_noise,
       .residual_listen = (bool)*self->residual_listen,
       .masking_ceiling_limit = *self->masking_ceiling_limit,

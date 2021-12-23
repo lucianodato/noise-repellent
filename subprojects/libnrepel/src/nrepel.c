@@ -157,7 +157,7 @@ bool nr_load_parameters(NoiseRepellentHandle instance,
   // clang-format off
   self->denoise_parameters = (ProcessorParameters){
       .enable = parameters.enable,
-      .auto_learn_noise = parameters.auto_learn_noise,
+      .adaptive_noise_learn = parameters.adaptive_noise_learn,
       .learn_noise = parameters.learn_noise,
       .residual_listen = parameters.residual_listen,
       .masking_ceiling_limit = parameters.masking_ceiling_limit,
