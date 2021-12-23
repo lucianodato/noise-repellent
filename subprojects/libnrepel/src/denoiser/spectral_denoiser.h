@@ -25,7 +25,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <stdbool.h>
 #include <stdint.h>
 
-typedef struct SpectralDenoiser SpectralDenoiser;
 typedef void *SpectralDenoiserHandle;
 
 SpectralDenoiserHandle spectral_denoiser_initialize(

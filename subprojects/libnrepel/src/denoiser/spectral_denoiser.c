@@ -27,9 +27,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <stdlib.h>
 #include <string.h>
 
-static void denoise_build(SpectralDenoiser *self, float *fft_spectrum);
-
-struct SpectralDenoiser {
+typedef struct {
   uint32_t fft_size;
   uint32_t half_fft_size;
   uint32_t sample_rate;
@@ -44,7 +42,9 @@ struct SpectralDenoiser {
   NoiseProfile *noise_profile;
   GainEstimator *gain_estimation;
   ProcessorParameters *denoise_parameters;
-};
+} SpectralDenoiser;
+
+static void denoise_build(SpectralDenoiser *self, float *fft_spectrum);
 
 SpectralDenoiserHandle spectral_denoiser_initialize(
     const uint32_t sample_rate, const uint32_t fft_size,
