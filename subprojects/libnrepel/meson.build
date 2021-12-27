@@ -31,7 +31,7 @@ dep = [m_dep, fftw_dep]
 #get the host operating system and configure install path and shared object extension
 current_os = host_machine.system()
 current_arch = host_machine.cpu_family()
-cflags = []
+cflags = ['-fvisibility=hidden']
 
 #compiler flags
 if get_option('buildtype') == 'release'

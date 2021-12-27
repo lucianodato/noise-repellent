@@ -55,7 +55,7 @@
         {
             "label": "Lv2Lint",
             "type": "shell",
-            "command": "lv2lint https://github.com/lucianodato/noise-repellent"
+            "command": "lv2lint -S all -E all -d https://github.com/lucianodato/noise-repellent"
         },
         {
             "label": "Lv2Bench",
