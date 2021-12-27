@@ -163,7 +163,7 @@ bool nr_reset_noise_profile(NoiseRepellentHandle instance) {
 }
 
 static inline float from_db_to_coefficient(const float gain_db) {
-  return expf(gain_db / 10.f * logf(10.f));
+  return expf(gain_db / 10.F * logf(10.F));
 }
 
 bool nr_load_parameters(NoiseRepellentHandle instance,
@@ -182,11 +182,11 @@ bool nr_load_parameters(NoiseRepellentHandle instance,
       .residual_listen = parameters.residual_listen,
       .masking_ceiling_limit = parameters.masking_ceiling_limit,
       .reduction_amount =
-          from_db_to_coefficient(parameters.reduction_amount * -1.f),
+          from_db_to_coefficient(parameters.reduction_amount * -1.F),
       .noise_rescale = parameters.noise_rescale,
       .release_time = parameters.reduction_amount,
       .transient_threshold = parameters.transient_threshold,
-      .whitening_factor = parameters.whitening_factor / 100.f,
+      .whitening_factor = parameters.whitening_factor / 100.F,
   };
   // clang-format on
 
