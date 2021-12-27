@@ -24,18 +24,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <stdlib.h>
 #include <string.h>
 
-#define N_SMOOTH 0.7f
-#define BETA_AT 0.8f
-#define GAMMA 0.998f
-#define ALPHA_P 0.2f
-#define ALPHA_D 0.95f
-
-#define CROSSOVER_POINT1 1000.f
-#define CROSSOVER_POINT2 3000.f
-#define BAND_1_GAIN 2.0f
-#define BAND_2_GAIN 2.0f
-#define BAND_3_GAIN 7.0f
-
 typedef struct {
   float *smoothed_power_spectrum;
   float *local_minimum_spectrum;
@@ -107,13 +95,13 @@ bool louizou_estimator_run(LouizouEstimator *self, const float *spectrum,
   for (uint32_t k = 0U; k < self->noise_spectrum_size; k++) {
     self->current->smoothed_power_spectrum[k] =
         N_SMOOTH * self->previous->smoothed_power_spectrum[k] +
-        (1.f - N_SMOOTH) * spectrum[k];
+        (1.F - N_SMOOTH) * spectrum[k];
 
     if (self->previous->local_minimum_spectrum[k] <
         self->current->smoothed_power_spectrum[k]) {
       self->current->local_minimum_spectrum[k] =
           GAMMA * self->previous->local_minimum_spectrum[k] +
-          ((1.f - GAMMA) / (1.f - BETA_AT)) *
+          ((1.F - GAMMA) / (1.F - BETA_AT)) *
               (self->current->smoothed_power_spectrum[k] -
                BETA_AT * self->previous->smoothed_power_spectrum[k]);
     } else {
@@ -132,16 +120,16 @@ bool louizou_estimator_run(LouizouEstimator *self, const float *spectrum,
 
     self->current->speech_present_probability_spectrum[k] =
         ALPHA_P * self->previous->speech_present_probability_spectrum[k] +
-        (1.f - ALPHA_P) * (float)self->speech_presence_detection[k];
+        (1.F - ALPHA_P) * (float)self->speech_presence_detection[k];
 
     self->time_frequency_smoothing_constant[k] =
         ALPHA_D +
-        (1.f - ALPHA_D) * self->current->speech_present_probability_spectrum[k];
+        (1.F - ALPHA_D) * self->current->speech_present_probability_spectrum[k];
 
     noise_spectrum[k] =
         self->time_frequency_smoothing_constant[k] *
             self->previous_noise_spectrum[k] +
-        (1.f - self->time_frequency_smoothing_constant[k]) * spectrum[k];
+        (1.F - self->time_frequency_smoothing_constant[k]) * spectrum[k];
   }
 
   memcpy(self->previous_noise_spectrum, noise_spectrum,

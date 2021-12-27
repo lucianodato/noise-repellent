@@ -24,22 +24,21 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 static inline float blackman(const uint32_t bin_index,
                              const uint32_t fft_size) {
   const float p = ((float)(bin_index)) / ((float)(fft_size));
-  return 0.42 - 0.5 * cosf(2.f * M_PI * p) + 0.08 * cosf(4.f * M_PI * p);
+  return 0.42F - 0.5F * cosf(2.F * M_PI * p) + 0.08F * cosf(4.F * M_PI * p);
 }
-
 static inline float hanning(const uint32_t bin_index, const uint32_t fft_size) {
   const float p = ((float)(bin_index)) / ((float)(fft_size));
-  return 0.5 - 0.5 * cosf(2.f * M_PI * p);
+  return 0.5F - 0.5F * cosf(2.F * M_PI * p);
 }
 
 static inline float hamming(const uint32_t bin_index, const uint32_t fft_size) {
   const float p = ((float)(bin_index)) / ((float)(fft_size));
-  return 0.54 - 0.46 * cosf(2.f * M_PI * p);
+  return 0.54F - 0.46F * cosf(2.F * M_PI * p);
 }
 
 static inline float vorbis(const uint32_t bin_index, const uint32_t fft_size) {
   const float p = ((float)(bin_index)) / ((float)(fft_size));
-  return sinf(M_PI / 2.f * powf(sinf(M_PI * p), 2.f));
+  return sinf(M_PI / 2.F * powf(sinf(M_PI * p), 2.F));
 }
 
 bool get_fft_window(float *window, const uint32_t fft_size,
@@ -62,6 +61,8 @@ bool get_fft_window(float *window, const uint32_t fft_size,
     case VORBIS_WINDOW:
       window[k] = vorbis(k, fft_size);
       break;
+    default:
+      break;
     }
   }
 
@@ -70,7 +71,7 @@ bool get_fft_window(float *window, const uint32_t fft_size,
 
 bool initialize_spectrum_with_value(float *spectrum, uint32_t spectrum_size,
                                     const float value) {
-  if (!spectrum || spectrum_size <= 0) {
+  if (!spectrum || spectrum_size <= 0U) {
     return false;
   }
 
@@ -82,8 +83,8 @@ bool initialize_spectrum_with_value(float *spectrum, uint32_t spectrum_size,
 }
 
 float max_spectral_value(const float *spectrum, const uint32_t spectrum_size) {
-  if (!spectrum || spectrum_size <= 0) {
-    return 0.f;
+  if (!spectrum || spectrum_size <= 0U) {
+    return 0.F;
   }
 
   float max = spectrum[0];
@@ -94,8 +95,8 @@ float max_spectral_value(const float *spectrum, const uint32_t spectrum_size) {
 }
 
 float min_spectral_value(const float *spectrum, const uint32_t spectrum_size) {
-  if (!spectrum || spectrum_size <= 0) {
-    return 0.f;
+  if (!spectrum || spectrum_size <= 0U) {
+    return 0.F;
   }
 
   float min = spectrum[0];
@@ -114,7 +115,7 @@ bool naive_matrix_to_vector_spectral_convolution(const float *matrix_spectum,
   }
 
   for (uint32_t i = 0U; i < spectrum_size; i++) {
-    out_spectrum[i] = 0.f;
+    out_spectrum[i] = 0.F;
     for (uint32_t j = 0U; j < spectrum_size; j++) {
       out_spectrum[i] += matrix_spectum[i * spectrum_size + j] * spectrum[j];
     }
@@ -131,20 +132,20 @@ inline float fft_bin_to_freq(const uint32_t bin_index,
 
 inline uint32_t freq_to_fft_bin(const float freq, const uint32_t sample_rate,
                                 const uint32_t fft_size) {
-  return (uint32_t)(freq / ((float)sample_rate / (float)fft_size / 2.f));
+  return (uint32_t)(freq / ((float)sample_rate / (float)fft_size / 2.F));
 }
 
 float spectral_flux(const float *spectrum, const float *previous_spectrum,
                     const uint32_t spectrum_size) {
-  if (!spectrum || !previous_spectrum || spectrum_size <= 0) {
-    return 0.f;
+  if (!spectrum || !previous_spectrum || spectrum_size <= 0U) {
+    return 0.F;
   }
 
-  float spectral_flux = 0.f;
+  float spectral_flux = 0.F;
 
   for (uint32_t i = 0U; i < spectrum_size; i++) {
     const float temp = sqrtf(spectrum[i]) - sqrtf(previous_spectrum[i]);
-    spectral_flux += (temp + fabsf(temp)) / 2.f;
+    spectral_flux += (temp + fabsf(temp)) / 2.F;
   }
   return spectral_flux;
 }

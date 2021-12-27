@@ -57,7 +57,7 @@ SpectralSmoother *spectral_smoothing_initialize(const uint32_t fft_size,
   self->smoothed_spectrum_previous =
       (float *)calloc((self->half_fft_size + 1U), sizeof(float));
 
-  self->release_coefficient = 0.f;
+  self->release_coefficient = 0.F;
 
   return self;
 }
@@ -89,11 +89,11 @@ bool spectral_smoothing_run(SpectralSmoother *self, const float release,
 
 static void get_release_coefficient(SpectralSmoother *self,
                                     const float release) {
-  if (release != 0.f) {
+  if (release != 0.F) {
     self->release_coefficient =
-        expf(-1000.f / (((release)*self->sample_rate) / self->hop));
+        expf(-1000.F / (((release)*self->sample_rate) / self->hop));
   } else {
-    self->release_coefficient = 0.f;
+    self->release_coefficient = 0.F;
   }
 }
 
@@ -102,7 +102,7 @@ static void apply_time_envelope(SpectralSmoother *self) {
     if (self->smoothed_spectrum[k] > self->smoothed_spectrum_previous[k]) {
       self->smoothed_spectrum[k] =
           self->release_coefficient * self->smoothed_spectrum_previous[k] +
-          (1.f - self->release_coefficient) * self->smoothed_spectrum[k];
+          (1.F - self->release_coefficient) * self->smoothed_spectrum[k];
     }
   }
 }

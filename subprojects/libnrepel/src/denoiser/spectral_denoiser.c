@@ -62,7 +62,7 @@ SpectralDenoiserHandle spectral_denoiser_initialize(
   self->gain_spectrum =
       (float *)calloc((self->half_fft_size + 1U), sizeof(float));
   initialize_spectrum_with_value(self->gain_spectrum, self->half_fft_size + 1U,
-                                 1.f);
+                                 1.F);
 
   self->noise_profile = noise_profile;
   self->denoise_parameters = parameters;
@@ -139,7 +139,7 @@ static void get_residual_spectrum(SpectralDenoiser *self,
     self->residual_spectrum[k] = fft_spectrum[k] - self->denoised_spectrum[k];
   }
 
-  if (self->denoise_parameters->whitening_factor > 0.f) {
+  if (self->denoise_parameters->whitening_factor > 0.F) {
     spectral_whitening_run(self->whitener,
                            self->denoise_parameters->whitening_factor,
                            self->residual_spectrum);

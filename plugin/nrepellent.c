@@ -88,7 +88,7 @@ typedef struct {
   NoiseRepellentHandle lib_instance;
   ProcessorParameters parameters;
 
-  // TODO Use state mapping and unmapping instead
+  // TODO (luciano/todo): Use state mapping and unmapping instead
   float *enable;
   float *learn_noise;
   float *adaptive_noise_learn;
@@ -228,7 +228,7 @@ static void activate(LV2_Handle instance) {
 static void deactivate(LV2_Handle instance) {
   NoiseRepellentPlugin *self = (NoiseRepellentPlugin *)instance;
 
-  *self->reset_noise_profile = 0.f;
+  *self->reset_noise_profile = 0.F;
 }
 
 static void run(LV2_Handle instance, uint32_t number_of_samples) {
@@ -322,10 +322,9 @@ static const LV2_Descriptor descriptor = {
 // clang-format on
 
 LV2_SYMBOL_EXPORT const LV2_Descriptor *lv2_descriptor(uint32_t index) {
-  switch (index) {
-  case 0:
+  if (index == 0) {
     return &descriptor;
-  default:
-    return NULL;
   }
+
+  return NULL;
 }

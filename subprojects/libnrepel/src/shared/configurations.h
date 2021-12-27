@@ -21,7 +21,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define MODULES_CONFIGURATIONS_H
 
 #ifndef M_PI
-#define M_PI (3.14159265358979323846)
+#define M_PI (3.14159265358979323846F)
 #endif
 
 /* --------------------------------------------------------------------- */
@@ -84,5 +84,19 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 // Noise Estimator
 
 #define MIN_NUMBER_OF_WINDOWS_NOISE_AVERAGED 5
+
+// Louizou Estimator
+
+#define N_SMOOTH 0.7F
+#define BETA_AT 0.8F
+#define GAMMA 0.998F
+#define ALPHA_P 0.2F
+#define ALPHA_D 0.95F
+
+#define CROSSOVER_POINT1 1000.F
+#define CROSSOVER_POINT2 3000.F
+#define BAND_1_GAIN 2.0F
+#define BAND_2_GAIN 2.0F
+#define BAND_3_GAIN 7.0F
 
 #endif // ifndef

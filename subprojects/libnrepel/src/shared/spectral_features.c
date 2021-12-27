@@ -71,7 +71,7 @@ bool compute_power_spectrum(SpectralFeatures *self, const float *fft_spectrum,
   self->power_spectrum[0] = real_bin * real_bin;
 
   for (uint32_t k = 1U; k < self->spectral_size; k++) {
-    float power = 0.f;
+    float power = 0.F;
 
     real_bin = fft_spectrum[k];
     float imag_bin = fft_spectrum[fft_spectrum_size - k];
@@ -100,7 +100,7 @@ bool compute_magnitude_spectrum(SpectralFeatures *self,
   self->magnitude_spectrum[0] = real_bin;
 
   for (uint32_t k = 1U; k < self->spectral_size; k++) {
-    float magnitude = 0.f;
+    float magnitude = 0.F;
 
     real_bin = fft_spectrum[k];
     float imag_bin = fft_spectrum[fft_spectrum_size - k];
@@ -125,10 +125,10 @@ bool compute_phase_spectrum(SpectralFeatures *self, const float *fft_spectrum,
   }
 
   float real_bin = fft_spectrum[0];
-  self->phase_spectrum[0] = atan2f(real_bin, 0.f);
+  self->phase_spectrum[0] = atan2f(real_bin, 0.F);
 
   for (uint32_t k = 1U; k < self->spectral_size; k++) {
-    float phase = 0.f;
+    float phase = 0.F;
 
     real_bin = fft_spectrum[k];
     float imag_bin = fft_spectrum[fft_spectrum_size - k];
@@ -136,7 +136,7 @@ bool compute_phase_spectrum(SpectralFeatures *self, const float *fft_spectrum,
     if (k < self->spectral_size) {
       phase = atan2f(real_bin, imag_bin);
     } else {
-      phase = atan2f(real_bin, 0.f);
+      phase = atan2f(real_bin, 0.F);
     }
 
     self->phase_spectrum[k] = phase;

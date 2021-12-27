@@ -45,7 +45,7 @@ TransientDetector *transient_detector_initialize(const uint32_t fft_size) {
       (float *)calloc((self->half_fft_size + 1U), sizeof(float));
 
   self->window_count = 0U;
-  self->rolling_mean = 0.f;
+  self->rolling_mean = 0.F;
   self->transient_present = false;
 
   return self;

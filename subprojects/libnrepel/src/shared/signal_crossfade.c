@@ -34,8 +34,8 @@ SignalCrossfade *signal_crossfade_initialize(const uint32_t sample_rate) {
   SignalCrossfade *self =
       (SignalCrossfade *)calloc(1U, sizeof(SignalCrossfade));
 
-  self->tau = (1.f - expf(-2.f * M_PI * 25.f * 64.f / (float)sample_rate));
-  self->wet_dry = 0.f;
+  self->tau = (1.F - expf(-2.F * M_PI * 25.F * 64.F / (float)sample_rate));
+  self->wet_dry = 0.F;
 
   return self;
 }
@@ -45,9 +45,9 @@ void signal_crossfade_free(SignalCrossfade *self) { free(self); }
 static void signal_crossfade__update_wetdry_target(SignalCrossfade *self,
                                                    const bool enable) {
   if (enable) {
-    self->wet_dry_target = 1.f;
+    self->wet_dry_target = 1.F;
   } else {
-    self->wet_dry_target = 0.f;
+    self->wet_dry_target = 0.F;
   }
 
   self->wet_dry += self->tau * (self->wet_dry_target - self->wet_dry) + FLT_MIN;
@@ -63,7 +63,7 @@ bool signal_crossfade_run(SignalCrossfade *self,
   signal_crossfade__update_wetdry_target(self, enable);
 
   for (uint32_t k = 0U; k < number_of_samples; k++) {
-    output[k] = (1.f - self->wet_dry) * input[k] + output[k] * self->wet_dry;
+    output[k] = (1.F - self->wet_dry) * input[k] + output[k] * self->wet_dry;
   }
 
   return true;

@@ -42,7 +42,8 @@ struct SplSpectrumConverter {
   uint32_t sample_rate;
 };
 
-SplSpectrumConverter *reference_spectrum_initialize(uint32_t sample_rate) {
+SplSpectrumConverter *
+reference_spectrum_initialize(const uint32_t sample_rate) {
   SplSpectrumConverter *self =
       (SplSpectrumConverter *)calloc(1U, sizeof(SplSpectrumConverter));
 
@@ -50,7 +51,7 @@ SplSpectrumConverter *reference_spectrum_initialize(uint32_t sample_rate) {
 
   self->fft_size = get_fft_size(self->fft_transform);
   self->half_fft_size = self->fft_size / 2U;
-  self->sample_rate = self->sample_rate;
+  self->sample_rate = sample_rate;
 
   self->spl_reference_values =
       (float *)calloc((self->half_fft_size + 1U), sizeof(float));
@@ -78,7 +79,7 @@ void reference_spectrum_free(SplSpectrumConverter *self) {
 static void generate_sinewave(SplSpectrumConverter *self) {
   for (uint32_t k = 0U; k < self->fft_size; k++) {
     self->sinewave[k] =
-        SINE_AMPLITUDE * sinf((2.f * M_PI * k * REFERENCE_SINE_WAVE_FREQ) /
+        SINE_AMPLITUDE * sinf((2.F * M_PI * k * REFERENCE_SINE_WAVE_FREQ) /
                               (float)self->sample_rate);
   }
 }
@@ -98,7 +99,7 @@ static void compute_spl_reference_spectrum(SplSpectrumConverter *self) {
 
   for (uint32_t k = 1U; k <= self->half_fft_size; k++) {
     self->spl_reference_values[k] =
-        REFERENCE_LEVEL - 10.f * log10f(reference_spectrum[k]);
+        REFERENCE_LEVEL - 10.F * log10f(reference_spectrum[k]);
   }
 }
 

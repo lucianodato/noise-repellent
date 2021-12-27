@@ -55,12 +55,17 @@
         {
             "label": "Lv2Lint",
             "type": "shell",
-            "command": "lv2lint -S all -E all -d https://github.com/lucianodato/noise-repellent"
+            "command": "lv2lint -S note -S warn -d https://github.com/lucianodato/noise-repellent"
         },
         {
             "label": "Lv2Bench",
             "type": "shell",
             "command": "for i in {1..10}; do lv2bench https://github.com/lucianodato/noise-repellent; done"
+        },
+        {
+            "label": "Lv2Bm",
+            "type": "shell",
+            "command": "lv2bm --full-test https://github.com/lucianodato/noise-repellent"
         },
         {
             "label": "ValgrindLv2Bench",
@@ -70,7 +75,6 @@
                 "-s",
                 "--leak-check=yes",
                 "--show-reachable=no",
-                "--track-origins=yes",
                 "--log-file=./output.valgrind",
                 "lv2bench",
                 "https://github.com/lucianodato/noise-repellent"
@@ -82,12 +86,24 @@
             "command": "valgrind",
             "args": [
                 "--leak-check=full",
-                "--track-origins=yes",
+                "--show-reachable=no",
                 "lv2apply",
                 "-i",
                 "~/Music/noise.wav",
                 "-o",
                 "~/Music/denoised.wav",
+                "https://github.com/lucianodato/noise-repellent"
+            ]
+        },
+        {
+            "label": "ValgrindLv2Bm",
+            "type": "shell",
+            "command": "valgrind",
+            "args": [
+                "--leak-check=full",
+                "--show-reachable=no",
+                "lv2bm",
+                "--full-test",
                 "https://github.com/lucianodato/noise-repellent"
             ]
         },

@@ -52,7 +52,7 @@ SpectralWhitening *spectral_whitening_initialize(const uint32_t fft_size,
   self->residual_max_spectrum =
       (float *)calloc((self->half_fft_size + 1U), sizeof(float));
   self->max_decay_rate =
-      expf(-1000.f / (((WHITENING_DECAY_RATE)*self->sample_rate) / self->hop));
+      expf(-1000.F / (((WHITENING_DECAY_RATE)*self->sample_rate) / self->hop));
   self->whitening_window_count = 0U;
 
   return self;
@@ -66,7 +66,7 @@ void spectral_whitening_free(SpectralWhitening *self) {
 
 bool spectral_whitening_run(SpectralWhitening *self,
                             const float whitening_factor, float *fft_spectrum) {
-  if (!self || !fft_spectrum || whitening_factor < 0.f) {
+  if (!self || !fft_spectrum || whitening_factor < 0.F) {
     return false;
   }
 
@@ -87,7 +87,7 @@ bool spectral_whitening_run(SpectralWhitening *self,
       self->whitened_residual_spectrum[k] =
           fft_spectrum[k] / self->residual_max_spectrum[k];
 
-      fft_spectrum[k] = (1.f - whitening_factor) * fft_spectrum[k] +
+      fft_spectrum[k] = (1.F - whitening_factor) * fft_spectrum[k] +
                         whitening_factor * self->whitened_residual_spectrum[k];
     }
   }
