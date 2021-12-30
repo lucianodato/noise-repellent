@@ -18,6 +18,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
 #include "spectral_denoiser.h"
+#include "../shared/spectral_features.h"
 #include "../shared/spectral_utils.h"
 #include "../shared/spectral_whitening.h"
 #include "gainmodel/gain_estimator.h"
@@ -42,6 +43,7 @@ typedef struct {
   NoiseProfile *noise_profile;
   GainEstimator *gain_estimation;
   ProcessorParameters *denoise_parameters;
+  SpectralFeatures *spectral_features;
 } SpectralDenoiser;
 
 static void denoise_build(SpectralDenoiser *self, float *fft_spectrum);
@@ -79,6 +81,9 @@ SpectralDenoiserHandle spectral_denoiser_initialize(
   self->denoised_spectrum =
       (float *)calloc((self->half_fft_size + 1U), sizeof(float));
 
+  self->spectral_features =
+      spectral_features_initialize(self->half_fft_size + 1U);
+
   self->whitener = spectral_whitening_initialize(self->fft_size,
                                                  self->sample_rate, self->hop);
 
@@ -91,6 +96,7 @@ void spectral_denoiser_free(SpectralDenoiserHandle instance) {
   gain_estimation_free(self->gain_estimation);
   spectral_whitening_free(self->whitener);
   noise_estimation_free(self->noise_estimator);
+  spectral_features_free(self->spectral_features);
 
   free(self->residual_spectrum);
   free(self->denoised_spectrum);
@@ -106,17 +112,21 @@ bool spectral_denoiser_run(SpectralDenoiserHandle instance,
 
   SpectralDenoiser *self = (SpectralDenoiser *)instance;
 
+  compute_power_spectrum(self->spectral_features, fft_spectrum, self->fft_size);
+
+  float *reference_spectrum = get_power_spectrum(self->spectral_features);
+
   if (self->denoise_parameters->learn_noise ||
       self->denoise_parameters->adaptive_noise_learn) {
 
     // Estimating noise either adaptively or manual
-    noise_estimation_run(self->noise_estimator, fft_spectrum);
+    noise_estimation_run(self->noise_estimator, reference_spectrum);
   }
 
   if (is_noise_estimation_available(self->noise_estimator)) {
 
     // Denoising either adaptively or with the captured profile
-    gain_estimation_run(self->gain_estimation, fft_spectrum,
+    gain_estimation_run(self->gain_estimation, reference_spectrum,
                         get_noise_profile(self->noise_profile),
                         self->gain_spectrum);
 

@@ -30,7 +30,6 @@ struct NoiseEstimator {
   uint32_t half_fft_size;
   bool noise_spectrum_available;
 
-  SpectralFeatures *spectral_features;
   ProcessorParameters *parameters;
   NoiseProfile *noise_profile;
   LouizouEstimator *adaptive_estimator;
@@ -50,8 +49,6 @@ NoiseEstimator *noise_estimation_initialize(const uint32_t fft_size,
   self->noise_profile = noise_profile;
   self->parameters = parameters;
 
-  self->spectral_features =
-      spectral_features_initialize(self->half_fft_size + 1U);
   self->adaptive_estimator = louizou_estimator_initialize(
       self->half_fft_size + 1U, sample_rate, fft_size);
 
@@ -59,7 +56,6 @@ NoiseEstimator *noise_estimation_initialize(const uint32_t fft_size,
 }
 
 void noise_estimation_free(NoiseEstimator *self) {
-  spectral_features_free(self->spectral_features);
   louizou_estimator_free(self->adaptive_estimator);
   free(self);
 }
@@ -82,23 +78,20 @@ static void get_rolling_mean_noise_spectrum(NoiseEstimator *self,
   }
 }
 
-bool noise_estimation_run(NoiseEstimator *self, float *fft_spectrum) {
-  if (!self || !fft_spectrum) {
+bool noise_estimation_run(NoiseEstimator *self, float *signal_spectrum) {
+  if (!self || !signal_spectrum) {
     return false;
   }
 
   increment_blocks_averaged(self->noise_profile);
 
-  compute_power_spectrum(self->spectral_features, fft_spectrum, self->fft_size);
-
   float *noise_profile = get_noise_profile(self->noise_profile);
-  const float *reference_spectrum = get_power_spectrum(self->spectral_features);
 
   if (self->parameters->adaptive_noise_learn) {
-    louizou_estimator_run(self->adaptive_estimator, reference_spectrum,
+    louizou_estimator_run(self->adaptive_estimator, signal_spectrum,
                           noise_profile);
   } else {
-    get_rolling_mean_noise_spectrum(self, reference_spectrum, noise_profile);
+    get_rolling_mean_noise_spectrum(self, signal_spectrum, noise_profile);
   }
 
   if (get_noise_profile_blocks_averaged(self->noise_profile) >

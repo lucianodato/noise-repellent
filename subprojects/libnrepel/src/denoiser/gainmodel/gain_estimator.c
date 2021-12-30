@@ -19,7 +19,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 #include "gain_estimator.h"
 #include "../../shared/configurations.h"
-#include "../../shared/spectral_features.h"
 #include "../../shared/spectral_utils.h"
 #include "masking_estimator.h"
 #include "spectral_smoother.h"
@@ -58,7 +57,6 @@ struct GainEstimator {
   MaskingEstimator *masking_estimation;
   TransientDetector *transient_detection;
   SpectralSmoother *spectrum_smoothing;
-  SpectralFeatures *spectral_features;
 };
 
 GainEstimator *gain_estimation_initialize(const uint32_t fft_size,
@@ -88,9 +86,6 @@ GainEstimator *gain_estimation_initialize(const uint32_t fft_size,
   self->spectrum_smoothing = spectral_smoothing_initialize(
       self->fft_size, self->sample_rate, self->hop);
 
-  self->spectral_features =
-      spectral_features_initialize(self->half_fft_size + 1U);
-
   self->denoise_parameters = parameters;
 
   return self;
@@ -100,7 +95,6 @@ void gain_estimation_free(GainEstimator *self) {
   masking_estimation_free(self->masking_estimation);
   transient_detector_free(self->transient_detection);
   spectral_smoothing_free(self->spectrum_smoothing);
-  spectral_features_free(self->spectral_features);
 
   free(self->noise_profile);
   free(self->alpha);
@@ -116,19 +110,14 @@ bool gain_estimation_run(GainEstimator *self, const float *signal_spectrum,
     return false;
   }
 
-  compute_power_spectrum(self->spectral_features, signal_spectrum,
-                         self->fft_size);
-
-  float *reference_spectrum = get_power_spectrum(self->spectral_features);
-
   if (self->denoise_parameters->transient_threshold > 1.F) {
     self->transient_detected = transient_detector_run(
         self->transient_detection,
-        self->denoise_parameters->transient_threshold, reference_spectrum);
+        self->denoise_parameters->transient_threshold, signal_spectrum);
   }
 
   if (self->denoise_parameters->masking_ceiling_limit > 1.F) {
-    compute_alpha_and_beta(self, reference_spectrum, noise_profile,
+    compute_alpha_and_beta(self, signal_spectrum, noise_profile,
                            self->denoise_parameters->masking_ceiling_limit,
                            0.F);
   } else {
@@ -143,13 +132,13 @@ bool gain_estimation_run(GainEstimator *self, const float *signal_spectrum,
 
   spectral_smoothing_run(self->spectrum_smoothing,
                          self->denoise_parameters->release_time,
-                         reference_spectrum);
+                         signal_spectrum);
 
   if (self->transient_detected &&
       self->denoise_parameters->transient_threshold > 1.F) {
-    wiener_subtraction(self, reference_spectrum, gain_spectrum);
+    wiener_subtraction(self, signal_spectrum, gain_spectrum);
   } else {
-    spectral_gating(self, reference_spectrum, gain_spectrum);
+    spectral_gating(self, signal_spectrum, gain_spectrum);
   }
 
   return true;
