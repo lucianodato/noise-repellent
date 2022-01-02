@@ -20,6 +20,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #ifndef MODULES_CONFIGURATIONS_H
 #define MODULES_CONFIGURATIONS_H
 
+#include "spectral_features.h"
+#include "spectral_utils.h"
+
 #ifndef M_PI
 #define M_PI (3.14159265358979323846F)
 #endif
@@ -48,12 +51,15 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define OVERLAP_FACTOR 2
 
 // Windows
-#define INPUT_WINDOW_TYPE 3
-#define OUTPUT_WINDOW_TYPE 3
+#define INPUT_WINDOW_TYPE VORBIS_WINDOW
+#define OUTPUT_WINDOW_TYPE VORBIS_WINDOW
 
 /* --------------------------------------------------------------- */
 /* ------------------- Denoiser configurations ------------------- */
 /* --------------------------------------------------------------- */
+
+// Spectral Denoiser
+#define SPECTRAL_TYPE POWER_SPECTRUM
 
 // Transient protection
 #define UPPER_LIMIT 5.f
@@ -72,7 +78,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #endif
 
 // Gain Estimator
-
 #define GAMMA1 2.f
 #define GAMMA2 0.5f
 
@@ -82,11 +87,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define BETA_MIN 0.0f
 
 // Noise Estimator
-
 #define MIN_NUMBER_OF_WINDOWS_NOISE_AVERAGED 5
 
 // Louizou Estimator
-
 #define N_SMOOTH 0.7F
 #define BETA_AT 0.8F
 #define GAMMA 0.998F

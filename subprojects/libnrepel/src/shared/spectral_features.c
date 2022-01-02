@@ -144,3 +144,29 @@ bool compute_phase_spectrum(SpectralFeatures *self, const float *fft_spectrum,
 
   return true;
 }
+
+float *get_spectral_feature(SpectralFeatures *self, const float *fft_spectrum,
+                            uint32_t fft_spectrum_size, SpectalType type) {
+  if (!self || !fft_spectrum || fft_spectrum_size <= 0U) {
+    return NULL;
+  }
+
+  switch (type) {
+  case POWER_SPECTRUM:
+    compute_power_spectrum(self, fft_spectrum, fft_spectrum_size);
+    return get_power_spectrum(self);
+    break;
+  case MAGNITUDE_SPECTRUM:
+    compute_magnitude_spectrum(self, fft_spectrum, fft_spectrum_size);
+    return get_magnitude_spectrum(self);
+    break;
+  case PHASE_SPECTRUM:
+    compute_phase_spectrum(self, fft_spectrum, fft_spectrum_size);
+    return get_phase_spectrum(self);
+    break;
+
+  default:
+    return NULL;
+    break;
+  }
+}

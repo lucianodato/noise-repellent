@@ -35,6 +35,7 @@
   lv2:microVersion @MICRO_VERSION@ ;
 
   #TODO check that units correspond to what's being used in the algorithm
+  #TODO add stereo version of the plugin
 
   lv2:port [
     a lv2:ControlPort,

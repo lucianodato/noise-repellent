@@ -18,6 +18,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
 #include "spectral_denoiser.h"
+#include "../shared/configurations.h"
 #include "../shared/spectral_features.h"
 #include "../shared/spectral_utils.h"
 #include "../shared/spectral_whitening.h"
@@ -42,7 +43,7 @@ typedef struct {
   SpectralWhitening *whitener;
   NoiseProfile *noise_profile;
   GainEstimator *gain_estimation;
-  ProcessorParameters *denoise_parameters;
+  NrepelDenoiseParameters *denoise_parameters;
   SpectralFeatures *spectral_features;
 } SpectralDenoiser;
 
@@ -51,7 +52,7 @@ static void denoise_build(SpectralDenoiser *self, float *fft_spectrum);
 SpectralDenoiserHandle spectral_denoiser_initialize(
     const uint32_t sample_rate, const uint32_t fft_size,
     const uint32_t overlap_factor, NoiseProfile *noise_profile,
-    ProcessorParameters *parameters) {
+    NrepelDenoiseParameters *parameters) {
 
   SpectralDenoiser *self =
       (SpectralDenoiser *)calloc(1U, sizeof(SpectralDenoiser));
@@ -112,9 +113,8 @@ bool spectral_denoiser_run(SpectralDenoiserHandle instance,
 
   SpectralDenoiser *self = (SpectralDenoiser *)instance;
 
-  compute_power_spectrum(self->spectral_features, fft_spectrum, self->fft_size);
-
-  float *reference_spectrum = get_power_spectrum(self->spectral_features);
+  float *reference_spectrum = get_spectral_feature(
+      self->spectral_features, fft_spectrum, self->fft_size, SPECTRAL_TYPE);
 
   if (self->denoise_parameters->learn_noise ||
       self->denoise_parameters->adaptive_noise_learn) {

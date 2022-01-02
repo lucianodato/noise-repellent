@@ -53,7 +53,7 @@ struct GainEstimator {
 
   bool transient_detected;
 
-  ProcessorParameters *denoise_parameters;
+  NrepelDenoiseParameters *denoise_parameters;
   MaskingEstimator *masking_estimation;
   TransientDetector *transient_detection;
   SpectralSmoother *spectrum_smoothing;
@@ -62,7 +62,7 @@ struct GainEstimator {
 GainEstimator *gain_estimation_initialize(const uint32_t fft_size,
                                           const uint32_t sample_rate,
                                           const uint32_t hop,
-                                          ProcessorParameters *parameters) {
+                                          NrepelDenoiseParameters *parameters) {
   GainEstimator *self = (GainEstimator *)calloc(1U, sizeof(GainEstimator));
 
   self->fft_size = fft_size;

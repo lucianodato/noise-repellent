@@ -86,7 +86,7 @@ typedef struct {
   State state;
 
   NoiseRepellentHandle lib_instance;
-  ProcessorParameters parameters;
+  NrepelDenoiseParameters parameters;
 
   // TODO (luciano/todo): Use state mapping and unmapping instead
   float *enable;
@@ -107,7 +107,7 @@ static void cleanup(LV2_Handle instance) {
   NoiseRepellentPlugin *self = (NoiseRepellentPlugin *)instance;
 
   if (self->lib_instance) {
-    nr_free(self->lib_instance);
+    nrepel_free(self->lib_instance);
   }
   free(instance);
 }
@@ -139,7 +139,7 @@ static LV2_Handle instantiate(const LV2_Descriptor *descriptor,
 
   self->sample_rate = (float)rate;
 
-  self->lib_instance = nr_initialize(self->sample_rate);
+  self->lib_instance = nrepel_initialize(self->sample_rate);
   if (!self->lib_instance) {
     lv2_log_error(&self->log, "Error initializing <%s>\n", NOISEREPELLENT_URI);
     cleanup((LV2_Handle)self);
@@ -202,7 +202,7 @@ static void activate(LV2_Handle instance) {
   NoiseRepellentPlugin *self = (NoiseRepellentPlugin *)instance;
 
   // clang-format off
-  self->parameters = (ProcessorParameters){
+  self->parameters = (NrepelDenoiseParameters){
       .enable = (bool)*self->enable,
       .adaptive_noise_learn = (bool)*self->adaptive_noise_learn,
       .learn_noise = (bool)*self->learn_noise,
@@ -216,12 +216,12 @@ static void activate(LV2_Handle instance) {
   };
   // clang-format on
 
-  nr_load_parameters(self->lib_instance, self->parameters);
+  nrepel_load_parameters(self->lib_instance, self->parameters);
 
-  *self->report_latency = (float)nr_get_latency(self->lib_instance);
+  *self->report_latency = (float)nrepel_get_latency(self->lib_instance);
 
   if ((bool)*self->reset_noise_profile) {
-    nr_reset_noise_profile(self->lib_instance);
+    nrepel_reset_noise_profile(self->lib_instance);
   }
 }
 
@@ -234,7 +234,8 @@ static void deactivate(LV2_Handle instance) {
 static void run(LV2_Handle instance, uint32_t number_of_samples) {
   NoiseRepellentPlugin *self = (NoiseRepellentPlugin *)instance;
 
-  nr_process(self->lib_instance, number_of_samples, self->input, self->output);
+  nrepel_process(self->lib_instance, number_of_samples, self->input,
+                 self->output);
 }
 
 static LV2_State_Status save(LV2_Handle instance,
@@ -243,10 +244,11 @@ static LV2_State_Status save(LV2_Handle instance,
                              const LV2_Feature *const *features) {
   NoiseRepellentPlugin *self = (NoiseRepellentPlugin *)instance;
 
-  uint32_t noise_profile_size = nr_get_noise_profile_size(self->lib_instance);
+  uint32_t noise_profile_size =
+      nrepel_get_noise_profile_size(self->lib_instance);
   uint32_t noise_profile_averaged_blocks =
-      nr_get_noise_profile_blocks_averaged(self->lib_instance);
-  float *noise_profile = nr_get_noise_profile(self->lib_instance);
+      nrepel_get_noise_profile_blocks_averaged(self->lib_instance);
+  float *noise_profile = nrepel_get_noise_profile(self->lib_instance);
 
   store(handle, self->state.property_noise_profile_size, &noise_profile_size,
         sizeof(uint32_t), self->uris.atom_Int,
@@ -288,14 +290,15 @@ static LV2_State_Status restore(LV2_Handle instance,
   const void *saved_noise_profile = retrieve(
       handle, self->state.property_noise_profile, &size, &type, &valflags);
   if (!saved_noise_profile ||
-      size != sizeof(float) * nr_get_noise_profile_size(self->lib_instance) ||
+      size !=
+          sizeof(float) * nrepel_get_noise_profile_size(self->lib_instance) ||
       type != self->uris.atom_Vector) {
     return LV2_STATE_ERR_NO_PROPERTY;
   }
 
-  nr_load_noise_profile(self->lib_instance,
-                        (float *)LV2_ATOM_BODY(saved_noise_profile), *fftsize,
-                        *averagedblocks);
+  nrepel_load_noise_profile(self->lib_instance,
+                            (float *)LV2_ATOM_BODY(saved_noise_profile),
+                            *fftsize, *averagedblocks);
 
   return LV2_STATE_SUCCESS;
 }

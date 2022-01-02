@@ -30,15 +30,15 @@ struct NoiseEstimator {
   uint32_t half_fft_size;
   bool noise_spectrum_available;
 
-  ProcessorParameters *parameters;
+  NrepelDenoiseParameters *parameters;
   NoiseProfile *noise_profile;
   LouizouEstimator *adaptive_estimator;
 };
 
-NoiseEstimator *noise_estimation_initialize(const uint32_t fft_size,
-                                            const uint32_t sample_rate,
-                                            NoiseProfile *noise_profile,
-                                            ProcessorParameters *parameters) {
+NoiseEstimator *
+noise_estimation_initialize(const uint32_t fft_size, const uint32_t sample_rate,
+                            NoiseProfile *noise_profile,
+                            NrepelDenoiseParameters *parameters) {
   NoiseEstimator *self = (NoiseEstimator *)calloc(1U, sizeof(NoiseEstimator));
 
   self->fft_size = fft_size;

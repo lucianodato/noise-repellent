@@ -27,10 +27,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 typedef struct NoiseEstimator NoiseEstimator;
 
-NoiseEstimator *noise_estimation_initialize(uint32_t fft_size,
-                                            uint32_t sample_rate,
-                                            NoiseProfile *noise_profile,
-                                            ProcessorParameters *parameters);
+NoiseEstimator *
+noise_estimation_initialize(uint32_t fft_size, uint32_t sample_rate,
+                            NoiseProfile *noise_profile,
+                            NrepelDenoiseParameters *parameters);
 void noise_estimation_free(NoiseEstimator *self);
 bool is_noise_estimation_available(NoiseEstimator *self);
 bool noise_estimation_run(NoiseEstimator *self, float *signal_spectrum);

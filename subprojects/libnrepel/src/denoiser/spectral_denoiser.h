@@ -29,7 +29,7 @@ typedef void *SpectralDenoiserHandle;
 
 SpectralDenoiserHandle spectral_denoiser_initialize(
     uint32_t sample_rate, uint32_t fft_size, uint32_t overlap_factor,
-    NoiseProfile *noise_profile, ProcessorParameters *parameters);
+    NoiseProfile *noise_profile, NrepelDenoiseParameters *parameters);
 void spectral_denoiser_free(SpectralDenoiserHandle instance);
 bool spectral_denoiser_run(SpectralDenoiserHandle instance,
                            float *fft_spectrum);
