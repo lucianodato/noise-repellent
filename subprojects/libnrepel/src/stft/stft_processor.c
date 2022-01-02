@@ -50,18 +50,10 @@ struct StftProcessor {
   FftTransform *fft_transform;
   SamplesBuffer stft_buffer;
   StftWindows *stft_windows;
-
-  spectral_processing *processing_run;
-  SpectralDenoiserHandle spectral_processor;
 };
 
-StftProcessor *
-stft_processor_initialize(spectral_processing *spectral_processing,
-                          SpectralDenoiserHandle spectral_processor) {
+StftProcessor *stft_processor_initialize() {
   StftProcessor *self = (StftProcessor *)calloc(1U, sizeof(StftProcessor));
-
-  self->spectral_processor = spectral_processor;
-  self->processing_run = spectral_processing;
 
   self->fft_transform = fft_transform_initialize();
 
@@ -112,11 +104,12 @@ uint32_t get_spectral_processing_size(StftProcessor *self) {
 }
 
 bool stft_processor_run(StftProcessor *self, const uint32_t number_of_samples,
-                        const float *input, float *output) {
+                        const float *input, float *output,
+                        spectral_processing spectral_processing,
+                        SpectralDenoiserHandle spectral_processor) {
   if (!self || !input || !output || number_of_samples <= 0U) {
     return false;
   }
-
   for (uint32_t k = 0U; k < number_of_samples; k++) {
     self->stft_buffer.in_fifo[self->stft_buffer.read_position] = input[k];
     output[k] = self->stft_buffer.out_fifo[self->stft_buffer.read_position -
@@ -130,8 +123,8 @@ bool stft_processor_run(StftProcessor *self, const uint32_t number_of_samples,
 
       stft_analysis(self);
 
-      (*self->processing_run)(self->spectral_processor,
-                              get_fft_output_buffer(self->fft_transform));
+      spectral_processing(spectral_processor,
+                          get_fft_output_buffer(self->fft_transform));
 
       stft_synthesis(self);
 

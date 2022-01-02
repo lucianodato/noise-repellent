@@ -106,10 +106,10 @@ float min_spectral_value(const float *spectrum, const uint32_t spectrum_size) {
   return min;
 }
 
-bool naive_matrix_to_vector_spectral_convolution(const float *matrix_spectum,
-                                                 const float *spectrum,
-                                                 float *out_spectrum,
-                                                 uint32_t spectrum_size) {
+bool direct_matrix_to_vector_spectral_convolution(const float *matrix_spectum,
+                                                  const float *spectrum,
+                                                  float *out_spectrum,
+                                                  uint32_t spectrum_size) {
   if (!matrix_spectum || !spectrum || !out_spectrum || spectrum_size <= 0) {
     return false;
   }

@@ -32,5 +32,9 @@ GainEstimator *gain_estimation_initialize(uint32_t fft_size,
 void gain_estimation_free(GainEstimator *self);
 bool gain_estimation_run(GainEstimator *self, const float *signal_spectrum,
                          const float *noise_profile, float *gain_spectrum);
+bool gain_estimation_run_adaptive(GainEstimator *self,
+                                  const float *signal_spectrum,
+                                  const float *noise_profile,
+                                  float *gain_spectrum);
 
 #endif

@@ -30,15 +30,13 @@ struct NoiseEstimator {
   uint32_t half_fft_size;
   bool noise_spectrum_available;
 
-  NrepelDenoiseParameters *parameters;
   NoiseProfile *noise_profile;
   LouizouEstimator *adaptive_estimator;
 };
 
-NoiseEstimator *
-noise_estimation_initialize(const uint32_t fft_size, const uint32_t sample_rate,
-                            NoiseProfile *noise_profile,
-                            NrepelDenoiseParameters *parameters) {
+NoiseEstimator *noise_estimation_initialize(const uint32_t fft_size,
+                                            const uint32_t sample_rate,
+                                            NoiseProfile *noise_profile) {
   NoiseEstimator *self = (NoiseEstimator *)calloc(1U, sizeof(NoiseEstimator));
 
   self->fft_size = fft_size;
@@ -47,7 +45,6 @@ noise_estimation_initialize(const uint32_t fft_size, const uint32_t sample_rate,
   self->noise_spectrum_available = false;
 
   self->noise_profile = noise_profile;
-  self->parameters = parameters;
 
   self->adaptive_estimator = louizou_estimator_initialize(
       self->half_fft_size + 1U, sample_rate, fft_size);
@@ -87,18 +84,28 @@ bool noise_estimation_run(NoiseEstimator *self, float *signal_spectrum) {
 
   float *noise_profile = get_noise_profile(self->noise_profile);
 
-  if (self->parameters->adaptive_noise_learn) {
-    louizou_estimator_run(self->adaptive_estimator, signal_spectrum,
-                          noise_profile);
-  } else {
-    get_rolling_mean_noise_spectrum(self, signal_spectrum, noise_profile);
-  }
+  get_rolling_mean_noise_spectrum(self, signal_spectrum, noise_profile);
 
   if (get_noise_profile_blocks_averaged(self->noise_profile) >
-          MIN_NUMBER_OF_WINDOWS_NOISE_AVERAGED ||
-      self->parameters->adaptive_noise_learn) {
+      MIN_NUMBER_OF_WINDOWS_NOISE_AVERAGED) {
     self->noise_spectrum_available = true;
   }
+
+  return true;
+}
+
+bool noise_estimation_run_adaptive(NoiseEstimator *self,
+                                   float *signal_spectrum) {
+  if (!self || !signal_spectrum) {
+    return false;
+  }
+
+  float *noise_profile = get_noise_profile(self->noise_profile);
+
+  louizou_estimator_run(self->adaptive_estimator, signal_spectrum,
+                        noise_profile);
+
+  self->noise_spectrum_available = true;
 
   return true;
 }

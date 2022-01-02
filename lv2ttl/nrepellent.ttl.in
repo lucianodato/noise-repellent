@@ -36,6 +36,7 @@
 
   #TODO check that units correspond to what's being used in the algorithm
   #TODO add stereo version of the plugin
+  #TODO separate adaptive and manual versions of the plugin
 
   lv2:port [
     a lv2:ControlPort,
@@ -113,7 +114,7 @@
       "Residual whitening" ;
     lv2:minimum 0.0 ;
     lv2:maximum 100.0 ;
-    lv2:default 50.0 ;
+    lv2:default 0.0 ;
     lv2:designation lv2:control ;
     units:unit units:pc ;
     units:conversion [
@@ -143,7 +144,7 @@
       "Adaptive noise learn" ;
     lv2:minimum 0 ;
     lv2:maximum 1 ;
-    lv2:default 0 ;
+    lv2:default 1 ;
     lv2:designation lv2:control ;
     lv2:portProperty lv2:toggled, lv2:integer ;
   ], [

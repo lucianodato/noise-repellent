@@ -32,7 +32,7 @@ typedef struct {
   NrepelDenoiseParameters denoise_parameters;
 
   NoiseProfile *noise_profile;
-  SpectralDenoiserHandle *spectral_denoiser;
+  SpectralDenoiserHandle spectral_denoiser;
   StftProcessor *stft_processor;
   SignalCrossfade *soft_bypass;
 } NoiseRepellent;
@@ -41,8 +41,7 @@ NoiseRepellentHandle nrepel_initialize(const uint32_t sample_rate) {
   NoiseRepellent *self = (NoiseRepellent *)calloc(1U, sizeof(NoiseRepellent));
   self->sample_rate = sample_rate;
 
-  self->stft_processor = stft_processor_initialize(&spectral_denoiser_run,
-                                                   self->spectral_denoiser);
+  self->stft_processor = stft_processor_initialize();
 
   if (!self->stft_processor) {
     nrepel_free(self);
@@ -105,7 +104,8 @@ bool nrepel_process(NoiseRepellentHandle instance,
 
   NoiseRepellent *self = (NoiseRepellent *)instance;
 
-  stft_processor_run(self->stft_processor, number_of_samples, input, output);
+  stft_processor_run(self->stft_processor, number_of_samples, input, output,
+                     &spectral_denoiser_run, self->spectral_denoiser);
 
   signal_crossfade_run(self->soft_bypass, number_of_samples, input, output,
                        self->denoise_parameters.enable);

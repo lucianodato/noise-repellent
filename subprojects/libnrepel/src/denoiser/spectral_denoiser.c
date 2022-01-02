@@ -71,8 +71,7 @@ SpectralDenoiserHandle spectral_denoiser_initialize(
   self->denoise_parameters = parameters;
 
   self->noise_estimator = noise_estimation_initialize(
-      self->fft_size, sample_rate, self->noise_profile,
-      self->denoise_parameters);
+      self->fft_size, sample_rate, self->noise_profile);
 
   self->gain_estimation = gain_estimation_initialize(
       self->fft_size, self->sample_rate, self->hop, self->denoise_parameters);
@@ -116,21 +115,27 @@ bool spectral_denoiser_run(SpectralDenoiserHandle instance,
   float *reference_spectrum = get_spectral_feature(
       self->spectral_features, fft_spectrum, self->fft_size, SPECTRAL_TYPE);
 
-  if (self->denoise_parameters->learn_noise ||
-      self->denoise_parameters->adaptive_noise_learn) {
-
-    // Estimating noise either adaptively or manual
-    noise_estimation_run(self->noise_estimator, reference_spectrum);
-  }
-
-  if (is_noise_estimation_available(self->noise_estimator)) {
-
-    // Denoising either adaptively or with the captured profile
-    gain_estimation_run(self->gain_estimation, reference_spectrum,
-                        get_noise_profile(self->noise_profile),
-                        self->gain_spectrum);
-
+  if (self->denoise_parameters->adaptive_noise_learn) {
+    // Denoising adaptively
+    noise_estimation_run_adaptive(self->noise_estimator, reference_spectrum);
+    gain_estimation_run_adaptive(self->gain_estimation, reference_spectrum,
+                                 get_noise_profile(self->noise_profile),
+                                 self->gain_spectrum);
     denoise_build(self, fft_spectrum);
+  } else {
+    if (self->denoise_parameters->learn_noise) {
+      // Estimating noise manually
+      noise_estimation_run(self->noise_estimator, reference_spectrum);
+    }
+
+    if (is_noise_estimation_available(self->noise_estimator)) {
+      // Denoising with the captured profile
+      gain_estimation_run(self->gain_estimation, reference_spectrum,
+                          get_noise_profile(self->noise_profile),
+                          self->gain_spectrum);
+
+      denoise_build(self, fft_spectrum);
+    }
   }
 
   return true;
@@ -149,7 +154,8 @@ static void get_residual_spectrum(SpectralDenoiser *self,
     self->residual_spectrum[k] = fft_spectrum[k] - self->denoised_spectrum[k];
   }
 
-  if (self->denoise_parameters->whitening_factor > 0.F) {
+  if (self->denoise_parameters->whitening_factor > 0.F ||
+      !self->denoise_parameters->adaptive_noise_learn) {
     spectral_whitening_run(self->whitener,
                            self->denoise_parameters->whitening_factor,
                            self->residual_spectrum);

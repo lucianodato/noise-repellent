@@ -170,9 +170,9 @@ static void compute_auto_thresholds(LouizouEstimator *self,
                                     const uint32_t sample_rate,
                                     const uint32_t noise_spectrum_size,
                                     const uint32_t fft_size) {
-  int LF = freq_to_fft_bin(CROSSOVER_POINT1, sample_rate, fft_size);
-  int MF = freq_to_fft_bin(CROSSOVER_POINT2, sample_rate, fft_size);
-  for (int k = 0U; k < noise_spectrum_size; k++) {
+  uint32_t LF = freq_to_fft_bin(CROSSOVER_POINT1, sample_rate, fft_size);
+  uint32_t MF = freq_to_fft_bin(CROSSOVER_POINT2, sample_rate, fft_size);
+  for (uint32_t k = 0U; k < noise_spectrum_size; k++) {
     if (k <= LF) {
       self->auto_thresholds[k] = BAND_1_GAIN;
     }
