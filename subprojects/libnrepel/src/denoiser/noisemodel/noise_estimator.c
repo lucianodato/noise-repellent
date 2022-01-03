@@ -61,20 +61,6 @@ bool is_noise_estimation_available(NoiseEstimator *self) {
   return self->noise_spectrum_available;
 }
 
-static void get_rolling_mean_noise_spectrum(NoiseEstimator *self,
-                                            const float *spectrum,
-                                            float *noise_spectrum) {
-  for (uint32_t k = 1U; k <= self->half_fft_size; k++) {
-    if (get_noise_profile_blocks_averaged(self->noise_profile) <= 1U) {
-      noise_spectrum[k] = spectrum[k];
-    } else {
-      noise_spectrum[k] +=
-          ((spectrum[k] - noise_spectrum[k]) /
-           get_noise_profile_blocks_averaged(self->noise_profile));
-    }
-  }
-}
-
 bool noise_estimation_run(NoiseEstimator *self, float *signal_spectrum) {
   if (!self || !signal_spectrum) {
     return false;
@@ -84,7 +70,10 @@ bool noise_estimation_run(NoiseEstimator *self, float *signal_spectrum) {
 
   float *noise_profile = get_noise_profile(self->noise_profile);
 
-  get_rolling_mean_noise_spectrum(self, signal_spectrum, noise_profile);
+  get_rolling_mean_spectrum(
+      noise_profile, signal_spectrum,
+      get_noise_profile_blocks_averaged(self->noise_profile),
+      self->half_fft_size);
 
   if (get_noise_profile_blocks_averaged(self->noise_profile) >
       MIN_NUMBER_OF_WINDOWS_NOISE_AVERAGED) {

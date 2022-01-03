@@ -27,8 +27,8 @@ typedef struct StftProcessor StftProcessor;
 
 // Generic Spectral Processing function over an FFT spectrum. Receives any
 // spectral processing module handle (void *) and the FFT of a audio block.
-typedef void *SpectralDenoiserHandle;
-typedef bool (*spectral_processing)(SpectralDenoiserHandle spectral_processor,
+typedef void *SpectralProcessorHandle;
+typedef bool (*spectral_processing)(SpectralProcessorHandle spectral_processor,
                                     float *fft_spectrum);
 
 StftProcessor *stft_processor_initialize();
@@ -37,7 +37,7 @@ uint32_t get_stft_latency(StftProcessor *self);
 bool stft_processor_run(StftProcessor *self, uint32_t number_of_samples,
                         const float *input, float *output,
                         spectral_processing spectral_processing,
-                        SpectralDenoiserHandle spectral_processor);
+                        SpectralProcessorHandle spectral_processor);
 uint32_t get_buffer_size(StftProcessor *self);
 uint32_t get_overlap_factor(StftProcessor *self);
 uint32_t get_spectral_processing_size(StftProcessor *self);

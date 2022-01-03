@@ -21,6 +21,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define GAIN_ESTIMATOR_H
 
 #include "../../../include/nrepel.h"
+#include "../noisemodel/noise_profile.h"
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -28,13 +29,13 @@ typedef struct GainEstimator GainEstimator;
 
 GainEstimator *gain_estimation_initialize(uint32_t fft_size,
                                           uint32_t sample_rate, uint32_t hop,
-                                          NrepelDenoiseParameters *parameters);
+                                          NrepelDenoiseParameters *parameters,
+                                          NoiseProfile *noise_profile);
 void gain_estimation_free(GainEstimator *self);
 bool gain_estimation_run(GainEstimator *self, const float *signal_spectrum,
-                         const float *noise_profile, float *gain_spectrum);
+                         float *gain_spectrum);
 bool gain_estimation_run_adaptive(GainEstimator *self,
                                   const float *signal_spectrum,
-                                  const float *noise_profile,
                                   float *gain_spectrum);
 
 #endif

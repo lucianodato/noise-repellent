@@ -106,7 +106,7 @@ uint32_t get_spectral_processing_size(StftProcessor *self) {
 bool stft_processor_run(StftProcessor *self, const uint32_t number_of_samples,
                         const float *input, float *output,
                         spectral_processing spectral_processing,
-                        SpectralDenoiserHandle spectral_processor) {
+                        SpectralProcessorHandle spectral_processor) {
   if (!self || !input || !output || number_of_samples <= 0U) {
     return false;
   }

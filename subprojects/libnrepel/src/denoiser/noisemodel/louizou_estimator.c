@@ -19,13 +19,15 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 #include "louizou_estimator.h"
 #include "../../shared/configurations.h"
+#include "../../shared/general_utils.h"
 #include "../../shared/spectral_utils.h"
+#include <float.h>
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
 
 typedef struct {
-  float *smoothed_power_spectrum;
+  float *smoothed_spectrum;
   float *local_minimum_spectrum;
   float *speech_present_probability_spectrum;
 } FrameSpectrum;
@@ -36,6 +38,8 @@ static void compute_auto_thresholds(LouizouEstimator *self,
                                     uint32_t sample_rate,
                                     uint32_t noise_spectrum_size,
                                     uint32_t fft_size);
+static void update_frame_spectums(LouizouEstimator *self,
+                                  const float *noise_spectrum);
 
 struct LouizouEstimator {
   uint32_t noise_spectrum_size;
@@ -43,7 +47,7 @@ struct LouizouEstimator {
   FrameSpectrum *current;
   FrameSpectrum *previous;
 
-  float *auto_thresholds;
+  float *minimum_detection_thresholds;
   float *previous_noise_spectrum;
   float *time_frequency_smoothing_constant;
   uint32_t *speech_presence_detection;
@@ -58,7 +62,7 @@ louizou_estimator_initialize(const uint32_t noise_spectrum_size,
 
   self->noise_spectrum_size = noise_spectrum_size;
 
-  self->auto_thresholds =
+  self->minimum_detection_thresholds =
       (float *)calloc(self->noise_spectrum_size, sizeof(float));
   self->time_frequency_smoothing_constant =
       (float *)calloc(self->noise_spectrum_size, sizeof(float));
@@ -75,7 +79,7 @@ louizou_estimator_initialize(const uint32_t noise_spectrum_size,
 }
 
 void louizou_estimator_free(LouizouEstimator *self) {
-  free(self->auto_thresholds);
+  free(self->minimum_detection_thresholds);
   free(self->time_frequency_smoothing_constant);
   free(self->speech_presence_detection);
   free(self->previous_noise_spectrum);
@@ -93,26 +97,27 @@ bool louizou_estimator_run(LouizouEstimator *self, const float *spectrum,
   }
 
   for (uint32_t k = 0U; k < self->noise_spectrum_size; k++) {
-    self->current->smoothed_power_spectrum[k] =
-        N_SMOOTH * self->previous->smoothed_power_spectrum[k] +
+    self->current->smoothed_spectrum[k] =
+        N_SMOOTH * self->previous->smoothed_spectrum[k] +
         (1.F - N_SMOOTH) * spectrum[k];
 
     if (self->previous->local_minimum_spectrum[k] <
-        self->current->smoothed_power_spectrum[k]) {
+        self->current->smoothed_spectrum[k]) {
       self->current->local_minimum_spectrum[k] =
           GAMMA * self->previous->local_minimum_spectrum[k] +
           ((1.F - GAMMA) / (1.F - BETA_AT)) *
-              (self->current->smoothed_power_spectrum[k] -
-               BETA_AT * self->previous->smoothed_power_spectrum[k]);
+              (self->current->smoothed_spectrum[k] -
+               BETA_AT * self->previous->smoothed_spectrum[k]);
     } else {
       self->current->local_minimum_spectrum[k] =
-          self->current->smoothed_power_spectrum[k];
+          self->current->smoothed_spectrum[k];
     }
 
-    float noisy_speech_ratio = self->current->smoothed_power_spectrum[k] /
-                               self->current->local_minimum_spectrum[k];
+    float noisy_speech_ratio =
+        sanitize_denormal(self->current->smoothed_spectrum[k] /
+                          self->current->local_minimum_spectrum[k]);
 
-    if (noisy_speech_ratio > self->auto_thresholds[k]) {
+    if (noisy_speech_ratio > self->minimum_detection_thresholds[k]) {
       self->speech_presence_detection[k] = 1U;
     } else {
       self->speech_presence_detection[k] = 0U;
@@ -132,34 +137,41 @@ bool louizou_estimator_run(LouizouEstimator *self, const float *spectrum,
         (1.F - self->time_frequency_smoothing_constant[k]) * spectrum[k];
   }
 
+  update_frame_spectums(self, noise_spectrum);
+
+  return true;
+}
+
+static void update_frame_spectums(LouizouEstimator *self,
+                                  const float *noise_spectrum) {
   memcpy(self->previous_noise_spectrum, noise_spectrum,
          sizeof(float) * self->noise_spectrum_size);
   memcpy(self->previous->local_minimum_spectrum,
          self->current->local_minimum_spectrum,
          sizeof(float) * self->noise_spectrum_size);
-  memcpy(self->previous->smoothed_power_spectrum,
-         self->current->smoothed_power_spectrum,
+  memcpy(self->previous->smoothed_spectrum, self->current->smoothed_spectrum,
          sizeof(float) * self->noise_spectrum_size);
   memcpy(self->previous->speech_present_probability_spectrum,
          self->current->speech_present_probability_spectrum,
          sizeof(float) * self->noise_spectrum_size);
-
-  return true;
 }
 
 static FrameSpectrum *frame_spectrum_initialize(const uint32_t frame_size) {
   FrameSpectrum *self = (FrameSpectrum *)calloc(1U, sizeof(FrameSpectrum));
 
-  self->smoothed_power_spectrum = (float *)calloc(frame_size, sizeof(float));
+  self->smoothed_spectrum = (float *)calloc(frame_size, sizeof(float));
   self->local_minimum_spectrum = (float *)calloc(frame_size, sizeof(float));
   self->speech_present_probability_spectrum =
       (float *)calloc(frame_size, sizeof(float));
+
+  initialize_spectrum_with_value(self->local_minimum_spectrum, frame_size,
+                                 FLT_MIN);
 
   return self;
 }
 
 static void frame_spectrum_free(FrameSpectrum *self) {
-  free(self->smoothed_power_spectrum);
+  free(self->smoothed_spectrum);
   free(self->local_minimum_spectrum);
   free(self->speech_present_probability_spectrum);
 
@@ -174,13 +186,13 @@ static void compute_auto_thresholds(LouizouEstimator *self,
   uint32_t MF = freq_to_fft_bin(CROSSOVER_POINT2, sample_rate, fft_size);
   for (uint32_t k = 0U; k < noise_spectrum_size; k++) {
     if (k <= LF) {
-      self->auto_thresholds[k] = BAND_1_GAIN;
+      self->minimum_detection_thresholds[k] = BAND_1_GAIN;
     }
     if (k > LF && k < MF) {
-      self->auto_thresholds[k] = BAND_2_GAIN;
+      self->minimum_detection_thresholds[k] = BAND_2_GAIN;
     }
     if (k >= MF) {
-      self->auto_thresholds[k] = BAND_3_GAIN;
+      self->minimum_detection_thresholds[k] = BAND_3_GAIN;
     }
   }
 }

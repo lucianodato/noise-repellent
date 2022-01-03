@@ -8,6 +8,7 @@ nrepel_sources = [
     'src/shared/fft_transform.c',
     'src/shared/spl_spectrum_converter.c',
     'src/shared/spectral_whitening.c',
+    'src/shared/general_utils.c',
     'src/denoiser/noisemodel/noise_profile.c',
     'src/denoiser/noisemodel/louizou_estimator.c',
     'src/denoiser/noisemodel/noise_estimator.c',

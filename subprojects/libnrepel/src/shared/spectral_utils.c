@@ -26,6 +26,7 @@ static inline float blackman(const uint32_t bin_index,
   const float p = ((float)(bin_index)) / ((float)(fft_size));
   return 0.42F - 0.5F * cosf(2.F * M_PI * p) + 0.08F * cosf(4.F * M_PI * p);
 }
+
 static inline float hanning(const uint32_t bin_index, const uint32_t fft_size) {
   const float p = ((float)(bin_index)) / ((float)(fft_size));
   return 0.5F - 0.5F * cosf(2.F * M_PI * p);
@@ -148,4 +149,24 @@ float spectral_flux(const float *spectrum, const float *previous_spectrum,
     spectral_flux += (temp + fabsf(temp)) / 2.F;
   }
   return spectral_flux;
+}
+
+bool get_rolling_mean_spectrum(float *averaged_spectrum,
+                               const float *current_spectrum,
+                               const uint32_t number_of_blocks,
+                               const uint32_t spectrum_size) {
+  if (!averaged_spectrum || !current_spectrum || (spectrum_size <= 0U)) {
+    return false;
+  }
+
+  for (uint32_t k = 1U; k < spectrum_size; k++) {
+    if (number_of_blocks <= 1U) {
+      averaged_spectrum[k] = current_spectrum[k];
+    } else {
+      averaged_spectrum[k] +=
+          (averaged_spectrum[k] - current_spectrum[k]) / number_of_blocks;
+    }
+  }
+
+  return true;
 }

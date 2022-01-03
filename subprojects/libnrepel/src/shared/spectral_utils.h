@@ -44,5 +44,9 @@ float fft_bin_to_freq(uint32_t bin_index, uint32_t sample_rate,
 uint32_t freq_to_fft_bin(float freq, uint32_t sample_rate, uint32_t fft_size);
 float spectral_flux(const float *spectrum, const float *previous_spectrum,
                     uint32_t spectrum_size);
+bool get_rolling_mean_spectrum(float *averaged_spectrum,
+                               const float *current_spectrum,
+                               const uint32_t number_of_blocks,
+                               const uint32_t spectrum_size);
 
 #endif

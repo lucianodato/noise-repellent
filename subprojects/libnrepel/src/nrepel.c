@@ -21,6 +21,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include "denoiser/noisemodel/noise_profile.h"
 #include "denoiser/spectral_denoiser.h"
 #include "shared/configurations.h"
+#include "shared/general_utils.h"
 #include "shared/signal_crossfade.h"
 #include "stft/stft_processor.h"
 #include <math.h>
@@ -164,10 +165,6 @@ bool nrepel_reset_noise_profile(NoiseRepellentHandle instance) {
   return true;
 }
 
-static inline float from_db_to_coefficient(const float gain_db) {
-  return expf(gain_db / 10.F * logf(10.F));
-}
-
 bool nrepel_load_parameters(NoiseRepellentHandle instance,
                             NrepelDenoiseParameters parameters) {
   if (!instance) {
@@ -185,7 +182,7 @@ bool nrepel_load_parameters(NoiseRepellentHandle instance,
       .masking_ceiling_limit = parameters.masking_ceiling_limit,
       .reduction_amount =
           from_db_to_coefficient(parameters.reduction_amount * -1.F),
-      .noise_rescale = parameters.noise_rescale,
+      .noise_rescale = from_db_to_coefficient(parameters.noise_rescale),
       .release_time = parameters.reduction_amount,
       .transient_threshold = parameters.transient_threshold,
       .whitening_factor = parameters.whitening_factor / 100.F,
