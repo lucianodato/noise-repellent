@@ -97,6 +97,12 @@ typedef enum {
   NOISEREPELLENT_OUTPUT = 13,
 } PortIndex;
 
+// TODO (luciano/todo): Use state mapping and unmapping instead of ladspa float
+// arguments
+// TODO check that units correspond to what's being used in the algorithm
+// TODO add stereo version of the plugin
+// TODO separate adaptive and manual versions of the plugin
+
 typedef struct {
   const float *input;
   float *output;
@@ -112,7 +118,6 @@ typedef struct {
   NrepelDenoiseParameters parameters;
   NoiseProfile *noise_profile;
 
-  // TODO (luciano/todo): Use state mapping and unmapping instead
   float *enable;
   float *learn_noise;
   float *adaptive_noise_learn;
@@ -232,11 +237,6 @@ static void activate(LV2_Handle instance) {
   *self->report_latency = (float)nrepel_get_latency(self->lib_instance);
 }
 
-static void deactivate(LV2_Handle instance) {
-  NoiseRepellentPlugin *self = (NoiseRepellentPlugin *)instance;
-  *self->reset_noise_profile = 0.F;
-}
-
 static void run(LV2_Handle instance, uint32_t number_of_samples) {
   NoiseRepellentPlugin *self = (NoiseRepellentPlugin *)instance;
 
@@ -263,6 +263,8 @@ static void run(LV2_Handle instance, uint32_t number_of_samples) {
 
   nrepel_process(self->lib_instance, number_of_samples, self->input,
                  self->output);
+
+  *self->reset_noise_profile = (float)0U;
 }
 
 static LV2_State_Status save(LV2_Handle instance,
@@ -351,7 +353,7 @@ static const LV2_Descriptor descriptor = {
     connect_port,
     activate,
     run,
-    deactivate,
+    NULL,
     cleanup,
     extension_data
 };
