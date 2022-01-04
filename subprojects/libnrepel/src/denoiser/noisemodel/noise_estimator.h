@@ -31,7 +31,6 @@ NoiseEstimator *noise_estimation_initialize(uint32_t fft_size,
                                             uint32_t sample_rate,
                                             NoiseProfile *noise_profile);
 void noise_estimation_free(NoiseEstimator *self);
-bool is_noise_estimation_available(NoiseEstimator *self);
 bool noise_estimation_run(NoiseEstimator *self, float *signal_spectrum);
 bool noise_estimation_run_adaptive(NoiseEstimator *self,
                                    float *signal_spectrum);

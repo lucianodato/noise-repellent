@@ -53,6 +53,8 @@ extern "C" {
 // compatibility if changes in the future
 // TODO (luciano/todo): Extract library to it's own repository when API is
 // stable
+// TODO (luciano/todo): Move Plugin functionality to the plugin. Circular
+// buffer, softbypass, noise_profile declaration, parameters, etc.
 
 typedef void *NoiseRepellentHandle;
 
@@ -82,6 +84,7 @@ bool nrepel_load_noise_profile(NoiseRepellentHandle instance,
 uint32_t
 nrepel_get_noise_profile_blocks_averaged(NoiseRepellentHandle instance);
 bool nrepel_reset_noise_profile(NoiseRepellentHandle instance);
+bool nrepel_noise_profile_available(NoiseRepellentHandle instance);
 bool nrepel_load_parameters(NoiseRepellentHandle instance,
                             NrepelDenoiseParameters parameters);
 

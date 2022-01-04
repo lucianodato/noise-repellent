@@ -26,19 +26,31 @@ struct NoiseProfile {
   uint32_t noise_profile_size;
   uint32_t noise_profile_blocks_averaged;
   float *noise_profile;
+  bool noise_spectrum_available;
 };
 
 NoiseProfile *noise_profile_initialize(const uint32_t size) {
   NoiseProfile *self = (NoiseProfile *)calloc(1U, sizeof(NoiseProfile));
   self->noise_profile_size = size;
   self->noise_profile_blocks_averaged = 0U;
+  self->noise_spectrum_available = false;
+
   self->noise_profile = (float *)calloc(size, sizeof(float));
 
   return self;
 }
+
 void noise_profile_free(NoiseProfile *self) {
   free(self->noise_profile);
   free(self);
+}
+
+bool is_noise_estimation_available(NoiseProfile *self) {
+  return self->noise_spectrum_available;
+}
+
+void set_noise_estimation_available(NoiseProfile *self) {
+  self->noise_spectrum_available = true;
 }
 
 float *get_noise_profile(NoiseProfile *self) { return self->noise_profile; }
@@ -63,6 +75,7 @@ bool set_noise_profile(NoiseProfile *self, const float *noise_profile,
 
   self->noise_profile_size = noise_profile_size;
   self->noise_profile_blocks_averaged = noise_profile_blocks_averaged;
+  self->noise_spectrum_available = true;
 
   return true;
 }

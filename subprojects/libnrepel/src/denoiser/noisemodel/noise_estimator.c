@@ -28,7 +28,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 struct NoiseEstimator {
   uint32_t fft_size;
   uint32_t half_fft_size;
-  bool noise_spectrum_available;
 
   NoiseProfile *noise_profile;
   LouizouEstimator *adaptive_estimator;
@@ -42,8 +41,6 @@ NoiseEstimator *noise_estimation_initialize(const uint32_t fft_size,
   self->fft_size = fft_size;
   self->half_fft_size = self->fft_size / 2U;
 
-  self->noise_spectrum_available = false;
-
   self->noise_profile = noise_profile;
 
   self->adaptive_estimator = louizou_estimator_initialize(
@@ -55,10 +52,6 @@ NoiseEstimator *noise_estimation_initialize(const uint32_t fft_size,
 void noise_estimation_free(NoiseEstimator *self) {
   louizou_estimator_free(self->adaptive_estimator);
   free(self);
-}
-
-bool is_noise_estimation_available(NoiseEstimator *self) {
-  return self->noise_spectrum_available;
 }
 
 bool noise_estimation_run(NoiseEstimator *self, float *signal_spectrum) {
@@ -77,7 +70,7 @@ bool noise_estimation_run(NoiseEstimator *self, float *signal_spectrum) {
 
   if (get_noise_profile_blocks_averaged(self->noise_profile) >
       MIN_NUMBER_OF_WINDOWS_NOISE_AVERAGED) {
-    self->noise_spectrum_available = true;
+    set_noise_estimation_available(self->noise_profile);
   }
 
   return true;
@@ -94,7 +87,7 @@ bool noise_estimation_run_adaptive(NoiseEstimator *self,
   louizou_estimator_run(self->adaptive_estimator, signal_spectrum,
                         noise_profile);
 
-  self->noise_spectrum_available = true;
+  set_noise_estimation_available(self->noise_profile);
 
   return true;
 }

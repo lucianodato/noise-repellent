@@ -29,7 +29,29 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define NOISEREPELLENT_URI "https://github.com/lucianodato/noise-repellent"
 
 typedef struct {
+  uint32_t child_size;
+  uint32_t child_type;
+  float *elements;
+} NoiseProfile;
+
+static NoiseProfile *
+noise_profile_initialize(LV2_URID child_type,
+                         const uint32_t noise_profile_size) {
+  NoiseProfile *self = (NoiseProfile *)calloc(1U, sizeof(NoiseProfile));
+  self->child_type = (uint32_t)child_type;
+  self->child_size = (uint32_t)sizeof(float);
+  self->elements = (float *)calloc(noise_profile_size, sizeof(float));
+  return self;
+}
+
+static void noise_profile_free(NoiseProfile *self) {
+  free(self->elements);
+  free(self);
+}
+
+typedef struct {
   LV2_URID atom_Int;
+  LV2_URID atom_Float;
   LV2_URID atom_Vector;
   LV2_URID plugin;
   LV2_URID atom_URID;
@@ -44,6 +66,7 @@ typedef struct {
 static inline void map_uris(LV2_URID_Map *map, URIs *uris) {
   uris->plugin = map->map(map->handle, NOISEREPELLENT_URI);
   uris->atom_Int = map->map(map->handle, LV2_ATOM__Int);
+  uris->atom_Float = map->map(map->handle, LV2_ATOM__Float);
   uris->atom_Vector = map->map(map->handle, LV2_ATOM__Vector);
   uris->atom_URID = map->map(map->handle, LV2_ATOM__URID);
 }
@@ -87,6 +110,7 @@ typedef struct {
 
   NoiseRepellentHandle lib_instance;
   NrepelDenoiseParameters parameters;
+  NoiseProfile *noise_profile;
 
   // TODO (luciano/todo): Use state mapping and unmapping instead
   float *enable;
@@ -105,6 +129,8 @@ typedef struct {
 
 static void cleanup(LV2_Handle instance) {
   NoiseRepellentPlugin *self = (NoiseRepellentPlugin *)instance;
+
+  noise_profile_free(self->noise_profile);
 
   if (self->lib_instance) {
     nrepel_free(self->lib_instance);
@@ -145,6 +171,9 @@ static LV2_Handle instantiate(const LV2_Descriptor *descriptor,
     cleanup((LV2_Handle)self);
     return NULL;
   }
+
+  self->noise_profile = noise_profile_initialize(
+      self->uris.atom_Float, nrepel_get_noise_profile_size(self->lib_instance));
 
   return (LV2_Handle)self;
 }
@@ -242,21 +271,29 @@ static LV2_State_Status save(LV2_Handle instance,
                              const LV2_Feature *const *features) {
   NoiseRepellentPlugin *self = (NoiseRepellentPlugin *)instance;
 
+  if (!nrepel_noise_profile_available(self->lib_instance)) {
+    return LV2_STATE_SUCCESS;
+  }
+
   uint32_t noise_profile_size =
       nrepel_get_noise_profile_size(self->lib_instance);
-  uint32_t noise_profile_averaged_blocks =
-      nrepel_get_noise_profile_blocks_averaged(self->lib_instance);
-  float *noise_profile = nrepel_get_noise_profile(self->lib_instance);
 
   store(handle, self->state.property_noise_profile_size, &noise_profile_size,
         sizeof(uint32_t), self->uris.atom_Int,
         LV2_STATE_IS_POD | LV2_STATE_IS_PORTABLE);
 
+  uint32_t noise_profile_averaged_blocks =
+      nrepel_get_noise_profile_blocks_averaged(self->lib_instance);
+
   store(handle, self->state.property_averaged_blocks,
         &noise_profile_averaged_blocks, sizeof(uint32_t), self->uris.atom_Int,
         LV2_STATE_IS_POD | LV2_STATE_IS_PORTABLE);
 
-  store(handle, self->state.property_noise_profile, (void *)noise_profile,
+  memcpy(self->noise_profile->elements,
+         nrepel_get_noise_profile(self->lib_instance),
+         sizeof(float) * noise_profile_size);
+
+  store(handle, self->state.property_noise_profile, (void *)self->noise_profile,
         sizeof(float) * noise_profile_size, self->uris.atom_Vector,
         LV2_STATE_IS_POD | LV2_STATE_IS_PORTABLE);
 
@@ -287,9 +324,7 @@ static LV2_State_Status restore(LV2_Handle instance,
 
   const void *saved_noise_profile = retrieve(
       handle, self->state.property_noise_profile, &size, &type, &valflags);
-  if (!saved_noise_profile ||
-      size !=
-          sizeof(float) * nrepel_get_noise_profile_size(self->lib_instance) ||
+  if (!saved_noise_profile || size != sizeof(NoiseProfile) ||
       type != self->uris.atom_Vector) {
     return LV2_STATE_ERR_NO_PROPERTY;
   }

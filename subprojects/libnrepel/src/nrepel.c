@@ -165,6 +165,12 @@ bool nrepel_reset_noise_profile(NoiseRepellentHandle instance) {
   return true;
 }
 
+bool nrepel_noise_profile_available(NoiseRepellentHandle instance) {
+  NoiseRepellent *self = (NoiseRepellent *)instance;
+
+  return is_noise_estimation_available(self->noise_profile);
+}
+
 bool nrepel_load_parameters(NoiseRepellentHandle instance,
                             NrepelDenoiseParameters parameters) {
   if (!instance) {
