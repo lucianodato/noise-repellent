@@ -18,7 +18,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
 #include "signal_crossfade.h"
-#include "../shared/configurations.h"
+#include "../shared/general_utils.h"
 #include <float.h>
 #include <math.h>
 #include <stdlib.h>
@@ -30,20 +30,24 @@ struct SignalCrossfade {
   float wet_dry;
 };
 
-SignalCrossfade *signal_crossfade_initialize(const uint32_t sample_rate) {
+SignalCrossfade *signal_crossfade_initialize(const uint32_t sample_rate,
+                                             const uint32_t block_size) {
   SignalCrossfade *self =
       (SignalCrossfade *)calloc(1U, sizeof(SignalCrossfade));
 
-  self->tau = (1.F - expf(-2.F * M_PI * 25.F * 64.F / (float)sample_rate));
+  const float release_block_length_in_s =
+      (float)block_size / ((float)sample_rate);
+  self->tau = expf(-1.F / (release_block_length_in_s * (float)sample_rate));
   self->wet_dry = 0.F;
+  self->wet_dry_target = 0.F;
 
   return self;
 }
 
 void signal_crossfade_free(SignalCrossfade *self) { free(self); }
 
-static void signal_crossfade__update_wetdry_target(SignalCrossfade *self,
-                                                   const bool enable) {
+static void signal_crossfade_update_wetdry_target(SignalCrossfade *self,
+                                                  const bool enable) {
   if (enable) {
     self->wet_dry_target = 1.F;
   } else {
@@ -56,11 +60,11 @@ static void signal_crossfade__update_wetdry_target(SignalCrossfade *self,
 bool signal_crossfade_run(SignalCrossfade *self,
                           const uint32_t number_of_samples, const float *input,
                           float *output, const bool enable) {
-  if (!input || !output || number_of_samples <= 0) {
+  if (!input || !output || number_of_samples <= 0U) {
     return false;
   }
 
-  signal_crossfade__update_wetdry_target(self, enable);
+  signal_crossfade_update_wetdry_target(self, enable);
 
   for (uint32_t k = 0U; k < number_of_samples; k++) {
     output[k] = (1.F - self->wet_dry) * input[k] + output[k] * self->wet_dry;

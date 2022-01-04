@@ -20,7 +20,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include "../include/nrepel.h"
 #include "denoiser/noisemodel/noise_profile.h"
 #include "denoiser/spectral_denoiser.h"
-#include "shared/configurations.h"
 #include "shared/general_utils.h"
 #include "shared/signal_crossfade.h"
 #include "stft/stft_processor.h"
@@ -61,7 +60,8 @@ NoiseRepellentHandle nrepel_initialize(const uint32_t sample_rate) {
     return NULL;
   }
 
-  self->soft_bypass = signal_crossfade_initialize(self->sample_rate);
+  self->soft_bypass =
+      signal_crossfade_initialize(self->sample_rate, buffer_size);
 
   if (!self->soft_bypass) {
     nrepel_free(self);
