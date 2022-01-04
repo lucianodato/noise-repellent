@@ -128,7 +128,7 @@ bool spectral_denoiser_run(SpectralDenoiserHandle instance,
       noise_estimation_run(self->noise_estimator, reference_spectrum);
     }
 
-    if (is_noise_estimation_available(self->noise_estimator)) {
+    if (is_noise_estimation_available(self->noise_profile)) {
       // Denoising with the captured profile
       gain_estimation_run(self->gain_estimation, reference_spectrum,
                           self->gain_spectrum);
