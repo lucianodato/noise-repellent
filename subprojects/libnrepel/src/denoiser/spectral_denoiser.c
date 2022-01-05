@@ -29,7 +29,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <stdlib.h>
 #include <string.h>
 
-typedef struct {
+typedef struct SpectralDenoiser {
   uint32_t fft_size;
   uint32_t half_fft_size;
   uint32_t sample_rate;
@@ -70,12 +70,12 @@ SpectralDenoiserHandle spectral_denoiser_initialize(
   self->noise_profile = noise_profile;
   self->denoise_parameters = parameters;
 
-  self->noise_estimator = noise_estimation_initialize(
-      self->fft_size, sample_rate, self->noise_profile);
+  self->noise_estimator =
+      noise_estimation_initialize(self->fft_size, sample_rate, noise_profile);
 
   self->gain_estimation =
       gain_estimation_initialize(self->fft_size, self->sample_rate, self->hop,
-                                 self->denoise_parameters, self->noise_profile);
+                                 self->denoise_parameters, noise_profile);
 
   self->residual_spectrum =
       (float *)calloc((self->half_fft_size + 1U), sizeof(float));

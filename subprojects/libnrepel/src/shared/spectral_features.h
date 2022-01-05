@@ -25,7 +25,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 typedef struct SpectralFeatures SpectralFeatures;
 
-typedef enum {
+typedef enum SpectalType {
   POWER_SPECTRUM = 0,
   MAGNITUDE_SPECTRUM = 1,
   PHASE_SPECTRUM = 2,

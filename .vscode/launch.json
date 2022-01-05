@@ -50,6 +50,32 @@
       ],
       "preLaunchTask": "DebugPlugin",
       "miDebuggerPath": "/usr/bin/gdb"
+    },
+    {
+      "name": "DebugJalv",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "/usr/bin/jalv.gtk3",
+      "args": [
+        "-s",
+        "-d",
+        "-t",
+        "https://github.com/lucianodato/noise-repellent" // Plugin URI
+      ],
+      "stopAtEntry": false,
+      "cwd": "${workspaceRoot}",
+      "environment": [],
+      "externalConsole": false,
+      "MIMode": "gdb",
+      "setupCommands": [
+        {
+          "description": "Enable pretty-printing for gdb",
+          "text": "-enable-pretty-printing",
+          "ignoreFailures": true
+        }
+      ],
+      "preLaunchTask": "DebugPlugin",
+      "miDebuggerPath": "/usr/bin/gdb"
     }
   ]
 }

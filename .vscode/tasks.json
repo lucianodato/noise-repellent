@@ -9,6 +9,7 @@
             "label": "MesonDebugConfig",
             "type": "shell",
             "command": "meson build --warnlevel=1 --werror --prefix=~/"
+            // "command": "meson build --warnlevel=3 --prefix=~/"
         },
         {
             "label": "MesonReleaseConfig",
@@ -61,6 +62,11 @@
             "label": "Lv2Bench",
             "type": "shell",
             "command": "for i in {1..10}; do lv2bench https://github.com/lucianodato/noise-repellent; done"
+        },
+        {
+            "label": "Jalv.gtk3",
+            "type": "shell",
+            "command": "jalv.gtk3 -s -d -t https://github.com/lucianodato/noise-repellent"
         },
         {
             "label": "Lv2Bm",

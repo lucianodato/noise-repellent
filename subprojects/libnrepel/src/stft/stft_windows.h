@@ -25,7 +25,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 typedef struct StftWindows StftWindows;
 
-typedef enum { INPUT_WINDOW = 1, OUTPUT_WINDOW = 2 } WindowPlace;
+typedef enum WindowPlace { INPUT_WINDOW = 1, OUTPUT_WINDOW = 2 } WindowPlace;
 
 StftWindows *stft_window_initialize(uint32_t window_size,
                                     uint32_t overlap_factor);

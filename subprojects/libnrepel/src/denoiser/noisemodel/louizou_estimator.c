@@ -26,7 +26,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <stdlib.h>
 #include <string.h>
 
-typedef struct {
+typedef struct FrameSpectrum {
   float *smoothed_spectrum;
   float *local_minimum_spectrum;
   float *speech_present_probability_spectrum;

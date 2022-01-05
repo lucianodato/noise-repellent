@@ -23,7 +23,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <stdbool.h>
 #include <stdint.h>
 
-typedef enum {
+typedef enum WindowTypes {
   HANN_WINDOW = 0,
   HAMMING_WINDOW = 1,
   BLACKMAN_WINDOW = 2,

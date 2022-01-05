@@ -27,7 +27,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <stdlib.h>
 #include <string.h>
 
-typedef struct {
+typedef struct NoiseRepellent {
   uint32_t sample_rate;
   NrepelDenoiseParameters denoise_parameters;
 

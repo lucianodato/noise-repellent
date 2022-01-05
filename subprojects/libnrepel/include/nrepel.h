@@ -56,9 +56,17 @@ extern "C" {
 // TODO (luciano/todo): Move Plugin functionality to the plugin. Circular
 // buffer, softbypass, noise_profile declaration, parameters, etc.
 
+// Objective interfaces
+
+// Init and free
+// Process adaptive (with parameters)
+// Process manual with provided profile (with parameters)
+// Estimate noise returns number of blocks averages and out parameters a profile
+// (with parameters)
+
 typedef void *NoiseRepellentHandle;
 
-typedef struct {
+typedef struct NrepelDenoiseParameters {
   bool enable;
   bool learn_noise;
   bool residual_listen;

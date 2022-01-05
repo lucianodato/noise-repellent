@@ -59,14 +59,14 @@ bool noise_estimation_run(NoiseEstimator *self, float *signal_spectrum) {
     return false;
   }
 
-  increment_blocks_averaged(self->noise_profile);
-
   float *noise_profile = get_noise_profile(self->noise_profile);
 
   get_rolling_mean_spectrum(
       noise_profile, signal_spectrum,
       get_noise_profile_blocks_averaged(self->noise_profile),
       self->half_fft_size);
+
+  increment_blocks_averaged(self->noise_profile);
 
   if (get_noise_profile_blocks_averaged(self->noise_profile) >
       MIN_NUMBER_OF_WINDOWS_NOISE_AVERAGED) {

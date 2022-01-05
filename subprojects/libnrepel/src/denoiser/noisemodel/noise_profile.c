@@ -19,8 +19,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 #include "noise_profile.h"
 #include "../../shared/spectral_utils.h"
-#include "string.h"
 #include <stdlib.h>
+#include <string.h>
 
 struct NoiseProfile {
   uint32_t noise_profile_size;
@@ -55,7 +55,7 @@ void set_noise_estimation_available(NoiseProfile *self) {
 
 float *get_noise_profile(NoiseProfile *self) { return self->noise_profile; }
 
-uint32_t get_noise_profile_size(NoiseProfile *self) { // reset window count
+uint32_t get_noise_profile_size(NoiseProfile *self) {
   return self->noise_profile_size;
 }
 
@@ -98,6 +98,7 @@ bool reset_noise_profile(NoiseProfile *self) {
   initialize_spectrum_with_value(self->noise_profile, self->noise_profile_size,
                                  0.F);
   self->noise_profile_blocks_averaged = 0U;
+  self->noise_spectrum_available = false;
 
   return true;
 }

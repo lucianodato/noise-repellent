@@ -31,7 +31,7 @@ static void stft_synthesis(StftProcessor *self);
 static void stft_overlap_add(StftProcessor *self);
 static void stft_update_buffers(StftProcessor *self);
 
-typedef struct {
+typedef struct SamplesBuffer {
   float overlap_scale_factor;
 
   uint32_t input_latency;
