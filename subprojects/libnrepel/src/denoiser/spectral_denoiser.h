@@ -21,7 +21,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define SPECTRAL_DENOISER_H
 
 #include "../../include/nrepel.h"
-#include "noisemodel/noise_profile.h"
+#include "../shared/noise_profile.h"
 #include <stdbool.h>
 #include <stdint.h>
 

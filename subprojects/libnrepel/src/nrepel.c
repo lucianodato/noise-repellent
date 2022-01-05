@@ -18,9 +18,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
 #include "../include/nrepel.h"
-#include "denoiser/noisemodel/noise_profile.h"
 #include "denoiser/spectral_denoiser.h"
 #include "shared/general_utils.h"
+#include "shared/noise_profile.h"
 #include "shared/signal_crossfade.h"
 #include "stft/stft_processor.h"
 #include <math.h>

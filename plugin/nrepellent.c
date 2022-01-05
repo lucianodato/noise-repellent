@@ -28,6 +28,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 #define NOISEREPELLENT_URI "https://github.com/lucianodato/noise-repellent"
 
+// TODO (luciano/todo): Use state mapping and unmapping instead of ladspa float
+// arguments
+// TODO (luciano/todo): check that units correspond to what's being used in the
+// algorithm
+// TODO (luciano/todo): add stereo version of the plugin
+// TODO (luciano/todo): separate adaptive and manual versions of the plugin
+
 typedef struct NoiseProfileState {
   uint32_t child_size;
   uint32_t child_type;
@@ -97,13 +104,6 @@ typedef enum PortIndex {
   NOISEREPELLENT_INPUT = 12,
   NOISEREPELLENT_OUTPUT = 13,
 } PortIndex;
-
-// TODO (luciano/todo): Use state mapping and unmapping instead of ladspa float
-// arguments
-// TODO (luciano/todo): check that units correspond to what's being used in the
-// algorithm
-// TODO (luciano/todo): add stereo version of the plugin
-// TODO (luciano/todo): separate adaptive and manual versions of the plugin
 
 typedef struct NoiseRepellentPlugin {
   const float *input;
