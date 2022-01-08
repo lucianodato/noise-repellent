@@ -21,7 +21,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include "../../shared/configurations.h"
 #include "../../shared/spectral_features.h"
 #include "louizou_estimator.h"
-#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 

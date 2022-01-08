@@ -9,7 +9,7 @@
             "label": "MesonDebugConfig",
             "type": "shell",
             "command": "meson build --warnlevel=1 --werror --prefix=~/"
-            // "command": "meson build --warnlevel=3 --prefix=~/"
+            // "command": "meson build --warnlevel=3 --werror --prefix=~/"
         },
         {
             "label": "MesonReleaseConfig",
@@ -93,6 +93,7 @@
             "args": [
                 "--leak-check=full",
                 "--show-reachable=no",
+                "--log-file=./output.valgrind",
                 "lv2apply",
                 "-i",
                 "~/Music/noise.wav",
@@ -108,8 +109,24 @@
             "args": [
                 "--leak-check=full",
                 "--show-reachable=no",
+                "--log-file=./output.valgrind",
                 "lv2bm",
                 "--full-test",
+                "https://github.com/lucianodato/noise-repellent"
+            ]
+        },
+        {
+            "label": "ValgrindJalv",
+            "type": "shell",
+            "command": "valgrind",
+            "args": [
+                "--leak-check=full",
+                "--show-reachable=no",
+                "--log-file=./output.valgrind",
+                "jalv.gtk3",
+                "-s",
+                "-d",
+                "-t",
                 "https://github.com/lucianodato/noise-repellent"
             ]
         },
@@ -134,6 +151,7 @@
                 "NinjaBuild",
                 "NinjaInstall",
                 "ValgrindLv2Bench"
+                // "ValgrindJalv"
             ],
             "dependsOrder": "sequence"
         },
@@ -173,11 +191,6 @@
             "type": "shell",
             "command": "sudo apt install build-essential gdb valgrind meson ninja-build git lv2-dev libfftw3-dev sordi lilv-utils"
         },
-        {
-            "label": "InstallDevelopmentLinters",
-            "type": "shell",
-            "command": "sudo apt install clang clang-tidy"
-        }
     ],
     "version": "2.0.0"
 }
