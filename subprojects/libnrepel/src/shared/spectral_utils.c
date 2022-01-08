@@ -163,8 +163,8 @@ bool get_rolling_mean_spectrum(float *averaged_spectrum,
     if (number_of_blocks <= 1U) {
       averaged_spectrum[k] = current_spectrum[k];
     } else {
-      averaged_spectrum[k] +=
-          (averaged_spectrum[k] - current_spectrum[k]) / number_of_blocks;
+      averaged_spectrum[k] += (averaged_spectrum[k] - current_spectrum[k]) /
+                              (float)number_of_blocks;
     }
   }
 

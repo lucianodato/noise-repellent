@@ -39,6 +39,7 @@ typedef struct NoiseRepellent {
 
 NoiseRepellentHandle nrepel_initialize(const uint32_t sample_rate) {
   NoiseRepellent *self = (NoiseRepellent *)calloc(1U, sizeof(NoiseRepellent));
+
   self->sample_rate = sample_rate;
 
   self->stft_processor = stft_processor_initialize();

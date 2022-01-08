@@ -24,6 +24,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <stdint.h>
 
 float sanitize_denormal(float value);
-float from_db_to_coefficient(const float gain_db);
+float from_db_to_coefficient(float gain_db);
 
 #endif

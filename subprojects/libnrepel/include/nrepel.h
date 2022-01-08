@@ -47,14 +47,48 @@ extern "C" {
 #include <stdbool.h>
 #include <stdint.h>
 
-// TODO (luciano/todo): Document interface
-// TODO (luciano/todo): Test main file and increase coverage
-// TODO (luciano/todo): Don't expose struct and use a handle instead for ABI
-// compatibility if changes in the future
 // TODO (luciano/todo): Extract library to it's own repository when API is
 // stable
+// TODO (luciano/todo): Document interface
+// TODO (luciano/todo): Test main file and increase coverage
 // TODO (luciano/todo): Move Plugin functionality to the plugin. Circular
 // buffer, softbypass, noise_profile declaration, parameters, etc.
+
+typedef void *NoiseRepellentHandle;
+
+typedef struct NrepelDenoiseParameters {
+  bool enable;               // Plugin
+  bool learn_noise;          // Plugin
+  bool residual_listen;      // Plugin
+  bool adaptive_noise_learn; // Removed by extracted different plugin
+  float reduction_amount;
+  float release_time;
+  float masking_ceiling_limit; // Should be internal
+  float whitening_factor;
+  float transient_threshold; // Should be Adaptive
+  float noise_rescale;
+} NrepelDenoiseParameters;
+
+NREPEL_EXPORT NoiseRepellentHandle nrepel_initialize(uint32_t sample_rate);
+NREPEL_EXPORT void nrepel_free(NoiseRepellentHandle instance);
+NREPEL_EXPORT bool nrepel_process(NoiseRepellentHandle instance,
+                                  uint32_t number_of_samples,
+                                  const float *input, float *output);
+NREPEL_EXPORT uint32_t nrepel_get_latency(NoiseRepellentHandle instance);
+NREPEL_EXPORT uint32_t
+nrepel_get_noise_profile_size(NoiseRepellentHandle instance);
+NREPEL_EXPORT float *nrepel_get_noise_profile(NoiseRepellentHandle instance);
+NREPEL_EXPORT bool nrepel_load_noise_profile(NoiseRepellentHandle instance,
+                                             const float *restored_profile,
+                                             uint32_t profile_size,
+                                             uint32_t profile_blocks);
+NREPEL_EXPORT uint32_t
+nrepel_get_noise_profile_blocks_averaged(NoiseRepellentHandle instance);
+NREPEL_EXPORT bool nrepel_reset_noise_profile(NoiseRepellentHandle instance);
+NREPEL_EXPORT bool
+nrepel_noise_profile_available(NoiseRepellentHandle instance);
+NREPEL_EXPORT bool nrepel_load_parameters(NoiseRepellentHandle instance,
+                                          NrepelDenoiseParameters parameters);
 
 // Objective interfaces
 
@@ -64,37 +98,23 @@ extern "C" {
 // Estimate noise returns number of blocks averages and out parameters a profile
 // (with parameters)
 
-typedef void *NoiseRepellentHandle;
-
-typedef struct NrepelDenoiseParameters {
-  bool enable;
-  bool learn_noise;
-  bool residual_listen;
-  bool adaptive_noise_learn;
-  float reduction_amount;
-  float release_time;
-  float masking_ceiling_limit;
-  float whitening_factor;
-  float transient_threshold;
-  float noise_rescale;
-} NrepelDenoiseParameters;
-
-NoiseRepellentHandle nrepel_initialize(uint32_t sample_rate);
-void nrepel_free(NoiseRepellentHandle instance);
-bool nrepel_process(NoiseRepellentHandle instance, uint32_t number_of_samples,
-                    const float *input, float *output);
-uint32_t nrepel_get_latency(NoiseRepellentHandle instance);
-uint32_t nrepel_get_noise_profile_size(NoiseRepellentHandle instance);
-float *nrepel_get_noise_profile(NoiseRepellentHandle instance);
-bool nrepel_load_noise_profile(NoiseRepellentHandle instance,
-                               const float *restored_profile,
-                               uint32_t profile_size, uint32_t profile_blocks);
-uint32_t
-nrepel_get_noise_profile_blocks_averaged(NoiseRepellentHandle instance);
-bool nrepel_reset_noise_profile(NoiseRepellentHandle instance);
-bool nrepel_noise_profile_available(NoiseRepellentHandle instance);
-bool nrepel_load_parameters(NoiseRepellentHandle instance,
-                            NrepelDenoiseParameters parameters);
+// NREPEL_EXPORT NoiseRepellentHandle nrepel_initialize(int sample_rate, int
+// fft_size); NREPEL_EXPORT int nrepel_get_size(NoiseRepellentHandle instance);
+// NREPEL_EXPORT void nrepel_free(NoiseRepellentHandle instance);
+// NREPEL_EXPORT int nrepel_calculate_noise_profile(NoiseRepellentHandle
+// instance,
+//                                    const float *input,
+//                                    float *calculated_profile);
+// NREPEL_EXPORT int nrepel_get_block_size(NoiseRepellentHandle instance);
+// NREPEL_EXPORT bool nrepel_denoise_block(NoiseRepellentHandle instance, const
+// float *input,
+//                           float *output, const float *noise_profile,
+//                           float reduction_db, float whitening_percentage,
+//                           float release_ms, float noise_gain_db);
+// NREPEL_EXPORT bool nrepel_denoise_block_adaptive(NoiseRepellentHandle
+// instance,
+//                                    const float *input, float *output,
+//                                    float reduction_db, float noise_gain_db);
 
 #ifdef __cplusplus
 }

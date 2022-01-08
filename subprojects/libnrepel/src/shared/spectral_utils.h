@@ -46,7 +46,7 @@ float spectral_flux(const float *spectrum, const float *previous_spectrum,
                     uint32_t spectrum_size);
 bool get_rolling_mean_spectrum(float *averaged_spectrum,
                                const float *current_spectrum,
-                               const uint32_t number_of_blocks,
-                               const uint32_t spectrum_size);
+                               uint32_t number_of_blocks,
+                               uint32_t spectrum_size);
 
 #endif
