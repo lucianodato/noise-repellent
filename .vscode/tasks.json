@@ -56,7 +56,7 @@
         {
             "label": "Lv2Lint",
             "type": "shell",
-            "command": "lv2lint -S note -S warn -d https://github.com/lucianodato/noise-repellent"
+            "command": "lv2lint -S warn -d https://github.com/lucianodato/noise-repellent"
         },
         {
             "label": "Lv2Bench",

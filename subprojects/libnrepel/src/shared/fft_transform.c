@@ -40,10 +40,10 @@ FftTransform *fft_transform_initialize() {
   self->input_fft_buffer = (float *)calloc(self->fft_size, sizeof(float));
   self->output_fft_buffer = (float *)calloc(self->fft_size, sizeof(float));
   self->forward =
-      fftwf_plan_r2r_1d(self->fft_size, self->input_fft_buffer,
+      fftwf_plan_r2r_1d((int)self->fft_size, self->input_fft_buffer,
                         self->output_fft_buffer, FFTW_FORWARD, FFTW_ESTIMATE);
   self->backward =
-      fftwf_plan_r2r_1d(self->fft_size, self->output_fft_buffer,
+      fftwf_plan_r2r_1d((int)self->fft_size, self->output_fft_buffer,
                         self->input_fft_buffer, FFTW_BACKWARD, FFTW_ESTIMATE);
 
   return self;
@@ -63,7 +63,7 @@ uint32_t get_real_spectrum_size(FftTransform *self) {
   return self->fft_size / 2U + 1U;
 }
 
-bool load_input_samples(FftTransform *self, const float *input) {
+bool fft_load_input_samples(FftTransform *self, const float *input) {
   if (!self || !input) {
     return false;
   }

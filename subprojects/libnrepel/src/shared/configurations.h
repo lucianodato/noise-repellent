@@ -87,6 +87,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define BETA_MIN 0.F
 
 // Noise Estimator
+// TODO (luciano/todo): change this in favour of ms block size instead of it
+// depending of the fixed block size
 #define MIN_NUMBER_OF_WINDOWS_NOISE_AVERAGED 5U
 
 // Louizou Estimator

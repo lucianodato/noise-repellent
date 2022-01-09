@@ -1,4 +1,5 @@
 project('libnrepel', 'c', version: '0.1.0',default_options: ['c_std=c99'])
+add_project_arguments('-fvisibility=hidden', language : 'c')
 
 #sources to compile
 nrepel_sources = [
@@ -18,6 +19,7 @@ nrepel_sources = [
     'src/denoiser/gainmodel/gain_estimator.c',
     'src/denoiser/spectral_denoiser.c',
     'src/stft/stft_windows.c',
+    'src/stft/stft_buffer.c',
     'src/stft/stft_processor.c',
     'src/nrepel.c',
 ]
@@ -56,4 +58,3 @@ libnrepel = static_library('nrepel',
 
 libnrepel_dep = declare_dependency(include_directories : inc,
   link_with : libnrepel)
-

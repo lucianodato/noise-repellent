@@ -17,20 +17,21 @@ You should have received a copy of the GNU Lesser General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
-#ifndef SPECTRAL_DENOISER_H
-#define SPECTRAL_DENOISER_H
+#ifndef STFT_BUFFER_H
+#define STFT_BUFFER_H
 
-#include "../../include/nrepel.h"
-#include "../shared/noise_profile.h"
-#include "../shared/spectral_processor.h"
 #include <stdbool.h>
 #include <stdint.h>
 
-SpectralProcessorHandle spectral_denoiser_initialize(
-    uint32_t sample_rate, uint32_t fft_size, uint32_t overlap_factor,
-    NoiseProfile *noise_profile, NrepelDenoiseParameters *parameters);
-void spectral_denoiser_free(SpectralProcessorHandle instance);
-bool spectral_denoiser_run(SpectralProcessorHandle instance,
-                           float *fft_spectrum);
+typedef struct StftBuffer StftBuffer;
+StftBuffer *stft_buffer_initialize(uint32_t buffer_size,
+                                   uint32_t start_position,
+                                   uint32_t block_step);
+void stft_buffer_free(StftBuffer *self);
+bool stft_buffer_fill(StftBuffer *self, float input_sample,
+                      float *output_sample);
+bool stft_buffer_advance_block(StftBuffer *self,
+                               const float *reconstructed_signal);
+float *get_full_buffer_block(StftBuffer *self);
 
 #endif

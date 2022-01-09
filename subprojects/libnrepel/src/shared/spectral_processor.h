@@ -17,20 +17,19 @@ You should have received a copy of the GNU Lesser General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
-#ifndef SPECTRAL_DENOISER_H
-#define SPECTRAL_DENOISER_H
+#ifndef SPECTRAL_PROCESSOR_H
+#define SPECTRAL_PROCESSOR_H
 
-#include "../../include/nrepel.h"
-#include "../shared/noise_profile.h"
-#include "../shared/spectral_processor.h"
 #include <stdbool.h>
-#include <stdint.h>
 
-SpectralProcessorHandle spectral_denoiser_initialize(
-    uint32_t sample_rate, uint32_t fft_size, uint32_t overlap_factor,
-    NoiseProfile *noise_profile, NrepelDenoiseParameters *parameters);
-void spectral_denoiser_free(SpectralProcessorHandle instance);
-bool spectral_denoiser_run(SpectralProcessorHandle instance,
-                           float *fft_spectrum);
+// Generic Spectral Processing function over an FFT spectrum. Receives any
+// spectral processing module handle (void *) and the FFT of a audio block.
+// This is to inject any spectral processor and processing function into the
+// STFT transform at runtime
+typedef void *SpectralProcessorHandle;
 
+// Processing function which deals with the fft spectrum by mutating the array
+// with any DSP that operates with the FFT spectrum (1d FFTW spectrum)
+typedef bool (*spectral_processing)(SpectralProcessorHandle spectral_processor,
+                                    float *fft_spectrum);
 #endif

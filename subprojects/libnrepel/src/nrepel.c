@@ -32,7 +32,7 @@ typedef struct NoiseRepellent {
   NrepelDenoiseParameters denoise_parameters;
 
   NoiseProfile *noise_profile;
-  SpectralDenoiserHandle spectral_denoiser;
+  SpectralProcessorHandle spectral_denoiser;
   StftProcessor *stft_processor;
   SignalCrossfade *soft_bypass;
 } NoiseRepellent;

@@ -49,7 +49,7 @@ typedef struct SpectralDenoiser {
 
 static void denoise_build(SpectralDenoiser *self, float *fft_spectrum);
 
-SpectralDenoiserHandle spectral_denoiser_initialize(
+SpectralProcessorHandle spectral_denoiser_initialize(
     const uint32_t sample_rate, const uint32_t fft_size,
     const uint32_t overlap_factor, NoiseProfile *noise_profile,
     NrepelDenoiseParameters *parameters) {
@@ -91,7 +91,7 @@ SpectralDenoiserHandle spectral_denoiser_initialize(
   return self;
 }
 
-void spectral_denoiser_free(SpectralDenoiserHandle instance) {
+void spectral_denoiser_free(SpectralProcessorHandle instance) {
   SpectralDenoiser *self = (SpectralDenoiser *)instance;
 
   gain_estimation_free(self->gain_estimation);
@@ -105,7 +105,7 @@ void spectral_denoiser_free(SpectralDenoiserHandle instance) {
   free(self);
 }
 
-bool spectral_denoiser_run(SpectralDenoiserHandle instance,
+bool spectral_denoiser_run(SpectralProcessorHandle instance,
                            float *fft_spectrum) {
   if (!fft_spectrum || !instance) {
     return false;
@@ -153,6 +153,8 @@ static void get_residual_spectrum(SpectralDenoiser *self,
     self->residual_spectrum[k] = fft_spectrum[k] - self->denoised_spectrum[k];
   }
 
+  // TODO (luciano/test): Apply whitening to noise profile instead of the
+  // resulting noise residue
   if (self->denoise_parameters->whitening_factor > 0.F &&
       !self->denoise_parameters->adaptive_noise_learn) {
     spectral_whitening_run(self->whitener,
