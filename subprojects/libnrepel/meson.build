@@ -1,4 +1,4 @@
-project('libnrepel', 'c', version: '0.1.0',default_options: ['c_std=c99'])
+project('libnrepel', 'c', version: '0.1.0',default_options: ['c_std=c99','default_library=static'])
 add_project_arguments('-fvisibility=hidden', language : 'c')
 
 #sources to compile
@@ -49,12 +49,11 @@ if get_option('buildtype') == 'release'
     endif
 endif
 
-libnrepel = static_library('nrepel',
+libnrepel = library('nrepel',
   nrepel_sources,
   include_directories : inc,
   c_args: cflags,
-  dependencies: dep,
-  install : true)
+  dependencies: dep)
 
 libnrepel_dep = declare_dependency(include_directories : inc,
   link_with : libnrepel)

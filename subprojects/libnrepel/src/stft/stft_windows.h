@@ -30,7 +30,6 @@ typedef enum WindowPlace { INPUT_WINDOW = 1, OUTPUT_WINDOW = 2 } WindowPlace;
 StftWindows *stft_window_initialize(uint32_t window_size,
                                     uint32_t overlap_factor);
 void stft_window_free(StftWindows *self);
-bool apply_window(StftWindows *self, float *frame, uint32_t frame_size,
-                  WindowPlace place);
+bool apply_window(StftWindows *self, float *frame, WindowPlace place);
 
 #endif

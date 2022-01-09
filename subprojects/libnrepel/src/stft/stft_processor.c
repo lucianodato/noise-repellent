@@ -116,7 +116,7 @@ uint32_t get_spectral_processing_size(StftProcessor *self) {
 
 static void stft_analysis(StftProcessor *self) {
   apply_window(self->stft_windows, get_fft_input_buffer(self->fft_transform),
-               self->buffer_size, INPUT_WINDOW);
+               INPUT_WINDOW);
 
   compute_forward_fft(self->fft_transform);
 }
@@ -125,7 +125,7 @@ static void stft_synthesis(StftProcessor *self) {
   compute_backward_fft(self->fft_transform);
 
   apply_window(self->stft_windows, get_fft_input_buffer(self->fft_transform),
-               self->buffer_size, OUTPUT_WINDOW);
+               OUTPUT_WINDOW);
 }
 
 static void stft_overlap_add(StftProcessor *self) {

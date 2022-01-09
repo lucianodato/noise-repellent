@@ -75,19 +75,22 @@ static float get_windows_scale_factor(StftWindows *self,
   return sum * (float)overlap_factor;
 }
 
-bool apply_window(StftWindows *self, float *frame, const uint32_t frame_size,
-                  WindowPlace place) {
-  if (!self || !frame || self->window_size != frame_size) {
+bool apply_window(StftWindows *self, float *frame, const WindowPlace place) {
+  if (!self || !frame) {
     return false;
   }
 
-  for (uint32_t i = 0U; i < self->window_size; i++) {
+  for (uint32_t i = 0U; i < self->window_size / 2U; i++) {
     switch (place) {
     case INPUT_WINDOW:
       frame[i] *= self->input_window[i];
+      frame[self->window_size - 1U - i] *=
+          self->input_window[self->window_size - 1U - i];
       break;
     case OUTPUT_WINDOW:
       frame[i] *= self->output_window[i] / self->scale_factor;
+      frame[self->window_size - 1U - i] *=
+          self->output_window[self->window_size - 1U - i] / self->scale_factor;
       break;
     default:
       break;

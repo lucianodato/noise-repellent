@@ -30,8 +30,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 // TODO (luciano/todo): Use state mapping and unmapping instead of ladspa float
 // arguments
-// TODO (luciano/todo): check that units correspond to what's being used in the
-// algorithm
 // TODO (luciano/todo): add stereo version of the plugin
 // TODO (luciano/todo): separate adaptive and manual versions of the plugin
 
@@ -262,8 +260,6 @@ static void run(LV2_Handle instance, uint32_t number_of_samples) {
 
   nrepel_process(self->lib_instance, number_of_samples, self->input,
                  self->output);
-
-  *self->reset_noise_profile = (float)0U;
 }
 
 static LV2_State_Status save(LV2_Handle instance,
