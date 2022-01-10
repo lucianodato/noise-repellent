@@ -1,5 +1,8 @@
 project('nrepellent.lv2','c',version: '0.2.0',default_options: ['c_std=c99'])
 
+# hide all public symbols
+add_project_arguments('-fvisibility=hidden', language : 'c')
+
 libnrepel_proj = subproject('libnrepel')
 
 #install folder

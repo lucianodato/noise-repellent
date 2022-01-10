@@ -32,7 +32,5 @@ SpectralProcessorHandle spectral_denoiser_initialize(
 void spectral_denoiser_free(SpectralProcessorHandle instance);
 bool spectral_denoiser_run(SpectralProcessorHandle instance,
                            float *fft_spectrum);
-bool spectral_adaptive_denoiser_run(SpectralProcessorHandle instance,
-                                    float *fft_spectrum);
 
 #endif

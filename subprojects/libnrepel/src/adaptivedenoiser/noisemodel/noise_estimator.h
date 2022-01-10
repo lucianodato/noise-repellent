@@ -17,19 +17,20 @@ You should have received a copy of the GNU Lesser General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
-#ifndef NOISE_ESTIMATOR_H
-#define NOISE_ESTIMATOR_H
+#ifndef ADAPTIVE_NOISE_ESTIMATOR_H
+#define ADAPTIVE_NOISE_ESTIMATOR_H
 
-#include "../../../include/nrepel.h"
 #include "../../shared/noise_profile.h"
 #include <stdbool.h>
 #include <stdint.h>
 
-typedef struct NoiseEstimator NoiseEstimator;
+typedef struct NoiseEstimatorAdaptive NoiseEstimatorAdaptive;
 
-NoiseEstimator *noise_estimation_initialize(uint32_t fft_size,
-                                            NoiseProfile *noise_profile);
-void noise_estimation_free(NoiseEstimator *self);
-bool noise_estimation_run(NoiseEstimator *self, float *signal_spectrum);
+NoiseEstimatorAdaptive *
+adaptive_noise_estimation_initialize(uint32_t fft_size, uint32_t sample_rate,
+                                     NoiseProfile *noise_profile);
+void adaptive_noise_estimation_free(NoiseEstimatorAdaptive *self);
+bool noise_estimation_run_adaptive(NoiseEstimatorAdaptive *self,
+                                   float *signal_spectrum);
 
 #endif

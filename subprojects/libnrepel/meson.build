@@ -1,5 +1,4 @@
 project('libnrepel', 'c', version: '0.1.0',default_options: ['c_std=c99','default_library=static'])
-add_project_arguments('-fvisibility=hidden', language : 'c')
 
 #sources to compile
 nrepel_sources = [
@@ -11,7 +10,10 @@ nrepel_sources = [
     'src/shared/spectral_whitening.c',
     'src/shared/general_utils.c',
     'src/shared/noise_profile.c',
-    'src/denoiser/noisemodel/louizou_estimator.c',
+    'src/adaptivedenoiser/noisemodel/louizou_estimator.c',
+    'src/adaptivedenoiser/noisemodel/noise_estimator.c',
+    'src/adaptivedenoiser/gainmodel/gain_estimator.c',
+    'src/adaptivedenoiser/adaptive_denoiser.c',
     'src/denoiser/noisemodel/noise_estimator.c',
     'src/denoiser/gainmodel/transient_detector.c',
     'src/denoiser/gainmodel/masking_estimator.c',
@@ -34,7 +36,7 @@ dep = [m_dep, fftw_dep]
 #get the host operating system and configure install path and shared object extension
 current_os = host_machine.system()
 current_arch = host_machine.cpu_family()
-cflags = ['-fvisibility=hidden']
+cflags = []
 
 #compiler flags
 if get_option('buildtype') == 'release'

@@ -17,19 +17,21 @@ You should have received a copy of the GNU Lesser General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
-#ifndef NOISE_ESTIMATOR_H
-#define NOISE_ESTIMATOR_H
+#ifndef SPECTRAL_ADAPTIVE_DENOISER_H
+#define SPECTRAL_ADAPTIVE_DENOISER_H
 
-#include "../../../include/nrepel.h"
-#include "../../shared/noise_profile.h"
+#include "../../include/nrepel.h"
+#include "../shared/noise_profile.h"
+#include "../shared/spectral_processor.h"
 #include <stdbool.h>
 #include <stdint.h>
 
-typedef struct NoiseEstimator NoiseEstimator;
-
-NoiseEstimator *noise_estimation_initialize(uint32_t fft_size,
-                                            NoiseProfile *noise_profile);
-void noise_estimation_free(NoiseEstimator *self);
-bool noise_estimation_run(NoiseEstimator *self, float *signal_spectrum);
+SpectralProcessorHandle
+spectral_adaptive_denoiser_initialize(uint32_t sample_rate, uint32_t fft_size,
+                                      NoiseProfile *noise_profile,
+                                      NrepelDenoiseParameters *parameters);
+void spectral_adaptive_denoiser_free(SpectralProcessorHandle instance);
+bool spectral_adaptive_denoiser_run(SpectralProcessorHandle instance,
+                                    float *fft_spectrum);
 
 #endif

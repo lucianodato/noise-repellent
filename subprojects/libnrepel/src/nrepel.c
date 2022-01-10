@@ -18,6 +18,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
 #include "../include/nrepel.h"
+#include "adaptivedenoiser/adaptive_denoiser.h"
 #include "denoiser/spectral_denoiser.h"
 #include "shared/general_utils.h"
 #include "shared/noise_profile.h"
@@ -32,7 +33,9 @@ typedef struct NoiseRepellent {
   NrepelDenoiseParameters denoise_parameters;
 
   NoiseProfile *noise_profile;
-  SpectralProcessorHandle spectral_denoiser;
+  SpectralProcessorHandle spectral_denoiser; // TODO (luciano/todo): In a union?
+  SpectralProcessorHandle
+      adaptive_spectral_denoiser; // TODO (luciano/todo): In a union?
   StftProcessor *stft_processor;
   SignalCrossfade *soft_bypass;
 } NoiseRepellent;
@@ -78,6 +81,15 @@ NoiseRepellentHandle nrepel_initialize(const uint32_t sample_rate) {
     return NULL;
   }
 
+  self->adaptive_spectral_denoiser = spectral_adaptive_denoiser_initialize(
+      self->sample_rate, buffer_size, self->noise_profile,
+      &self->denoise_parameters);
+
+  if (!self->adaptive_spectral_denoiser) {
+    nrepel_free(self);
+    return NULL;
+  }
+
   return self;
 }
 
@@ -87,6 +99,7 @@ void nrepel_free(NoiseRepellentHandle instance) {
   signal_crossfade_free(self->soft_bypass);
   noise_profile_free(self->noise_profile);
   spectral_denoiser_free(self->spectral_denoiser);
+  spectral_adaptive_denoiser_free(self->adaptive_spectral_denoiser);
   stft_processor_free(self->stft_processor);
   free(self);
 }
@@ -109,7 +122,7 @@ bool nrepel_process(NoiseRepellentHandle instance,
   if (self->denoise_parameters.adaptive_noise_learn) {
     stft_processor_run(self->stft_processor, number_of_samples, input, output,
                        &spectral_adaptive_denoiser_run,
-                       self->spectral_denoiser);
+                       self->adaptive_spectral_denoiser);
   } else {
     stft_processor_run(self->stft_processor, number_of_samples, input, output,
                        &spectral_denoiser_run, self->spectral_denoiser);

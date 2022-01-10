@@ -145,25 +145,6 @@ bool gain_estimation_run(GainEstimator *self, const float *signal_spectrum,
   return true;
 }
 
-bool gain_estimation_run_adaptive(GainEstimator *self,
-                                  const float *signal_spectrum,
-                                  float *gain_spectrum) {
-  if (!self || !signal_spectrum || !gain_spectrum) {
-    return false;
-  }
-
-  float *noise_profile = get_noise_profile(self->noise_profile);
-
-  for (uint32_t k = 1U; k <= self->half_fft_size; k++) {
-    noise_profile[k] =
-        noise_profile[k] * self->denoise_parameters->noise_rescale;
-  }
-
-  wiener_subtraction(self, signal_spectrum, gain_spectrum, noise_profile);
-
-  return true;
-}
-
 static void wiener_subtraction(GainEstimator *self, const float *spectrum,
                                float *gain_spectrum,
                                const float *noise_spectrum) {
