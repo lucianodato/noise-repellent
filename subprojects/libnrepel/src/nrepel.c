@@ -106,8 +106,14 @@ bool nrepel_process(NoiseRepellentHandle instance,
 
   NoiseRepellent *self = (NoiseRepellent *)instance;
 
-  stft_processor_run(self->stft_processor, number_of_samples, input, output,
-                     &spectral_denoiser_run, self->spectral_denoiser);
+  if (self->denoise_parameters.adaptive_noise_learn) {
+    stft_processor_run(self->stft_processor, number_of_samples, input, output,
+                       &spectral_adaptive_denoiser_run,
+                       self->spectral_denoiser);
+  } else {
+    stft_processor_run(self->stft_processor, number_of_samples, input, output,
+                       &spectral_denoiser_run, self->spectral_denoiser);
+  }
 
   signal_crossfade_run(self->soft_bypass, number_of_samples, input, output,
                        self->denoise_parameters.enable);

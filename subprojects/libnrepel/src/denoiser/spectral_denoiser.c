@@ -47,7 +47,7 @@ typedef struct SpectralDenoiser {
   SpectralFeatures *spectral_features;
 } SpectralDenoiser;
 
-static void denoise_build(SpectralDenoiser *self, float *fft_spectrum);
+static void denoise_mixer(SpectralDenoiser *self, float *fft_spectrum);
 
 SpectralProcessorHandle spectral_denoiser_initialize(
     const uint32_t sample_rate, const uint32_t fft_size,
@@ -116,26 +116,35 @@ bool spectral_denoiser_run(SpectralProcessorHandle instance,
   float *reference_spectrum = get_spectral_feature(
       self->spectral_features, fft_spectrum, self->fft_size, SPECTRAL_TYPE);
 
-  if (self->denoise_parameters->adaptive_noise_learn) {
-    // Denoising adaptively
-    noise_estimation_run_adaptive(self->noise_estimator, reference_spectrum);
-    gain_estimation_run_adaptive(self->gain_estimation, reference_spectrum,
-                                 self->gain_spectrum);
-    denoise_build(self, fft_spectrum);
-  } else {
-    if (self->denoise_parameters->learn_noise) {
-      // Estimating noise manually
-      noise_estimation_run(self->noise_estimator, reference_spectrum);
-    }
-
-    if (is_noise_estimation_available(self->noise_profile)) {
-      // Denoising with the captured profile
-      gain_estimation_run(self->gain_estimation, reference_spectrum,
-                          self->gain_spectrum);
-
-      denoise_build(self, fft_spectrum);
-    }
+  if (self->denoise_parameters->learn_noise) {
+    noise_estimation_run(self->noise_estimator, reference_spectrum);
   }
+
+  if (is_noise_estimation_available(self->noise_profile)) {
+    gain_estimation_run(self->gain_estimation, reference_spectrum,
+                        self->gain_spectrum);
+
+    denoise_mixer(self, fft_spectrum);
+  }
+
+  return true;
+}
+
+bool spectral_adaptive_denoiser_run(SpectralProcessorHandle instance,
+                                    float *fft_spectrum) {
+  if (!fft_spectrum || !instance) {
+    return false;
+  }
+
+  SpectralDenoiser *self = (SpectralDenoiser *)instance;
+
+  float *reference_spectrum = get_spectral_feature(
+      self->spectral_features, fft_spectrum, self->fft_size, SPECTRAL_TYPE);
+
+  noise_estimation_run_adaptive(self->noise_estimator, reference_spectrum);
+  gain_estimation_run_adaptive(self->gain_estimation, reference_spectrum,
+                               self->gain_spectrum);
+  denoise_mixer(self, fft_spectrum);
 
   return true;
 }
@@ -163,7 +172,7 @@ static void get_residual_spectrum(SpectralDenoiser *self,
   }
 }
 
-static void denoise_build(SpectralDenoiser *self, float *fft_spectrum) {
+static void denoise_mixer(SpectralDenoiser *self, float *fft_spectrum) {
 
   get_denoised_spectrum(self, fft_spectrum);
 

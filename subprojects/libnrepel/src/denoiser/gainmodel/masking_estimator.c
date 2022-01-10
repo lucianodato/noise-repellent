@@ -70,7 +70,7 @@ MaskingEstimator *masking_estimation_initialize(const uint32_t fft_size,
       (float *)calloc((self->half_fft_size + 1U), sizeof(float));
 
   self->spectral_spreading_function =
-      (float *)calloc((N_BARK_BANDS * N_BARK_BANDS), sizeof(float));
+      (float *)calloc((size_t)(N_BARK_BANDS * N_BARK_BANDS), sizeof(float));
   self->unity_gain_bark_spectrum = (float *)calloc(N_BARK_BANDS, sizeof(float));
   self->spreaded_unity_gain_bark_spectrum =
       (float *)calloc(N_BARK_BANDS, sizeof(float));
@@ -148,9 +148,10 @@ bool compute_masking_thresholds(MaskingEstimator *self, const float *spectrum,
     if (j == 0) {
       start_pos = 0U;
     } else {
-      start_pos = self->intermediate_band_bins[j - 1];
+      start_pos = (uint32_t)self->intermediate_band_bins[j - 1];
     }
-    const float end_pos = self->intermediate_band_bins[j];
+
+    const uint32_t end_pos = (uint32_t)self->intermediate_band_bins[j];
 
     for (uint32_t k = start_pos; k < end_pos; k++) {
       masking_thresholds[k] = self->threshold_j[j];
@@ -223,8 +224,8 @@ static void compute_bark_spectrum(MaskingEstimator *self,
 
     last_position += counter;
 
-    self->n_bins_per_band[j] = counter;
-    self->intermediate_band_bins[j] = last_position;
+    self->n_bins_per_band[j] = (float)counter;
+    self->intermediate_band_bins[j] = (float)last_position;
   }
 }
 
@@ -237,11 +238,11 @@ static float compute_tonality_factor(MaskingEstimator *self,
 
   if (band == 0) {
     start_pos = band;
-    end_pos = self->n_bins_per_band[band];
+    end_pos = (uint32_t)self->n_bins_per_band[band];
   } else {
-    start_pos = self->intermediate_band_bins[band - 1];
-    end_pos =
-        self->intermediate_band_bins[band - 1] + self->n_bins_per_band[band];
+    start_pos = (uint32_t)self->intermediate_band_bins[band - 1];
+    end_pos = (uint32_t)self->intermediate_band_bins[band - 1] +
+              (uint32_t)self->n_bins_per_band[band];
   }
 
   for (uint32_t k = start_pos; k < end_pos; k++) {

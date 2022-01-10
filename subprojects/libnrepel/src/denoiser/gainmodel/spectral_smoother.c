@@ -90,8 +90,8 @@ bool spectral_smoothing_run(SpectralSmoother *self, const float release,
 static void get_release_coefficient(SpectralSmoother *self,
                                     const float release) {
   if (release != 0.F) {
-    self->release_coefficient =
-        expf(-1000.F / (((release)*self->sample_rate) / self->hop));
+    self->release_coefficient = expf(
+        -1000.F / (((release) * (float)self->sample_rate) / (float)self->hop));
   } else {
     self->release_coefficient = 0.F;
   }

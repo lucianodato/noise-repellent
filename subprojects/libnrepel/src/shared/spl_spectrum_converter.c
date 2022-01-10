@@ -79,8 +79,9 @@ void reference_spectrum_free(SplSpectrumConverter *self) {
 static void generate_sinewave(SplSpectrumConverter *self) {
   for (uint32_t k = 0U; k < self->fft_size; k++) {
     self->sinewave[k] =
-        SINE_AMPLITUDE * sinf((2.F * M_PI * k * REFERENCE_SINE_WAVE_FREQ) /
-                              (float)self->sample_rate);
+        SINE_AMPLITUDE *
+        sinf((2.F * M_PI * (float)k * REFERENCE_SINE_WAVE_FREQ) /
+             (float)self->sample_rate);
   }
 }
 

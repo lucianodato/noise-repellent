@@ -27,10 +27,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <stdlib.h>
 #include <string.h>
 
-static void stft_analysis(StftProcessor *self);
-static void stft_synthesis(StftProcessor *self);
-static void stft_overlap_add(StftProcessor *self);
-
 struct StftProcessor {
   uint32_t input_latency;
   uint32_t hop;
@@ -88,14 +84,32 @@ bool stft_processor_run(StftProcessor *self, const uint32_t number_of_samples,
       fft_load_input_samples(self->fft_transform,
                              get_full_buffer_block(self->stft_buffer));
 
-      stft_analysis(self);
+      // STFT Analysis
+      apply_window(self->stft_windows,
+                   get_fft_input_buffer(self->fft_transform), INPUT_WINDOW);
 
+      compute_forward_fft(self->fft_transform);
+
+      // Apply processing
       spectral_processing(spectral_processor,
                           get_fft_output_buffer(self->fft_transform));
 
-      stft_synthesis(self);
+      // STFT Synthesis
+      compute_backward_fft(self->fft_transform);
 
-      stft_overlap_add(self);
+      apply_window(self->stft_windows,
+                   get_fft_input_buffer(self->fft_transform), OUTPUT_WINDOW);
+
+      // STFT Overlap Add
+      for (uint32_t k = 0U; k < self->buffer_size; k++) {
+        self->output_accumulator[k] +=
+            get_fft_input_buffer(self->fft_transform)[k];
+      }
+
+      stft_buffer_advance_block(self->stft_buffer, self->output_accumulator);
+
+      memmove(self->output_accumulator, &self->output_accumulator[self->hop],
+              self->buffer_size * sizeof(float));
     }
   }
 
@@ -112,29 +126,4 @@ uint32_t get_overlap_factor(StftProcessor *self) {
 
 uint32_t get_spectral_processing_size(StftProcessor *self) {
   return get_real_spectrum_size(self->fft_transform);
-}
-
-static void stft_analysis(StftProcessor *self) {
-  apply_window(self->stft_windows, get_fft_input_buffer(self->fft_transform),
-               INPUT_WINDOW);
-
-  compute_forward_fft(self->fft_transform);
-}
-
-static void stft_synthesis(StftProcessor *self) {
-  compute_backward_fft(self->fft_transform);
-
-  apply_window(self->stft_windows, get_fft_input_buffer(self->fft_transform),
-               OUTPUT_WINDOW);
-}
-
-static void stft_overlap_add(StftProcessor *self) {
-  for (uint32_t k = 0U; k < self->buffer_size; k++) {
-    self->output_accumulator[k] += get_fft_input_buffer(self->fft_transform)[k];
-  }
-
-  stft_buffer_advance_block(self->stft_buffer, self->output_accumulator);
-
-  memmove(self->output_accumulator, &self->output_accumulator[self->hop],
-          self->buffer_size * sizeof(float));
 }

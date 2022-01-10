@@ -63,6 +63,7 @@ bool stft_buffer_fill(StftBuffer *self, const float input_sample,
   *output_sample = self->out_fifo[self->read_position - self->start_position];
   self->read_position++;
 
+  // Is it full?
   if (self->read_position == self->buffer_size) {
     return true;
   }

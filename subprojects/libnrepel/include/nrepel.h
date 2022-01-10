@@ -81,12 +81,16 @@ bool nrepel_load_parameters(NoiseRepellentHandle instance,
 //  int nrepel_get_noise_profile_size(NoiseRepellentHandle
 // instance);  int
 // nrepel_get_processing_block_size(NoiseRepellentHandle instance);
-//  bool nrepel_denoise_block(NoiseRepellentHandle instance, const
-// float *input,
-//                           float *output, const float *noise_profile,
-//                           float reduction_db, float whitening_percentage,
-//                           float release_ms, float noise_gain_db);
-//  bool nrepel_denoise_block_adaptive(NoiseRepellentHandle
+// bool nrepel_denoise(NoiseRepellentHandle instance, const float *input,
+//                     float *output, const float *noise_profile,
+//                     float reduction_db, float whitening_percentage,
+//                     float release_ms, float noise_gain_db);
+// bool nrepel_denoise_residue(NoiseRepellentHandle instance, const float
+// *input,
+//                             float *output, const float *noise_profile,
+//                             float reduction_db, float whitening_percentage,
+//                             float release_ms, float noise_gain_db);
+//  bool nrepel_denoise_adaptive(NoiseRepellentHandle
 // instance,
 //                                    const float *input, float *output,
 //                                    float reduction_db, float noise_gain_db);

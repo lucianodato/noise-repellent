@@ -60,8 +60,9 @@ float *get_phase_spectrum(SpectralFeatures *self) {
   return self->phase_spectrum;
 }
 
-bool compute_power_spectrum(SpectralFeatures *self, const float *fft_spectrum,
-                            const uint32_t fft_spectrum_size) {
+static bool compute_power_spectrum(SpectralFeatures *self,
+                                   const float *fft_spectrum,
+                                   const uint32_t fft_spectrum_size) {
   if (!self || !fft_spectrum || !fft_spectrum_size) {
     return false;
   }
@@ -88,9 +89,9 @@ bool compute_power_spectrum(SpectralFeatures *self, const float *fft_spectrum,
   return true;
 }
 
-bool compute_magnitude_spectrum(SpectralFeatures *self,
-                                const float *fft_spectrum,
-                                const uint32_t fft_spectrum_size) {
+static bool compute_magnitude_spectrum(SpectralFeatures *self,
+                                       const float *fft_spectrum,
+                                       const uint32_t fft_spectrum_size) {
   if (!self || !fft_spectrum || !fft_spectrum_size) {
     return false;
   }
@@ -118,8 +119,9 @@ bool compute_magnitude_spectrum(SpectralFeatures *self,
   return true;
 }
 
-bool compute_phase_spectrum(SpectralFeatures *self, const float *fft_spectrum,
-                            const uint32_t fft_spectrum_size) {
+static bool compute_phase_spectrum(SpectralFeatures *self,
+                                   const float *fft_spectrum,
+                                   const uint32_t fft_spectrum_size) {
   if (!self || !fft_spectrum || !fft_spectrum_size) {
     return false;
   }

@@ -52,7 +52,8 @@ SpectralWhitening *spectral_whitening_initialize(const uint32_t fft_size,
   self->residual_max_spectrum =
       (float *)calloc((self->half_fft_size + 1U), sizeof(float));
   self->max_decay_rate =
-      expf(-1000.F / (((WHITENING_DECAY_RATE)*self->sample_rate) / self->hop));
+      expf(-1000.F / (((WHITENING_DECAY_RATE) * (float)self->sample_rate) /
+                      (float)self->hop));
   self->whitening_window_count = 0U;
 
   return self;
