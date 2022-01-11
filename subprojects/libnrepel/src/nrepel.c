@@ -81,9 +81,8 @@ NoiseRepellentHandle nrepel_initialize(const uint32_t sample_rate) {
     return NULL;
   }
 
-  self->adaptive_spectral_denoiser = spectral_adaptive_denoiser_initialize(
-      self->sample_rate, buffer_size, self->noise_profile,
-      &self->denoise_parameters);
+  self->adaptive_spectral_denoiser =
+      spectral_adaptive_denoiser_initialize(self->sample_rate, buffer_size);
 
   if (!self->adaptive_spectral_denoiser) {
     nrepel_free(self);
@@ -120,6 +119,11 @@ bool nrepel_process(NoiseRepellentHandle instance,
   NoiseRepellent *self = (NoiseRepellent *)instance;
 
   if (self->denoise_parameters.adaptive_noise_learn) {
+    load_adaptive_reduction_parameters(
+        self->adaptive_spectral_denoiser,
+        self->denoise_parameters.residual_listen,
+        self->denoise_parameters.reduction_amount,
+        self->denoise_parameters.noise_rescale);
     stft_processor_run(self->stft_processor, number_of_samples, input, output,
                        &spectral_adaptive_denoiser_run,
                        self->adaptive_spectral_denoiser);

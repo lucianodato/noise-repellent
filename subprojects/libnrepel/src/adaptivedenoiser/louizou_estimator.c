@@ -18,9 +18,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
 #include "louizou_estimator.h"
-#include "../../shared/configurations.h"
-#include "../../shared/general_utils.h"
-#include "../../shared/spectral_utils.h"
+#include "../shared/configurations.h"
+#include "../shared/general_utils.h"
+#include "../shared/spectral_utils.h"
 #include <float.h>
 #include <math.h>
 #include <stdlib.h>

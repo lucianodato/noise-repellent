@@ -27,10 +27,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <stdint.h>
 
 SpectralProcessorHandle
-spectral_adaptive_denoiser_initialize(uint32_t sample_rate, uint32_t fft_size,
-                                      NoiseProfile *noise_profile,
-                                      NrepelDenoiseParameters *parameters);
+spectral_adaptive_denoiser_initialize(uint32_t sample_rate, uint32_t fft_size);
 void spectral_adaptive_denoiser_free(SpectralProcessorHandle instance);
+bool load_adaptive_reduction_parameters(SpectralProcessorHandle instance,
+                                        bool residual_listen,
+                                        float reduction_amount,
+                                        float noise_rescale);
 bool spectral_adaptive_denoiser_run(SpectralProcessorHandle instance,
                                     float *fft_spectrum);
 

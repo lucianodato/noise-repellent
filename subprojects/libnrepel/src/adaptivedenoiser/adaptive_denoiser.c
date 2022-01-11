@@ -21,8 +21,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include "../shared/configurations.h"
 #include "../shared/spectral_features.h"
 #include "../shared/spectral_utils.h"
-#include "gainmodel/gain_estimator.h"
-#include "noisemodel/noise_estimator.h"
+#include "louizou_estimator.h"
 #include <float.h>
 #include <math.h>
 #include <stdlib.h>
@@ -33,19 +32,22 @@ typedef struct SpectralAdaptiveDenoiser {
   uint32_t half_fft_size;
   uint32_t sample_rate;
 
+  bool residual_listen;
+  float reduction_amount;
+  float noise_rescale;
+
   float *gain_spectrum;
   float *residual_spectrum;
   float *denoised_spectrum;
+  float *noise_profile;
 
-  NoiseEstimatorAdaptive *noise_estimator;
-  GainEstimatorAdaptive *gain_estimator;
-  NrepelDenoiseParameters *denoise_parameters;
+  LouizouEstimator *adaptive_estimator;
   SpectralFeatures *spectral_features;
 } SpectralAdaptiveDenoiser;
 
-SpectralProcessorHandle spectral_adaptive_denoiser_initialize(
-    const uint32_t sample_rate, const uint32_t fft_size,
-    NoiseProfile *noise_profile, NrepelDenoiseParameters *parameters) {
+SpectralProcessorHandle
+spectral_adaptive_denoiser_initialize(const uint32_t sample_rate,
+                                      const uint32_t fft_size) {
 
   SpectralAdaptiveDenoiser *self =
       (SpectralAdaptiveDenoiser *)calloc(1U, sizeof(SpectralAdaptiveDenoiser));
@@ -59,17 +61,14 @@ SpectralProcessorHandle spectral_adaptive_denoiser_initialize(
   initialize_spectrum_with_value(self->gain_spectrum, self->half_fft_size + 1U,
                                  1.F);
 
-  self->denoise_parameters = parameters;
-
-  self->noise_estimator = adaptive_noise_estimation_initialize(
-      self->fft_size, sample_rate, noise_profile);
-
-  self->gain_estimator = adaptive_gain_estimation_initialize(
-      self->fft_size, self->denoise_parameters, noise_profile);
+  self->adaptive_estimator = louizou_estimator_initialize(
+      self->half_fft_size + 1U, sample_rate, fft_size);
 
   self->residual_spectrum =
       (float *)calloc((self->half_fft_size + 1U), sizeof(float));
   self->denoised_spectrum =
+      (float *)calloc((self->half_fft_size + 1U), sizeof(float));
+  self->noise_profile =
       (float *)calloc((self->half_fft_size + 1U), sizeof(float));
 
   self->spectral_features =
@@ -81,14 +80,29 @@ SpectralProcessorHandle spectral_adaptive_denoiser_initialize(
 void spectral_adaptive_denoiser_free(SpectralProcessorHandle instance) {
   SpectralAdaptiveDenoiser *self = (SpectralAdaptiveDenoiser *)instance;
 
-  adaptive_gain_estimation_free(self->gain_estimator);
-  adaptive_noise_estimation_free(self->noise_estimator);
+  louizou_estimator_free(self->adaptive_estimator);
   spectral_features_free(self->spectral_features);
 
   free(self->residual_spectrum);
   free(self->denoised_spectrum);
   free(self->gain_spectrum);
   free(self);
+}
+
+bool load_adaptive_reduction_parameters(SpectralProcessorHandle instance,
+                                        const bool residual_listen,
+                                        const float reduction_amount,
+                                        const float noise_rescale) {
+  if (!instance) {
+    return false;
+  }
+
+  SpectralAdaptiveDenoiser *self = (SpectralAdaptiveDenoiser *)instance;
+  self->residual_listen = residual_listen;
+  self->reduction_amount = reduction_amount;
+  self->noise_rescale = noise_rescale;
+
+  return true;
 }
 
 bool spectral_adaptive_denoiser_run(SpectralProcessorHandle instance,
@@ -102,13 +116,23 @@ bool spectral_adaptive_denoiser_run(SpectralProcessorHandle instance,
   float *reference_spectrum = get_spectral_feature(
       self->spectral_features, fft_spectrum, self->fft_size, SPECTRAL_TYPE);
 
-  noise_estimation_run_adaptive(self->noise_estimator, reference_spectrum);
-  gain_estimation_run_adaptive(self->gain_estimator, reference_spectrum,
-                               self->gain_spectrum);
+  // Estimate noise
+  louizou_estimator_run(self->adaptive_estimator, reference_spectrum,
+                        self->noise_profile);
+
+  // Scale estimated noise profile
+  for (uint32_t k = 1U; k <= self->half_fft_size; k++) {
+    self->noise_profile[k] = self->noise_profile[k] * self->noise_rescale;
+  }
+
+  // Get reduction gain weights
+  wiener_subtraction(self->half_fft_size, reference_spectrum,
+                     self->gain_spectrum, self->noise_profile);
+
+  // Mix results
   denoise_mixer(self->half_fft_size, fft_spectrum, self->gain_spectrum,
                 self->denoised_spectrum, self->residual_spectrum,
-                self->denoise_parameters->residual_listen,
-                self->denoise_parameters->reduction_amount);
+                self->residual_listen, self->reduction_amount);
 
   return true;
 }
