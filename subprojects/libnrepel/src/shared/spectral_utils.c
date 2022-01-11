@@ -19,6 +19,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 #include "spectral_utils.h"
 #include "configurations.h"
+#include <float.h>
 #include <math.h>
 
 static inline float blackman(const uint32_t bin_index,
@@ -169,4 +170,62 @@ bool get_rolling_mean_spectrum(float *averaged_spectrum,
   }
 
   return true;
+}
+
+void denoise_mixer(const uint32_t spectral_size, float *fft_spectrum,
+                   const float *gain_spectrum, float *denoised_spectrum,
+                   float *residual_spectrum, const bool residual_listen,
+                   const float reduction_amount) {
+
+  // Get denoised spectrum
+  for (uint32_t k = 1U; k <= spectral_size; k++) {
+    denoised_spectrum[k] = fft_spectrum[k] * gain_spectrum[k];
+  }
+
+  // Get residual spectrum
+  for (uint32_t k = 1U; k <= spectral_size; k++) {
+    residual_spectrum[k] = fft_spectrum[k] - denoised_spectrum[k];
+  }
+
+  // Mix denoised and residual
+  if (residual_listen) {
+    for (uint32_t k = 1U; k <= spectral_size; k++) {
+      fft_spectrum[k] = residual_spectrum[k];
+    }
+  } else {
+    for (uint32_t k = 1U; k <= spectral_size; k++) {
+      fft_spectrum[k] =
+          denoised_spectrum[k] + residual_spectrum[k] * reduction_amount;
+    }
+  }
+}
+
+void wiener_subtraction(const uint32_t spectral_size, const float *spectrum,
+                        float *gain_spectrum, const float *noise_spectrum) {
+  for (uint32_t k = 1U; k <= spectral_size; k++) {
+    if (noise_spectrum[k] > FLT_MIN) {
+      if (spectrum[k] > noise_spectrum[k]) {
+        gain_spectrum[k] = (spectrum[k] - noise_spectrum[k]) / spectrum[k];
+      } else {
+        gain_spectrum[k] = 0.F;
+      }
+    } else {
+      gain_spectrum[k] = 1.F;
+    }
+  }
+}
+
+void spectral_gating(const uint32_t spectral_size, const float *spectrum,
+                     float *gain_spectrum, const float *noise_spectrum) {
+  for (uint32_t k = 1U; k <= spectral_size; k++) {
+    if (noise_spectrum[k] > FLT_MIN) {
+      if (spectrum[k] >= noise_spectrum[k]) {
+        gain_spectrum[k] = 1.F;
+      } else {
+        gain_spectrum[k] = 0.F;
+      }
+    } else {
+      gain_spectrum[k] = 1.F;
+    }
+  }
 }

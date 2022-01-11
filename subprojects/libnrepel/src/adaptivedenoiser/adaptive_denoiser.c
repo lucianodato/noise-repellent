@@ -20,6 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include "adaptive_denoiser.h"
 #include "../shared/configurations.h"
 #include "../shared/spectral_features.h"
+#include "../shared/spectral_utils.h"
 #include "gainmodel/gain_estimator.h"
 #include "noisemodel/noise_estimator.h"
 #include <float.h>
@@ -41,8 +42,6 @@ typedef struct SpectralAdaptiveDenoiser {
   NrepelDenoiseParameters *denoise_parameters;
   SpectralFeatures *spectral_features;
 } SpectralAdaptiveDenoiser;
-
-static void denoise_mixer(SpectralAdaptiveDenoiser *self, float *fft_spectrum);
 
 SpectralProcessorHandle spectral_adaptive_denoiser_initialize(
     const uint32_t sample_rate, const uint32_t fft_size,
@@ -106,33 +105,10 @@ bool spectral_adaptive_denoiser_run(SpectralProcessorHandle instance,
   noise_estimation_run_adaptive(self->noise_estimator, reference_spectrum);
   gain_estimation_run_adaptive(self->gain_estimator, reference_spectrum,
                                self->gain_spectrum);
-  denoise_mixer(self, fft_spectrum);
+  denoise_mixer(self->half_fft_size, fft_spectrum, self->gain_spectrum,
+                self->denoised_spectrum, self->residual_spectrum,
+                self->denoise_parameters->residual_listen,
+                self->denoise_parameters->reduction_amount);
 
   return true;
-}
-
-static void denoise_mixer(SpectralAdaptiveDenoiser *self, float *fft_spectrum) {
-
-  // Get denoised spectrum
-  for (uint32_t k = 1U; k <= self->half_fft_size; k++) {
-    self->denoised_spectrum[k] = fft_spectrum[k] * self->gain_spectrum[k];
-  }
-
-  // Get residual spectrum
-  for (uint32_t k = 1U; k <= self->half_fft_size; k++) {
-    self->residual_spectrum[k] = fft_spectrum[k] - self->denoised_spectrum[k];
-  }
-
-  // Mix denoised and residual
-  if (self->denoise_parameters->residual_listen) {
-    for (uint32_t k = 1U; k <= self->half_fft_size; k++) {
-      fft_spectrum[k] = self->residual_spectrum[k];
-    }
-  } else {
-    for (uint32_t k = 1U; k <= self->half_fft_size; k++) {
-      fft_spectrum[k] = self->denoised_spectrum[k] +
-                        self->residual_spectrum[k] *
-                            self->denoise_parameters->reduction_amount;
-    }
-  }
 }

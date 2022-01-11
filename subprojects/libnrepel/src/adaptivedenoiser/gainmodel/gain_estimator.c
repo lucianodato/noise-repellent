@@ -26,9 +26,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <stdlib.h>
 #include <string.h>
 
-static void wiener_subtraction(GainEstimatorAdaptive *self,
-                               const float *spectrum, float *gain_spectrum,
-                               const float *noise_spectrum);
 struct GainEstimatorAdaptive {
   uint32_t fft_size;
   uint32_t half_fft_size;
@@ -69,23 +66,8 @@ bool gain_estimation_run_adaptive(GainEstimatorAdaptive *self,
         noise_profile[k] * self->denoise_parameters->noise_rescale;
   }
 
-  wiener_subtraction(self, signal_spectrum, gain_spectrum, noise_profile);
+  wiener_subtraction(self->half_fft_size, signal_spectrum, gain_spectrum,
+                     noise_profile);
 
   return true;
-}
-
-static void wiener_subtraction(GainEstimatorAdaptive *self,
-                               const float *spectrum, float *gain_spectrum,
-                               const float *noise_spectrum) {
-  for (uint32_t k = 1U; k <= self->half_fft_size; k++) {
-    if (noise_spectrum[k] > FLT_MIN) {
-      if (spectrum[k] > noise_spectrum[k]) {
-        gain_spectrum[k] = (spectrum[k] - noise_spectrum[k]) / spectrum[k];
-      } else {
-        gain_spectrum[k] = 0.F;
-      }
-    } else {
-      gain_spectrum[k] = 1.F;
-    }
-  }
 }

@@ -47,8 +47,6 @@ typedef struct SpectralDenoiser {
   SpectralFeatures *spectral_features;
 } SpectralDenoiser;
 
-static void denoise_mixer(SpectralDenoiser *self, float *fft_spectrum);
-
 SpectralProcessorHandle spectral_denoiser_initialize(
     const uint32_t sample_rate, const uint32_t fft_size,
     const uint32_t overlap_factor, NoiseProfile *noise_profile,
@@ -124,49 +122,19 @@ bool spectral_denoiser_run(SpectralProcessorHandle instance,
     gain_estimation_run(self->gain_estimator, reference_spectrum,
                         self->gain_spectrum);
 
-    denoise_mixer(self, fft_spectrum);
+    // TODO (luciano/test): Apply whitening to gain weights instead of the
+    // resulting noise residue
+    if (self->denoise_parameters->whitening_factor > 0.F) {
+      spectral_whitening_run(self->whitener,
+                             self->denoise_parameters->whitening_factor,
+                             self->gain_spectrum);
+    }
+
+    denoise_mixer(self->half_fft_size, fft_spectrum, self->gain_spectrum,
+                  self->denoised_spectrum, self->residual_spectrum,
+                  self->denoise_parameters->residual_listen,
+                  self->denoise_parameters->reduction_amount);
   }
 
   return true;
-}
-
-static void get_denoised_spectrum(SpectralDenoiser *self,
-                                  const float *fft_spectrum) {
-  for (uint32_t k = 1U; k <= self->half_fft_size; k++) {
-    self->denoised_spectrum[k] = fft_spectrum[k] * self->gain_spectrum[k];
-  }
-}
-
-static void get_residual_spectrum(SpectralDenoiser *self,
-                                  const float *fft_spectrum) {
-  for (uint32_t k = 1U; k <= self->half_fft_size; k++) {
-    self->residual_spectrum[k] = fft_spectrum[k] - self->denoised_spectrum[k];
-  }
-
-  // TODO (luciano/test): Apply whitening to noise profile instead of the
-  // resulting noise residue
-  if (self->denoise_parameters->whitening_factor > 0.F) {
-    spectral_whitening_run(self->whitener,
-                           self->denoise_parameters->whitening_factor,
-                           self->residual_spectrum);
-  }
-}
-
-static void denoise_mixer(SpectralDenoiser *self, float *fft_spectrum) {
-
-  get_denoised_spectrum(self, fft_spectrum);
-
-  get_residual_spectrum(self, fft_spectrum);
-
-  if (self->denoise_parameters->residual_listen) {
-    for (uint32_t k = 1U; k <= self->half_fft_size; k++) {
-      fft_spectrum[k] = self->residual_spectrum[k];
-    }
-  } else {
-    for (uint32_t k = 1U; k <= self->half_fft_size; k++) {
-      fft_spectrum[k] = self->denoised_spectrum[k] +
-                        self->residual_spectrum[k] *
-                            self->denoise_parameters->reduction_amount;
-    }
-  }
 }

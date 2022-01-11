@@ -29,11 +29,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <stdlib.h>
 #include <string.h>
 
-static void wiener_subtraction(GainEstimator *self, const float *spectrum,
-                               float *gain_spectrum,
-                               const float *noise_spectrum);
-static void spectral_gating(GainEstimator *self, const float *spectrum,
-                            float *gain_spectrum, const float *noise_spectrum);
 static void compute_alpha_and_beta(GainEstimator *self, const float *spectrum,
                                    const float *noise_profile,
                                    float masking_ceiling_limit,
@@ -137,43 +132,14 @@ bool gain_estimation_run(GainEstimator *self, const float *signal_spectrum,
 
   if (self->transient_detected &&
       self->denoise_parameters->transient_threshold > 1.F) {
-    wiener_subtraction(self, signal_spectrum, gain_spectrum, noise_profile);
+    wiener_subtraction(self->half_fft_size, signal_spectrum, gain_spectrum,
+                       noise_profile);
   } else {
-    spectral_gating(self, signal_spectrum, gain_spectrum, noise_profile);
+    spectral_gating(self->half_fft_size, signal_spectrum, gain_spectrum,
+                    noise_profile);
   }
 
   return true;
-}
-
-static void wiener_subtraction(GainEstimator *self, const float *spectrum,
-                               float *gain_spectrum,
-                               const float *noise_spectrum) {
-  for (uint32_t k = 1U; k <= self->half_fft_size; k++) {
-    if (noise_spectrum[k] > FLT_MIN) {
-      if (spectrum[k] > noise_spectrum[k]) {
-        gain_spectrum[k] = (spectrum[k] - noise_spectrum[k]) / spectrum[k];
-      } else {
-        gain_spectrum[k] = 0.F;
-      }
-    } else {
-      gain_spectrum[k] = 1.F;
-    }
-  }
-}
-
-static void spectral_gating(GainEstimator *self, const float *spectrum,
-                            float *gain_spectrum, const float *noise_spectrum) {
-  for (uint32_t k = 1U; k <= self->half_fft_size; k++) {
-    if (noise_spectrum[k] > FLT_MIN) {
-      if (spectrum[k] >= noise_spectrum[k]) {
-        gain_spectrum[k] = 1.F;
-      } else {
-        gain_spectrum[k] = 0.F;
-      }
-    } else {
-      gain_spectrum[k] = 1.F;
-    }
-  }
 }
 
 static void compute_alpha_and_beta(GainEstimator *self, const float *spectrum,
