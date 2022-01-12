@@ -12,7 +12,8 @@ else
     install_folder = join_paths('.lv2', meson.project_name())
 endif
 
-noise_repellent_src = 'plugin/nrepellent.c'
+noise_repellent_src = 'plugins/nrepellent.c'
+noise_repellent_adaptive_src = 'plugins/nrepellent-adaptive.c'
 
 #dependencies for noise repellent
 lv2_dep = dependency('lv2', required : true)
@@ -57,6 +58,15 @@ library('nrepellent',
     install: true,
     install_dir : install_folder
 )
+
+library('nrepellent-adaptive',
+    noise_repellent_adaptive_src,
+    name_prefix: '',
+    dependencies: nr_dep,
+    c_args: cflags, 
+    install: true,
+    install_dir : install_folder
+)
 	
 #Getting version from project configuration or from git tags
 version_array = meson.project_version().split('.')
@@ -66,12 +76,9 @@ if version_array.length() == 0 and git.found()
     version_array = run_command('git', 'describe').stdout().strip().split('-')[0].split('.')
 endif
 
-#Configure manifest.ttl and install
+#Configure manifest.ttl
 manifest_conf = configuration_data()
 manifest_conf.set('LIB_EXT', extension)
-manifest_conf.set('MAJOR_VERSION', version_array[0])
-manifest_conf.set('MINOR_VERSION', version_array[1])
-manifest_conf.set('MICRO_VERSION', version_array[2])
 
 manifest_ttl = configure_file(
     input : 'lv2ttl/manifest.ttl.in',
@@ -81,11 +88,25 @@ manifest_ttl = configure_file(
 	install_dir : install_folder
 )
 
-#Configure nrepellent.ttl and install
+data_conf = configuration_data()
+data_conf.set('MAJOR_VERSION', version_array[0])
+data_conf.set('MINOR_VERSION', version_array[1])
+data_conf.set('MICRO_VERSION', version_array[2])
+
+#Configure nrepellent.ttl
 nrepel_ttl = configure_file(
     input : join_paths('lv2ttl', 'nrepellent.ttl.in'),
     output : 'nrepellent.ttl',
-    configuration : manifest_conf,
+    configuration : data_conf,
+    install : true,
+	install_dir : install_folder
+)
+
+#Configure nrepellent-adaptive.ttl
+nrepel_ttl_adaptive = configure_file(
+    input : join_paths('lv2ttl', 'nrepellent-adaptive.ttl.in'),
+    output : 'nrepellent-adaptive.ttl',
+    configuration : data_conf,
     install : true,
 	install_dir : install_folder
 )

@@ -33,10 +33,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 typedef void *NoiseRepellentHandle;
 
 typedef struct NrepelDenoiseParameters {
-  bool enable;               // Plugin
-  bool learn_noise;          // Plugin
-  bool residual_listen;      // Plugin
-  bool adaptive_noise_learn; // Removed by extracted different plugin
+  bool enable;          // Plugin
+  bool learn_noise;     // Plugin
+  bool residual_listen; // Plugin
   float reduction_amount;
   float release_time;
   float masking_ceiling_limit; // Should be internal
@@ -49,6 +48,9 @@ NoiseRepellentHandle nrepel_initialize(uint32_t sample_rate);
 void nrepel_free(NoiseRepellentHandle instance);
 bool nrepel_process(NoiseRepellentHandle instance, uint32_t number_of_samples,
                     const float *input, float *output);
+bool nrepel_process_adaptive(NoiseRepellentHandle instance,
+                             uint32_t number_of_samples, const float *input,
+                             float *output);
 uint32_t nrepel_get_latency(NoiseRepellentHandle instance);
 uint32_t nrepel_get_noise_profile_size(NoiseRepellentHandle instance);
 float *nrepel_get_noise_profile(NoiseRepellentHandle instance);

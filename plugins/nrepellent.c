@@ -31,7 +31,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 // TODO (luciano/todo): Use state mapping and unmapping instead of ladspa float
 // arguments
 // TODO (luciano/todo): add stereo version of the plugin
-// TODO (luciano/todo): separate adaptive and manual versions of the plugin
 
 typedef struct NoiseProfileState {
   uint32_t child_size;
@@ -94,16 +93,15 @@ typedef enum PortIndex {
   NOISEREPELLENT_TRANSIENT_PROTECT = 4,
   NOISEREPELLENT_WHITENING = 5,
   NOISEREPELLENT_NOISE_LEARN = 6,
-  NOISEREPELLENT_AUTO_NOISE_LEARN = 7,
-  NOISEREPELLENT_RESIDUAL_LISTEN = 8,
-  NOISEREPELLENT_RESET_NOISE_PROFILE = 9,
-  NOISEREPELLENT_ENABLE = 10,
-  NOISEREPELLENT_LATENCY = 11,
-  NOISEREPELLENT_INPUT = 12,
-  NOISEREPELLENT_OUTPUT = 13,
+  NOISEREPELLENT_RESIDUAL_LISTEN = 7,
+  NOISEREPELLENT_RESET_NOISE_PROFILE = 8,
+  NOISEREPELLENT_ENABLE = 9,
+  NOISEREPELLENT_LATENCY = 10,
+  NOISEREPELLENT_INPUT = 11,
+  NOISEREPELLENT_OUTPUT = 12,
 } PortIndex;
 
-typedef struct NoiseRepellentPlugin {
+typedef struct NoiseRepellentAdaptivePlugin {
   const float *input;
   float *output;
   float sample_rate;
@@ -120,7 +118,6 @@ typedef struct NoiseRepellentPlugin {
 
   float *enable;
   float *learn_noise;
-  float *adaptive_noise_learn;
   float *residual_listen;
   float *reduction_amount;
   float *release_time;
@@ -130,10 +127,10 @@ typedef struct NoiseRepellentPlugin {
   float *noise_rescale;
   float *reset_noise_profile;
 
-} NoiseRepellentPlugin;
+} NoiseRepellentAdaptivePlugin;
 
 static void cleanup(LV2_Handle instance) {
-  NoiseRepellentPlugin *self = (NoiseRepellentPlugin *)instance;
+  NoiseRepellentAdaptivePlugin *self = (NoiseRepellentAdaptivePlugin *)instance;
 
   noise_profile_state_free(self->noise_profile_state);
 
@@ -146,8 +143,8 @@ static void cleanup(LV2_Handle instance) {
 static LV2_Handle instantiate(const LV2_Descriptor *descriptor,
                               const double rate, const char *bundle_path,
                               const LV2_Feature *const *features) {
-  NoiseRepellentPlugin *self =
-      (NoiseRepellentPlugin *)calloc(1U, sizeof(NoiseRepellentPlugin));
+  NoiseRepellentAdaptivePlugin *self = (NoiseRepellentAdaptivePlugin *)calloc(
+      1U, sizeof(NoiseRepellentAdaptivePlugin));
 
   // clang-format off
   const char *missing =
@@ -170,9 +167,9 @@ static LV2_Handle instantiate(const LV2_Descriptor *descriptor,
 
   self->sample_rate = (float)rate;
 
-  self->lib_instance = nrepel_initialize(self->sample_rate);
+  self->lib_instance = nrepel_initialize((uint32_t)self->sample_rate);
   if (!self->lib_instance) {
-    lv2_log_error(&self->log, "Error initializing <%s>\n", NOISEREPELLENT_URI);
+    lv2_log_error(&self->log, "Error initializing <%s>\n", descriptor->URI);
     cleanup((LV2_Handle)self);
     return NULL;
   }
@@ -184,7 +181,7 @@ static LV2_Handle instantiate(const LV2_Descriptor *descriptor,
 }
 
 static void connect_port(LV2_Handle instance, uint32_t port, void *data) {
-  NoiseRepellentPlugin *self = (NoiseRepellentPlugin *)instance;
+  NoiseRepellentAdaptivePlugin *self = (NoiseRepellentAdaptivePlugin *)instance;
 
   switch ((PortIndex)port) {
   case NOISEREPELLENT_AMOUNT:
@@ -208,9 +205,6 @@ static void connect_port(LV2_Handle instance, uint32_t port, void *data) {
   case NOISEREPELLENT_NOISE_LEARN:
     self->learn_noise = (float *)data;
     break;
-  case NOISEREPELLENT_AUTO_NOISE_LEARN:
-    self->adaptive_noise_learn = (float *)data;
-    break;
   case NOISEREPELLENT_RESET_NOISE_PROFILE:
     self->reset_noise_profile = (float *)data;
     break;
@@ -232,15 +226,18 @@ static void connect_port(LV2_Handle instance, uint32_t port, void *data) {
   }
 }
 
-static void run(LV2_Handle instance, uint32_t number_of_samples) {
-  NoiseRepellentPlugin *self = (NoiseRepellentPlugin *)instance;
+static void activate(LV2_Handle instance) {
+  NoiseRepellentAdaptivePlugin *self = (NoiseRepellentAdaptivePlugin *)instance;
 
   *self->report_latency = (float)nrepel_get_latency(self->lib_instance);
+}
+
+static void run(LV2_Handle instance, uint32_t number_of_samples) {
+  NoiseRepellentAdaptivePlugin *self = (NoiseRepellentAdaptivePlugin *)instance;
 
   // clang-format off
   self->parameters = (NrepelDenoiseParameters){
       .enable = (bool)*self->enable,
-      .adaptive_noise_learn = (bool)*self->adaptive_noise_learn,
       .learn_noise = (bool)*self->learn_noise,
       .residual_listen = (bool)*self->residual_listen,
       .masking_ceiling_limit = *self->masking_ceiling_limit,
@@ -266,7 +263,7 @@ static LV2_State_Status save(LV2_Handle instance,
                              LV2_State_Store_Function store,
                              LV2_State_Handle handle, uint32_t flags,
                              const LV2_Feature *const *features) {
-  NoiseRepellentPlugin *self = (NoiseRepellentPlugin *)instance;
+  NoiseRepellentAdaptivePlugin *self = (NoiseRepellentAdaptivePlugin *)instance;
 
   if (!nrepel_noise_profile_available(self->lib_instance)) {
     return LV2_STATE_SUCCESS;
@@ -301,7 +298,7 @@ static LV2_State_Status restore(LV2_Handle instance,
                                 LV2_State_Retrieve_Function retrieve,
                                 LV2_State_Handle handle, uint32_t flags,
                                 const LV2_Feature *const *features) {
-  NoiseRepellentPlugin *self = (NoiseRepellentPlugin *)instance;
+  NoiseRepellentAdaptivePlugin *self = (NoiseRepellentAdaptivePlugin *)instance;
 
   size_t size = 0U;
   uint32_t type = 0U;
@@ -346,7 +343,7 @@ static const LV2_Descriptor descriptor = {
     NOISEREPELLENT_URI,
     instantiate,
     connect_port,
-    NULL,
+    activate,
     run,
     NULL,
     cleanup,
@@ -355,9 +352,10 @@ static const LV2_Descriptor descriptor = {
 // clang-format on
 
 LV2_SYMBOL_EXPORT const LV2_Descriptor *lv2_descriptor(uint32_t index) {
-  if (index == 0) {
+  switch (index) {
+  case 0:
     return &descriptor;
+  default:
+    return NULL;
   }
-
-  return NULL;
 }

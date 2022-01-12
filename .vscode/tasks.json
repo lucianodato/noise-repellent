@@ -83,7 +83,8 @@
                 "--show-reachable=no",
                 "--log-file=./output.valgrind",
                 "lv2bench",
-                "https://github.com/lucianodato/noise-repellent"
+                "https://github.com/lucianodato/noise-repellent#adaptive"
+                // "https://github.com/lucianodato/noise-repellent"
             ]
         },
         {

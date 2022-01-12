@@ -6,6 +6,7 @@
     "*.ttl": "turtle",
     "*.valgrind": "valgrind",
     "type_traits": "c",
-    "cstdint": "c"
+    "cstdint": "c",
+    "typeinfo": "c"
   },
 }

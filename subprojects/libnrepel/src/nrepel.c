@@ -33,9 +33,8 @@ typedef struct NoiseRepellent {
   NrepelDenoiseParameters denoise_parameters;
 
   NoiseProfile *noise_profile;
-  SpectralProcessorHandle spectral_denoiser; // TODO (luciano/todo): In a union?
-  SpectralProcessorHandle
-      adaptive_spectral_denoiser; // TODO (luciano/todo): In a union?
+  SpectralProcessorHandle spectral_denoiser;
+  SpectralProcessorHandle adaptive_spectral_denoiser;
   StftProcessor *stft_processor;
   SignalCrossfade *soft_bypass;
 } NoiseRepellent;
@@ -112,25 +111,37 @@ uint32_t nrepel_get_latency(NoiseRepellentHandle instance) {
 bool nrepel_process(NoiseRepellentHandle instance,
                     const uint32_t number_of_samples, const float *input,
                     float *output) {
-  if (!instance || !number_of_samples || !input || !output) {
+  if (!instance || number_of_samples == 0 || !input || !output) {
     return false;
   }
 
   NoiseRepellent *self = (NoiseRepellent *)instance;
 
-  if (self->denoise_parameters.adaptive_noise_learn) {
-    load_adaptive_reduction_parameters(
-        self->adaptive_spectral_denoiser,
-        self->denoise_parameters.residual_listen,
-        self->denoise_parameters.reduction_amount,
-        self->denoise_parameters.noise_rescale);
-    stft_processor_run(self->stft_processor, number_of_samples, input, output,
-                       &spectral_adaptive_denoiser_run,
-                       self->adaptive_spectral_denoiser);
-  } else {
-    stft_processor_run(self->stft_processor, number_of_samples, input, output,
-                       &spectral_denoiser_run, self->spectral_denoiser);
+  stft_processor_run(self->stft_processor, number_of_samples, input, output,
+                     &spectral_denoiser_run, self->spectral_denoiser);
+
+  signal_crossfade_run(self->soft_bypass, number_of_samples, input, output,
+                       self->denoise_parameters.enable);
+
+  return true;
+}
+
+bool nrepel_process_adaptive(NoiseRepellentHandle instance,
+                             const uint32_t number_of_samples,
+                             const float *input, float *output) {
+  if (!instance || number_of_samples == 0 || !input || !output) {
+    return false;
   }
+
+  NoiseRepellent *self = (NoiseRepellent *)instance;
+
+  load_adaptive_reduction_parameters(self->adaptive_spectral_denoiser,
+                                     self->denoise_parameters.residual_listen,
+                                     self->denoise_parameters.reduction_amount,
+                                     self->denoise_parameters.noise_rescale);
+  stft_processor_run(self->stft_processor, number_of_samples, input, output,
+                     &spectral_adaptive_denoiser_run,
+                     self->adaptive_spectral_denoiser);
 
   signal_crossfade_run(self->soft_bypass, number_of_samples, input, output,
                        self->denoise_parameters.enable);
@@ -206,7 +217,6 @@ bool nrepel_load_parameters(NoiseRepellentHandle instance,
   // clang-format off
   self->denoise_parameters = (NrepelDenoiseParameters){
       .enable = parameters.enable,
-      .adaptive_noise_learn = parameters.adaptive_noise_learn,
       .learn_noise = parameters.learn_noise,
       .residual_listen = parameters.residual_listen,
       .masking_ceiling_limit = parameters.masking_ceiling_limit,
