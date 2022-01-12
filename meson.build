@@ -110,3 +110,12 @@ nrepel_ttl_adaptive = configure_file(
     install : true,
 	install_dir : install_folder
 )
+
+#Configure nrepellent-adaptive#stereo.ttl
+nrepel_ttl_adaptive_stereo = configure_file(
+    input : join_paths('lv2ttl', 'nrepellent-adaptive#stereo.ttl.in'),
+    output : 'nrepellent-adaptive#stereo.ttl',
+    configuration : data_conf,
+    install : true,
+	install_dir : install_folder
+)

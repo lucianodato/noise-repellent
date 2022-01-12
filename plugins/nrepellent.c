@@ -223,6 +223,8 @@ static void connect_port(LV2_Handle instance, uint32_t port, void *data) {
   case NOISEREPELLENT_OUTPUT:
     self->output = (float *)data;
     break;
+  default:
+    break;
   }
 }
 

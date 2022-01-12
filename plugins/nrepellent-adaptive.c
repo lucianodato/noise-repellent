@@ -23,10 +23,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 #define NOISEREPELLENT_ADAPTIVE_URI                                            \
   "https://github.com/lucianodato/noise-repellent#adaptive"
+#define NOISEREPELLENT_ADAPTIVE_STEREO_URI                                     \
+  "https://github.com/lucianodato/noise-repellent#adaptive-stereo"
 
 // TODO (luciano/todo): Use state mapping and unmapping instead of ladspa float
 // arguments
-// TODO (luciano/todo): add stereo version of the plugin
 
 typedef enum PortIndex {
   NOISEREPELLENT_AMOUNT = 0,
@@ -34,13 +35,17 @@ typedef enum PortIndex {
   NOISEREPELLENT_RESIDUAL_LISTEN = 2,
   NOISEREPELLENT_ENABLE = 3,
   NOISEREPELLENT_LATENCY = 4,
-  NOISEREPELLENT_INPUT = 5,
-  NOISEREPELLENT_OUTPUT = 6,
+  NOISEREPELLENT_INPUT_1 = 5,
+  NOISEREPELLENT_OUTPUT_1 = 6,
+  NOISEREPELLENT_INPUT_2 = 7,
+  NOISEREPELLENT_OUTPUT_2 = 8,
 } PortIndex;
 
 typedef struct NoiseRepellentAdaptivePlugin {
-  const float *input;
-  float *output;
+  const float *input_1;
+  const float *input_2;
+  float *output_1;
+  float *output_2;
   float sample_rate;
   float *report_latency;
 
@@ -101,11 +106,31 @@ static void connect_port_adaptive(LV2_Handle instance, uint32_t port,
   case NOISEREPELLENT_LATENCY:
     self->report_latency = (float *)data;
     break;
-  case NOISEREPELLENT_INPUT:
-    self->input = (const float *)data;
+  case NOISEREPELLENT_INPUT_1:
+    self->input_1 = (const float *)data;
     break;
-  case NOISEREPELLENT_OUTPUT:
-    self->output = (float *)data;
+  case NOISEREPELLENT_OUTPUT_1:
+    self->output_1 = (float *)data;
+    break;
+  default:
+    break;
+  }
+}
+
+static void connect_port_adaptive_stereo(LV2_Handle instance, uint32_t port,
+                                         void *data) {
+  NoiseRepellentAdaptivePlugin *self = (NoiseRepellentAdaptivePlugin *)instance;
+
+  connect_port_adaptive(instance, port, data);
+
+  switch ((PortIndex)port) {
+  case NOISEREPELLENT_INPUT_2:
+    self->input_2 = (const float *)data;
+    break;
+  case NOISEREPELLENT_OUTPUT_2:
+    self->output_2 = (float *)data;
+    break;
+  default:
     break;
   }
 }
@@ -130,8 +155,29 @@ static void run_adaptive(LV2_Handle instance, uint32_t number_of_samples) {
 
   nrepel_load_parameters(self->lib_instance, self->parameters);
 
-  nrepel_process_adaptive(self->lib_instance, number_of_samples, self->input,
-                          self->output);
+  nrepel_process_adaptive(self->lib_instance, number_of_samples, self->input_1,
+                          self->output_1);
+}
+
+static void run_adaptive_stereo(LV2_Handle instance,
+                                uint32_t number_of_samples) {
+  NoiseRepellentAdaptivePlugin *self = (NoiseRepellentAdaptivePlugin *)instance;
+
+  // clang-format off
+  self->parameters = (NrepelDenoiseParameters){
+      .enable = (bool)*self->enable,
+      .residual_listen = (bool)*self->residual_listen,
+      .reduction_amount = *self->reduction_amount,
+      .noise_rescale = *self->noise_rescale
+  };
+  // clang-format on
+
+  nrepel_load_parameters(self->lib_instance, self->parameters);
+
+  nrepel_process_adaptive(self->lib_instance, number_of_samples, self->input_1,
+                          self->output_1);
+  nrepel_process_adaptive(self->lib_instance, number_of_samples, self->input_2,
+                          self->output_2);
 }
 
 static const void *extension_data(const char *uri) { return NULL; }
@@ -149,10 +195,25 @@ static const LV2_Descriptor descriptor_adaptive = {
 };
 // clang-format on
 
+// clang-format off
+static const LV2_Descriptor descriptor_adaptive_stereo = {
+    NOISEREPELLENT_ADAPTIVE_STEREO_URI,
+    instantiate_adaptive,
+    connect_port_adaptive_stereo,
+    activate_adaptive,
+    run_adaptive_stereo,
+    NULL,
+    cleanup_adaptive,
+    extension_data
+};
+// clang-format on
+
 LV2_SYMBOL_EXPORT const LV2_Descriptor *lv2_descriptor(uint32_t index) {
   switch (index) {
   case 0:
     return &descriptor_adaptive;
+  case 1:
+    return &descriptor_adaptive_stereo;
   default:
     return NULL;
   }
