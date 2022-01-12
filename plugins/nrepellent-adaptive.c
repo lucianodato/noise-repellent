@@ -49,7 +49,7 @@ typedef struct NoiseRepellentAdaptivePlugin {
   float sample_rate;
   float *report_latency;
 
-  NoiseRepellentHandle lib_instance;
+  NoiseRepellentHandle lib_instance_1;
   NrepelDenoiseParameters parameters;
 
   float *enable;
@@ -62,8 +62,8 @@ typedef struct NoiseRepellentAdaptivePlugin {
 static void cleanup_adaptive(LV2_Handle instance) {
   NoiseRepellentAdaptivePlugin *self = (NoiseRepellentAdaptivePlugin *)instance;
 
-  if (self->lib_instance) {
-    nrepel_free(self->lib_instance);
+  if (self->lib_instance_1) {
+    nrepel_free(self->lib_instance_1);
   }
   free(instance);
 }
@@ -77,8 +77,8 @@ static LV2_Handle instantiate_adaptive(const LV2_Descriptor *descriptor,
 
   self->sample_rate = (float)rate;
 
-  self->lib_instance = nrepel_initialize((uint32_t)self->sample_rate);
-  if (!self->lib_instance) {
+  self->lib_instance_1 = nrepel_initialize((uint32_t)self->sample_rate);
+  if (!self->lib_instance_1) {
     cleanup_adaptive((LV2_Handle)self);
     return NULL;
   }
@@ -138,7 +138,7 @@ static void connect_port_adaptive_stereo(LV2_Handle instance, uint32_t port,
 static void activate_adaptive(LV2_Handle instance) {
   NoiseRepellentAdaptivePlugin *self = (NoiseRepellentAdaptivePlugin *)instance;
 
-  *self->report_latency = (float)nrepel_get_latency(self->lib_instance);
+  *self->report_latency = (float)nrepel_get_latency(self->lib_instance_1);
 }
 
 static void run_adaptive(LV2_Handle instance, uint32_t number_of_samples) {
@@ -153,31 +153,20 @@ static void run_adaptive(LV2_Handle instance, uint32_t number_of_samples) {
   };
   // clang-format on
 
-  nrepel_load_parameters(self->lib_instance, self->parameters);
+  nrepel_load_parameters(self->lib_instance_1, self->parameters);
 
-  nrepel_process_adaptive(self->lib_instance, number_of_samples, self->input_1,
-                          self->output_1);
+  nrepel_process_adaptive(self->lib_instance_1, number_of_samples,
+                          self->input_1, self->output_1);
 }
 
 static void run_adaptive_stereo(LV2_Handle instance,
                                 uint32_t number_of_samples) {
   NoiseRepellentAdaptivePlugin *self = (NoiseRepellentAdaptivePlugin *)instance;
 
-  // clang-format off
-  self->parameters = (NrepelDenoiseParameters){
-      .enable = (bool)*self->enable,
-      .residual_listen = (bool)*self->residual_listen,
-      .reduction_amount = *self->reduction_amount,
-      .noise_rescale = *self->noise_rescale
-  };
-  // clang-format on
+  run_adaptive(instance, number_of_samples);
 
-  nrepel_load_parameters(self->lib_instance, self->parameters);
-
-  nrepel_process_adaptive(self->lib_instance, number_of_samples, self->input_1,
-                          self->output_1);
-  nrepel_process_adaptive(self->lib_instance, number_of_samples, self->input_2,
-                          self->output_2);
+  nrepel_process_adaptive(self->lib_instance_1, number_of_samples,
+                          self->input_2, self->output_2);
 }
 
 static const void *extension_data(const char *uri) { return NULL; }
@@ -193,9 +182,7 @@ static const LV2_Descriptor descriptor_adaptive = {
     cleanup_adaptive,
     extension_data
 };
-// clang-format on
 
-// clang-format off
 static const LV2_Descriptor descriptor_adaptive_stereo = {
     NOISEREPELLENT_ADAPTIVE_STEREO_URI,
     instantiate_adaptive,

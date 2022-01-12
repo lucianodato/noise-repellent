@@ -7,7 +7,7 @@
       "request": "launch",
       "program": "/usr/bin/lv2bench",
       "args": [
-        "https://github.com/lucianodato/noise-repellent" // Plugin URI
+        "https://github.com/lucianodato/noise-repellent-stereo" // Plugin URI
       ],
       "stopAtEntry": false,
       "cwd": "${workspaceRoot}",
