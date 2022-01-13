@@ -17,6 +17,7 @@ You should have received a copy of the GNU Lesser General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
+#include "../src/noise_profile_state.h"
 #include "../subprojects/libnrepel/include/nrepel.h"
 #include "lv2/atom/atom.h"
 #include "lv2/core/lv2.h"
@@ -33,28 +34,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 // TODO (luciano/todo): Use state mapping and unmapping instead of ladspa float
 // arguments
-
-typedef struct NoiseProfileState {
-  uint32_t child_size;
-  uint32_t child_type;
-  float *elements;
-} NoiseProfileState; // LV2 Atoms Vector Specification
-
-static NoiseProfileState *
-noise_profile_state_initialize(LV2_URID child_type,
-                               const uint32_t noise_profile_size) {
-  NoiseProfileState *self =
-      (NoiseProfileState *)calloc(1U, sizeof(NoiseProfileState));
-  self->child_type = (uint32_t)child_type;
-  self->child_size = (uint32_t)sizeof(float);
-  self->elements = (float *)calloc(noise_profile_size, sizeof(float));
-  return self;
-}
-
-static void noise_profile_state_free(NoiseProfileState *self) {
-  free(self->elements);
-  free(self);
-}
 
 typedef struct URIs {
   LV2_URID atom_Int;
@@ -382,7 +361,7 @@ static LV2_State_Status save(LV2_Handle instance,
         &noise_profile_averaged_blocks, sizeof(uint32_t), self->uris.atom_Int,
         LV2_STATE_IS_POD | LV2_STATE_IS_PORTABLE);
 
-  memcpy(self->noise_profile_state_1->elements,
+  memcpy(noise_profile_get_elements(self->noise_profile_state_1),
          nrepel_get_noise_profile(self->lib_instance_1),
          sizeof(float) * noise_profile_size);
 
@@ -391,7 +370,7 @@ static LV2_State_Status save(LV2_Handle instance,
         self->uris.atom_Vector, LV2_STATE_IS_POD | LV2_STATE_IS_PORTABLE);
 
   if (strstr(self->plugin_uri, NOISEREPELLENT_STEREO_URI)) {
-    memcpy(self->noise_profile_state_2->elements,
+    memcpy(noise_profile_get_elements(self->noise_profile_state_2),
            nrepel_get_noise_profile(self->lib_instance_2),
            sizeof(float) * noise_profile_size);
 
@@ -428,7 +407,7 @@ static LV2_State_Status restore(LV2_Handle instance,
 
   const void *saved_noise_profile_1 = retrieve(
       handle, self->state.property_noise_profile_1, &size, &type, &valflags);
-  if (!saved_noise_profile_1 || size != sizeof(NoiseProfileState) ||
+  if (!saved_noise_profile_1 || size != noise_profile_get_size() ||
       type != self->uris.atom_Vector) {
     return LV2_STATE_ERR_NO_PROPERTY;
   }
@@ -440,7 +419,7 @@ static LV2_State_Status restore(LV2_Handle instance,
   if (strstr(self->plugin_uri, NOISEREPELLENT_STEREO_URI)) {
     const void *saved_noise_profile_2 = retrieve(
         handle, self->state.property_noise_profile_2, &size, &type, &valflags);
-    if (!saved_noise_profile_2 || size != sizeof(NoiseProfileState) ||
+    if (!saved_noise_profile_2 || size != noise_profile_get_size() ||
         type != self->uris.atom_Vector) {
       return LV2_STATE_ERR_NO_PROPERTY;
     }

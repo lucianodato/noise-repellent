@@ -52,8 +52,6 @@ NoiseRepellentHandle nrepel_initialize(const uint32_t sample_rate) {
   }
 
   const uint32_t buffer_size = get_buffer_size(self->stft_processor);
-  const uint32_t spectral_size =
-      get_spectral_processing_size(self->stft_processor);
 
   self->soft_bypass =
       signal_crossfade_initialize(self->sample_rate, buffer_size);
