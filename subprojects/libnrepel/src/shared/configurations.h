@@ -31,8 +31,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 /* ------------------- Shared Modules configurations ------------------- */
 /* --------------------------------------------------------------------- */
 
-// Fft configurations
-#define FFT_SIZE 2048
+// Fft configurations - Frame size in milliseconds
+#define FRAME_SIZE_GENERAL 46
+#define FRAME_SIZE_SPEECH 20
 
 // dB to dBSPL converter
 #define REFERENCE_SINE_WAVE_FREQ 1000.F
@@ -48,11 +49,15 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 /* ----------------------------------------------------------- */
 
 // OverlapAdd configurations
-#define OVERLAP_FACTOR 2U
+#define OVERLAP_FACTOR_GENERAL 4
+#define OVERLAP_FACTOR_SPEECH 2
 
 // Windows
-#define INPUT_WINDOW_TYPE VORBIS_WINDOW
-#define OUTPUT_WINDOW_TYPE VORBIS_WINDOW
+#define INPUT_WINDOW_TYPE_GENERAL VORBIS_WINDOW
+#define OUTPUT_WINDOW_TYPE_GENERAL VORBIS_WINDOW
+
+#define INPUT_WINDOW_TYPE_SPEECH VORBIS_WINDOW
+#define OUTPUT_WINDOW_TYPE_SPEECH VORBIS_WINDOW
 
 /* --------------------------------------------------------------- */
 /* ------------------- Denoiser configurations ------------------- */
@@ -65,8 +70,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define UPPER_LIMIT 5.F
 
 // Masking
-#define N_BARK_BANDS 25U
-#define BIAS 0U
+#define N_BARK_BANDS 25
+#define BIAS 0
 #define HIGH_FREQ_BIAS 20.F
 
 #if BIAS
@@ -87,9 +92,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define BETA_MIN 0.F
 
 // Noise Estimator
-// TODO (luciano/todo): change this in favour of ms block size instead of it
-// depending of the fixed block size
-#define MIN_NUMBER_OF_WINDOWS_NOISE_AVERAGED 5U
+#define MIN_NUMBER_OF_WINDOWS_NOISE_AVERAGED 5
 
 // Louizou Estimator
 #define N_SMOOTH 0.7F

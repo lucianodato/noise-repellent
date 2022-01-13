@@ -48,9 +48,6 @@ NoiseRepellentHandle nrepel_initialize(uint32_t sample_rate);
 void nrepel_free(NoiseRepellentHandle instance);
 bool nrepel_process(NoiseRepellentHandle instance, uint32_t number_of_samples,
                     const float *input, float *output);
-bool nrepel_process_adaptive(NoiseRepellentHandle instance,
-                             uint32_t number_of_samples, const float *input,
-                             float *output);
 uint32_t nrepel_get_latency(NoiseRepellentHandle instance);
 uint32_t nrepel_get_noise_profile_size(NoiseRepellentHandle instance);
 float *nrepel_get_noise_profile(NoiseRepellentHandle instance);

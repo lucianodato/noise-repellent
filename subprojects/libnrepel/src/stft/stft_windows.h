@@ -20,6 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #ifndef STFT_WINDOW_H
 #define STFT_WINDOW_H
 
+#include "../shared/spectral_utils.h"
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -28,7 +29,9 @@ typedef struct StftWindows StftWindows;
 typedef enum WindowPlace { INPUT_WINDOW = 1, OUTPUT_WINDOW = 2 } WindowPlace;
 
 StftWindows *stft_window_initialize(uint32_t window_size,
-                                    uint32_t overlap_factor);
+                                    uint32_t overlap_factor,
+                                    WindowTypes input_window,
+                                    WindowTypes output_window);
 void stft_window_free(StftWindows *self);
 bool apply_window(StftWindows *self, float *frame, WindowPlace place);
 

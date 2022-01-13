@@ -18,7 +18,9 @@ noise_repellent_adaptive_src = 'plugins/nrepellent-adaptive.c'
 #dependencies for noise repellent
 lv2_dep = dependency('lv2', required : true)
 nrepel_dep = libnrepel_proj.get_variable('libnrepel_dep')
+anrepel_dep = libnrepel_proj.get_variable('libanrepel_dep')
 nr_dep = [lv2_dep,nrepel_dep]
+anr_dep = [lv2_dep,anrepel_dep]
 
 #get the host operating system and configure install path and shared object extension
 current_os = host_machine.system()
@@ -62,7 +64,7 @@ library('nrepellent',
 library('nrepellent-adaptive',
     noise_repellent_adaptive_src,
     name_prefix: '',
-    dependencies: nr_dep,
+    dependencies: anr_dep,
     c_args: cflags, 
     install: true,
     install_dir : install_folder

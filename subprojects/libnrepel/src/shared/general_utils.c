@@ -20,6 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include "general_utils.h"
 #include <float.h>
 #include <math.h>
+#include <stdlib.h>
 
 inline float sanitize_denormal(float value) {
   if (!isnormal(value)) {
@@ -30,4 +31,15 @@ inline float sanitize_denormal(float value) {
 
 inline float from_db_to_coefficient(const float gain_db) {
   return expf(gain_db / 10.F * logf(10.F));
+}
+
+int get_next_power_divisible_two(int number) {
+  int q = number / 2;
+  int n1 = 2 * q;
+  int n2 = (number * 2) > 0 ? (2 * (q + 1)) : (2 * (q - 1));
+  if (abs(number - n1) < abs(number - n2)) {
+    return n1;
+  }
+
+  return n2;
 }

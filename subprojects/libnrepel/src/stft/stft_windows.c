@@ -19,15 +19,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 #include "stft_windows.h"
 #include "../shared/configurations.h"
-#include "../shared/spectral_utils.h"
 #include <stdlib.h>
 
 static float get_windows_scale_factor(StftWindows *self,
                                       uint32_t overlap_factor);
 
 struct StftWindows {
-  uint32_t window_option_input;
-  uint32_t window_option_output;
   float *input_window;
   float *output_window;
   uint32_t window_size;
@@ -35,20 +32,18 @@ struct StftWindows {
 };
 
 StftWindows *stft_window_initialize(const uint32_t window_size,
-                                    const uint32_t overlap_factor) {
+                                    const uint32_t overlap_factor,
+                                    const WindowTypes input_window,
+                                    const WindowTypes output_window) {
   StftWindows *self = (StftWindows *)calloc(1U, sizeof(StftWindows));
 
   self->window_size = window_size;
-  self->window_option_input = INPUT_WINDOW_TYPE;
-  self->window_option_output = OUTPUT_WINDOW_TYPE;
 
   self->input_window = (float *)calloc(self->window_size, sizeof(float));
   self->output_window = (float *)calloc(self->window_size, sizeof(float));
 
-  get_fft_window(self->input_window, self->window_size,
-                 self->window_option_input);
-  get_fft_window(self->output_window, self->window_size,
-                 self->window_option_output);
+  get_fft_window(self->input_window, self->window_size, input_window);
+  get_fft_window(self->output_window, self->window_size, output_window);
 
   self->scale_factor = get_windows_scale_factor(self, overlap_factor);
 
@@ -80,17 +75,13 @@ bool apply_window(StftWindows *self, float *frame, const WindowPlace place) {
     return false;
   }
 
-  for (uint32_t i = 0U; i < self->window_size / 2U; i++) {
+  for (uint32_t i = 0U; i < self->window_size; i++) {
     switch (place) {
     case INPUT_WINDOW:
       frame[i] *= self->input_window[i];
-      frame[self->window_size - 1U - i] *=
-          self->input_window[self->window_size - 1U - i];
       break;
     case OUTPUT_WINDOW:
       frame[i] *= self->output_window[i] / self->scale_factor;
-      frame[self->window_size - 1U - i] *=
-          self->output_window[self->window_size - 1U - i] / self->scale_factor;
       break;
     default:
       break;

@@ -21,16 +21,19 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define STFT_PROCESSOR_H
 
 #include "../shared/spectral_processor.h"
+#include "../shared/spectral_utils.h"
 #include <stdbool.h>
 #include <stdint.h>
 
 typedef struct StftProcessor StftProcessor;
 
-StftProcessor *stft_processor_initialize();
+StftProcessor *stft_processor_initialize(uint32_t sample_rate, float frame_size,
+                                         uint32_t overlap_factor,
+                                         WindowTypes input_window,
+                                         WindowTypes output_window);
 void stft_processor_free(StftProcessor *self);
 uint32_t get_stft_latency(StftProcessor *self);
 uint32_t get_buffer_size(StftProcessor *self);
-uint32_t get_overlap_factor(StftProcessor *self);
 uint32_t get_spectral_processing_size(StftProcessor *self);
 
 // Receives an input and output buffer with a a number_of_samples and does the

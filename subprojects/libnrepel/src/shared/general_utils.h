@@ -25,5 +25,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 float sanitize_denormal(float value);
 float from_db_to_coefficient(float gain_db);
+int get_next_power_divisible_two(int number);
 
 #endif

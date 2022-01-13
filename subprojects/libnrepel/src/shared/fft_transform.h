@@ -25,11 +25,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 typedef struct FftTransform FftTransform;
 
-// TODO (luciano/todo): Change algorithm so it works for a block of ms instead
-// of a fixed buffer size. This will preserve frequency resolution across
-// different sample rates
-
-FftTransform *fft_transform_initialize();
+FftTransform *fft_transform_initialize(uint32_t sample_rate, float frame_size);
 void fft_transform_free(FftTransform *self);
 bool fft_load_input_samples(FftTransform *self, const float *input);
 uint32_t get_fft_size(FftTransform *self);

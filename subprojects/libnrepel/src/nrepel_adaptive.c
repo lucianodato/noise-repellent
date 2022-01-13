@@ -18,7 +18,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
 #include "../include/nrepel.h"
-#include "denoiser/spectral_denoiser.h"
+#include "adaptivedenoiser/adaptive_denoiser.h"
 #include "shared/configurations.h"
 #include "shared/general_utils.h"
 #include "shared/noise_profile.h"
@@ -28,24 +28,25 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <stdlib.h>
 #include <string.h>
 
-typedef struct NoiseRepellent {
+typedef struct NoiseRepellentAdaptive {
   uint32_t sample_rate;
   NrepelDenoiseParameters denoise_parameters;
 
   NoiseProfile *noise_profile;
-  SpectralProcessorHandle spectral_denoiser;
+  SpectralProcessorHandle adaptive_spectral_denoiser;
   StftProcessor *stft_processor;
   SignalCrossfade *soft_bypass;
-} NoiseRepellent;
+} NoiseRepellentAdaptive;
 
 NoiseRepellentHandle nrepel_initialize(const uint32_t sample_rate) {
-  NoiseRepellent *self = (NoiseRepellent *)calloc(1U, sizeof(NoiseRepellent));
+  NoiseRepellentAdaptive *self =
+      (NoiseRepellentAdaptive *)calloc(1U, sizeof(NoiseRepellentAdaptive));
 
   self->sample_rate = sample_rate;
 
   self->stft_processor = stft_processor_initialize(
-      sample_rate, FRAME_SIZE_GENERAL, OVERLAP_FACTOR_GENERAL,
-      INPUT_WINDOW_TYPE_GENERAL, OUTPUT_WINDOW_TYPE_GENERAL);
+      sample_rate, FRAME_SIZE_SPEECH, OVERLAP_FACTOR_SPEECH,
+      INPUT_WINDOW_TYPE_SPEECH, OUTPUT_WINDOW_TYPE_SPEECH);
 
   if (!self->stft_processor) {
     nrepel_free(self);
@@ -71,11 +72,10 @@ NoiseRepellentHandle nrepel_initialize(const uint32_t sample_rate) {
     return NULL;
   }
 
-  self->spectral_denoiser = spectral_denoiser_initialize(
-      self->sample_rate, buffer_size, OVERLAP_FACTOR_GENERAL,
-      self->noise_profile, &self->denoise_parameters);
+  self->adaptive_spectral_denoiser =
+      spectral_adaptive_denoiser_initialize(self->sample_rate, buffer_size);
 
-  if (!self->spectral_denoiser) {
+  if (!self->adaptive_spectral_denoiser) {
     nrepel_free(self);
     return NULL;
   }
@@ -84,17 +84,17 @@ NoiseRepellentHandle nrepel_initialize(const uint32_t sample_rate) {
 }
 
 void nrepel_free(NoiseRepellentHandle instance) {
-  NoiseRepellent *self = (NoiseRepellent *)instance;
+  NoiseRepellentAdaptive *self = (NoiseRepellentAdaptive *)instance;
 
   signal_crossfade_free(self->soft_bypass);
   noise_profile_free(self->noise_profile);
-  spectral_denoiser_free(self->spectral_denoiser);
+  spectral_adaptive_denoiser_free(self->adaptive_spectral_denoiser);
   stft_processor_free(self->stft_processor);
   free(self);
 }
 
 uint32_t nrepel_get_latency(NoiseRepellentHandle instance) {
-  NoiseRepellent *self = (NoiseRepellent *)instance;
+  NoiseRepellentAdaptive *self = (NoiseRepellentAdaptive *)instance;
 
   return get_stft_latency(self->stft_processor);
 }
@@ -106,10 +106,15 @@ bool nrepel_process(NoiseRepellentHandle instance,
     return false;
   }
 
-  NoiseRepellent *self = (NoiseRepellent *)instance;
+  NoiseRepellentAdaptive *self = (NoiseRepellentAdaptive *)instance;
 
+  load_adaptive_reduction_parameters(self->adaptive_spectral_denoiser,
+                                     self->denoise_parameters.residual_listen,
+                                     self->denoise_parameters.reduction_amount,
+                                     self->denoise_parameters.noise_rescale);
   stft_processor_run(self->stft_processor, number_of_samples, input, output,
-                     &spectral_denoiser_run, self->spectral_denoiser);
+                     &spectral_adaptive_denoiser_run,
+                     self->adaptive_spectral_denoiser);
 
   signal_crossfade_run(self->soft_bypass, number_of_samples, input, output,
                        self->denoise_parameters.enable);
@@ -118,20 +123,20 @@ bool nrepel_process(NoiseRepellentHandle instance,
 }
 
 uint32_t nrepel_get_noise_profile_size(NoiseRepellentHandle instance) {
-  NoiseRepellent *self = (NoiseRepellent *)instance;
+  NoiseRepellentAdaptive *self = (NoiseRepellentAdaptive *)instance;
 
   return get_noise_profile_size(self->noise_profile);
 }
 
 uint32_t
 nrepel_get_noise_profile_blocks_averaged(NoiseRepellentHandle instance) {
-  NoiseRepellent *self = (NoiseRepellent *)instance;
+  NoiseRepellentAdaptive *self = (NoiseRepellentAdaptive *)instance;
 
   return get_noise_profile_blocks_averaged(self->noise_profile);
 }
 
 float *nrepel_get_noise_profile(NoiseRepellentHandle instance) {
-  NoiseRepellent *self = (NoiseRepellent *)instance;
+  NoiseRepellentAdaptive *self = (NoiseRepellentAdaptive *)instance;
 
   return get_noise_profile(self->noise_profile);
 }
@@ -144,7 +149,7 @@ bool nrepel_load_noise_profile(NoiseRepellentHandle instance,
     return false;
   }
 
-  NoiseRepellent *self = (NoiseRepellent *)instance;
+  NoiseRepellentAdaptive *self = (NoiseRepellentAdaptive *)instance;
 
   if (profile_size != get_noise_profile_size(self->noise_profile)) {
     return false;
@@ -161,7 +166,7 @@ bool nrepel_reset_noise_profile(NoiseRepellentHandle instance) {
     return false;
   }
 
-  NoiseRepellent *self = (NoiseRepellent *)instance;
+  NoiseRepellentAdaptive *self = (NoiseRepellentAdaptive *)instance;
 
   reset_noise_profile(self->noise_profile);
 
@@ -169,7 +174,7 @@ bool nrepel_reset_noise_profile(NoiseRepellentHandle instance) {
 }
 
 bool nrepel_noise_profile_available(NoiseRepellentHandle instance) {
-  NoiseRepellent *self = (NoiseRepellent *)instance;
+  NoiseRepellentAdaptive *self = (NoiseRepellentAdaptive *)instance;
 
   return is_noise_estimation_available(self->noise_profile);
 }
@@ -180,7 +185,7 @@ bool nrepel_load_parameters(NoiseRepellentHandle instance,
     return false;
   }
 
-  NoiseRepellent *self = (NoiseRepellent *)instance;
+  NoiseRepellentAdaptive *self = (NoiseRepellentAdaptive *)instance;
 
   // clang-format off
   self->denoise_parameters = (NrepelDenoiseParameters){

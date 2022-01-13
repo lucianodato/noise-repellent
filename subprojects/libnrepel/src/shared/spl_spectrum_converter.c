@@ -47,7 +47,8 @@ reference_spectrum_initialize(const uint32_t sample_rate) {
   SplSpectrumConverter *self =
       (SplSpectrumConverter *)calloc(1U, sizeof(SplSpectrumConverter));
 
-  self->fft_transform = fft_transform_initialize();
+  self->fft_transform =
+      fft_transform_initialize(sample_rate, FRAME_SIZE_GENERAL);
 
   self->fft_size = get_fft_size(self->fft_transform);
   self->half_fft_size = self->fft_size / 2U;
@@ -63,7 +64,7 @@ reference_spectrum_initialize(const uint32_t sample_rate) {
       spectral_features_initialize(self->half_fft_size + 1U);
 
   generate_sinewave(self);
-  get_fft_window(self->window, self->fft_size, HANN_WINDOW);
+  get_fft_window(self->window, self->fft_size, VORBIS_WINDOW);
   compute_spl_reference_spectrum(self);
 
   return self;

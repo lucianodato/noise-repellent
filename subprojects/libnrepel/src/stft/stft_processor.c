@@ -39,13 +39,17 @@ struct StftProcessor {
   StftWindows *stft_windows;
 };
 
-StftProcessor *stft_processor_initialize() {
+StftProcessor *stft_processor_initialize(const uint32_t sample_rate,
+                                         const float frame_size,
+                                         const uint32_t overlap_factor,
+                                         WindowTypes input_window,
+                                         WindowTypes output_window) {
   StftProcessor *self = (StftProcessor *)calloc(1U, sizeof(StftProcessor));
 
-  self->fft_transform = fft_transform_initialize();
+  self->fft_transform = fft_transform_initialize(sample_rate, frame_size);
 
   self->buffer_size = get_fft_size(self->fft_transform);
-  self->overlap_factor = OVERLAP_FACTOR;
+  self->overlap_factor = overlap_factor;
   self->hop = self->buffer_size / self->overlap_factor;
   self->input_latency = self->buffer_size - self->hop;
 
@@ -55,8 +59,8 @@ StftProcessor *stft_processor_initialize() {
   self->stft_buffer =
       stft_buffer_initialize(self->buffer_size, self->input_latency, self->hop);
 
-  self->stft_windows =
-      stft_window_initialize(self->buffer_size, self->overlap_factor);
+  self->stft_windows = stft_window_initialize(
+      self->buffer_size, self->overlap_factor, input_window, output_window);
 
   return self;
 }
@@ -119,10 +123,6 @@ bool stft_processor_run(StftProcessor *self, const uint32_t number_of_samples,
 uint32_t get_stft_latency(StftProcessor *self) { return self->input_latency; }
 
 uint32_t get_buffer_size(StftProcessor *self) { return self->buffer_size; }
-
-uint32_t get_overlap_factor(StftProcessor *self) {
-  return self->overlap_factor;
-}
 
 uint32_t get_spectral_processing_size(StftProcessor *self) {
   return get_real_spectrum_size(self->fft_transform);

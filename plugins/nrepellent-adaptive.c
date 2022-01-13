@@ -155,8 +155,8 @@ static void run_adaptive(LV2_Handle instance, uint32_t number_of_samples) {
 
   nrepel_load_parameters(self->lib_instance_1, self->parameters);
 
-  nrepel_process_adaptive(self->lib_instance_1, number_of_samples,
-                          self->input_1, self->output_1);
+  nrepel_process(self->lib_instance_1, number_of_samples, self->input_1,
+                 self->output_1);
 }
 
 static void run_adaptive_stereo(LV2_Handle instance,
@@ -165,8 +165,8 @@ static void run_adaptive_stereo(LV2_Handle instance,
 
   run_adaptive(instance, number_of_samples);
 
-  nrepel_process_adaptive(self->lib_instance_1, number_of_samples,
-                          self->input_2, self->output_2);
+  nrepel_process(self->lib_instance_1, number_of_samples, self->input_2,
+                 self->output_2);
 }
 
 static const void *extension_data(const char *uri) { return NULL; }

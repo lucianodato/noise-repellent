@@ -1,7 +1,7 @@
 project('libnrepel', 'c', version: '0.1.0',default_options: ['c_std=c99','default_library=static'])
 
 #sources to compile
-nrepel_sources = [
+shared_sources = [
     'src/shared/spectral_utils.c',
     'src/shared/spectral_features.c',
     'src/shared/signal_crossfade.c',
@@ -10,18 +10,25 @@ nrepel_sources = [
     'src/shared/spectral_whitening.c',
     'src/shared/general_utils.c',
     'src/shared/noise_profile.c',
-    'src/adaptivedenoiser/louizou_estimator.c',
-    'src/adaptivedenoiser/adaptive_denoiser.c',
+    'src/stft/stft_windows.c',
+    'src/stft/stft_buffer.c',
+    'src/stft/stft_processor.c',
+]
+
+nrepel_sources = [
     'src/denoiser/noisemodel/noise_estimator.c',
     'src/denoiser/gainmodel/transient_detector.c',
     'src/denoiser/gainmodel/masking_estimator.c',
     'src/denoiser/gainmodel/spectral_smoother.c',
     'src/denoiser/gainmodel/gain_estimator.c',
     'src/denoiser/spectral_denoiser.c',
-    'src/stft/stft_windows.c',
-    'src/stft/stft_buffer.c',
-    'src/stft/stft_processor.c',
     'src/nrepel.c',
+]
+
+nrepel_sources_adaptive = [
+    'src/adaptivedenoiser/louizou_estimator.c',
+    'src/adaptivedenoiser/adaptive_denoiser.c',
+    'src/nrepel_adaptive.c',
 ]
 
 # public header
@@ -50,10 +57,21 @@ if get_option('buildtype') == 'release'
 endif
 
 libnrepel = library('nrepel',
+  shared_sources,
   nrepel_sources,
+  include_directories : inc,
+  c_args: cflags,
+  dependencies: dep)
+
+libanrepel = library('anrepel',
+  shared_sources,
+  nrepel_sources_adaptive,
   include_directories : inc,
   c_args: cflags,
   dependencies: dep)
 
 libnrepel_dep = declare_dependency(include_directories : inc,
   link_with : libnrepel)
+
+libanrepel_dep = declare_dependency(include_directories : inc,
+  link_with : libanrepel)

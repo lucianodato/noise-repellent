@@ -19,28 +19,30 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 #include "spectral_utils.h"
 #include "configurations.h"
+#include "general_utils.h"
 #include <float.h>
 #include <math.h>
 
 static inline float blackman(const uint32_t bin_index,
                              const uint32_t fft_size) {
   const float p = ((float)(bin_index)) / ((float)(fft_size));
-  return 0.42F - 0.5F * cosf(2.F * M_PI * p) + 0.08F * cosf(4.F * M_PI * p);
+  return sanitize_denormal(0.42F - (0.5F * cosf(2.F * M_PI * p)) +
+                           (0.08F * cosf(4.F * M_PI * p)));
 }
 
 static inline float hanning(const uint32_t bin_index, const uint32_t fft_size) {
   const float p = ((float)(bin_index)) / ((float)(fft_size));
-  return 0.5F - 0.5F * cosf(2.F * M_PI * p);
+  return sanitize_denormal(0.5F - (0.5F * cosf(2.F * M_PI * p)));
 }
 
 static inline float hamming(const uint32_t bin_index, const uint32_t fft_size) {
   const float p = ((float)(bin_index)) / ((float)(fft_size));
-  return 0.54F - 0.46F * cosf(2.F * M_PI * p);
+  return sanitize_denormal(0.54F - (0.46F * cosf(2.F * M_PI * p)));
 }
 
 static inline float vorbis(const uint32_t bin_index, const uint32_t fft_size) {
   const float p = ((float)(bin_index)) / ((float)(fft_size));
-  return sinf(M_PI / 2.F * powf(sinf(M_PI * p), 2.F));
+  return sanitize_denormal(sinf(M_PI / 2.F * powf(sinf(M_PI * p), 2.F)));
 }
 
 bool get_fft_window(float *window, const uint32_t fft_size,
@@ -49,16 +51,16 @@ bool get_fft_window(float *window, const uint32_t fft_size,
     return false;
   }
 
-  for (uint32_t k = 0U; k < fft_size; k++) {
+  for (uint32_t k = 0; k < fft_size; k++) {
     switch (window_type) {
-    case BLACKMAN_WINDOW:
-      window[k] = blackman(k, fft_size);
-      break;
     case HANN_WINDOW:
       window[k] = hanning(k, fft_size);
       break;
     case HAMMING_WINDOW:
       window[k] = hamming(k, fft_size);
+      break;
+    case BLACKMAN_WINDOW:
+      window[k] = blackman(k, fft_size);
       break;
     case VORBIS_WINDOW:
       window[k] = vorbis(k, fft_size);

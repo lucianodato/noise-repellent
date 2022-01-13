@@ -19,9 +19,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 #include "fft_transform.h"
 #include "../shared/configurations.h"
+#include "../shared/general_utils.h"
+
 #include <fftw3.h>
 #include <stdlib.h>
 #include <string.h>
+
+static uint32_t calculate_fft_size(uint32_t sample_rate, float frame_size);
 
 struct FftTransform {
   fftwf_plan forward;
@@ -32,10 +36,11 @@ struct FftTransform {
   float *output_fft_buffer;
 };
 
-FftTransform *fft_transform_initialize() {
+FftTransform *fft_transform_initialize(const uint32_t sample_rate,
+                                       const float frame_size) {
   FftTransform *self = (FftTransform *)calloc(1U, sizeof(FftTransform));
 
-  self->fft_size = FFT_SIZE;
+  self->fft_size = calculate_fft_size(sample_rate, frame_size);
 
   self->input_fft_buffer = (float *)calloc(self->fft_size, sizeof(float));
   self->output_fft_buffer = (float *)calloc(self->fft_size, sizeof(float));
@@ -47,6 +52,14 @@ FftTransform *fft_transform_initialize() {
                         self->input_fft_buffer, FFTW_BACKWARD, FFTW_ESTIMATE);
 
   return self;
+}
+
+static uint32_t calculate_fft_size(const uint32_t sample_rate,
+                                   const float frame_size) {
+
+  float amount_samples = (frame_size / 1000.F) * (float)sample_rate;
+
+  return get_next_power_divisible_two((int)amount_samples);
 }
 
 void fft_transform_free(FftTransform *self) {
