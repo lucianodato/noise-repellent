@@ -21,7 +21,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include "adaptivedenoiser/adaptive_denoiser.h"
 #include "shared/configurations.h"
 #include "shared/general_utils.h"
-#include "shared/noise_profile.h"
 #include "shared/signal_crossfade.h"
 #include "stft/stft_processor.h"
 #include <math.h>
@@ -32,7 +31,6 @@ typedef struct NoiseRepellentAdaptive {
   uint32_t sample_rate;
   NrepelDenoiseParameters denoise_parameters;
 
-  NoiseProfile *noise_profile;
   SpectralProcessorHandle adaptive_spectral_denoiser;
   StftProcessor *stft_processor;
   SignalCrossfade *soft_bypass;
@@ -57,13 +55,6 @@ NoiseRepellentHandle nrepel_initialize(const uint32_t sample_rate) {
   const uint32_t spectral_size =
       get_spectral_processing_size(self->stft_processor);
 
-  self->noise_profile = noise_profile_initialize(spectral_size);
-
-  if (!self->noise_profile) {
-    nrepel_free(self);
-    return NULL;
-  }
-
   self->soft_bypass =
       signal_crossfade_initialize(self->sample_rate, buffer_size);
 
@@ -87,7 +78,6 @@ void nrepel_free(NoiseRepellentHandle instance) {
   NoiseRepellentAdaptive *self = (NoiseRepellentAdaptive *)instance;
 
   signal_crossfade_free(self->soft_bypass);
-  noise_profile_free(self->noise_profile);
   spectral_adaptive_denoiser_free(self->adaptive_spectral_denoiser);
   stft_processor_free(self->stft_processor);
   free(self);
@@ -122,63 +112,6 @@ bool nrepel_process(NoiseRepellentHandle instance,
   return true;
 }
 
-uint32_t nrepel_get_noise_profile_size(NoiseRepellentHandle instance) {
-  NoiseRepellentAdaptive *self = (NoiseRepellentAdaptive *)instance;
-
-  return get_noise_profile_size(self->noise_profile);
-}
-
-uint32_t
-nrepel_get_noise_profile_blocks_averaged(NoiseRepellentHandle instance) {
-  NoiseRepellentAdaptive *self = (NoiseRepellentAdaptive *)instance;
-
-  return get_noise_profile_blocks_averaged(self->noise_profile);
-}
-
-float *nrepel_get_noise_profile(NoiseRepellentHandle instance) {
-  NoiseRepellentAdaptive *self = (NoiseRepellentAdaptive *)instance;
-
-  return get_noise_profile(self->noise_profile);
-}
-
-bool nrepel_load_noise_profile(NoiseRepellentHandle instance,
-                               const float *restored_profile,
-                               const uint32_t profile_size,
-                               const uint32_t averaged_blocks) {
-  if (!instance || !restored_profile) {
-    return false;
-  }
-
-  NoiseRepellentAdaptive *self = (NoiseRepellentAdaptive *)instance;
-
-  if (profile_size != get_noise_profile_size(self->noise_profile)) {
-    return false;
-  }
-
-  set_noise_profile(self->noise_profile, restored_profile, profile_size,
-                    averaged_blocks);
-
-  return true;
-}
-
-bool nrepel_reset_noise_profile(NoiseRepellentHandle instance) {
-  if (!instance) {
-    return false;
-  }
-
-  NoiseRepellentAdaptive *self = (NoiseRepellentAdaptive *)instance;
-
-  reset_noise_profile(self->noise_profile);
-
-  return true;
-}
-
-bool nrepel_noise_profile_available(NoiseRepellentHandle instance) {
-  NoiseRepellentAdaptive *self = (NoiseRepellentAdaptive *)instance;
-
-  return is_noise_estimation_available(self->noise_profile);
-}
-
 bool nrepel_load_parameters(NoiseRepellentHandle instance,
                             NrepelDenoiseParameters parameters) {
   if (!instance) {
@@ -190,15 +123,10 @@ bool nrepel_load_parameters(NoiseRepellentHandle instance,
   // clang-format off
   self->denoise_parameters = (NrepelDenoiseParameters){
       .enable = parameters.enable,
-      .learn_noise = parameters.learn_noise,
       .residual_listen = parameters.residual_listen,
-      .masking_ceiling_limit = parameters.masking_ceiling_limit,
       .reduction_amount =
           from_db_to_coefficient(parameters.reduction_amount * -1.F),
       .noise_rescale = from_db_to_coefficient(parameters.noise_rescale),
-      .release_time = parameters.reduction_amount,
-      .transient_threshold = parameters.transient_threshold,
-      .whitening_factor = parameters.whitening_factor / 100.F,
   };
   // clang-format on
 

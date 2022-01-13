@@ -61,37 +61,4 @@ bool nrepel_noise_profile_available(NoiseRepellentHandle instance);
 bool nrepel_load_parameters(NoiseRepellentHandle instance,
                             NrepelDenoiseParameters parameters);
 
-// Objective interfaces
-
-// Init and free
-// Process adaptive (with parameters)
-// Process manual with provided profile (with parameters)
-// Estimate noise returns number of blocks averages and out parameters a profile
-// (with parameters)
-
-//  NoiseRepellentHandle nrepel_initialize(int sample_rate, int
-// fft_size);
-//  int nrepel_get_size(NoiseRepellentHandle instance);
-//  void nrepel_free(NoiseRepellentHandle instance);
-//  int nrepel_calculate_noise_profile(NoiseRepellentHandle
-// instance,
-//                                    const float *input,
-//                                    float *calculated_profile);
-//  int nrepel_get_noise_profile_size(NoiseRepellentHandle
-// instance);  int
-// nrepel_get_processing_block_size(NoiseRepellentHandle instance);
-// bool nrepel_denoise(NoiseRepellentHandle instance, const float *input,
-//                     float *output, const float *noise_profile,
-//                     float reduction_db, float whitening_percentage,
-//                     float release_ms, float noise_gain_db);
-// bool nrepel_denoise_residue(NoiseRepellentHandle instance, const float
-// *input,
-//                             float *output, const float *noise_profile,
-//                             float reduction_db, float whitening_percentage,
-//                             float release_ms, float noise_gain_db);
-//  bool nrepel_denoise_adaptive(NoiseRepellentHandle
-// instance,
-//                                    const float *input, float *output,
-//                                    float reduction_db, float noise_gain_db);
-
 #endif
