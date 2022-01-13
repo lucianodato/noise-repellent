@@ -22,7 +22,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include "shared/configurations.h"
 #include "shared/general_utils.h"
 #include "shared/noise_profile.h"
-#include "shared/signal_crossfade.h"
 #include "stft/stft_processor.h"
 #include <math.h>
 #include <stdlib.h>
@@ -35,7 +34,6 @@ typedef struct NoiseRepellent {
   NoiseProfile *noise_profile;
   SpectralProcessorHandle spectral_denoiser;
   StftProcessor *stft_processor;
-  SignalCrossfade *soft_bypass;
 } NoiseRepellent;
 
 NoiseRepellentHandle nrepel_initialize(const uint32_t sample_rate) {
@@ -63,14 +61,6 @@ NoiseRepellentHandle nrepel_initialize(const uint32_t sample_rate) {
     return NULL;
   }
 
-  self->soft_bypass =
-      signal_crossfade_initialize(self->sample_rate, buffer_size);
-
-  if (!self->soft_bypass) {
-    nrepel_free(self);
-    return NULL;
-  }
-
   self->spectral_denoiser = spectral_denoiser_initialize(
       self->sample_rate, buffer_size, OVERLAP_FACTOR_GENERAL,
       self->noise_profile, &self->denoise_parameters);
@@ -86,7 +76,6 @@ NoiseRepellentHandle nrepel_initialize(const uint32_t sample_rate) {
 void nrepel_free(NoiseRepellentHandle instance) {
   NoiseRepellent *self = (NoiseRepellent *)instance;
 
-  signal_crossfade_free(self->soft_bypass);
   noise_profile_free(self->noise_profile);
   spectral_denoiser_free(self->spectral_denoiser);
   stft_processor_free(self->stft_processor);
@@ -110,9 +99,6 @@ bool nrepel_process(NoiseRepellentHandle instance,
 
   stft_processor_run(self->stft_processor, number_of_samples, input, output,
                      &spectral_denoiser_run, self->spectral_denoiser);
-
-  signal_crossfade_run(self->soft_bypass, number_of_samples, input, output,
-                       self->denoise_parameters.enable);
 
   return true;
 }
@@ -184,7 +170,6 @@ bool nrepel_load_parameters(NoiseRepellentHandle instance,
 
   // clang-format off
   self->denoise_parameters = (NrepelDenoiseParameters){
-      .enable = parameters.enable,
       .learn_noise = parameters.learn_noise,
       .residual_listen = parameters.residual_listen,
       .masking_ceiling_limit = parameters.masking_ceiling_limit,

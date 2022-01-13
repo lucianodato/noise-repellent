@@ -25,8 +25,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 typedef struct SignalCrossfade SignalCrossfade;
 
-SignalCrossfade *signal_crossfade_initialize(uint32_t sample_rate,
-                                             uint32_t block_size);
+SignalCrossfade *signal_crossfade_initialize(uint32_t sample_rate);
 void signal_crossfade_free(SignalCrossfade *self);
 bool signal_crossfade_run(SignalCrossfade *self, uint32_t number_of_samples,
                           const float *input, float *output, bool enable);

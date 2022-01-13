@@ -18,11 +18,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
 #include "signal_crossfade.h"
-#include "../shared/general_utils.h"
 #include <float.h>
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
+
+#define RELEASE_TIME_SEC 0.3F
 
 struct SignalCrossfade {
   float tau;
@@ -30,13 +31,11 @@ struct SignalCrossfade {
   float wet_dry;
 };
 
-SignalCrossfade *signal_crossfade_initialize(const uint32_t sample_rate,
-                                             const uint32_t block_size) {
+SignalCrossfade *signal_crossfade_initialize(const uint32_t sample_rate) {
   SignalCrossfade *self =
       (SignalCrossfade *)calloc(1U, sizeof(SignalCrossfade));
 
-  const float release_block_length_in_s =
-      (float)block_size / ((float)sample_rate);
+  const float release_block_length_in_s = RELEASE_TIME_SEC;
   self->tau = expf(-1.F / (release_block_length_in_s * (float)sample_rate));
   self->wet_dry = 0.F;
   self->wet_dry_target = 0.F;

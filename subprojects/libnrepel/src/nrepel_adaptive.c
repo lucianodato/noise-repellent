@@ -21,7 +21,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include "adaptivedenoiser/adaptive_denoiser.h"
 #include "shared/configurations.h"
 #include "shared/general_utils.h"
-#include "shared/signal_crossfade.h"
 #include "stft/stft_processor.h"
 #include <math.h>
 #include <stdlib.h>
@@ -33,7 +32,6 @@ typedef struct NoiseRepellentAdaptive {
 
   SpectralProcessorHandle adaptive_spectral_denoiser;
   StftProcessor *stft_processor;
-  SignalCrossfade *soft_bypass;
 } NoiseRepellentAdaptive;
 
 NoiseRepellentHandle nrepel_initialize(const uint32_t sample_rate) {
@@ -53,14 +51,6 @@ NoiseRepellentHandle nrepel_initialize(const uint32_t sample_rate) {
 
   const uint32_t buffer_size = get_buffer_size(self->stft_processor);
 
-  self->soft_bypass =
-      signal_crossfade_initialize(self->sample_rate, buffer_size);
-
-  if (!self->soft_bypass) {
-    nrepel_free(self);
-    return NULL;
-  }
-
   self->adaptive_spectral_denoiser =
       spectral_adaptive_denoiser_initialize(self->sample_rate, buffer_size);
 
@@ -75,7 +65,6 @@ NoiseRepellentHandle nrepel_initialize(const uint32_t sample_rate) {
 void nrepel_free(NoiseRepellentHandle instance) {
   NoiseRepellentAdaptive *self = (NoiseRepellentAdaptive *)instance;
 
-  signal_crossfade_free(self->soft_bypass);
   spectral_adaptive_denoiser_free(self->adaptive_spectral_denoiser);
   stft_processor_free(self->stft_processor);
   free(self);
@@ -104,9 +93,6 @@ bool nrepel_process(NoiseRepellentHandle instance,
                      &spectral_adaptive_denoiser_run,
                      self->adaptive_spectral_denoiser);
 
-  signal_crossfade_run(self->soft_bypass, number_of_samples, input, output,
-                       self->denoise_parameters.enable);
-
   return true;
 }
 
@@ -120,7 +106,6 @@ bool nrepel_load_parameters(NoiseRepellentHandle instance,
 
   // clang-format off
   self->denoise_parameters = (NrepelDenoiseParameters){
-      .enable = parameters.enable,
       .residual_listen = parameters.residual_listen,
       .reduction_amount =
           from_db_to_coefficient(parameters.reduction_amount * -1.F),

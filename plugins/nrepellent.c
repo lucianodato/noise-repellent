@@ -18,6 +18,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
 #include "../src/noise_profile_state.h"
+#include "../src/signal_crossfade.h"
+
 #include "../subprojects/libnrepel/include/nrepel.h"
 #include "lv2/atom/atom.h"
 #include "lv2/core/lv2.h"
@@ -113,6 +115,7 @@ typedef struct NoiseRepellentAdaptivePlugin {
   State state;
   char *plugin_uri;
 
+  SignalCrossfade *soft_bypass;
   NoiseRepellentHandle lib_instance_1;
   NoiseRepellentHandle lib_instance_2;
   NrepelDenoiseParameters parameters;
@@ -155,6 +158,10 @@ static void cleanup(LV2_Handle instance) {
     free(self->plugin_uri);
   }
 
+  if (self->soft_bypass) {
+    signal_crossfade_free(self->soft_bypass);
+  }
+
   free(instance);
 }
 
@@ -194,6 +201,13 @@ static LV2_Handle instantiate(const LV2_Descriptor *descriptor,
   map_state(self->map, &self->state, self->plugin_uri);
 
   self->sample_rate = (float)rate;
+
+  self->soft_bypass = signal_crossfade_initialize(self->sample_rate);
+
+  if (!self->soft_bypass) {
+    nrepel_free(self);
+    return NULL;
+  }
 
   self->lib_instance_1 = nrepel_initialize((uint32_t)self->sample_rate);
   if (!self->lib_instance_1) {
@@ -300,7 +314,6 @@ static void run(LV2_Handle instance, uint32_t number_of_samples) {
 
   // clang-format off
   self->parameters = (NrepelDenoiseParameters){
-      .enable = (bool)*self->enable,
       .learn_noise = (bool)*self->learn_noise,
       .residual_listen = (bool)*self->residual_listen,
       .masking_ceiling_limit = *self->masking_ceiling_limit,
@@ -320,6 +333,9 @@ static void run(LV2_Handle instance, uint32_t number_of_samples) {
 
   nrepel_process(self->lib_instance_1, number_of_samples, self->input_1,
                  self->output_1);
+
+  signal_crossfade_run(self->soft_bypass, number_of_samples, self->input_1,
+                       self->output_1, (bool)*self->enable);
 }
 
 static void run_stereo(LV2_Handle instance, uint32_t number_of_samples) {
@@ -335,6 +351,9 @@ static void run_stereo(LV2_Handle instance, uint32_t number_of_samples) {
 
   nrepel_process(self->lib_instance_2, number_of_samples, self->input_2,
                  self->output_2);
+
+  signal_crossfade_run(self->soft_bypass, number_of_samples, self->input_2,
+                       self->output_2, (bool)*self->enable);
 }
 
 static LV2_State_Status save(LV2_Handle instance,

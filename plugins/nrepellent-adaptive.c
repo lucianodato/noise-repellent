@@ -17,6 +17,7 @@ You should have received a copy of the GNU Lesser General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
+#include "../src/signal_crossfade.h"
 #include "../subprojects/libnrepel/include/nrepel.h"
 #include "lv2/core/lv2.h"
 #include <stdlib.h>
@@ -49,8 +50,9 @@ typedef struct NoiseRepellentAdaptivePlugin {
   float sample_rate;
   float *report_latency;
 
-  NoiseRepellentHandle lib_instance_1;
+  NoiseRepellentHandle lib_instance;
   NrepelDenoiseParameters parameters;
+  SignalCrossfade *soft_bypass;
 
   float *enable;
   float *residual_listen;
@@ -62,9 +64,13 @@ typedef struct NoiseRepellentAdaptivePlugin {
 static void cleanup_adaptive(LV2_Handle instance) {
   NoiseRepellentAdaptivePlugin *self = (NoiseRepellentAdaptivePlugin *)instance;
 
-  if (self->lib_instance_1) {
-    nrepel_free(self->lib_instance_1);
+  if (self->lib_instance) {
+    nrepel_free(self->lib_instance);
   }
+  if (self->soft_bypass) {
+    signal_crossfade_free(self->soft_bypass);
+  }
+
   free(instance);
 }
 
@@ -77,9 +83,16 @@ static LV2_Handle instantiate_adaptive(const LV2_Descriptor *descriptor,
 
   self->sample_rate = (float)rate;
 
-  self->lib_instance_1 = nrepel_initialize((uint32_t)self->sample_rate);
-  if (!self->lib_instance_1) {
+  self->lib_instance = nrepel_initialize((uint32_t)self->sample_rate);
+  if (!self->lib_instance) {
     cleanup_adaptive((LV2_Handle)self);
+    return NULL;
+  }
+
+  self->soft_bypass = signal_crossfade_initialize(self->sample_rate);
+
+  if (!self->soft_bypass) {
+    nrepel_free(self);
     return NULL;
   }
 
@@ -138,7 +151,7 @@ static void connect_port_adaptive_stereo(LV2_Handle instance, uint32_t port,
 static void activate_adaptive(LV2_Handle instance) {
   NoiseRepellentAdaptivePlugin *self = (NoiseRepellentAdaptivePlugin *)instance;
 
-  *self->report_latency = (float)nrepel_get_latency(self->lib_instance_1);
+  *self->report_latency = (float)nrepel_get_latency(self->lib_instance);
 }
 
 static void run_adaptive(LV2_Handle instance, uint32_t number_of_samples) {
@@ -146,27 +159,32 @@ static void run_adaptive(LV2_Handle instance, uint32_t number_of_samples) {
 
   // clang-format off
   self->parameters = (NrepelDenoiseParameters){
-      .enable = (bool)*self->enable,
       .residual_listen = (bool)*self->residual_listen,
       .reduction_amount = *self->reduction_amount,
       .noise_rescale = *self->noise_rescale
   };
   // clang-format on
 
-  nrepel_load_parameters(self->lib_instance_1, self->parameters);
+  nrepel_load_parameters(self->lib_instance, self->parameters);
 
-  nrepel_process(self->lib_instance_1, number_of_samples, self->input_1,
+  nrepel_process(self->lib_instance, number_of_samples, self->input_1,
                  self->output_1);
+
+  signal_crossfade_run(self->soft_bypass, number_of_samples, self->input_1,
+                       self->output_1, (bool)*self->enable);
 }
 
 static void run_adaptive_stereo(LV2_Handle instance,
                                 uint32_t number_of_samples) {
   NoiseRepellentAdaptivePlugin *self = (NoiseRepellentAdaptivePlugin *)instance;
 
-  run_adaptive(instance, number_of_samples);
+  run_adaptive(instance, number_of_samples); // Call left side first
 
-  nrepel_process(self->lib_instance_1, number_of_samples, self->input_2,
+  nrepel_process(self->lib_instance, number_of_samples, self->input_2,
                  self->output_2);
+
+  signal_crossfade_run(self->soft_bypass, number_of_samples, self->input_2,
+                       self->output_2, (bool)*self->enable);
 }
 
 static const void *extension_data(const char *uri) { return NULL; }

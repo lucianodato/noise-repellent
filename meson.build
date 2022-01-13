@@ -12,6 +12,7 @@ else
     install_folder = join_paths('.lv2', meson.project_name())
 endif
 
+common_src = ['src/signal_crossfade.c']
 noise_repellent_src = ['plugins/nrepellent.c', 'src/noise_profile_state.c']
 noise_repellent_adaptive_src = 'plugins/nrepellent-adaptive.c'
 
@@ -53,6 +54,7 @@ endif
 
 #build of the shared object
 library('nrepellent',
+    common_src,
     noise_repellent_src,
     name_prefix: '',
     dependencies: nr_dep,
@@ -62,6 +64,7 @@ library('nrepellent',
 )
 
 library('nrepellent-adaptive',
+    common_src,
     noise_repellent_adaptive_src,
     name_prefix: '',
     dependencies: anr_dep,

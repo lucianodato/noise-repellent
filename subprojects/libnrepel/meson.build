@@ -4,7 +4,6 @@ project('libnrepel', 'c', version: '0.1.0',default_options: ['c_std=c99','defaul
 shared_sources = [
     'src/shared/spectral_utils.c',
     'src/shared/spectral_features.c',
-    'src/shared/signal_crossfade.c',
     'src/shared/fft_transform.c',
     'src/shared/spl_spectrum_converter.c',
     'src/shared/spectral_whitening.c',

@@ -27,13 +27,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 // stable. Manage visibility with meson
 // TODO (luciano/todo): Document interface
 // TODO (luciano/todo): Test main file and increase coverage
-// TODO (luciano/todo): Move Plugin functionality to the plugin. Softbypass,
-// noise_profile declaration, parameters, etc.
+// TODO (luciano/todo): Move Plugin functionality to the plugin.
+// noise_profile instance, parameters, etc.
 
 typedef void *NoiseRepellentHandle;
 
 typedef struct NrepelDenoiseParameters {
-  bool enable;          // Plugin
   bool learn_noise;     // Plugin
   bool residual_listen; // Plugin
   float reduction_amount;
