@@ -25,7 +25,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 typedef struct FftTransform FftTransform;
 
-FftTransform *fft_transform_initialize(uint32_t sample_rate, float frame_size);
+FftTransform *fft_transform_initialize(uint32_t sample_rate,
+                                       float frame_size_ms);
 void fft_transform_free(FftTransform *self);
 bool fft_load_input_samples(FftTransform *self, const float *input);
 uint32_t get_fft_size(FftTransform *self);

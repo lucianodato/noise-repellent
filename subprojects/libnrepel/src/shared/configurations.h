@@ -33,7 +33,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 // Fft configurations - Frame size in milliseconds
 #define FRAME_SIZE_GENERAL 46
-#define FRAME_SIZE_SPEECH 20
+#define FRAME_SIZE_SPEECH 36
 
 // dB to dBSPL converter
 #define REFERENCE_SINE_WAVE_FREQ 1000.F
@@ -50,14 +50,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 // OverlapAdd configurations
 #define OVERLAP_FACTOR_GENERAL 4
-#define OVERLAP_FACTOR_SPEECH 2
+#define OVERLAP_FACTOR_SPEECH 4
 
 // Windows
 #define INPUT_WINDOW_TYPE_GENERAL VORBIS_WINDOW
 #define OUTPUT_WINDOW_TYPE_GENERAL VORBIS_WINDOW
 
-#define INPUT_WINDOW_TYPE_SPEECH VORBIS_WINDOW
-#define OUTPUT_WINDOW_TYPE_SPEECH VORBIS_WINDOW
+#define INPUT_WINDOW_TYPE_SPEECH HAMMING_WINDOW
+#define OUTPUT_WINDOW_TYPE_SPEECH HAMMING_WINDOW
 
 /* --------------------------------------------------------------- */
 /* ------------------- Denoiser configurations ------------------- */
@@ -99,12 +99,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define BETA_AT 0.8F
 #define GAMMA 0.998F
 #define ALPHA_P 0.2F
-#define ALPHA_D 0.95F
+#define ALPHA_D 0.85F
 
 #define CROSSOVER_POINT1 1000.F
 #define CROSSOVER_POINT2 3000.F
-#define BAND_1_GAIN 2.F
-#define BAND_2_GAIN 2.F
-#define BAND_3_GAIN 7.F
+#define BAND_1_LEVEL 2.F
+#define BAND_2_LEVEL 2.F
+#define BAND_3_LEVEL 5.F
 
 #endif // ifndef

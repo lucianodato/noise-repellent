@@ -48,10 +48,10 @@ bool get_rolling_mean_spectrum(float *averaged_spectrum,
                                const float *current_spectrum,
                                uint32_t number_of_blocks,
                                uint32_t spectrum_size);
-void denoise_mixer(uint32_t spectral_size, float *fft_spectrum,
-                   const float *gain_spectrum, float *denoised_spectrum,
-                   float *residual_spectrum, bool residual_listen,
-                   float reduction_amount);
+void denoise_mixer(uint32_t fft_size, uint32_t half_fft_size,
+                   float *fft_spectrum, const float *gain_spectrum,
+                   float *denoised_spectrum, float *residual_spectrum,
+                   bool residual_listen, float reduction_amount);
 void spectral_gating(uint32_t spectral_size, const float *spectrum,
                      float *gain_spectrum, const float *noise_spectrum);
 void wiener_subtraction(uint32_t spectral_size, const float *spectrum,

@@ -47,7 +47,7 @@ static inline float vorbis(const uint32_t bin_index, const uint32_t fft_size) {
 
 bool get_fft_window(float *window, const uint32_t fft_size,
                     const WindowTypes window_type) {
-  if (!window || !fft_size || !window_type) {
+  if (!window || !fft_size) {
     return false;
   }
 
@@ -174,28 +174,32 @@ bool get_rolling_mean_spectrum(float *averaged_spectrum,
   return true;
 }
 
-void denoise_mixer(const uint32_t spectral_size, float *fft_spectrum,
-                   const float *gain_spectrum, float *denoised_spectrum,
-                   float *residual_spectrum, const bool residual_listen,
-                   const float reduction_amount) {
+void denoise_mixer(const uint32_t fft_size, const uint32_t half_fft_size,
+                   float *fft_spectrum, const float *gain_spectrum,
+                   float *denoised_spectrum, float *residual_spectrum,
+                   const bool residual_listen, const float reduction_amount) {
 
   // Get denoised spectrum
-  for (uint32_t k = 1U; k <= spectral_size; k++) {
+  for (uint32_t k = 0U; k < half_fft_size; k++) {
     denoised_spectrum[k] = fft_spectrum[k] * gain_spectrum[k];
+    denoised_spectrum[fft_size - k - 1] =
+        fft_spectrum[fft_size - k - 1] * gain_spectrum[k];
   }
 
   // Get residual spectrum
-  for (uint32_t k = 1U; k <= spectral_size; k++) {
+  for (uint32_t k = 0U; k < half_fft_size; k++) {
     residual_spectrum[k] = fft_spectrum[k] - denoised_spectrum[k];
+    residual_spectrum[fft_size - k - 1] =
+        fft_spectrum[fft_size - k - 1] - denoised_spectrum[fft_size - k - 1];
   }
 
   // Mix denoised and residual
   if (residual_listen) {
-    for (uint32_t k = 1U; k <= spectral_size; k++) {
+    for (uint32_t k = 0U; k < fft_size; k++) {
       fft_spectrum[k] = residual_spectrum[k];
     }
   } else {
-    for (uint32_t k = 1U; k <= spectral_size; k++) {
+    for (uint32_t k = 0U; k < fft_size; k++) {
       fft_spectrum[k] =
           denoised_spectrum[k] + residual_spectrum[k] * reduction_amount;
     }

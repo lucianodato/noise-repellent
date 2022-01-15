@@ -21,13 +21,9 @@ nrepel_sources = [
     'src/denoiser/gainmodel/spectral_smoother.c',
     'src/denoiser/gainmodel/gain_estimator.c',
     'src/denoiser/spectral_denoiser.c',
-    'src/nrepel.c',
-]
-
-nrepel_sources_adaptive = [
     'src/adaptivedenoiser/louizou_estimator.c',
     'src/adaptivedenoiser/adaptive_denoiser.c',
-    'src/nrepel_adaptive.c',
+    'src/nrepel.c',
 ]
 
 # public header
@@ -62,15 +58,6 @@ libnrepel = library('nrepel',
   c_args: cflags,
   dependencies: dep)
 
-libanrepel = library('anrepel',
-  shared_sources,
-  nrepel_sources_adaptive,
-  include_directories : inc,
-  c_args: cflags,
-  dependencies: dep)
-
 libnrepel_dep = declare_dependency(include_directories : inc,
   link_with : libnrepel)
 
-libanrepel_dep = declare_dependency(include_directories : inc,
-  link_with : libanrepel)

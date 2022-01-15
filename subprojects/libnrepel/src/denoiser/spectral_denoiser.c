@@ -75,10 +75,8 @@ SpectralProcessorHandle spectral_denoiser_initialize(
       gain_estimation_initialize(self->fft_size, self->sample_rate, self->hop,
                                  self->denoise_parameters, noise_profile);
 
-  self->residual_spectrum =
-      (float *)calloc((self->half_fft_size + 1U), sizeof(float));
-  self->denoised_spectrum =
-      (float *)calloc((self->half_fft_size + 1U), sizeof(float));
+  self->residual_spectrum = (float *)calloc((self->fft_size), sizeof(float));
+  self->denoised_spectrum = (float *)calloc((self->fft_size), sizeof(float));
 
   self->spectral_features =
       spectral_features_initialize(self->half_fft_size + 1U);
@@ -122,7 +120,7 @@ bool spectral_denoiser_run(SpectralProcessorHandle instance,
     gain_estimation_run(self->gain_estimator, reference_spectrum,
                         self->gain_spectrum);
 
-    // TODO (luciano/test): Apply whitening to gain weights instead of the
+    // FIXME (luciano/fix): Apply whitening to gain weights instead of the
     // resulting noise residue
     if (self->denoise_parameters->whitening_factor > 0.F) {
       spectral_whitening_run(self->whitener,
@@ -130,8 +128,9 @@ bool spectral_denoiser_run(SpectralProcessorHandle instance,
                              self->gain_spectrum);
     }
 
-    denoise_mixer(self->half_fft_size, fft_spectrum, self->gain_spectrum,
-                  self->denoised_spectrum, self->residual_spectrum,
+    denoise_mixer(self->fft_size, self->half_fft_size, fft_spectrum,
+                  self->gain_spectrum, self->denoised_spectrum,
+                  self->residual_spectrum,
                   self->denoise_parameters->residual_listen,
                   self->denoise_parameters->reduction_amount);
   }

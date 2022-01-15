@@ -43,6 +43,7 @@ static void update_frame_spectums(LouizouEstimator *self,
 
 struct LouizouEstimator {
   uint32_t noise_spectrum_size;
+  float noisy_speech_ratio;
 
   FrameSpectrum *current;
   FrameSpectrum *previous;
@@ -75,6 +76,8 @@ louizou_estimator_initialize(const uint32_t noise_spectrum_size,
   self->current = frame_spectrum_initialize(noise_spectrum_size);
   self->previous = frame_spectrum_initialize(noise_spectrum_size);
 
+  self->noisy_speech_ratio = 0.F;
+
   return self;
 }
 
@@ -96,7 +99,7 @@ bool louizou_estimator_run(LouizouEstimator *self, const float *spectrum,
     return false;
   }
 
-  for (uint32_t k = 0U; k < self->noise_spectrum_size; k++) {
+  for (uint32_t k = 1U; k < self->noise_spectrum_size; k++) {
     self->current->smoothed_spectrum[k] =
         N_SMOOTH * self->previous->smoothed_spectrum[k] +
         (1.F - N_SMOOTH) * spectrum[k];
@@ -113,11 +116,11 @@ bool louizou_estimator_run(LouizouEstimator *self, const float *spectrum,
           self->current->smoothed_spectrum[k];
     }
 
-    float noisy_speech_ratio =
+    self->noisy_speech_ratio =
         sanitize_denormal(self->current->smoothed_spectrum[k] /
                           self->current->local_minimum_spectrum[k]);
 
-    if (noisy_speech_ratio > self->minimum_detection_thresholds[k]) {
+    if (self->noisy_speech_ratio > self->minimum_detection_thresholds[k]) {
       self->speech_presence_detection[k] = 1U;
     } else {
       self->speech_presence_detection[k] = 0U;
@@ -186,13 +189,13 @@ static void compute_auto_thresholds(LouizouEstimator *self,
   uint32_t MF = freq_to_fft_bin(CROSSOVER_POINT2, sample_rate, fft_size);
   for (uint32_t k = 0U; k < noise_spectrum_size; k++) {
     if (k <= LF) {
-      self->minimum_detection_thresholds[k] = BAND_1_GAIN;
+      self->minimum_detection_thresholds[k] = BAND_1_LEVEL;
     }
     if (k > LF && k < MF) {
-      self->minimum_detection_thresholds[k] = BAND_2_GAIN;
+      self->minimum_detection_thresholds[k] = BAND_2_LEVEL;
     }
     if (k >= MF) {
-      self->minimum_detection_thresholds[k] = BAND_3_GAIN;
+      self->minimum_detection_thresholds[k] = BAND_3_LEVEL;
     }
   }
 }

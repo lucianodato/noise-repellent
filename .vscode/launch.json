@@ -7,7 +7,10 @@
       "request": "launch",
       "program": "/usr/bin/lv2bench",
       "args": [
-        "https://github.com/lucianodato/noise-repellent-stereo" // Plugin URI
+        "https://github.com/lucianodato/noise-repellent#adaptive"
+        // "https://github.com/lucianodato/noise-repellent#adaptive-stereo"
+        // "https://github.com/lucianodato/noise-repellent"
+        // "https://github.com/lucianodato/noise-repellent-stereo" // Plugin URI
       ],
       "stopAtEntry": false,
       "cwd": "${workspaceRoot}",
@@ -34,7 +37,10 @@
         "~/Music/noise.wav", // Any audio input file for testing purposed
         "-o",
         "~/Music/denoised.wav", // Any audio output file for testing purposed
-        "https://github.com/lucianodato/noise-repellent" // Plugin URI
+        "https://github.com/lucianodato/noise-repellent#adaptive"
+        // "https://github.com/lucianodato/noise-repellent#adaptive-stereo"
+        // "https://github.com/lucianodato/noise-repellent"
+        // "https://github.com/lucianodato/noise-repellent-stereo" // Plugin URI
       ],
       "stopAtEntry": false,
       "cwd": "${workspaceRoot}",

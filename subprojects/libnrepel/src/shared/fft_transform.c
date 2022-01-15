@@ -37,10 +37,10 @@ struct FftTransform {
 };
 
 FftTransform *fft_transform_initialize(const uint32_t sample_rate,
-                                       const float frame_size) {
+                                       const float frame_size_ms) {
   FftTransform *self = (FftTransform *)calloc(1U, sizeof(FftTransform));
 
-  self->fft_size = calculate_fft_size(sample_rate, frame_size);
+  self->fft_size = calculate_fft_size(sample_rate, frame_size_ms);
 
   self->input_fft_buffer = (float *)calloc(self->fft_size, sizeof(float));
   self->output_fft_buffer = (float *)calloc(self->fft_size, sizeof(float));
@@ -55,9 +55,9 @@ FftTransform *fft_transform_initialize(const uint32_t sample_rate,
 }
 
 static uint32_t calculate_fft_size(const uint32_t sample_rate,
-                                   const float frame_size) {
+                                   const float frame_size_ms) {
 
-  float amount_samples = (frame_size / 1000.F) * (float)sample_rate;
+  float amount_samples = (frame_size_ms / 1000.F) * (float)sample_rate;
 
   return get_next_power_divisible_two((int)amount_samples);
 }

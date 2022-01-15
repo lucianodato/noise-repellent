@@ -61,11 +61,11 @@ typedef struct NoiseRepellentAdaptivePlugin {
 
 } NoiseRepellentAdaptivePlugin;
 
-static void cleanup_adaptive(LV2_Handle instance) {
+static void cleanup(LV2_Handle instance) {
   NoiseRepellentAdaptivePlugin *self = (NoiseRepellentAdaptivePlugin *)instance;
 
   if (self->lib_instance) {
-    nrepel_free(self->lib_instance);
+    nrepel_adaptive_free(self->lib_instance);
   }
   if (self->soft_bypass) {
     signal_crossfade_free(self->soft_bypass);
@@ -74,18 +74,17 @@ static void cleanup_adaptive(LV2_Handle instance) {
   free(instance);
 }
 
-static LV2_Handle instantiate_adaptive(const LV2_Descriptor *descriptor,
-                                       const double rate,
-                                       const char *bundle_path,
-                                       const LV2_Feature *const *features) {
+static LV2_Handle instantiate(const LV2_Descriptor *descriptor,
+                              const double rate, const char *bundle_path,
+                              const LV2_Feature *const *features) {
   NoiseRepellentAdaptivePlugin *self = (NoiseRepellentAdaptivePlugin *)calloc(
       1U, sizeof(NoiseRepellentAdaptivePlugin));
 
   self->sample_rate = (float)rate;
 
-  self->lib_instance = nrepel_initialize((uint32_t)self->sample_rate);
+  self->lib_instance = nrepel_adaptive_initialize((uint32_t)self->sample_rate);
   if (!self->lib_instance) {
-    cleanup_adaptive((LV2_Handle)self);
+    cleanup((LV2_Handle)self);
     return NULL;
   }
 
@@ -99,8 +98,7 @@ static LV2_Handle instantiate_adaptive(const LV2_Descriptor *descriptor,
   return (LV2_Handle)self;
 }
 
-static void connect_port_adaptive(LV2_Handle instance, uint32_t port,
-                                  void *data) {
+static void connect_port(LV2_Handle instance, uint32_t port, void *data) {
   NoiseRepellentAdaptivePlugin *self = (NoiseRepellentAdaptivePlugin *)instance;
 
   switch ((PortIndex)port) {
@@ -130,11 +128,11 @@ static void connect_port_adaptive(LV2_Handle instance, uint32_t port,
   }
 }
 
-static void connect_port_adaptive_stereo(LV2_Handle instance, uint32_t port,
-                                         void *data) {
+static void connect_port_stereo(LV2_Handle instance, uint32_t port,
+                                void *data) {
   NoiseRepellentAdaptivePlugin *self = (NoiseRepellentAdaptivePlugin *)instance;
 
-  connect_port_adaptive(instance, port, data);
+  connect_port(instance, port, data);
 
   switch ((PortIndex)port) {
   case NOISEREPELLENT_INPUT_2:
@@ -148,13 +146,14 @@ static void connect_port_adaptive_stereo(LV2_Handle instance, uint32_t port,
   }
 }
 
-static void activate_adaptive(LV2_Handle instance) {
+static void activate(LV2_Handle instance) {
   NoiseRepellentAdaptivePlugin *self = (NoiseRepellentAdaptivePlugin *)instance;
 
-  *self->report_latency = (float)nrepel_get_latency(self->lib_instance);
+  *self->report_latency =
+      (float)nrepel_adaptive_get_latency(self->lib_instance);
 }
 
-static void run_adaptive(LV2_Handle instance, uint32_t number_of_samples) {
+static void run(LV2_Handle instance, uint32_t number_of_samples) {
   NoiseRepellentAdaptivePlugin *self = (NoiseRepellentAdaptivePlugin *)instance;
 
   // clang-format off
@@ -165,23 +164,22 @@ static void run_adaptive(LV2_Handle instance, uint32_t number_of_samples) {
   };
   // clang-format on
 
-  nrepel_load_parameters(self->lib_instance, self->parameters);
+  nrepel_adaptive_load_parameters(self->lib_instance, self->parameters);
 
-  nrepel_process(self->lib_instance, number_of_samples, self->input_1,
-                 self->output_1);
+  nrepel_adaptive_process(self->lib_instance, number_of_samples, self->input_1,
+                          self->output_1);
 
   signal_crossfade_run(self->soft_bypass, number_of_samples, self->input_1,
                        self->output_1, (bool)*self->enable);
 }
 
-static void run_adaptive_stereo(LV2_Handle instance,
-                                uint32_t number_of_samples) {
+static void run_stereo(LV2_Handle instance, uint32_t number_of_samples) {
   NoiseRepellentAdaptivePlugin *self = (NoiseRepellentAdaptivePlugin *)instance;
 
-  run_adaptive(instance, number_of_samples); // Call left side first
+  run(instance, number_of_samples); // Call left side first
 
-  nrepel_process(self->lib_instance, number_of_samples, self->input_2,
-                 self->output_2);
+  nrepel_adaptive_process(self->lib_instance, number_of_samples, self->input_2,
+                          self->output_2);
 
   signal_crossfade_run(self->soft_bypass, number_of_samples, self->input_2,
                        self->output_2, (bool)*self->enable);
@@ -192,23 +190,23 @@ static const void *extension_data(const char *uri) { return NULL; }
 // clang-format off
 static const LV2_Descriptor descriptor_adaptive = {
     NOISEREPELLENT_ADAPTIVE_URI,
-    instantiate_adaptive,
-    connect_port_adaptive,
-    activate_adaptive,
-    run_adaptive,
+    instantiate,
+    connect_port,
+    activate,
+    run,
     NULL,
-    cleanup_adaptive,
+    cleanup,
     extension_data
 };
 
 static const LV2_Descriptor descriptor_adaptive_stereo = {
     NOISEREPELLENT_ADAPTIVE_STEREO_URI,
-    instantiate_adaptive,
-    connect_port_adaptive_stereo,
-    activate_adaptive,
-    run_adaptive_stereo,
+    instantiate,
+    connect_port_stereo,
+    activate,
+    run_stereo,
     NULL,
-    cleanup_adaptive,
+    cleanup,
     extension_data
 };
 // clang-format on

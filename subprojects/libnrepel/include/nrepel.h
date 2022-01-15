@@ -48,6 +48,8 @@ void nrepel_free(NoiseRepellentHandle instance);
 bool nrepel_process(NoiseRepellentHandle instance, uint32_t number_of_samples,
                     const float *input, float *output);
 uint32_t nrepel_get_latency(NoiseRepellentHandle instance);
+bool nrepel_load_parameters(NoiseRepellentHandle instance,
+                            NrepelDenoiseParameters parameters);
 uint32_t nrepel_get_noise_profile_size(NoiseRepellentHandle instance);
 float *nrepel_get_noise_profile(NoiseRepellentHandle instance);
 bool nrepel_load_noise_profile(NoiseRepellentHandle instance,
@@ -57,7 +59,14 @@ uint32_t
 nrepel_get_noise_profile_blocks_averaged(NoiseRepellentHandle instance);
 bool nrepel_reset_noise_profile(NoiseRepellentHandle instance);
 bool nrepel_noise_profile_available(NoiseRepellentHandle instance);
-bool nrepel_load_parameters(NoiseRepellentHandle instance,
-                            NrepelDenoiseParameters parameters);
+
+NoiseRepellentHandle nrepel_adaptive_initialize(uint32_t sample_rate);
+void nrepel_adaptive_free(NoiseRepellentHandle instance);
+bool nrepel_adaptive_process(NoiseRepellentHandle instance,
+                             uint32_t number_of_samples, const float *input,
+                             float *output);
+uint32_t nrepel_adaptive_get_latency(NoiseRepellentHandle instance);
+bool nrepel_adaptive_load_parameters(NoiseRepellentHandle instance,
+                                     NrepelDenoiseParameters parameters);
 
 #endif
