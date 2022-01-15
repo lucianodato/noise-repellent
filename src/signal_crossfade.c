@@ -23,7 +23,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <stdlib.h>
 #include <string.h>
 
-#define RELEASE_TIME_SEC 0.3F
+#ifndef M_PI
+#define M_PI 3.1415926535F
+#endif
+
+#define RELEASE_TIME_MS 30.F
 
 struct SignalCrossfade {
   float tau;
@@ -35,8 +39,8 @@ SignalCrossfade *signal_crossfade_initialize(const uint32_t sample_rate) {
   SignalCrossfade *self =
       (SignalCrossfade *)calloc(1U, sizeof(SignalCrossfade));
 
-  const float release_block_length_in_s = RELEASE_TIME_SEC;
-  self->tau = expf(-1.F / (release_block_length_in_s * (float)sample_rate));
+  self->tau =
+      (1.F - expf(-128.F * M_PI * RELEASE_TIME_MS / (float)sample_rate));
   self->wet_dry = 0.F;
   self->wet_dry_target = 0.F;
 
