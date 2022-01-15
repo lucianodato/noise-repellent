@@ -33,7 +33,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 // Fft configurations - Frame size in milliseconds
 #define FRAME_SIZE_GENERAL 46
-#define FRAME_SIZE_SPEECH 36
+#define FRAME_SIZE_SPEECH 46
 
 // dB to dBSPL converter
 #define REFERENCE_SINE_WAVE_FREQ 1000.F
