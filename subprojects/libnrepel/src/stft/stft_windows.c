@@ -28,7 +28,6 @@ struct StftWindows {
   float *input_window;
   float *output_window;
   uint32_t window_size;
-  uint32_t half_window_size;
   float scale_factor;
 };
 
@@ -39,7 +38,6 @@ StftWindows *stft_window_initialize(const uint32_t window_size,
   StftWindows *self = (StftWindows *)calloc(1U, sizeof(StftWindows));
 
   self->window_size = window_size;
-  self->half_window_size = self->window_size / 2U;
 
   self->input_window = (float *)calloc(self->window_size, sizeof(float));
   self->output_window = (float *)calloc(self->window_size, sizeof(float));
@@ -77,17 +75,13 @@ bool apply_window(StftWindows *self, float *frame, const WindowPlace place) {
     return false;
   }
 
-  for (uint32_t i = 0U; i < self->half_window_size; i++) {
+  for (uint32_t i = 0U; i < self->window_size; i++) {
     switch (place) {
     case INPUT_WINDOW:
       frame[i] *= self->input_window[i];
-      frame[self->window_size - i - 1] *=
-          self->input_window[self->window_size - i - 1];
       break;
     case OUTPUT_WINDOW:
       frame[i] *= self->output_window[i] / self->scale_factor;
-      frame[self->window_size - i - 1] *=
-          self->output_window[self->window_size - i - 1] / self->scale_factor;
       break;
     default:
       break;

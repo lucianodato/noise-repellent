@@ -159,6 +159,16 @@
             "dependsOrder": "sequence"
         },
         {
+            "label": "TestPluginDAW",
+            "dependsOn": [
+                "CleanBuildFolder",
+                "MesonDebugConfig",
+                "NinjaBuild",
+                "NinjaInstall",
+            ],
+            "dependsOrder": "sequence"
+        },
+        {
             "label": "TestPlugin",
             "dependsOn": [
                 "CleanBuildFolder",

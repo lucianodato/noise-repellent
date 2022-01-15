@@ -33,7 +33,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 // Fft configurations - Frame size in milliseconds
 #define FRAME_SIZE_GENERAL 46
-#define FRAME_SIZE_SPEECH 46
+#define FRAME_SIZE_SPEECH 20
 
 // dB to dBSPL converter
 #define REFERENCE_SINE_WAVE_FREQ 1000.F
@@ -50,14 +50,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 // OverlapAdd configurations
 #define OVERLAP_FACTOR_GENERAL 4
-#define OVERLAP_FACTOR_SPEECH 4
+#define OVERLAP_FACTOR_SPEECH 2
 
 // Windows
 #define INPUT_WINDOW_TYPE_GENERAL VORBIS_WINDOW
 #define OUTPUT_WINDOW_TYPE_GENERAL VORBIS_WINDOW
 
-#define INPUT_WINDOW_TYPE_SPEECH HAMMING_WINDOW
-#define OUTPUT_WINDOW_TYPE_SPEECH HAMMING_WINDOW
+#define INPUT_WINDOW_TYPE_SPEECH VORBIS_WINDOW
+#define OUTPUT_WINDOW_TYPE_SPEECH VORBIS_WINDOW
 
 /* --------------------------------------------------------------- */
 /* ------------------- Denoiser configurations ------------------- */
