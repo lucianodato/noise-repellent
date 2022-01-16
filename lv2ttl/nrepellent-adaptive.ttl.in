@@ -28,8 +28,6 @@
                "An LV2 plugin for broadband noise reduction" ;
   lv2:project <https://github.com/lucianodato/noise-repellent> ;
   lv2:optionalFeature lv2:isLive, lv2:hardRTCapable ;
-  lv2:extensionData state:interface ;
-  lv2:requiredFeature urid:map ;
 
   lv2:minorVersion @MINOR_VERSION@ ;
   lv2:microVersion @MICRO_VERSION@ ;

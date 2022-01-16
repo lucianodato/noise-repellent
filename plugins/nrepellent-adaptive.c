@@ -185,8 +185,6 @@ static void run_stereo(LV2_Handle instance, uint32_t number_of_samples) {
                        self->output_2, (bool)*self->enable);
 }
 
-static const void *extension_data(const char *uri) { return NULL; }
-
 // clang-format off
 static const LV2_Descriptor descriptor_adaptive = {
     NOISEREPELLENT_ADAPTIVE_URI,
@@ -196,7 +194,7 @@ static const LV2_Descriptor descriptor_adaptive = {
     run,
     NULL,
     cleanup,
-    extension_data
+    NULL
 };
 
 static const LV2_Descriptor descriptor_adaptive_stereo = {
@@ -207,7 +205,7 @@ static const LV2_Descriptor descriptor_adaptive_stereo = {
     run_stereo,
     NULL,
     cleanup,
-    extension_data
+    NULL
 };
 // clang-format on
 
