@@ -87,8 +87,10 @@ MaskingEstimator *masking_estimation_initialize(const uint32_t fft_size,
 }
 
 void masking_estimation_free(MaskingEstimator *self) {
+  reference_spectrum_free(self->reference_spectrum);
+  critical_bands_free(self->critical_bands);
+
   free(self->absolute_thresholds);
-  free(self->critical_bands);
   free(self->spectral_spreading_function);
   free(self->unity_gain_bark_spectrum);
   free(self->spreaded_unity_gain_bark_spectrum);
