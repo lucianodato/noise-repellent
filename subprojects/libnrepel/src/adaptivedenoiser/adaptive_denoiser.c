@@ -104,7 +104,7 @@ bool spectral_adaptive_denoiser_run(SpectralProcessorHandle instance,
   }
 
   float a_posteriori_snr = 20.F;
-  float oversustraction_factor = 1.F;
+  float oversubtraction_factor = 1.F;
 
   SpectralAdaptiveDenoiser *self = (SpectralAdaptiveDenoiser *)instance;
 
@@ -115,21 +115,21 @@ bool spectral_adaptive_denoiser_run(SpectralProcessorHandle instance,
   louizou_estimator_run(self->adaptive_estimator, reference_spectrum,
                         self->noise_profile);
 
-  // Scale estimated noise profile for oversustraction using a posteriori SNR
+  // Scale estimated noise profile for oversubtraction using a posteriori SNR
   // piecewise function
   for (uint32_t k = 1U; k <= self->half_fft_size; k++) {
     a_posteriori_snr =
         10.F * log10f(reference_spectrum[k] / self->noise_profile[k]);
 
     if (a_posteriori_snr >= 0.F && a_posteriori_snr <= 20.F) {
-      oversustraction_factor =
+      oversubtraction_factor =
           -0.05F * (a_posteriori_snr) + self->parameters.noise_rescale;
     } else if (a_posteriori_snr < 0.F) {
-      oversustraction_factor = self->parameters.noise_rescale;
+      oversubtraction_factor = self->parameters.noise_rescale;
     } else if (a_posteriori_snr > 20.F) {
-      oversustraction_factor = 1.F;
+      oversubtraction_factor = 1.F;
     }
-    self->noise_profile[k] *= oversustraction_factor;
+    self->noise_profile[k] *= oversubtraction_factor;
   }
 
   // Get reduction gain weights

@@ -56,7 +56,7 @@ FftTransform *fft_transform_initialize(const uint32_t sample_rate,
 
 static uint32_t calculate_fft_size(const uint32_t sample_rate,
                                    const float frame_size_ms) {
-
+  // TODO (luciano/todo): test zeropadding some amount
   float amount_samples = (frame_size_ms / 1000.F) * (float)sample_rate;
 
   return get_next_power_divisible_two((int)amount_samples);

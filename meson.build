@@ -6,12 +6,14 @@ add_project_arguments('-fvisibility=hidden', language : 'c')
 libnrepel_proj = subproject('libnrepel')
 
 #install folder
-if get_option('buildtype') == 'release'
-    install_folder = join_paths(get_option('libdir'), 'lv2', meson.project_name())
+if(get_option('buildtype') == 'release')
+    lv2_directory = join_paths(get_option('libdir'), 'lv2')
 else
-    install_folder = join_paths('.lv2', meson.project_name())
+    lv2_directory = '.lv2'
 endif
+install_folder = join_paths(lv2_directory, meson.project_name())
 
+# sources to compile
 common_src = ['src/signal_crossfade.c']
 noise_repellent_src = ['plugins/nrepellent.c', 'src/noise_profile_state.c']
 noise_repellent_adaptive_src = 'plugins/nrepellent-adaptive.c'
@@ -24,19 +26,17 @@ nr_dep = [lv2_dep,nrepel_dep]
 #get the host operating system and configure install path and shared object extension
 current_os = host_machine.system()
 current_arch = host_machine.cpu_family()
-cflags = []
 
 #compiler flags
-if get_option('buildtype') == 'release'
-    # Add x86_64 optimization where appropriate (not for ARM, not for riscv)
-    if current_arch != 'aarch64' and current_arch != 'riscv64' and current_os != 'darwin' 
-        cflags += ['-ffast-math', '-msse','-msse2','-mfpmath=sse']
-        
-    endif
-    # Add osx multiarch flags when appropriate
-    if current_os == 'darwin'
-        cflags += ['-mrecip']
-    endif
+cflags = []
+
+# Add x86_64 optimization where appropriate (not for ARM, not for riscv)
+if current_arch != 'aarch64' and current_arch != 'riscv64' and current_os != 'darwin' 
+    cflags += ['-ffast-math', '-msse','-msse2','-mfpmath=sse']
+endif
+# Add osx multiarch flags when appropriate
+if current_os == 'darwin'
+    cflags += ['-mrecip']
 endif
 
 # Extension for library by os

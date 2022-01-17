@@ -33,6 +33,6 @@ StftWindows *stft_window_initialize(uint32_t window_size,
                                     WindowTypes input_window,
                                     WindowTypes output_window);
 void stft_window_free(StftWindows *self);
-bool apply_window(StftWindows *self, float *frame, WindowPlace place);
+bool stft_window_apply(StftWindows *self, float *frame, WindowPlace place);
 
 #endif

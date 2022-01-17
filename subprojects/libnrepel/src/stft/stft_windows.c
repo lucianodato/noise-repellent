@@ -70,7 +70,8 @@ static float get_windows_scale_factor(StftWindows *self,
   return sum * (float)overlap_factor;
 }
 
-bool apply_window(StftWindows *self, float *frame, const WindowPlace place) {
+bool stft_window_apply(StftWindows *self, float *frame,
+                       const WindowPlace place) {
   if (!self || !frame) {
     return false;
   }

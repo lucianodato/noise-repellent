@@ -89,8 +89,9 @@ bool stft_processor_run(StftProcessor *self, const uint32_t number_of_samples,
                              get_full_buffer_block(self->stft_buffer));
 
       // STFT Analysis
-      apply_window(self->stft_windows,
-                   get_fft_input_buffer(self->fft_transform), INPUT_WINDOW);
+      stft_window_apply(self->stft_windows,
+                        get_fft_input_buffer(self->fft_transform),
+                        INPUT_WINDOW);
 
       compute_forward_fft(self->fft_transform);
 
@@ -101,8 +102,9 @@ bool stft_processor_run(StftProcessor *self, const uint32_t number_of_samples,
       // STFT Synthesis
       compute_backward_fft(self->fft_transform);
 
-      apply_window(self->stft_windows,
-                   get_fft_input_buffer(self->fft_transform), OUTPUT_WINDOW);
+      stft_window_apply(self->stft_windows,
+                        get_fft_input_buffer(self->fft_transform),
+                        OUTPUT_WINDOW);
 
       // STFT Overlap Add
       for (uint32_t k = 0U; k < self->buffer_size; k++) {

@@ -9,6 +9,7 @@ shared_sources = [
     'src/shared/spectral_whitening.c',
     'src/shared/general_utils.c',
     'src/shared/noise_profile.c',
+    'src/shared/critical_bands.c',
     'src/stft/stft_windows.c',
     'src/stft/stft_buffer.c',
     'src/stft/stft_processor.c',
@@ -36,19 +37,17 @@ dep = [m_dep, fftw_dep]
 #get the host operating system and configure install path and shared object extension
 current_os = host_machine.system()
 current_arch = host_machine.cpu_family()
-cflags = []
 
 #compiler flags
-if get_option('buildtype') == 'release'
-    # Add x86_64 optimization where appropriate (not for ARM, not for riscv)
-    if current_arch != 'aarch64' and current_arch != 'riscv64' and current_os != 'darwin' 
-        cflags += ['-ffast-math', '-msse','-msse2','-mfpmath=sse']
-        
-    endif
-    # Add osx multiarch flags when appropriate
-    if current_os == 'darwin'
-        cflags += ['-mrecip']
-    endif
+cflags = []
+
+# Add x86_64 optimization where appropriate (not for ARM, not for riscv)
+if current_arch != 'aarch64' and current_arch != 'riscv64' and current_os != 'darwin' 
+    cflags += ['-ffast-math', '-msse','-msse2','-mfpmath=sse']
+endif
+# Add osx multiarch flags when appropriate
+if current_os == 'darwin'
+    cflags += ['-mrecip']
 endif
 
 libnrepel = library('nrepel',
