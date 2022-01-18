@@ -39,6 +39,8 @@ typedef struct SpectralDenoiser {
   float *residual_spectrum;
   float *denoised_spectrum;
 
+  SpectalType spectrum_type;
+
   NoiseEstimator *noise_estimator;
   SpectralWhitening *whitener;
   NoiseProfile *noise_profile;
@@ -59,6 +61,7 @@ SpectralProcessorHandle spectral_denoiser_initialize(
   self->half_fft_size = self->fft_size / 2U;
   self->hop = self->fft_size / overlap_factor;
   self->sample_rate = sample_rate;
+  self->spectrum_type = SPECTRAL_TYPE;
 
   self->gain_spectrum =
       (float *)calloc((self->half_fft_size + 1U), sizeof(float));
@@ -109,8 +112,9 @@ bool spectral_denoiser_run(SpectralProcessorHandle instance,
 
   SpectralDenoiser *self = (SpectralDenoiser *)instance;
 
-  float *reference_spectrum = get_spectral_feature(
-      self->spectral_features, fft_spectrum, self->fft_size, SPECTRAL_TYPE);
+  float *reference_spectrum =
+      get_spectral_feature(self->spectral_features, fft_spectrum,
+                           self->fft_size, self->spectrum_type);
 
   if (self->denoise_parameters->learn_noise) {
     noise_estimation_run(self->noise_estimator, reference_spectrum);

@@ -20,6 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #ifndef MODULES_CONFIGURATIONS_H
 #define MODULES_CONFIGURATIONS_H
 
+#include "critical_bands.h"
 #include "spectral_features.h"
 #include "spectral_utils.h"
 
@@ -33,7 +34,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 // Fft configurations - Frame size in milliseconds
 #define FRAME_SIZE_GENERAL 46
-#define FRAME_SIZE_SPEECH 20
+#define FRAME_SIZE_SPEECH 32
 
 // dB to dBSPL converter
 #define REFERENCE_SINE_WAVE_FREQ 1000.F
@@ -63,14 +64,17 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 /* ------------------- Denoiser configurations ------------------- */
 /* --------------------------------------------------------------- */
 
-// Spectral Denoiser
+// Spectral Type
 #define SPECTRAL_TYPE POWER_SPECTRUM
+
+// General Denoiser
 
 // Transient protection
 #define UPPER_LIMIT 5.F
 
 // Masking
-#define N_BARK_BANDS 25
+#define N_CRITICAL_BANDS 25
+#define CRITICAL_BANDS_TYPE BARK_SCALE
 #define BIAS 0
 #define HIGH_FREQ_BIAS 20.F
 
@@ -93,6 +97,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 // Noise Estimator
 #define MIN_NUMBER_OF_WINDOWS_NOISE_AVERAGED 5
+
+// Adaptive Denoiser
+#define N_CRITICAL_BANDS_SPEECH 25
+#define CRITICAL_BANDS_TYPE_SPEECH BARK_SCALE
 
 // Louizou Estimator
 #define N_SMOOTH 0.7F

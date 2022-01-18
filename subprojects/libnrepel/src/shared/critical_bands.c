@@ -24,10 +24,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <stdlib.h>
 
 static void compute_mapping_spectrum(CriticalBands *self);
+static void compute_band_indexes(CriticalBands *self);
 
 struct CriticalBands {
   float *mapping_spectrum;
-  float *converted_spectrum;
   uint32_t *intermediate_band_bins;
   uint32_t *n_bins_per_band;
 
@@ -35,6 +35,7 @@ struct CriticalBands {
   uint32_t sample_rate;
   uint32_t number_bands;
   CriticalBandType type;
+  CriticalBandIndexes band_indexes;
 };
 
 CriticalBands *critical_bands_initialize(const uint32_t sample_rate,
@@ -51,12 +52,12 @@ CriticalBands *critical_bands_initialize(const uint32_t sample_rate,
   self->type = type;
 
   self->mapping_spectrum = (float *)calloc(frame_size + 1U, sizeof(float));
-  self->converted_spectrum = (float *)calloc(number_bands, sizeof(float));
   self->intermediate_band_bins =
       (uint32_t *)calloc(number_bands, sizeof(uint32_t));
   self->n_bins_per_band = (uint32_t *)calloc(number_bands, sizeof(uint32_t));
 
   compute_mapping_spectrum(self);
+  compute_band_indexes(self);
 
   return self;
 };
@@ -64,7 +65,6 @@ CriticalBands *critical_bands_initialize(const uint32_t sample_rate,
 void critical_bands_free(CriticalBands *self) {
   free(self->intermediate_band_bins);
   free(self->n_bins_per_band);
-  free(self->converted_spectrum);
   free(self->mapping_spectrum);
 }
 
@@ -77,10 +77,10 @@ static void compute_mapping_spectrum(CriticalBands *self) {
       self->mapping_spectrum[k] = 13.F * atanf(0.00076F * frequency) +
                                   3.5F * atanf(powf(frequency / 7500.F, 2.F));
       break;
-    case MEL_SCALE:
+    case MEL_SCALE: // FIXME (luciano/todo): broken mapping
       self->mapping_spectrum[k] = 2595.F * log10f(1.F + frequency / 700.F);
       break;
-    case ERB_SCALE:
+    case ERB_SCALE: // FIXME (luciano/todo): broken mapping
       self->mapping_spectrum[k] =
           6.23F * powf(frequency, 2.F) + 93.39F * frequency + 28.52F;
       break;
@@ -90,43 +90,65 @@ static void compute_mapping_spectrum(CriticalBands *self) {
   }
 }
 
-bool compute_critical_bands_spectrum(CriticalBands *self,
-                                     const float *spectrum) {
+static void compute_band_indexes(CriticalBands *self) {
+
+  for (uint32_t k = 1U; k <= self->frame_size; k++) {
+    self->mapping_spectrum[k] = truncf(self->mapping_spectrum[k]);
+  }
+
+  uint32_t last_position = 1U;
+  for (uint32_t j = 0U; j < self->number_bands; j++) {
+    uint32_t counter = 0U;
+
+    float current_band = (float)j + 1.F;
+    while (self->mapping_spectrum[last_position + counter] <= current_band ||
+           (counter == 0U && self->mapping_spectrum[last_position + counter] ==
+                                 current_band + 1.F)) {
+      counter++;
+    }
+
+    self->n_bins_per_band[j] = counter;
+    self->intermediate_band_bins[j] = last_position;
+
+    last_position += counter;
+  }
+}
+
+bool compute_critical_bands_spectrum(CriticalBands *self, const float *spectrum,
+                                     float *critical_bands) {
   if (!spectrum) {
     return false;
   }
 
-  uint32_t last_position = 0U;
+  for (uint32_t j = 0U; j < self->number_bands; j++) {
 
-  for (uint32_t j = 0U; j < N_BARK_BANDS; j++) {
-    uint32_t counter = 0U;
-    if (j == 0) {
-      counter = 1U;
+    self->band_indexes = get_band_indexes(self, j);
+
+    for (uint32_t k = self->band_indexes.start_position;
+         k < self->band_indexes.end_position; k++) {
+      critical_bands[j] += spectrum[k];
     }
-
-    self->converted_spectrum[j] = 0.F;
-
-    while (floorf(self->mapping_spectrum[last_position + counter]) ==
-           ((float)j + 1)) {
-      self->converted_spectrum[j] += spectrum[last_position + counter];
-      counter++;
-    }
-
-    last_position += counter;
-
-    self->n_bins_per_band[j] = counter;
-    self->intermediate_band_bins[j] = last_position;
   }
 
   return true;
 }
 
-float *get_critical_bands_spectrum(CriticalBands *self) {
-  return self->converted_spectrum;
-}
-uint32_t *get_intermediate_band_bins(CriticalBands *self) {
-  return self->intermediate_band_bins;
-}
-uint32_t *get_n_bins_per_band(CriticalBands *self) {
-  return self->n_bins_per_band;
+CriticalBandIndexes get_band_indexes(CriticalBands *self,
+                                     const uint32_t band_number) {
+  uint32_t start_pos = 0U;
+  uint32_t end_pos = 0U;
+
+  if (band_number == 0) {
+    start_pos = 1U;
+    end_pos = self->n_bins_per_band[band_number];
+  } else {
+    start_pos = self->intermediate_band_bins[band_number - 1];
+    end_pos = self->intermediate_band_bins[band_number - 1] +
+              self->n_bins_per_band[band_number];
+  }
+
+  return (CriticalBandIndexes){
+      .start_position = start_pos,
+      .end_position = end_pos,
+  };
 }

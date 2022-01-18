@@ -36,9 +36,11 @@ struct MaskingEstimator {
   uint32_t fft_size;
   uint32_t half_fft_size;
   uint32_t sample_rate;
+  uint32_t number_critical_bands;
 
   SplSpectrumConverter *reference_spectrum;
   CriticalBands *critical_bands;
+  CriticalBandIndexes band_indexes;
 
   float *absolute_thresholds;
   float *spectral_spreading_function;
@@ -47,6 +49,7 @@ struct MaskingEstimator {
   float *threshold_j;
   float *masking_offset;
   float *spreaded_spectrum;
+  float *bark_power_spectrum;
 };
 
 MaskingEstimator *masking_estimation_initialize(const uint32_t fft_size,
@@ -58,30 +61,40 @@ MaskingEstimator *masking_estimation_initialize(const uint32_t fft_size,
   self->fft_size = fft_size;
   self->half_fft_size = self->fft_size / 2U;
   self->sample_rate = sample_rate;
+  self->number_critical_bands = N_CRITICAL_BANDS;
 
   self->absolute_thresholds =
       (float *)calloc((self->half_fft_size + 1U), sizeof(float));
 
   self->spectral_spreading_function =
-      (float *)calloc((size_t)(N_BARK_BANDS * N_BARK_BANDS), sizeof(float));
-  self->unity_gain_bark_spectrum = (float *)calloc(N_BARK_BANDS, sizeof(float));
+      (float *)calloc(((size_t)self->number_critical_bands *
+                       (size_t)self->number_critical_bands),
+                      sizeof(float));
+  self->unity_gain_bark_spectrum =
+      (float *)calloc(self->number_critical_bands, sizeof(float));
   self->spreaded_unity_gain_bark_spectrum =
-      (float *)calloc(N_BARK_BANDS, sizeof(float));
-  self->threshold_j = (float *)calloc(N_BARK_BANDS, sizeof(float));
-  self->masking_offset = (float *)calloc(N_BARK_BANDS, sizeof(float));
-  self->spreaded_spectrum = (float *)calloc(N_BARK_BANDS, sizeof(float));
+      (float *)calloc(self->number_critical_bands, sizeof(float));
+  self->threshold_j =
+      (float *)calloc(self->number_critical_bands, sizeof(float));
+  self->masking_offset =
+      (float *)calloc(self->number_critical_bands, sizeof(float));
+  self->spreaded_spectrum =
+      (float *)calloc(self->number_critical_bands, sizeof(float));
+  self->bark_power_spectrum =
+      (float *)calloc(self->number_critical_bands, sizeof(float));
 
   self->reference_spectrum = reference_spectrum_initialize(self->sample_rate);
   self->critical_bands = critical_bands_initialize(
-      sample_rate, self->half_fft_size + 1U, N_BARK_BANDS, BARK_SCALE);
+      sample_rate, self->half_fft_size, self->number_critical_bands,
+      CRITICAL_BANDS_TYPE);
 
   compute_absolute_thresholds(self);
   compute_spectral_spreading_function(self);
-  initialize_spectrum_with_value(self->unity_gain_bark_spectrum, N_BARK_BANDS,
-                                 1.F);
+  initialize_spectrum_with_value(self->unity_gain_bark_spectrum,
+                                 self->number_critical_bands, 1.F);
   direct_matrix_to_vector_spectral_convolution(
       self->spectral_spreading_function, self->unity_gain_bark_spectrum,
-      self->spreaded_unity_gain_bark_spectrum, N_BARK_BANDS);
+      self->spreaded_unity_gain_bark_spectrum, self->number_critical_bands);
 
   return self;
 }
@@ -107,14 +120,14 @@ bool compute_masking_thresholds(MaskingEstimator *self, const float *spectrum,
     return false;
   }
 
-  compute_critical_bands_spectrum(self->critical_bands, spectrum);
+  compute_critical_bands_spectrum(self->critical_bands, spectrum,
+                                  self->bark_power_spectrum);
 
   direct_matrix_to_vector_spectral_convolution(
-      self->spectral_spreading_function,
-      get_critical_bands_spectrum(self->critical_bands),
-      self->spreaded_spectrum, N_BARK_BANDS);
+      self->spectral_spreading_function, self->bark_power_spectrum,
+      self->spreaded_spectrum, self->number_critical_bands);
 
-  for (uint32_t j = 0U; j < N_BARK_BANDS; j++) {
+  for (uint32_t j = 0U; j < self->number_critical_bands; j++) {
 
     const float tonality_factor = compute_tonality_factor(self, spectrum, j);
 
@@ -134,17 +147,10 @@ bool compute_masking_thresholds(MaskingEstimator *self, const float *spectrum,
                        (self->masking_offset[j] / 10.F)) -
         (10.F * log10f(self->spreaded_unity_gain_bark_spectrum[j]));
 
-    uint32_t start_pos = 0U;
-    if (j == 0) {
-      start_pos = 0U;
-    } else {
-      start_pos = get_intermediate_band_bins(self->critical_bands)[j - 1];
-    }
+    self->band_indexes = get_band_indexes(self->critical_bands, j);
 
-    const uint32_t end_pos =
-        get_intermediate_band_bins(self->critical_bands)[j];
-
-    for (uint32_t k = start_pos; k < end_pos; k++) {
+    for (uint32_t k = self->band_indexes.start_position;
+         k < self->band_indexes.end_position; k++) {
       masking_thresholds[k] = self->threshold_j[j];
     }
   }
@@ -172,16 +178,18 @@ static void compute_absolute_thresholds(MaskingEstimator *self) {
 }
 
 static void compute_spectral_spreading_function(MaskingEstimator *self) {
-  for (uint32_t i = 0U; i < N_BARK_BANDS; i++) {
-    for (uint32_t j = 0U; j < N_BARK_BANDS; j++) {
+  for (uint32_t i = 0U; i < self->number_critical_bands; i++) {
+    for (uint32_t j = 0U; j < self->number_critical_bands; j++) {
       const uint32_t y = (i + 1) - (j + 1);
 
-      self->spectral_spreading_function[i * N_BARK_BANDS + j] =
+      self->spectral_spreading_function[i * self->number_critical_bands + j] =
           15.81F + 7.5F * ((float)y + 0.474F) -
           17.5F * sqrtf(1.F + ((float)y + 0.474F) * ((float)y + 0.474F));
 
-      self->spectral_spreading_function[i * N_BARK_BANDS + j] = powf(
-          10.F, self->spectral_spreading_function[i * N_BARK_BANDS + j] / 10.F);
+      self->spectral_spreading_function[i * self->number_critical_bands + j] =
+          powf(10.F, self->spectral_spreading_function
+                             [i * self->number_critical_bands + j] /
+                         10.F);
     }
   }
 }
@@ -190,28 +198,20 @@ static float compute_tonality_factor(MaskingEstimator *self,
                                      const float *spectrum, uint32_t band) {
   float sum_bins = 0.F;
   float sum_log_bins = 0.F;
-  uint32_t start_pos = 0U;
-  uint32_t end_pos = 0U;
 
-  if (band == 0) {
-    start_pos = band;
-    end_pos = get_n_bins_per_band(self->critical_bands)[band];
-  } else {
-    start_pos = get_intermediate_band_bins(self->critical_bands)[band - 1];
-    end_pos = get_intermediate_band_bins(self->critical_bands)[band - 1] +
-              get_n_bins_per_band(self->critical_bands)[band];
-  }
+  self->band_indexes = get_band_indexes(self->critical_bands, band);
 
-  for (uint32_t k = start_pos; k < end_pos; k++) {
+  for (uint32_t k = self->band_indexes.start_position;
+       k < self->band_indexes.end_position; k++) {
     sum_bins += spectrum[k];
     sum_log_bins += log10f(spectrum[k]);
   }
 
+  float bins_in_band = (float)self->band_indexes.end_position -
+                       (float)self->band_indexes.start_position;
+
   const float SFM =
-      10.F *
-      (sum_log_bins / (float)(get_n_bins_per_band(self->critical_bands)[band]) -
-       log10f(sum_bins /
-              (float)(get_n_bins_per_band(self->critical_bands)[band])));
+      10.F * (sum_log_bins / bins_in_band) - log10f(sum_bins / bins_in_band);
 
   const float tonality_factor = fminf(SFM / -60.F, 1.F);
 
