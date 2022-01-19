@@ -89,8 +89,8 @@ SpectralProcessorHandle spectral_denoiser_initialize(
       self->fft_size, self->sample_rate, self->hop);
 
   self->oversubtraction_criteria = oversubtraction_criterias_initialize(
-      MASKING_THRESHOLDS, N_CRITICAL_BANDS, self->half_fft_size,
-      CRITICAL_BANDS_TYPE, self->sample_rate);
+      MASKING_THRESHOLDS, N_CRITICAL_BANDS, self->fft_size, CRITICAL_BANDS_TYPE,
+      self->sample_rate);
 
   self->whitener = spectral_whitening_initialize(self->fft_size,
                                                  self->sample_rate, self->hop);

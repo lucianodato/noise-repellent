@@ -54,6 +54,23 @@ FftTransform *fft_transform_initialize(const uint32_t sample_rate,
   return self;
 }
 
+FftTransform *fft_transform_initialize_bins(const uint32_t frame_size_bins) {
+  FftTransform *self = (FftTransform *)calloc(1U, sizeof(FftTransform));
+
+  self->fft_size = frame_size_bins;
+
+  self->input_fft_buffer = (float *)calloc(self->fft_size, sizeof(float));
+  self->output_fft_buffer = (float *)calloc(self->fft_size, sizeof(float));
+  self->forward =
+      fftwf_plan_r2r_1d((int)self->fft_size, self->input_fft_buffer,
+                        self->output_fft_buffer, FFTW_FORWARD, FFTW_ESTIMATE);
+  self->backward =
+      fftwf_plan_r2r_1d((int)self->fft_size, self->output_fft_buffer,
+                        self->input_fft_buffer, FFTW_BACKWARD, FFTW_ESTIMATE);
+
+  return self;
+}
+
 static uint32_t calculate_fft_size(const uint32_t sample_rate,
                                    const float frame_size_ms) {
   // TODO (luciano/todo): test zeropadding some amount

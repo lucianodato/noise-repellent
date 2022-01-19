@@ -25,7 +25,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 typedef struct SplSpectrumConverter SplSpectrumConverter;
 
-SplSpectrumConverter *reference_spectrum_initialize(uint32_t sample_rate);
+SplSpectrumConverter *reference_spectrum_initialize(uint32_t sample_rate,
+                                                    uint32_t fft_size);
 void reference_spectrum_free(SplSpectrumConverter *self);
 bool convert_spectrum_to_dbspl(SplSpectrumConverter *self, float *spectrum);
 

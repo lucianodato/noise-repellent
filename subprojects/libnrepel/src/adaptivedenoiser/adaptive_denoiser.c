@@ -18,8 +18,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
 #include "adaptive_denoiser.h"
+#include "../shared/adaptive_noise_estimator.h"
 #include "../shared/configurations.h"
-#include "../shared/louizou_estimator.h"
 #include "../shared/oversubtraction_criterias.h"
 #include "../shared/spectral_features.h"
 #include "../shared/spectral_utils.h"
@@ -43,7 +43,7 @@ typedef struct SpectralAdaptiveDenoiser {
   SpectalType spectrum_type;
 
   OversubtractionCriterias *oversubtraction_criteria;
-  LouizouEstimator *adaptive_estimator;
+  AdaptiveNoiseEstimator *adaptive_estimator;
   SpectralFeatures *spectral_features;
 } SpectralAdaptiveDenoiser;
 
@@ -72,8 +72,8 @@ spectral_adaptive_denoiser_initialize(const uint32_t sample_rate,
   self->denoised_spectrum = (float *)calloc((self->fft_size), sizeof(float));
 
   self->oversubtraction_criteria = oversubtraction_criterias_initialize(
-      A_POSTERIORI_SNR_CRITICAL_BANDS, N_CRITICAL_BANDS_SPEECH,
-      self->half_fft_size, CRITICAL_BANDS_TYPE_SPEECH, self->sample_rate);
+      MASKING_THRESHOLDS, N_CRITICAL_BANDS_SPEECH, self->fft_size,
+      CRITICAL_BANDS_TYPE_SPEECH, self->sample_rate);
 
   self->spectral_features =
       spectral_features_initialize(self->half_fft_size + 1U);
@@ -127,6 +127,8 @@ bool spectral_adaptive_denoiser_run(SpectralProcessorHandle instance,
   OversustractionParameters oversubtraction_parameters =
       (OversustractionParameters){
           .noise_rescale = self->parameters.noise_rescale,
+          .masking_ceil = 3.F,
+          .masking_floor = 0.1F,
       };
   apply_oversustraction_criteria(self->oversubtraction_criteria,
                                  reference_spectrum, self->noise_profile,

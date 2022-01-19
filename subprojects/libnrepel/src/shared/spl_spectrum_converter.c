@@ -46,13 +46,12 @@ struct SplSpectrumConverter {
   float reference_level;
 };
 
-SplSpectrumConverter *
-reference_spectrum_initialize(const uint32_t sample_rate) {
+SplSpectrumConverter *reference_spectrum_initialize(const uint32_t sample_rate,
+                                                    const uint32_t fft_size) {
   SplSpectrumConverter *self =
       (SplSpectrumConverter *)calloc(1U, sizeof(SplSpectrumConverter));
 
-  self->fft_transform =
-      fft_transform_initialize(sample_rate, FRAME_SIZE_GENERAL);
+  self->fft_transform = fft_transform_initialize_bins(fft_size);
 
   self->fft_size = get_fft_size(self->fft_transform);
   self->half_fft_size = self->fft_size / 2U;
@@ -79,10 +78,14 @@ reference_spectrum_initialize(const uint32_t sample_rate) {
 }
 
 void reference_spectrum_free(SplSpectrumConverter *self) {
+  fft_transform_free(self->fft_transform);
+  spectral_features_free(self->spectral_features);
+
   free(self->sinewave);
   free(self->window);
   free(self->spl_reference_values);
-  spectral_features_free(self->spectral_features);
+
+  free(self);
 }
 
 static void generate_sinewave(SplSpectrumConverter *self) {
@@ -116,6 +119,7 @@ bool convert_spectrum_to_dbspl(SplSpectrumConverter *self, float *spectrum) {
   if (!self || !spectrum) {
     return false;
   }
+
   for (uint32_t k = 1U; k <= self->half_fft_size; k++) {
     spectrum[k] += self->spl_reference_values[k];
   }

@@ -40,7 +40,7 @@ typedef struct OversubtractionCriterias OversubtractionCriterias;
 
 OversubtractionCriterias *oversubtraction_criterias_initialize(
     OversubtractionType subtraction_type, uint32_t number_critical_bands,
-    uint32_t spectal_size, CriticalBandType critical_band_type,
+    uint32_t fft_size, CriticalBandType critical_band_type,
     uint32_t sample_rate);
 void oversubtraction_criterias_free(OversubtractionCriterias *self);
 bool apply_oversustraction_criteria(OversubtractionCriterias *self,

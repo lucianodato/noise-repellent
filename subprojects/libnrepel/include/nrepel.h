@@ -27,6 +27,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 // stable. Manage visibility with meson
 // TODO (luciano/todo): Document interface
 // TODO (luciano/todo): Test main file and increase coverage
+// TODO (luciano/todo): Add post filter for frequency smoothing
 // TODO (luciano/todo): Move Plugin functionality to the plugin.
 // noise_profile instance, parameters, etc.
 

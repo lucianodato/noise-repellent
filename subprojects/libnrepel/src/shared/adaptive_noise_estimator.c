@@ -17,7 +17,7 @@ You should have received a copy of the GNU Lesser General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
-#include "louizou_estimator.h"
+#include "adaptive_noise_estimator.h"
 #include "configurations.h"
 #include "general_utils.h"
 #include "spectral_utils.h"
@@ -34,14 +34,14 @@ typedef struct FrameSpectrum {
 
 static FrameSpectrum *frame_spectrum_initialize(uint32_t frame_size);
 static void frame_spectrum_free(FrameSpectrum *self);
-static void compute_auto_thresholds(LouizouEstimator *self,
+static void compute_auto_thresholds(AdaptiveNoiseEstimator *self,
                                     uint32_t sample_rate,
                                     uint32_t noise_spectrum_size,
                                     uint32_t fft_size);
-static void update_frame_spectums(LouizouEstimator *self,
+static void update_frame_spectums(AdaptiveNoiseEstimator *self,
                                   const float *noise_spectrum);
 
-struct LouizouEstimator {
+struct AdaptiveNoiseEstimator {
   uint32_t noise_spectrum_size;
   float noisy_speech_ratio;
 
@@ -54,12 +54,12 @@ struct LouizouEstimator {
   uint32_t *speech_presence_detection;
 };
 
-LouizouEstimator *
+AdaptiveNoiseEstimator *
 louizou_estimator_initialize(const uint32_t noise_spectrum_size,
                              const uint32_t sample_rate,
                              const uint32_t fft_size) {
-  LouizouEstimator *self =
-      (LouizouEstimator *)calloc(1U, sizeof(LouizouEstimator));
+  AdaptiveNoiseEstimator *self =
+      (AdaptiveNoiseEstimator *)calloc(1U, sizeof(AdaptiveNoiseEstimator));
 
   self->noise_spectrum_size = noise_spectrum_size;
 
@@ -81,7 +81,7 @@ louizou_estimator_initialize(const uint32_t noise_spectrum_size,
   return self;
 }
 
-void louizou_estimator_free(LouizouEstimator *self) {
+void louizou_estimator_free(AdaptiveNoiseEstimator *self) {
   free(self->minimum_detection_thresholds);
   free(self->time_frequency_smoothing_constant);
   free(self->speech_presence_detection);
@@ -93,7 +93,7 @@ void louizou_estimator_free(LouizouEstimator *self) {
   free(self);
 }
 
-bool louizou_estimator_run(LouizouEstimator *self, const float *spectrum,
+bool louizou_estimator_run(AdaptiveNoiseEstimator *self, const float *spectrum,
                            float *noise_spectrum) {
   if (!self || !spectrum || !noise_spectrum) {
     return false;
@@ -145,7 +145,7 @@ bool louizou_estimator_run(LouizouEstimator *self, const float *spectrum,
   return true;
 }
 
-static void update_frame_spectums(LouizouEstimator *self,
+static void update_frame_spectums(AdaptiveNoiseEstimator *self,
                                   const float *noise_spectrum) {
   memcpy(self->previous_noise_spectrum, noise_spectrum,
          sizeof(float) * self->noise_spectrum_size);
@@ -181,7 +181,7 @@ static void frame_spectrum_free(FrameSpectrum *self) {
   free(self);
 }
 
-static void compute_auto_thresholds(LouizouEstimator *self,
+static void compute_auto_thresholds(AdaptiveNoiseEstimator *self,
                                     const uint32_t sample_rate,
                                     const uint32_t noise_spectrum_size,
                                     const uint32_t fft_size) {

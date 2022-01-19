@@ -14,7 +14,7 @@ shared_sources = [
     'src/shared/transient_detector.c',
     'src/shared/spectral_smoother.c',
     'src/shared/noise_estimator.c',
-    'src/shared/louizou_estimator.c',
+    'src/shared/adaptive_noise_estimator.c',
     'src/shared/noise_profile.c',
     'src/stft/stft_windows.c',
     'src/stft/stft_buffer.c',

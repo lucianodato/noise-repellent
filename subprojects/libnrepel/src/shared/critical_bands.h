@@ -39,7 +39,7 @@ typedef struct CriticalBandIndexes {
 } CriticalBandIndexes;
 
 CriticalBands *critical_bands_initialize(uint32_t sample_rate,
-                                         uint32_t spectrum_size,
+                                         uint32_t fft_size,
                                          uint32_t number_bands,
                                          CriticalBandType type);
 void critical_bands_free(CriticalBands *self);

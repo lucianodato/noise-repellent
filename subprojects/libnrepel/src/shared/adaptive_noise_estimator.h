@@ -23,13 +23,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <stdbool.h>
 #include <stdint.h>
 
-typedef struct LouizouEstimator LouizouEstimator;
+typedef struct AdaptiveNoiseEstimator AdaptiveNoiseEstimator;
 
-LouizouEstimator *louizou_estimator_initialize(uint32_t noise_spectrum_size,
-                                               uint32_t sample_rate,
-                                               uint32_t fft_size);
-void louizou_estimator_free(LouizouEstimator *self);
-bool louizou_estimator_run(LouizouEstimator *self, const float *spectrum,
+AdaptiveNoiseEstimator *
+louizou_estimator_initialize(uint32_t noise_spectrum_size, uint32_t sample_rate,
+                             uint32_t fft_size);
+void louizou_estimator_free(AdaptiveNoiseEstimator *self);
+bool louizou_estimator_run(AdaptiveNoiseEstimator *self, const float *spectrum,
                            float *noise_spectrum);
 
 #endif
