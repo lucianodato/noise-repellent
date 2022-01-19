@@ -19,10 +19,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 #include "adaptive_denoiser.h"
 #include "../shared/configurations.h"
-#include "../shared/critical_bands.h"
+#include "../shared/louizou_estimator.h"
+#include "../shared/oversubtraction_criterias.h"
 #include "../shared/spectral_features.h"
 #include "../shared/spectral_utils.h"
-#include "louizou_estimator.h"
 #include <float.h>
 #include <math.h>
 #include <stdlib.h>
@@ -32,7 +32,6 @@ typedef struct SpectralAdaptiveDenoiser {
   uint32_t fft_size;
   uint32_t half_fft_size;
   uint32_t sample_rate;
-  uint32_t number_critical_bands;
 
   AdaptiveDenoiserParameters parameters;
 
@@ -43,17 +42,10 @@ typedef struct SpectralAdaptiveDenoiser {
 
   SpectalType spectrum_type;
 
-  CriticalBands *critical_bands;
-  CriticalBandIndexes band_indexes;
-  float *bark_noise_profile;
-  float *bark_power_spectrum;
-
+  OversubtractionCriterias *oversubtraction_criteria;
   LouizouEstimator *adaptive_estimator;
   SpectralFeatures *spectral_features;
 } SpectralAdaptiveDenoiser;
-
-static void apply_oversubtraction_factor(SpectralAdaptiveDenoiser *self,
-                                         const float *reference_spectrum);
 
 SpectralProcessorHandle
 spectral_adaptive_denoiser_initialize(const uint32_t sample_rate,
@@ -65,8 +57,6 @@ spectral_adaptive_denoiser_initialize(const uint32_t sample_rate,
   self->fft_size = fft_size;
   self->half_fft_size = self->fft_size / 2U;
   self->sample_rate = sample_rate;
-  self->number_critical_bands = N_CRITICAL_BANDS_SPEECH;
-  self->spectrum_type = SPECTRAL_TYPE;
 
   self->gain_spectrum =
       (float *)calloc((self->half_fft_size + 1U), sizeof(float));
@@ -81,13 +71,9 @@ spectral_adaptive_denoiser_initialize(const uint32_t sample_rate,
   self->residual_spectrum = (float *)calloc((self->fft_size), sizeof(float));
   self->denoised_spectrum = (float *)calloc((self->fft_size), sizeof(float));
 
-  self->bark_noise_profile =
-      (float *)calloc(self->number_critical_bands, sizeof(float));
-  self->bark_power_spectrum =
-      (float *)calloc(self->number_critical_bands, sizeof(float));
-  self->critical_bands = critical_bands_initialize(
-      sample_rate, self->half_fft_size, self->number_critical_bands,
-      CRITICAL_BANDS_TYPE_SPEECH);
+  self->oversubtraction_criteria = oversubtraction_criterias_initialize(
+      A_POSTERIORI_SNR_CRITICAL_BANDS, N_CRITICAL_BANDS_SPEECH,
+      self->half_fft_size, CRITICAL_BANDS_TYPE_SPEECH, self->sample_rate);
 
   self->spectral_features =
       spectral_features_initialize(self->half_fft_size + 1U);
@@ -100,10 +86,8 @@ void spectral_adaptive_denoiser_free(SpectralProcessorHandle instance) {
 
   louizou_estimator_free(self->adaptive_estimator);
   spectral_features_free(self->spectral_features);
-  critical_bands_free(self->critical_bands);
+  oversubtraction_criterias_free(self->oversubtraction_criteria);
 
-  free(self->bark_power_spectrum);
-  free(self->bark_noise_profile);
   free(self->residual_spectrum);
   free(self->denoised_spectrum);
   free(self->gain_spectrum);
@@ -140,7 +124,13 @@ bool spectral_adaptive_denoiser_run(SpectralProcessorHandle instance,
 
   // Scale estimated noise profile for oversubtraction using a posteriori SNR
   // piecewise function
-  apply_oversubtraction_factor(self, reference_spectrum);
+  OversustractionParameters oversubtraction_parameters =
+      (OversustractionParameters){
+          .noise_rescale = self->parameters.noise_rescale,
+      };
+  apply_oversustraction_criteria(self->oversubtraction_criteria,
+                                 reference_spectrum, self->noise_profile,
+                                 oversubtraction_parameters);
 
   // Get reduction gain weights
   wiener_subtraction(self->half_fft_size, reference_spectrum,
@@ -153,45 +143,4 @@ bool spectral_adaptive_denoiser_run(SpectralProcessorHandle instance,
                 self->parameters.reduction_amount);
 
   return true;
-}
-
-static void apply_oversubtraction_factor(SpectralAdaptiveDenoiser *self,
-                                         const float *reference_spectrum) {
-
-  compute_critical_bands_spectrum(self->critical_bands, self->noise_profile,
-                                  self->bark_noise_profile);
-  compute_critical_bands_spectrum(self->critical_bands, reference_spectrum,
-                                  self->bark_power_spectrum);
-
-  float a_posteriori_snr = 20.F;
-  float oversustraction_factor = 1.F;
-
-  for (uint32_t j = 0U; j < self->number_critical_bands; j++) {
-
-    self->band_indexes = get_band_indexes(self->critical_bands, j);
-
-    a_posteriori_snr = 10.F * log10f(self->bark_power_spectrum[j] /
-                                     self->bark_noise_profile[j]);
-
-    if (a_posteriori_snr >= 0.F && a_posteriori_snr <= 20.F) {
-      oversustraction_factor =
-          -0.05F * (a_posteriori_snr) + self->parameters.noise_rescale;
-    } else if (a_posteriori_snr < 0.F) {
-      oversustraction_factor = self->parameters.noise_rescale;
-    } else if (a_posteriori_snr > 20.F) {
-      oversustraction_factor = 1.F;
-    }
-
-    // Force it to never scale down the reduction
-    // TODO (luciano/todo): incorporate bark band results as reference for the
-    // per bin calculation. Or look for a more robust criteria
-    if (oversustraction_factor < 1.F) {
-      oversustraction_factor = 1.F;
-    }
-
-    for (uint32_t k = self->band_indexes.start_position;
-         k < self->band_indexes.end_position; k++) {
-      self->noise_profile[k] *= oversustraction_factor;
-    }
-  }
 }

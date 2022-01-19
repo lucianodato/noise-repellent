@@ -20,8 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #ifndef NOISE_ESTIMATOR_H
 #define NOISE_ESTIMATOR_H
 
-#include "../../../include/nrepel.h"
-#include "../../shared/noise_profile.h"
+#include "noise_profile.h"
 #include <stdbool.h>
 #include <stdint.h>
 

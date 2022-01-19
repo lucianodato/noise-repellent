@@ -19,11 +19,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 #include "spectral_denoiser.h"
 #include "../shared/configurations.h"
+#include "../shared/noise_estimator.h"
+#include "../shared/oversubtraction_criterias.h"
 #include "../shared/spectral_features.h"
+#include "../shared/spectral_smoother.h"
 #include "../shared/spectral_utils.h"
 #include "../shared/spectral_whitening.h"
-#include "gainmodel/gain_estimator.h"
-#include "noisemodel/noise_estimator.h"
+#include "../shared/transient_detector.h"
 #include <float.h>
 #include <math.h>
 #include <stdlib.h>
@@ -40,19 +42,22 @@ typedef struct SpectralDenoiser {
   float *denoised_spectrum;
 
   SpectalType spectrum_type;
+  DenoiserParameters denoise_parameters;
 
   NoiseEstimator *noise_estimator;
   SpectralWhitening *whitener;
   NoiseProfile *noise_profile;
-  GainEstimator *gain_estimator;
-  NrepelDenoiseParameters *denoise_parameters;
   SpectralFeatures *spectral_features;
+
+  bool transient_detected;
+  OversubtractionCriterias *oversubtraction_criteria;
+  TransientDetector *transient_detection;
+  SpectralSmoother *spectrum_smoothing;
 } SpectralDenoiser;
 
 SpectralProcessorHandle spectral_denoiser_initialize(
     const uint32_t sample_rate, const uint32_t fft_size,
-    const uint32_t overlap_factor, NoiseProfile *noise_profile,
-    NrepelDenoiseParameters *parameters) {
+    const uint32_t overlap_factor, NoiseProfile *noise_profile) {
 
   SpectralDenoiser *self =
       (SpectralDenoiser *)calloc(1U, sizeof(SpectralDenoiser));
@@ -69,20 +74,23 @@ SpectralProcessorHandle spectral_denoiser_initialize(
                                  1.F);
 
   self->noise_profile = noise_profile;
-  self->denoise_parameters = parameters;
 
   self->noise_estimator =
       noise_estimation_initialize(self->fft_size, noise_profile);
-
-  self->gain_estimator =
-      gain_estimation_initialize(self->fft_size, self->sample_rate, self->hop,
-                                 self->denoise_parameters, noise_profile);
 
   self->residual_spectrum = (float *)calloc((self->fft_size), sizeof(float));
   self->denoised_spectrum = (float *)calloc((self->fft_size), sizeof(float));
 
   self->spectral_features =
       spectral_features_initialize(self->half_fft_size + 1U);
+
+  self->transient_detection = transient_detector_initialize(self->fft_size);
+  self->spectrum_smoothing = spectral_smoothing_initialize(
+      self->fft_size, self->sample_rate, self->hop);
+
+  self->oversubtraction_criteria = oversubtraction_criterias_initialize(
+      MASKING_THRESHOLDS, N_CRITICAL_BANDS, self->half_fft_size,
+      CRITICAL_BANDS_TYPE, self->sample_rate);
 
   self->whitener = spectral_whitening_initialize(self->fft_size,
                                                  self->sample_rate, self->hop);
@@ -93,15 +101,29 @@ SpectralProcessorHandle spectral_denoiser_initialize(
 void spectral_denoiser_free(SpectralProcessorHandle instance) {
   SpectralDenoiser *self = (SpectralDenoiser *)instance;
 
-  gain_estimation_free(self->gain_estimator);
   spectral_whitening_free(self->whitener);
   noise_estimation_free(self->noise_estimator);
   spectral_features_free(self->spectral_features);
+  transient_detector_free(self->transient_detection);
+  spectral_smoothing_free(self->spectrum_smoothing);
+  oversubtraction_criterias_free(self->oversubtraction_criteria);
 
   free(self->residual_spectrum);
   free(self->denoised_spectrum);
   free(self->gain_spectrum);
   free(self);
+}
+
+bool load_reduction_parameters(SpectralProcessorHandle instance,
+                               DenoiserParameters parameters) {
+  if (!instance) {
+    return false;
+  }
+
+  SpectralDenoiser *self = (SpectralDenoiser *)instance;
+  self->denoise_parameters = parameters;
+
+  return true;
 }
 
 bool spectral_denoiser_run(SpectralProcessorHandle instance,
@@ -116,27 +138,55 @@ bool spectral_denoiser_run(SpectralProcessorHandle instance,
       get_spectral_feature(self->spectral_features, fft_spectrum,
                            self->fft_size, self->spectrum_type);
 
-  if (self->denoise_parameters->learn_noise) {
+  if (self->denoise_parameters.learn_noise) {
     noise_estimation_run(self->noise_estimator, reference_spectrum);
   }
 
   if (is_noise_estimation_available(self->noise_profile)) {
-    gain_estimation_run(self->gain_estimator, reference_spectrum,
-                        self->gain_spectrum);
+    float *noise_profile = get_noise_profile(self->noise_profile);
+
+    if (self->denoise_parameters.transient_threshold > 1.F) {
+      self->transient_detected = transient_detector_run(
+          self->transient_detection,
+          self->denoise_parameters.transient_threshold, reference_spectrum);
+    }
+
+    OversustractionParameters oversubtraction_parameters =
+        (OversustractionParameters){
+            .noise_rescale = self->denoise_parameters.noise_rescale,
+            .masking_ceil = self->denoise_parameters.masking_ceiling_limit,
+            .masking_floor = 0.F,
+        };
+    apply_oversustraction_criteria(self->oversubtraction_criteria,
+                                   reference_spectrum, noise_profile,
+                                   oversubtraction_parameters);
+
+    spectral_smoothing_run(self->spectrum_smoothing,
+                           self->denoise_parameters.release_time,
+                           reference_spectrum);
+
+    if (self->transient_detected &&
+        self->denoise_parameters.transient_threshold > 1.F) {
+      wiener_subtraction(self->half_fft_size, reference_spectrum,
+                         self->gain_spectrum, noise_profile);
+    } else {
+      spectral_gating(self->half_fft_size, reference_spectrum,
+                      self->gain_spectrum, noise_profile);
+    }
 
     // FIXME (luciano/fix): Apply whitening to gain weights instead of the
     // resulting noise residue
-    if (self->denoise_parameters->whitening_factor > 0.F) {
+    if (self->denoise_parameters.whitening_factor > 0.F) {
       spectral_whitening_run(self->whitener,
-                             self->denoise_parameters->whitening_factor,
+                             self->denoise_parameters.whitening_factor,
                              self->gain_spectrum);
     }
 
     denoise_mixer(self->fft_size, self->half_fft_size, fft_spectrum,
                   self->gain_spectrum, self->denoised_spectrum,
                   self->residual_spectrum,
-                  self->denoise_parameters->residual_listen,
-                  self->denoise_parameters->reduction_amount);
+                  self->denoise_parameters.residual_listen,
+                  self->denoise_parameters.reduction_amount);
   }
 
   return true;

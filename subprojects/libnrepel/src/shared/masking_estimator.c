@@ -18,10 +18,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
 #include "masking_estimator.h"
-#include "../../shared/configurations.h"
-#include "../../shared/critical_bands.h"
-#include "../../shared/spectral_utils.h"
-#include "../../shared/spl_spectrum_converter.h"
+#include "configurations.h"
+#include "critical_bands.h"
+#include "spectral_utils.h"
+#include "spl_spectrum_converter.h"
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
@@ -33,8 +33,7 @@ static float compute_tonality_factor(MaskingEstimator *self,
 
 struct MaskingEstimator {
 
-  uint32_t fft_size;
-  uint32_t half_fft_size;
+  uint32_t spectral_size;
   uint32_t sample_rate;
   uint32_t number_critical_bands;
 
@@ -52,19 +51,20 @@ struct MaskingEstimator {
   float *bark_power_spectrum;
 };
 
-MaskingEstimator *masking_estimation_initialize(const uint32_t fft_size,
-                                                const uint32_t sample_rate) {
+MaskingEstimator *
+masking_estimation_initialize(const uint32_t spectral_size,
+                              const uint32_t number_critical_bands,
+                              const uint32_t sample_rate) {
 
   MaskingEstimator *self =
       (MaskingEstimator *)calloc(1U, sizeof(MaskingEstimator));
 
-  self->fft_size = fft_size;
-  self->half_fft_size = self->fft_size / 2U;
+  self->spectral_size = spectral_size;
   self->sample_rate = sample_rate;
-  self->number_critical_bands = N_CRITICAL_BANDS;
+  self->number_critical_bands = number_critical_bands;
 
   self->absolute_thresholds =
-      (float *)calloc((self->half_fft_size + 1U), sizeof(float));
+      (float *)calloc((self->spectral_size + 1U), sizeof(float));
 
   self->spectral_spreading_function =
       (float *)calloc(((size_t)self->number_critical_bands *
@@ -85,7 +85,7 @@ MaskingEstimator *masking_estimation_initialize(const uint32_t fft_size,
 
   self->reference_spectrum = reference_spectrum_initialize(self->sample_rate);
   self->critical_bands = critical_bands_initialize(
-      sample_rate, self->half_fft_size, self->number_critical_bands,
+      self->sample_rate, self->spectral_size, self->number_critical_bands,
       CRITICAL_BANDS_TYPE);
 
   compute_absolute_thresholds(self);
@@ -157,7 +157,7 @@ bool compute_masking_thresholds(MaskingEstimator *self, const float *spectrum,
 
   convert_spectrum_to_dbspl(self->reference_spectrum, masking_thresholds);
 
-  for (uint32_t k = 1U; k <= self->half_fft_size; k++) {
+  for (uint32_t k = 1U; k <= self->spectral_size; k++) {
     masking_thresholds[k] =
         fmaxf(masking_thresholds[k], self->absolute_thresholds[k]);
   }
@@ -166,10 +166,10 @@ bool compute_masking_thresholds(MaskingEstimator *self, const float *spectrum,
 }
 
 static void compute_absolute_thresholds(MaskingEstimator *self) {
-  for (uint32_t k = 1U; k <= self->half_fft_size; k++) {
+  for (uint32_t k = 1U; k <= self->spectral_size; k++) {
 
     const float frequency =
-        fft_bin_to_freq(k, self->sample_rate, self->half_fft_size);
+        fft_bin_to_freq(k, self->sample_rate, self->spectral_size);
     self->absolute_thresholds[k] =
         3.64F * powf((frequency / 1000.F), -0.8F) -
         6.5F * expf(-0.6F * powf((frequency / 1000.F - 3.3F), 2.F)) +

@@ -18,8 +18,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
 #include "noise_estimator.h"
-#include "../../shared/configurations.h"
-#include "../../shared/spectral_features.h"
+#include "configurations.h"
+#include "spectral_features.h"
 #include <stdlib.h>
 #include <string.h>
 

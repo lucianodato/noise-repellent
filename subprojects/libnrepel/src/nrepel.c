@@ -30,7 +30,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 typedef struct NoiseRepellent {
   uint32_t sample_rate;
-  NrepelDenoiseParameters denoise_parameters;
+  DenoiserParameters denoise_parameters;
 
   NoiseProfile *noise_profile;
   SpectralProcessorHandle spectral_denoiser;
@@ -62,9 +62,9 @@ NoiseRepellentHandle nrepel_initialize(const uint32_t sample_rate) {
     return NULL;
   }
 
-  self->spectral_denoiser = spectral_denoiser_initialize(
-      self->sample_rate, buffer_size, OVERLAP_FACTOR_GENERAL,
-      self->noise_profile, &self->denoise_parameters);
+  self->spectral_denoiser =
+      spectral_denoiser_initialize(self->sample_rate, buffer_size,
+                                   OVERLAP_FACTOR_GENERAL, self->noise_profile);
 
   if (!self->spectral_denoiser) {
     nrepel_free(self);
@@ -170,7 +170,7 @@ bool nrepel_load_parameters(NoiseRepellentHandle instance,
   NoiseRepellent *self = (NoiseRepellent *)instance;
 
   // clang-format off
-  self->denoise_parameters = (NrepelDenoiseParameters){
+  self->denoise_parameters = (DenoiserParameters){
       .learn_noise = parameters.learn_noise,
       .residual_listen = parameters.residual_listen,
       .masking_ceiling_limit = parameters.masking_ceiling_limit,
@@ -182,6 +182,8 @@ bool nrepel_load_parameters(NoiseRepellentHandle instance,
       .whitening_factor = parameters.whitening_factor / 100.F,
   };
   // clang-format on
+
+  load_reduction_parameters(self->spectral_denoiser, self->denoise_parameters);
 
   return true;
 }

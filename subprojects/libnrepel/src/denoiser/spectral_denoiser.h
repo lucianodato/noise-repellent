@@ -20,16 +20,29 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #ifndef SPECTRAL_DENOISER_H
 #define SPECTRAL_DENOISER_H
 
-#include "../../include/nrepel.h"
 #include "../shared/noise_profile.h"
 #include "../shared/spectral_processor.h"
 #include <stdbool.h>
 #include <stdint.h>
 
-SpectralProcessorHandle spectral_denoiser_initialize(
-    uint32_t sample_rate, uint32_t fft_size, uint32_t overlap_factor,
-    NoiseProfile *noise_profile, NrepelDenoiseParameters *parameters);
+typedef struct DenoiserParameters {
+  float reduction_amount;
+  float noise_rescale;
+  bool residual_listen;
+  bool learn_noise;
+  float release_time;
+  float masking_ceiling_limit;
+  float whitening_factor;
+  float transient_threshold;
+} DenoiserParameters;
+
+SpectralProcessorHandle
+spectral_denoiser_initialize(uint32_t sample_rate, uint32_t fft_size,
+                             uint32_t overlap_factor,
+                             NoiseProfile *noise_profile);
 void spectral_denoiser_free(SpectralProcessorHandle instance);
+bool load_reduction_parameters(SpectralProcessorHandle instance,
+                               DenoiserParameters parameters);
 bool spectral_denoiser_run(SpectralProcessorHandle instance,
                            float *fft_spectrum);
 

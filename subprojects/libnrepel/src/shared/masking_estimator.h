@@ -17,22 +17,19 @@ You should have received a copy of the GNU Lesser General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
-#ifndef GAIN_ESTIMATOR_H
-#define GAIN_ESTIMATOR_H
+#ifndef MASKING_ESTIMATOR_H
+#define MASKING_ESTIMATOR_H
 
-#include "../../../include/nrepel.h"
-#include "../../shared/noise_profile.h"
 #include <stdbool.h>
 #include <stdint.h>
 
-typedef struct GainEstimator GainEstimator;
+typedef struct MaskingEstimator MaskingEstimator;
 
-GainEstimator *gain_estimation_initialize(uint32_t fft_size,
-                                          uint32_t sample_rate, uint32_t hop,
-                                          NrepelDenoiseParameters *parameters,
-                                          NoiseProfile *noise_profile);
-void gain_estimation_free(GainEstimator *self);
-bool gain_estimation_run(GainEstimator *self, const float *signal_spectrum,
-                         float *gain_spectrum);
+MaskingEstimator *masking_estimation_initialize(uint32_t spectral_size,
+                                                uint32_t number_critical_bands,
+                                                uint32_t sample_rate);
+void masking_estimation_free(MaskingEstimator *self);
+bool compute_masking_thresholds(MaskingEstimator *self, const float *spectrum,
+                                float *masking_thresholds);
 
 #endif

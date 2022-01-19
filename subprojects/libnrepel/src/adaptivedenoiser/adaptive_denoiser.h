@@ -20,8 +20,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #ifndef SPECTRAL_ADAPTIVE_DENOISER_H
 #define SPECTRAL_ADAPTIVE_DENOISER_H
 
-#include "../../include/nrepel.h"
-#include "../shared/noise_profile.h"
 #include "../shared/spectral_processor.h"
 #include <stdbool.h>
 #include <stdint.h>

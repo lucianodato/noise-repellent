@@ -30,6 +30,7 @@ typedef enum CriticalBandType {
   MEL_SCALE = 1,
   ERB_SCALE = 2,
   // TODO (luciano/todo): opus critical bands
+  // TODO (luciano/todo): octave bands
 } CriticalBandType;
 
 typedef struct CriticalBandIndexes {
@@ -38,7 +39,7 @@ typedef struct CriticalBandIndexes {
 } CriticalBandIndexes;
 
 CriticalBands *critical_bands_initialize(uint32_t sample_rate,
-                                         uint32_t frame_size,
+                                         uint32_t spectrum_size,
                                          uint32_t number_bands,
                                          CriticalBandType type);
 void critical_bands_free(CriticalBands *self);

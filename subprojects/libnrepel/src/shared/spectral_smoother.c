@@ -66,6 +66,7 @@ void spectral_smoothing_free(SpectralSmoother *self) {
   free(self->noise_spectrum);
   free(self->smoothed_spectrum);
   free(self->smoothed_spectrum_previous);
+
   free(self);
 }
 

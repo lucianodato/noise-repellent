@@ -2,27 +2,27 @@ project('libnrepel', 'c', version: '0.1.0',default_options: ['c_std=c99','defaul
 
 #sources to compile
 shared_sources = [
+    'src/shared/fft_transform.c',
     'src/shared/spectral_utils.c',
     'src/shared/spectral_features.c',
-    'src/shared/fft_transform.c',
-    'src/shared/spl_spectrum_converter.c',
-    'src/shared/spectral_whitening.c',
     'src/shared/general_utils.c',
-    'src/shared/noise_profile.c',
+    'src/shared/spectral_whitening.c',
+    'src/shared/oversubtraction_criterias.c',
     'src/shared/critical_bands.c',
+    'src/shared/spl_spectrum_converter.c',
+    'src/shared/masking_estimator.c',
+    'src/shared/transient_detector.c',
+    'src/shared/spectral_smoother.c',
+    'src/shared/noise_estimator.c',
+    'src/shared/louizou_estimator.c',
+    'src/shared/noise_profile.c',
     'src/stft/stft_windows.c',
     'src/stft/stft_buffer.c',
     'src/stft/stft_processor.c',
 ]
 
 nrepel_sources = [
-    'src/denoiser/noisemodel/noise_estimator.c',
-    'src/denoiser/gainmodel/transient_detector.c',
-    'src/denoiser/gainmodel/masking_estimator.c',
-    'src/denoiser/gainmodel/spectral_smoother.c',
-    'src/denoiser/gainmodel/gain_estimator.c',
     'src/denoiser/spectral_denoiser.c',
-    'src/adaptivedenoiser/louizou_estimator.c',
     'src/adaptivedenoiser/adaptive_denoiser.c',
     'src/nrepel.c',
 ]
