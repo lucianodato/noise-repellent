@@ -27,23 +27,23 @@ static float get_windows_scale_factor(StftWindows *self,
 struct StftWindows {
   float *input_window;
   float *output_window;
-  uint32_t window_size;
+  uint32_t stft_frame_size;
   float scale_factor;
 };
 
-StftWindows *stft_window_initialize(const uint32_t window_size,
+StftWindows *stft_window_initialize(const uint32_t stft_frame_size,
                                     const uint32_t overlap_factor,
                                     const WindowTypes input_window,
                                     const WindowTypes output_window) {
   StftWindows *self = (StftWindows *)calloc(1U, sizeof(StftWindows));
 
-  self->window_size = window_size;
+  self->stft_frame_size = stft_frame_size;
 
-  self->input_window = (float *)calloc(self->window_size, sizeof(float));
-  self->output_window = (float *)calloc(self->window_size, sizeof(float));
+  self->input_window = (float *)calloc(self->stft_frame_size, sizeof(float));
+  self->output_window = (float *)calloc(self->stft_frame_size, sizeof(float));
 
-  get_fft_window(self->input_window, self->window_size, input_window);
-  get_fft_window(self->output_window, self->window_size, output_window);
+  get_fft_window(self->input_window, self->stft_frame_size, input_window);
+  get_fft_window(self->output_window, self->stft_frame_size, output_window);
 
   self->scale_factor = get_windows_scale_factor(self, overlap_factor);
 
@@ -63,7 +63,7 @@ static float get_windows_scale_factor(StftWindows *self,
     return 0.F;
   }
   float sum = 0.F;
-  for (uint32_t i = 0U; i < self->window_size; i++) {
+  for (uint32_t i = 0U; i < self->stft_frame_size; i++) {
     sum += self->input_window[i] * self->output_window[i];
   }
 
@@ -76,7 +76,7 @@ bool stft_window_apply(StftWindows *self, float *frame,
     return false;
   }
 
-  for (uint32_t i = 0U; i < self->window_size; i++) {
+  for (uint32_t i = 0U; i < self->stft_frame_size; i++) {
     switch (place) {
     case INPUT_WINDOW:
       frame[i] *= self->input_window[i];

@@ -17,14 +17,19 @@ You should have received a copy of the GNU Lesser General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
-#ifndef GENERAL_UTILS_H
-#define GENERAL_UTILS_H
+#ifndef GAIN_ESTIMATORS_H
+#define GAIN_ESTIMATORS_H
 
 #include <stdbool.h>
 #include <stdint.h>
 
-float sanitize_denormal(float value);
-float from_db_to_coefficient(float value_db);
-int get_next_power_divisible_two(int number);
+void denoise_mixer(uint32_t fft_size, uint32_t half_fft_size,
+                   float *fft_spectrum, const float *gain_spectrum,
+                   float *denoised_spectrum, float *residual_spectrum,
+                   bool residual_listen, float reduction_amount);
+void spectral_gating(uint32_t real_spectrum_size, const float *spectrum,
+                     float *gain_spectrum, const float *noise_spectrum);
+void wiener_subtraction(uint32_t real_spectrum_size, const float *spectrum,
+                        float *gain_spectrum, const float *noise_spectrum);
 
 #endif

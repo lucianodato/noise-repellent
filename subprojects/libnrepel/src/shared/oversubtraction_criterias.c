@@ -41,7 +41,7 @@ struct OversubtractionCriterias {
   OversubtractionType oversubtraction_type;
   uint32_t number_critical_bands;
   uint32_t fft_size;
-  uint32_t half_fft_size;
+  uint32_t real_spectrum_size;
   uint32_t sample_rate;
 
   float *alpha;
@@ -54,7 +54,7 @@ struct OversubtractionCriterias {
   CriticalBandIndexes band_indexes;
   CriticalBandType critical_band_type;
   float *bark_noise_profile;
-  float *bark_power_spectrum;
+  float *bark_reference_spectrum;
 };
 
 OversubtractionCriterias *oversubtraction_criterias_initialize(
@@ -68,24 +68,24 @@ OversubtractionCriterias *oversubtraction_criterias_initialize(
   self->oversubtraction_type = subtraction_type;
   self->number_critical_bands = number_critical_bands;
   self->fft_size = fft_size;
-  self->half_fft_size = self->fft_size / 2U;
+  self->real_spectrum_size = self->fft_size / 2U + 1U;
   self->critical_band_type = critical_band_type;
   self->sample_rate = sample_rate;
 
   self->bark_noise_profile =
       (float *)calloc(self->number_critical_bands, sizeof(float));
-  self->bark_power_spectrum =
+  self->bark_reference_spectrum =
       (float *)calloc(self->number_critical_bands, sizeof(float));
   self->critical_bands = critical_bands_initialize(
       self->sample_rate, self->fft_size, self->number_critical_bands,
       self->critical_band_type);
 
-  self->alpha = (float *)calloc((self->half_fft_size + 1U), sizeof(float));
-  self->beta = (float *)calloc((self->half_fft_size + 1U), sizeof(float));
+  self->alpha = (float *)calloc(self->real_spectrum_size, sizeof(float));
+  self->beta = (float *)calloc(self->real_spectrum_size, sizeof(float));
   self->masking_thresholds =
-      (float *)calloc((self->half_fft_size + 1U), sizeof(float));
+      (float *)calloc(self->real_spectrum_size, sizeof(float));
   self->clean_signal_estimation =
-      (float *)calloc((self->half_fft_size + 1U), sizeof(float));
+      (float *)calloc(self->real_spectrum_size, sizeof(float));
   self->masking_estimation = masking_estimation_initialize(
       self->fft_size, self->number_critical_bands, self->sample_rate);
 
@@ -101,7 +101,7 @@ void oversubtraction_criterias_free(OversubtractionCriterias *self) {
   free(self->clean_signal_estimation);
   free(self->masking_thresholds);
   free(self->bark_noise_profile);
-  free(self->bark_power_spectrum);
+  free(self->bark_reference_spectrum);
 
   free(self);
 }
@@ -140,7 +140,7 @@ a_posteriori_snr_critical_bands(OversubtractionCriterias *self,
   compute_critical_bands_spectrum(self->critical_bands, noise_spectrum,
                                   self->bark_noise_profile);
   compute_critical_bands_spectrum(self->critical_bands, spectrum,
-                                  self->bark_power_spectrum);
+                                  self->bark_reference_spectrum);
 
   float a_posteriori_snr = 20.F;
   float oversustraction_factor = 1.F;
@@ -149,7 +149,7 @@ a_posteriori_snr_critical_bands(OversubtractionCriterias *self,
 
     self->band_indexes = get_band_indexes(self->critical_bands, j);
 
-    a_posteriori_snr = 10.F * log10f(self->bark_power_spectrum[j] /
+    a_posteriori_snr = 10.F * log10f(self->bark_reference_spectrum[j] /
                                      self->bark_noise_profile[j]);
 
     if (a_posteriori_snr >= 0.F && a_posteriori_snr <= 20.F) {
@@ -173,7 +173,7 @@ static void a_posteriori_snr(OversubtractionCriterias *self,
   float a_posteriori_snr = 20.F;
   float oversustraction_factor = 1.F;
 
-  for (uint32_t k = 1U; k <= self->half_fft_size; k++) {
+  for (uint32_t k = 1U; k < self->real_spectrum_size; k++) {
 
     a_posteriori_snr = 10.F * log10f(spectrum[k] / noise_spectrum[k]);
 
@@ -194,7 +194,7 @@ static void masking_thresholds(OversubtractionCriterias *self,
                                OversustractionParameters parameters) {
 
   if (parameters.masking_ceil > 1.F) {
-    for (uint32_t k = 1U; k <= self->half_fft_size; k++) {
+    for (uint32_t k = 1U; k < self->real_spectrum_size; k++) {
       self->clean_signal_estimation[k] =
           fmaxf(spectrum[k] - noise_spectrum[k], FLT_MIN);
     }
@@ -203,11 +203,11 @@ static void masking_thresholds(OversubtractionCriterias *self,
                                self->masking_thresholds);
 
     float max_masked_tmp =
-        max_spectral_value(self->masking_thresholds, self->half_fft_size);
+        max_spectral_value(self->masking_thresholds, self->real_spectrum_size);
     float min_masked_tmp =
-        min_spectral_value(self->masking_thresholds, self->half_fft_size);
+        min_spectral_value(self->masking_thresholds, self->real_spectrum_size);
 
-    for (uint32_t k = 1U; k <= self->half_fft_size; k++) {
+    for (uint32_t k = 1U; k < self->real_spectrum_size; k++) {
       if (self->masking_thresholds[k] == max_masked_tmp) {
         self->alpha[k] = ALPHA_MIN;
         self->beta[k] = BETA_MIN;
@@ -229,10 +229,10 @@ static void masking_thresholds(OversubtractionCriterias *self,
       }
     }
   } else {
-    initialize_spectrum_with_value(self->alpha, self->half_fft_size + 1U, 1.F);
+    initialize_spectrum_with_value(self->alpha, self->real_spectrum_size, 1.F);
   }
 
-  for (uint32_t k = 1U; k <= self->half_fft_size; k++) {
+  for (uint32_t k = 1U; k < self->real_spectrum_size; k++) {
     noise_spectrum[k] *= parameters.noise_rescale * self->alpha[k];
   }
 }

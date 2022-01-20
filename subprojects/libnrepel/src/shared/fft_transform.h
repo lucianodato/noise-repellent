@@ -27,11 +27,11 @@ typedef struct FftTransform FftTransform;
 
 FftTransform *fft_transform_initialize(uint32_t sample_rate,
                                        float frame_size_ms);
-FftTransform *fft_transform_initialize_bins(uint32_t frame_size_bins);
+FftTransform *fft_transform_initialize_bins(uint32_t fft_size);
 void fft_transform_free(FftTransform *self);
 bool fft_load_input_samples(FftTransform *self, const float *input);
 uint32_t get_fft_size(FftTransform *self);
-uint32_t get_real_spectrum_size(FftTransform *self);
+uint32_t get_fft_real_spectrum_size(FftTransform *self);
 bool compute_forward_fft(FftTransform *self);
 bool compute_backward_fft(FftTransform *self);
 float *get_fft_input_buffer(FftTransform *self);

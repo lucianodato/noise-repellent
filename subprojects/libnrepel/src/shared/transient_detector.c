@@ -26,7 +26,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 struct TransientDetector {
   uint32_t fft_size;
-  uint32_t half_fft_size;
+  uint32_t real_spectrum_size;
 
   float *previous_spectrum;
   float rolling_mean;
@@ -39,10 +39,10 @@ TransientDetector *transient_detector_initialize(const uint32_t fft_size) {
       (TransientDetector *)calloc(1U, sizeof(TransientDetector));
 
   self->fft_size = fft_size;
-  self->half_fft_size = self->fft_size / 2U;
+  self->real_spectrum_size = self->fft_size / 2U + 1U;
 
   self->previous_spectrum =
-      (float *)calloc((self->half_fft_size + 1U), sizeof(float));
+      (float *)calloc(self->real_spectrum_size, sizeof(float));
 
   self->window_count = 0U;
   self->rolling_mean = 0.F;
@@ -60,7 +60,7 @@ bool transient_detector_run(TransientDetector *self,
                             const float transient_threshold,
                             const float *spectrum) {
   const float reduction_function = spectral_flux(
-      spectrum, self->previous_spectrum, self->half_fft_size + 1U);
+      spectrum, self->previous_spectrum, self->real_spectrum_size);
 
   self->window_count += 1U;
 
@@ -75,7 +75,7 @@ bool transient_detector_run(TransientDetector *self,
       (UPPER_LIMIT - transient_threshold) * self->rolling_mean;
 
   memcpy(self->previous_spectrum, spectrum,
-         sizeof(float) * (self->half_fft_size + 1U));
+         sizeof(float) * self->real_spectrum_size);
 
   if (reduction_function > adapted_threshold) {
     return true;

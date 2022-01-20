@@ -24,7 +24,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 struct StftBuffer {
   uint32_t read_position;
   uint32_t start_position;
-  uint32_t buffer_size;
+  uint32_t stft_frame_size;
   uint32_t block_step;
 
   // TODO (luciano/todo): replace FIFO buffers with one single lock free Queue
@@ -32,17 +32,17 @@ struct StftBuffer {
   float *out_fifo;
 };
 
-StftBuffer *stft_buffer_initialize(const uint32_t buffer_size,
+StftBuffer *stft_buffer_initialize(const uint32_t stft_frame_size,
                                    const uint32_t start_position,
                                    const uint32_t block_step) {
   StftBuffer *self = (StftBuffer *)calloc(1U, sizeof(StftBuffer));
 
-  self->buffer_size = buffer_size;
+  self->stft_frame_size = stft_frame_size;
   self->start_position = start_position;
   self->block_step = block_step;
   self->read_position = self->start_position;
-  self->in_fifo = (float *)calloc(self->buffer_size, sizeof(float));
-  self->out_fifo = (float *)calloc(self->buffer_size, sizeof(float));
+  self->in_fifo = (float *)calloc(self->stft_frame_size, sizeof(float));
+  self->out_fifo = (float *)calloc(self->stft_frame_size, sizeof(float));
 
   return self;
 }
@@ -64,7 +64,7 @@ bool stft_buffer_fill(StftBuffer *self, const float input_sample,
   self->read_position++;
 
   // Is it full?
-  if (self->read_position == self->buffer_size) {
+  if (self->read_position == self->stft_frame_size) {
     return true;
   }
 

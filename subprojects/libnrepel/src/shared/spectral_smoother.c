@@ -27,7 +27,7 @@ static void apply_time_envelope(SpectralSmoother *self);
 
 struct SpectralSmoother {
   uint32_t fft_size;
-  uint32_t half_fft_size;
+  uint32_t real_spectrum_size;
   uint32_t sample_rate;
   uint32_t hop;
 
@@ -46,16 +46,16 @@ SpectralSmoother *spectral_smoothing_initialize(const uint32_t fft_size,
       (SpectralSmoother *)calloc(1U, sizeof(SpectralSmoother));
 
   self->fft_size = fft_size;
-  self->half_fft_size = self->fft_size / 2U;
+  self->real_spectrum_size = self->fft_size / 2U + 1U;
   self->sample_rate = sample_rate;
   self->hop = hop;
 
   self->noise_spectrum =
-      (float *)calloc((self->half_fft_size + 1U), sizeof(float));
+      (float *)calloc(self->real_spectrum_size, sizeof(float));
   self->smoothed_spectrum =
-      (float *)calloc((self->half_fft_size + 1U), sizeof(float));
+      (float *)calloc(self->real_spectrum_size, sizeof(float));
   self->smoothed_spectrum_previous =
-      (float *)calloc((self->half_fft_size + 1U), sizeof(float));
+      (float *)calloc(self->real_spectrum_size, sizeof(float));
 
   self->release_coefficient = 0.F;
 
@@ -78,12 +78,12 @@ bool spectral_smoothing_run(SpectralSmoother *self, const float release,
   get_release_coefficient(self, release);
 
   memcpy(self->smoothed_spectrum, signal_spectrum,
-         sizeof(float) * (self->half_fft_size + 1U));
+         sizeof(float) * self->real_spectrum_size);
 
   apply_time_envelope(self);
 
   memcpy(self->smoothed_spectrum_previous, self->smoothed_spectrum,
-         sizeof(float) * (self->half_fft_size + 1U));
+         sizeof(float) * self->real_spectrum_size);
 
   return true;
 }
@@ -99,7 +99,7 @@ static void get_release_coefficient(SpectralSmoother *self,
 }
 
 static void apply_time_envelope(SpectralSmoother *self) {
-  for (uint32_t k = 1U; k <= self->half_fft_size; k++) {
+  for (uint32_t k = 1U; k < self->real_spectrum_size; k++) {
     if (self->smoothed_spectrum[k] > self->smoothed_spectrum_previous[k]) {
       self->smoothed_spectrum[k] =
           self->release_coefficient * self->smoothed_spectrum_previous[k] +

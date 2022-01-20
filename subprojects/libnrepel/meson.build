@@ -15,6 +15,7 @@ shared_sources = [
     'src/shared/spectral_smoother.c',
     'src/shared/noise_estimator.c',
     'src/shared/adaptive_noise_estimator.c',
+    'src/shared/gain_estimators.c',
     'src/shared/noise_profile.c',
     'src/stft/stft_windows.c',
     'src/stft/stft_buffer.c',

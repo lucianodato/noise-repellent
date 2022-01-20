@@ -54,10 +54,10 @@ FftTransform *fft_transform_initialize(const uint32_t sample_rate,
   return self;
 }
 
-FftTransform *fft_transform_initialize_bins(const uint32_t frame_size_bins) {
+FftTransform *fft_transform_initialize_bins(const uint32_t fft_size) {
   FftTransform *self = (FftTransform *)calloc(1U, sizeof(FftTransform));
 
-  self->fft_size = frame_size_bins;
+  self->fft_size = fft_size;
 
   self->input_fft_buffer = (float *)calloc(self->fft_size, sizeof(float));
   self->output_fft_buffer = (float *)calloc(self->fft_size, sizeof(float));
@@ -89,7 +89,7 @@ void fft_transform_free(FftTransform *self) {
 }
 
 uint32_t get_fft_size(FftTransform *self) { return self->fft_size; }
-uint32_t get_real_spectrum_size(FftTransform *self) {
+uint32_t get_fft_real_spectrum_size(FftTransform *self) {
   return self->fft_size / 2U + 1U;
 }
 

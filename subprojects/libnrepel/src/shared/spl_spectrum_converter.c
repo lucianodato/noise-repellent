@@ -39,7 +39,7 @@ struct SplSpectrumConverter {
   SpectalType spectrum_type;
 
   uint32_t fft_size;
-  uint32_t half_fft_size;
+  uint32_t real_spectrum_size;
   uint32_t sample_rate;
   float sine_wave_amplitude;
   float sine_wave_frequency;
@@ -54,7 +54,7 @@ SplSpectrumConverter *reference_spectrum_initialize(const uint32_t sample_rate,
   self->fft_transform = fft_transform_initialize_bins(fft_size);
 
   self->fft_size = get_fft_size(self->fft_transform);
-  self->half_fft_size = self->fft_size / 2U;
+  self->real_spectrum_size = self->fft_size / 2U + 1U;
   self->sample_rate = sample_rate;
   self->spectrum_type = SPECTRAL_TYPE;
   self->sine_wave_amplitude = SINE_AMPLITUDE;
@@ -62,13 +62,13 @@ SplSpectrumConverter *reference_spectrum_initialize(const uint32_t sample_rate,
   self->reference_level = REFERENCE_LEVEL;
 
   self->spl_reference_values =
-      (float *)calloc((self->half_fft_size + 1U), sizeof(float));
+      (float *)calloc(self->real_spectrum_size, sizeof(float));
 
   self->sinewave = (float *)calloc(self->fft_size, sizeof(float));
   self->window = (float *)calloc(self->fft_size, sizeof(float));
 
   self->spectral_features =
-      spectral_features_initialize(self->half_fft_size + 1U);
+      spectral_features_initialize(self->real_spectrum_size);
 
   generate_sinewave(self);
   get_fft_window(self->window, self->fft_size, VORBIS_WINDOW);
@@ -109,7 +109,7 @@ static void compute_spl_reference_spectrum(SplSpectrumConverter *self) {
       self->spectral_features, get_fft_output_buffer(self->fft_transform),
       self->fft_size, self->spectrum_type);
 
-  for (uint32_t k = 1U; k <= self->half_fft_size; k++) {
+  for (uint32_t k = 1U; k < self->real_spectrum_size; k++) {
     self->spl_reference_values[k] =
         self->reference_level - 10.F * log10f(reference_spectrum[k]);
   }
@@ -120,7 +120,7 @@ bool convert_spectrum_to_dbspl(SplSpectrumConverter *self, float *spectrum) {
     return false;
   }
 
-  for (uint32_t k = 1U; k <= self->half_fft_size; k++) {
+  for (uint32_t k = 1U; k < self->real_spectrum_size; k++) {
     spectrum[k] += self->spl_reference_values[k];
   }
 

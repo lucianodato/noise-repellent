@@ -25,7 +25,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 struct NoiseEstimator {
   uint32_t fft_size;
-  uint32_t half_fft_size;
+  uint32_t real_spectrum_size;
 
   NoiseProfile *noise_profile;
 };
@@ -35,7 +35,7 @@ NoiseEstimator *noise_estimation_initialize(const uint32_t fft_size,
   NoiseEstimator *self = (NoiseEstimator *)calloc(1U, sizeof(NoiseEstimator));
 
   self->fft_size = fft_size;
-  self->half_fft_size = self->fft_size / 2U;
+  self->real_spectrum_size = self->fft_size / 2U + 1U;
 
   self->noise_profile = noise_profile;
 
@@ -54,7 +54,7 @@ bool noise_estimation_run(NoiseEstimator *self, float *signal_spectrum) {
   get_rolling_mean_spectrum(
       noise_profile, signal_spectrum,
       get_noise_profile_blocks_averaged(self->noise_profile),
-      self->half_fft_size);
+      self->real_spectrum_size);
 
   increment_blocks_averaged(self->noise_profile);
 

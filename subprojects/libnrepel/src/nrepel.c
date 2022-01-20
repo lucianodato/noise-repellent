@@ -51,20 +51,19 @@ NoiseRepellentHandle nrepel_initialize(const uint32_t sample_rate) {
     return NULL;
   }
 
-  const uint32_t buffer_size = get_buffer_size(self->stft_processor);
-  const uint32_t spectral_size =
-      get_spectral_processing_size(self->stft_processor);
+  const uint32_t fft_size = get_stft_fft_size(self->stft_processor);
+  const uint32_t real_spectrum_size =
+      get_stft_real_spectrum_size(self->stft_processor);
 
-  self->noise_profile = noise_profile_initialize(spectral_size);
+  self->noise_profile = noise_profile_initialize(real_spectrum_size);
 
   if (!self->noise_profile) {
     nrepel_free(self);
     return NULL;
   }
 
-  self->spectral_denoiser =
-      spectral_denoiser_initialize(self->sample_rate, buffer_size,
-                                   OVERLAP_FACTOR_GENERAL, self->noise_profile);
+  self->spectral_denoiser = spectral_denoiser_initialize(
+      self->sample_rate, fft_size, OVERLAP_FACTOR_GENERAL, self->noise_profile);
 
   if (!self->spectral_denoiser) {
     nrepel_free(self);
@@ -211,10 +210,10 @@ NoiseRepellentHandle nrepel_adaptive_initialize(const uint32_t sample_rate) {
     return NULL;
   }
 
-  const uint32_t buffer_size = get_buffer_size(self->stft_processor);
+  const uint32_t fft_size = get_stft_fft_size(self->stft_processor);
 
   self->adaptive_spectral_denoiser =
-      spectral_adaptive_denoiser_initialize(self->sample_rate, buffer_size);
+      spectral_adaptive_denoiser_initialize(self->sample_rate, fft_size);
 
   if (!self->adaptive_spectral_denoiser) {
     nrepel_free(self);

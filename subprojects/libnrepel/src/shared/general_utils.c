@@ -29,8 +29,8 @@ inline float sanitize_denormal(float value) {
   return value;
 }
 
-inline float from_db_to_coefficient(const float gain_db) {
-  return expf(gain_db / 10.F * logf(10.F));
+inline float from_db_to_coefficient(const float value_db) {
+  return expf(value_db / 10.F * logf(10.F));
 }
 
 int get_next_power_divisible_two(int number) {

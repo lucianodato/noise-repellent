@@ -32,7 +32,7 @@ struct CriticalBands {
   uint32_t *number_bins_per_band;
 
   uint32_t fft_size;
-  uint32_t half_fft_size;
+  uint32_t real_spectrum_size;
   uint32_t sample_rate;
   uint32_t number_bands;
   CriticalBandType type;
@@ -48,13 +48,13 @@ CriticalBands *critical_bands_initialize(const uint32_t sample_rate,
       (CriticalBands *)calloc(number_bands, sizeof(CriticalBands));
 
   self->fft_size = fft_size;
-  self->half_fft_size = fft_size / 2U;
+  self->real_spectrum_size = fft_size / 2U + 1U;
   self->number_bands = number_bands;
   self->sample_rate = sample_rate;
   self->type = type;
 
   self->mapping_spectrum =
-      (float *)calloc(self->half_fft_size + 1U, sizeof(float));
+      (float *)calloc(self->real_spectrum_size, sizeof(float));
   self->band_delimiter_bins =
       (uint32_t *)calloc(self->number_bands, sizeof(uint32_t));
   self->number_bins_per_band =
@@ -75,7 +75,7 @@ void critical_bands_free(CriticalBands *self) {
 }
 
 static void compute_mapping_spectrum(CriticalBands *self) {
-  for (uint32_t k = 1U; k <= self->half_fft_size; k++) {
+  for (uint32_t k = 1U; k < self->real_spectrum_size; k++) {
     const float frequency =
         fft_bin_to_freq(k, self->sample_rate, self->fft_size);
     switch (self->type) {

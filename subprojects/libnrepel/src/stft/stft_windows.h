@@ -28,7 +28,7 @@ typedef struct StftWindows StftWindows;
 
 typedef enum WindowPlace { INPUT_WINDOW = 1, OUTPUT_WINDOW = 2 } WindowPlace;
 
-StftWindows *stft_window_initialize(uint32_t window_size,
+StftWindows *stft_window_initialize(uint32_t stft_frame_size,
                                     uint32_t overlap_factor,
                                     WindowTypes input_window,
                                     WindowTypes output_window);

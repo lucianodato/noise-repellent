@@ -24,7 +24,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <stdint.h>
 
 typedef struct StftBuffer StftBuffer;
-StftBuffer *stft_buffer_initialize(uint32_t buffer_size,
+StftBuffer *stft_buffer_initialize(uint32_t stft_frame_size,
                                    uint32_t start_position,
                                    uint32_t block_step);
 void stft_buffer_free(StftBuffer *self);

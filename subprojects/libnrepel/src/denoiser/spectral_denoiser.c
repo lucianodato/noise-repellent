@@ -19,6 +19,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 #include "spectral_denoiser.h"
 #include "../shared/configurations.h"
+#include "../shared/gain_estimators.h"
 #include "../shared/noise_estimator.h"
 #include "../shared/oversubtraction_criterias.h"
 #include "../shared/spectral_features.h"
@@ -33,7 +34,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 typedef struct SpectralDenoiser {
   uint32_t fft_size;
-  uint32_t half_fft_size;
+  uint32_t real_spectrum_size;
   uint32_t sample_rate;
   uint32_t hop;
 
@@ -63,14 +64,14 @@ SpectralProcessorHandle spectral_denoiser_initialize(
       (SpectralDenoiser *)calloc(1U, sizeof(SpectralDenoiser));
 
   self->fft_size = fft_size;
-  self->half_fft_size = self->fft_size / 2U;
+  self->real_spectrum_size = self->fft_size / 2U + 1U;
   self->hop = self->fft_size / overlap_factor;
   self->sample_rate = sample_rate;
   self->spectrum_type = SPECTRAL_TYPE;
 
   self->gain_spectrum =
-      (float *)calloc((self->half_fft_size + 1U), sizeof(float));
-  initialize_spectrum_with_value(self->gain_spectrum, self->half_fft_size + 1U,
+      (float *)calloc(self->real_spectrum_size, sizeof(float));
+  initialize_spectrum_with_value(self->gain_spectrum, self->real_spectrum_size,
                                  1.F);
 
   self->noise_profile = noise_profile;
@@ -82,7 +83,7 @@ SpectralProcessorHandle spectral_denoiser_initialize(
   self->denoised_spectrum = (float *)calloc((self->fft_size), sizeof(float));
 
   self->spectral_features =
-      spectral_features_initialize(self->half_fft_size + 1U);
+      spectral_features_initialize(self->real_spectrum_size);
 
   self->transient_detection = transient_detector_initialize(self->fft_size);
   self->spectrum_smoothing = spectral_smoothing_initialize(
@@ -167,10 +168,10 @@ bool spectral_denoiser_run(SpectralProcessorHandle instance,
 
     if (self->transient_detected &&
         self->denoise_parameters.transient_threshold > 1.F) {
-      wiener_subtraction(self->half_fft_size, reference_spectrum,
+      wiener_subtraction(self->real_spectrum_size, reference_spectrum,
                          self->gain_spectrum, noise_profile);
     } else {
-      spectral_gating(self->half_fft_size, reference_spectrum,
+      spectral_gating(self->real_spectrum_size, reference_spectrum,
                       self->gain_spectrum, noise_profile);
     }
 
@@ -182,7 +183,7 @@ bool spectral_denoiser_run(SpectralProcessorHandle instance,
                              self->gain_spectrum);
     }
 
-    denoise_mixer(self->fft_size, self->half_fft_size, fft_spectrum,
+    denoise_mixer(self->fft_size, self->real_spectrum_size, fft_spectrum,
                   self->gain_spectrum, self->denoised_spectrum,
                   self->residual_spectrum,
                   self->denoise_parameters.residual_listen,
