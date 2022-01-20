@@ -17,17 +17,18 @@ You should have received a copy of the GNU Lesser General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
-#ifndef SPL_SPECTRUM_CONVERTER_H
-#define SPL_SPECTRUM_CONVERTER_H
+#ifndef ABSOLUTE_HEARING_THRESHOLDS_H
+#define ABSOLUTE_HEARING_THRESHOLDS_H
 
 #include <stdbool.h>
 #include <stdint.h>
 
-typedef struct SplSpectrumConverter SplSpectrumConverter;
+typedef struct AbsoluteHearingThresholds AbsoluteHearingThresholds;
 
-SplSpectrumConverter *reference_spectrum_initialize(uint32_t sample_rate,
-                                                    uint32_t fft_size);
-void reference_spectrum_free(SplSpectrumConverter *self);
-bool convert_spectrum_to_dbspl(SplSpectrumConverter *self, float *spectrum);
+AbsoluteHearingThresholds *
+absolute_hearing_thresholds_initialize(uint32_t sample_rate, uint32_t fft_size);
+void absolute_hearing_thresholds_free(AbsoluteHearingThresholds *self);
+bool apply_thresholds_as_floor(AbsoluteHearingThresholds *self,
+                               float *spectrum);
 
 #endif

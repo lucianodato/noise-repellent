@@ -9,7 +9,7 @@ shared_sources = [
     'src/shared/spectral_whitening.c',
     'src/shared/oversubtraction_criterias.c',
     'src/shared/critical_bands.c',
-    'src/shared/spl_spectrum_converter.c',
+    'src/shared/absolute_hearing_thresholds.c',
     'src/shared/masking_estimator.c',
     'src/shared/transient_detector.c',
     'src/shared/spectral_smoother.c',
