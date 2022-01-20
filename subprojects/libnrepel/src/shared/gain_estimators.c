@@ -85,3 +85,29 @@ void spectral_gating(const uint32_t real_spectrum_size, const float *spectrum,
     }
   }
 }
+
+void generalized_spectral_subtraction(const uint32_t real_spectrum_size,
+                                      const float *alpha, const float *beta,
+                                      const float *spectrum,
+                                      const float *noise_spectrum,
+                                      float *gain_spectrum) {
+  for (uint32_t k = 1U; k < real_spectrum_size; k++) {
+    if (spectrum[k] > FLT_MIN) {
+      if (powf((noise_spectrum[k] / spectrum[k]), GAMMA1) <
+          (1.F / (alpha[k] + beta[k]))) {
+        gain_spectrum[k] =
+            fmaxf(powf(1.F - (alpha[k] *
+                              powf((noise_spectrum[k] / spectrum[k]), GAMMA1)),
+                       GAMMA2),
+                  0.F);
+      } else {
+        gain_spectrum[k] = fmaxf(
+            powf(beta[k] * powf((noise_spectrum[k] / spectrum[k]), GAMMA1),
+                 GAMMA2),
+            0.F);
+      }
+    } else {
+      gain_spectrum[k] = 1.F;
+    }
+  }
+}

@@ -101,6 +101,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 // Adaptive Denoiser
 #define N_CRITICAL_BANDS_SPEECH 25
 #define CRITICAL_BANDS_TYPE_SPEECH BARK_SCALE
+#define DEFAULT_MASKING_CEILING 2.F
+#define DEFAULT_MASKING_FLOOR 0.01F
 
 // Louizou Estimator
 #define N_SMOOTH 0.7F

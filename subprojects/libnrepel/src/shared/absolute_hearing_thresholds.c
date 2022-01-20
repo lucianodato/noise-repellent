@@ -130,8 +130,8 @@ bool apply_thresholds_as_floor(AbsoluteHearingThresholds *self,
   }
 
   for (uint32_t k = 1U; k < self->real_spectrum_size; k++) {
-    spectrum[k] += self->spl_reference_values[k];
-    spectrum[k] = fmaxf(spectrum[k], self->absolute_thresholds[k]);
+    spectrum[k] = fmaxf(spectrum[k] + self->spl_reference_values[k],
+                        self->absolute_thresholds[k]);
   }
 
   return true;

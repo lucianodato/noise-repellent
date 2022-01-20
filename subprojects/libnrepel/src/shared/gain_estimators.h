@@ -31,5 +31,10 @@ void spectral_gating(uint32_t real_spectrum_size, const float *spectrum,
                      float *gain_spectrum, const float *noise_spectrum);
 void wiener_subtraction(uint32_t real_spectrum_size, const float *spectrum,
                         float *gain_spectrum, const float *noise_spectrum);
+void generalized_spectral_subtraction(uint32_t real_spectrum_size,
+                                      const float *alpha, const float *beta,
+                                      const float *spectrum,
+                                      const float *noise_spectrum,
+                                      float *gain_spectrum);
 
 #endif

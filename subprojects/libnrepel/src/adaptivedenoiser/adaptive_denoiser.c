@@ -33,6 +33,8 @@ typedef struct SpectralAdaptiveDenoiser {
   uint32_t fft_size;
   uint32_t real_spectrum_size;
   uint32_t sample_rate;
+  float default_masking_ceiling;
+  float default_masking_floor;
 
   AdaptiveDenoiserParameters parameters;
 
@@ -58,6 +60,8 @@ spectral_adaptive_denoiser_initialize(const uint32_t sample_rate,
   self->fft_size = fft_size;
   self->real_spectrum_size = self->fft_size / 2U + 1U;
   self->sample_rate = sample_rate;
+  self->default_masking_ceiling = DEFAULT_MASKING_CEILING;
+  self->default_masking_floor = DEFAULT_MASKING_FLOOR;
 
   self->gain_spectrum =
       (float *)calloc(self->real_spectrum_size, sizeof(float));
@@ -128,8 +132,8 @@ bool spectral_adaptive_denoiser_run(SpectralProcessorHandle instance,
   OversustractionParameters oversubtraction_parameters =
       (OversustractionParameters){
           .noise_rescale = self->parameters.noise_rescale,
-          .masking_ceil = 3.F,
-          .masking_floor = 0.1F,
+          .masking_ceil = self->default_masking_ceiling,
+          .masking_floor = self->default_masking_floor,
       };
   apply_oversustraction_criteria(self->oversubtraction_criteria,
                                  reference_spectrum, self->noise_profile,
