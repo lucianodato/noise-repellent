@@ -20,6 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #ifndef STFT_PROCESSOR_H
 #define STFT_PROCESSOR_H
 
+#include "../shared/fft_transform.h"
 #include "../shared/spectral_processor.h"
 #include "../shared/spectral_utils.h"
 #include <stdbool.h>
@@ -27,11 +28,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 typedef struct StftProcessor StftProcessor;
 
-StftProcessor *stft_processor_initialize(uint32_t sample_rate,
-                                         float stft_frame_size,
-                                         uint32_t overlap_factor,
-                                         WindowTypes input_window,
-                                         WindowTypes output_window);
+StftProcessor *
+stft_processor_initialize(uint32_t sample_rate, float stft_frame_size,
+                          uint32_t overlap_factor, ZeroPaddingType padding_type,
+                          WindowTypes input_window, WindowTypes output_window);
 void stft_processor_free(StftProcessor *self);
 uint32_t get_stft_latency(StftProcessor *self);
 uint32_t get_stft_fft_size(StftProcessor *self);

@@ -21,6 +21,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define MODULES_CONFIGURATIONS_H
 
 #include "critical_bands.h"
+#include "fft_transform.h"
 #include "spectral_features.h"
 #include "spectral_utils.h"
 
@@ -32,11 +33,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 /* ------------------- Shared Modules configurations ------------------- */
 /* --------------------------------------------------------------------- */
 
-// Fft configurations - Frame size in milliseconds
-#define FRAME_SIZE_GENERAL 46
-#define FRAME_SIZE_SPEECH 32
+// FFT configurations
+#define PADDING_CONFIGURATION_GENERAL NO_PADDING
+#define PADDING_CONFIGURATION_SPEECH FIXED_AMOUNT
+#define ZEROPADDING_AMOUNT 25
 
-// dB to dBSPL converter
+// Absolute hearing thresholds
 #define REFERENCE_SINE_WAVE_FREQ 1000.F
 #define REFERENCE_LEVEL 90.F
 #define SINE_AMPLITUDE 1.F
@@ -45,9 +47,49 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define WHITENING_DECAY_RATE 1000.F
 #define WHITENING_FLOOR 0.02F
 
+// Masking Thresholds
+#define BIAS 0
+#define HIGH_FREQ_BIAS 20.F
+#if BIAS
+#define relative_thresholds                                                    \
+  [N_BARK_BANDS] = {-16.F, -17.F, -18.F, -19.F, -20.F, -21.F, -22.F,           \
+                    -23.F, -24.F, -25.F, -25.F, -25.F, -25.F, -25.F,           \
+                    -25.F, -24.F, -23.F, -22.F, -19.F, -18.F, -18.F,           \
+                    -18.F, -18.F, -18.F, -18.F}
+#endif
+
+// Gain Estimators
+#define GAMMA1 2.F
+#define GAMMA2 0.5F
+
+#define ALPHA_MAX 6.F
+#define ALPHA_MIN 1.F
+#define BETA_MAX 0.02F
+#define BETA_MIN 0.F
+
+// Noise Estimator
+#define MIN_NUMBER_OF_WINDOWS_NOISE_AVERAGED 5
+
+// Adaptive Estimator
+#define N_SMOOTH 0.7F
+#define BETA_AT 0.8F
+#define GAMMA 0.998F
+#define ALPHA_P 0.2F
+#define ALPHA_D 0.85F
+
+#define CROSSOVER_POINT1 1000.F
+#define CROSSOVER_POINT2 3000.F
+#define BAND_1_LEVEL 2.F
+#define BAND_2_LEVEL 2.F
+#define BAND_3_LEVEL 5.F
+
 /* ----------------------------------------------------------- */
 /* ------------------- Stft configurations ------------------- */
 /* ----------------------------------------------------------- */
+
+// STFT configurations - Frame size in milliseconds
+#define FRAME_SIZE_GENERAL 46
+#define FRAME_SIZE_SPEECH 20
 
 // OverlapAdd configurations
 #define OVERLAP_FACTOR_GENERAL 4
@@ -65,9 +107,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 /* --------------------------------------------------------------- */
 
 // Spectral Type
-#define SPECTRAL_TYPE POWER_SPECTRUM
-
-// General Denoiser
+#define SPECTRAL_TYPE_GENERAL POWER_SPECTRUM
 
 // Transient protection
 #define UPPER_LIMIT 5.F
@@ -75,46 +115,18 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 // Masking
 #define N_CRITICAL_BANDS 25
 #define CRITICAL_BANDS_TYPE BARK_SCALE
-#define BIAS 0
-#define HIGH_FREQ_BIAS 20.F
 
-#if BIAS
-#define relative_thresholds                                                    \
-  [N_BARK_BANDS] = {-16.F, -17.F, -18.F, -19.F, -20.F, -21.F, -22.F,           \
-                    -23.F, -24.F, -25.F, -25.F, -25.F, -25.F, -25.F,           \
-                    -25.F, -24.F, -23.F, -22.F, -19.F, -18.F, -18.F,           \
-                    -18.F, -18.F, -18.F, -18.F}
-#endif
+/* ------------------------------------------------------------------------ */
+/* ------------------- Adaptive Denoiser configurations ------------------- */
+/* ------------------------------------------------------------------------ */
 
-// Gain Estimator
-#define GAMMA1 2.F
-#define GAMMA2 0.5F
+// Spectral Type
+#define SPECTRAL_TYPE_SPEECH POWER_SPECTRUM
 
-#define ALPHA_MAX 6.F
-#define ALPHA_MIN 1.F
-#define BETA_MAX 0.02F
-#define BETA_MIN 0.F
-
-// Noise Estimator
-#define MIN_NUMBER_OF_WINDOWS_NOISE_AVERAGED 5
-
-// Adaptive Denoiser
+// Masking
 #define N_CRITICAL_BANDS_SPEECH 25
 #define CRITICAL_BANDS_TYPE_SPEECH BARK_SCALE
 #define DEFAULT_MASKING_CEILING 2.F
 #define DEFAULT_MASKING_FLOOR 0.01F
-
-// Louizou Estimator
-#define N_SMOOTH 0.7F
-#define BETA_AT 0.8F
-#define GAMMA 0.998F
-#define ALPHA_P 0.2F
-#define ALPHA_D 0.85F
-
-#define CROSSOVER_POINT1 1000.F
-#define CROSSOVER_POINT2 3000.F
-#define BAND_1_LEVEL 2.F
-#define BAND_2_LEVEL 2.F
-#define BAND_3_LEVEL 5.F
 
 #endif // ifndef

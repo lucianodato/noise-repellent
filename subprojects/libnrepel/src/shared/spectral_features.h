@@ -25,15 +25,15 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 typedef struct SpectralFeatures SpectralFeatures;
 
-typedef enum SpectalType {
+typedef enum SpectrumType {
   POWER_SPECTRUM = 0,
   MAGNITUDE_SPECTRUM = 1,
   PHASE_SPECTRUM = 2,
-} SpectalType;
+} SpectrumType;
 
 SpectralFeatures *spectral_features_initialize(uint32_t real_spectrum_size);
 void spectral_features_free(SpectralFeatures *self);
 float *get_spectral_feature(SpectralFeatures *self, const float *fft_spectrum,
-                            uint32_t fft_spectrum_size, SpectalType type);
+                            uint32_t fft_spectrum_size, SpectrumType type);
 
 #endif

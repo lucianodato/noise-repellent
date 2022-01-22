@@ -19,7 +19,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 #include "stft_processor.h"
 #include "../shared/configurations.h"
-#include "../shared/fft_transform.h"
 #include "../shared/spectral_features.h"
 #include "stft_buffer.h"
 #include "stft_windows.h"
@@ -32,7 +31,9 @@ struct StftProcessor {
   uint32_t hop;
   uint32_t overlap_factor;
   uint32_t fft_size;
+  uint32_t frame_size;
   float *output_accumulator;
+  float *tmp_output;
 
   FftTransform *fft_transform;
   StftBuffer *stft_buffer;
@@ -42,22 +43,26 @@ struct StftProcessor {
 StftProcessor *stft_processor_initialize(const uint32_t sample_rate,
                                          const float stft_frame_size,
                                          const uint32_t overlap_factor,
+                                         ZeroPaddingType padding_type,
                                          WindowTypes input_window,
                                          WindowTypes output_window) {
   StftProcessor *self = (StftProcessor *)calloc(1U, sizeof(StftProcessor));
 
-  self->fft_transform = fft_transform_initialize(sample_rate, stft_frame_size);
+  self->fft_transform =
+      fft_transform_initialize(sample_rate, stft_frame_size, padding_type);
 
   self->fft_size = get_fft_size(self->fft_transform);
+  self->frame_size = get_frame_size(self->fft_transform);
   self->overlap_factor = overlap_factor;
-  self->hop = self->fft_size / self->overlap_factor;
-  self->input_latency = self->fft_size - self->hop;
+  self->hop = self->frame_size / self->overlap_factor;
+  self->input_latency = self->frame_size - self->hop;
 
   self->output_accumulator =
-      (float *)calloc((size_t)self->fft_size * 2U, sizeof(float));
+      (float *)calloc((size_t)self->frame_size * 2U, sizeof(float));
+  self->tmp_output = (float *)calloc((size_t)self->frame_size, sizeof(float));
 
   self->stft_buffer =
-      stft_buffer_initialize(self->fft_size, self->input_latency, self->hop);
+      stft_buffer_initialize(self->frame_size, self->input_latency, self->hop);
 
   self->stft_windows = stft_window_initialize(
       self->fft_size, self->overlap_factor, input_window, output_window);
@@ -67,6 +72,7 @@ StftProcessor *stft_processor_initialize(const uint32_t sample_rate,
 
 void stft_processor_free(StftProcessor *self) {
   free(self->output_accumulator);
+  free(self->tmp_output);
 
   stft_buffer_free(self->stft_buffer);
   fft_transform_free(self->fft_transform);
@@ -106,16 +112,17 @@ bool stft_processor_run(StftProcessor *self, const uint32_t number_of_samples,
                         get_fft_input_buffer(self->fft_transform),
                         OUTPUT_WINDOW);
 
+      fft_get_output_samples(self->fft_transform, self->tmp_output);
+
       // STFT Overlap Add
-      for (uint32_t k = 0U; k < self->fft_size; k++) {
-        self->output_accumulator[k] +=
-            get_fft_input_buffer(self->fft_transform)[k];
+      for (uint32_t k = 0U; k < self->frame_size; k++) {
+        self->output_accumulator[k] += self->tmp_output[k];
       }
 
       stft_buffer_advance_block(self->stft_buffer, self->output_accumulator);
 
       memmove(self->output_accumulator, &self->output_accumulator[self->hop],
-              self->fft_size * sizeof(float));
+              self->frame_size * sizeof(float));
     }
   }
 

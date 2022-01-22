@@ -20,7 +20,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include "absolute_hearing_thresholds.h"
 #include "configurations.h"
 #include "fft_transform.h"
-#include "spectral_features.h"
 #include "spectral_utils.h"
 #include <math.h>
 #include <stdlib.h>
@@ -38,7 +37,7 @@ struct AbsoluteHearingThresholds {
 
   SpectralFeatures *spectral_features;
   FftTransform *fft_transform;
-  SpectalType spectrum_type;
+  SpectrumType spectrum_type;
 
   uint32_t fft_size;
   uint32_t real_spectrum_size;
@@ -50,7 +49,8 @@ struct AbsoluteHearingThresholds {
 
 AbsoluteHearingThresholds *
 absolute_hearing_thresholds_initialize(const uint32_t sample_rate,
-                                       const uint32_t fft_size) {
+                                       const uint32_t fft_size,
+                                       SpectrumType spectrum_type) {
   AbsoluteHearingThresholds *self = (AbsoluteHearingThresholds *)calloc(
       1U, sizeof(AbsoluteHearingThresholds));
 
@@ -59,7 +59,7 @@ absolute_hearing_thresholds_initialize(const uint32_t sample_rate,
   self->fft_size = get_fft_size(self->fft_transform);
   self->real_spectrum_size = self->fft_size / 2U + 1U;
   self->sample_rate = sample_rate;
-  self->spectrum_type = SPECTRAL_TYPE;
+  self->spectrum_type = spectrum_type;
   self->sine_wave_amplitude = SINE_AMPLITUDE;
   self->sine_wave_frequency = REFERENCE_SINE_WAVE_FREQ;
   self->reference_level = REFERENCE_LEVEL;

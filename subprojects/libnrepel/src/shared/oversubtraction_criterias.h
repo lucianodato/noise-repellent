@@ -21,6 +21,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define OVERSUBTRACTION_CRITERIAS_H
 
 #include "critical_bands.h"
+#include "spectral_features.h"
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -41,7 +42,7 @@ typedef struct OversubtractionCriterias OversubtractionCriterias;
 OversubtractionCriterias *oversubtraction_criterias_initialize(
     OversubtractionType subtraction_type, uint32_t number_critical_bands,
     uint32_t fft_size, CriticalBandType critical_band_type,
-    uint32_t sample_rate);
+    uint32_t sample_rate, SpectrumType spectrum_type);
 void oversubtraction_criterias_free(OversubtractionCriterias *self);
 bool apply_oversustraction_criteria(OversubtractionCriterias *self,
                                     const float *spectrum,

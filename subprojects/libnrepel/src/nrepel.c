@@ -44,7 +44,8 @@ NoiseRepellentHandle nrepel_initialize(const uint32_t sample_rate) {
 
   self->stft_processor = stft_processor_initialize(
       sample_rate, FRAME_SIZE_GENERAL, OVERLAP_FACTOR_GENERAL,
-      INPUT_WINDOW_TYPE_GENERAL, OUTPUT_WINDOW_TYPE_GENERAL);
+      PADDING_CONFIGURATION_GENERAL, INPUT_WINDOW_TYPE_GENERAL,
+      OUTPUT_WINDOW_TYPE_GENERAL);
 
   if (!self->stft_processor) {
     nrepel_free(self);
@@ -203,7 +204,8 @@ NoiseRepellentHandle nrepel_adaptive_initialize(const uint32_t sample_rate) {
 
   self->stft_processor = stft_processor_initialize(
       sample_rate, FRAME_SIZE_SPEECH, OVERLAP_FACTOR_SPEECH,
-      INPUT_WINDOW_TYPE_SPEECH, OUTPUT_WINDOW_TYPE_SPEECH);
+      PADDING_CONFIGURATION_SPEECH, INPUT_WINDOW_TYPE_SPEECH,
+      OUTPUT_WINDOW_TYPE_SPEECH);
 
   if (!self->stft_processor) {
     nrepel_free(self);

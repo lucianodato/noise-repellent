@@ -20,13 +20,15 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #ifndef ABSOLUTE_HEARING_THRESHOLDS_H
 #define ABSOLUTE_HEARING_THRESHOLDS_H
 
+#include "spectral_features.h"
 #include <stdbool.h>
 #include <stdint.h>
 
 typedef struct AbsoluteHearingThresholds AbsoluteHearingThresholds;
 
 AbsoluteHearingThresholds *
-absolute_hearing_thresholds_initialize(uint32_t sample_rate, uint32_t fft_size);
+absolute_hearing_thresholds_initialize(uint32_t sample_rate, uint32_t fft_size,
+                                       SpectrumType spectrum_type);
 void absolute_hearing_thresholds_free(AbsoluteHearingThresholds *self);
 bool apply_thresholds_as_floor(AbsoluteHearingThresholds *self,
                                float *spectrum);

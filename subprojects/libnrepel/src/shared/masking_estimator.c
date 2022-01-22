@@ -50,10 +50,9 @@ struct MaskingEstimator {
   float *bark_reference_spectrum;
 };
 
-MaskingEstimator *
-masking_estimation_initialize(const uint32_t fft_size,
-                              const uint32_t number_critical_bands,
-                              const uint32_t sample_rate) {
+MaskingEstimator *masking_estimation_initialize(
+    const uint32_t fft_size, const uint32_t number_critical_bands,
+    const uint32_t sample_rate, SpectrumType spectrum_type) {
 
   MaskingEstimator *self =
       (MaskingEstimator *)calloc(1U, sizeof(MaskingEstimator));
@@ -80,8 +79,8 @@ masking_estimation_initialize(const uint32_t fft_size,
   self->bark_reference_spectrum =
       (float *)calloc(self->number_critical_bands, sizeof(float));
 
-  self->reference_spectrum =
-      absolute_hearing_thresholds_initialize(self->sample_rate, self->fft_size);
+  self->reference_spectrum = absolute_hearing_thresholds_initialize(
+      self->sample_rate, self->fft_size, spectrum_type);
   self->critical_bands = critical_bands_initialize(
       self->sample_rate, self->fft_size, self->number_critical_bands,
       CRITICAL_BANDS_TYPE);

@@ -151,7 +151,7 @@ static bool compute_phase_spectrum(SpectralFeatures *self,
 }
 
 float *get_spectral_feature(SpectralFeatures *self, const float *fft_spectrum,
-                            uint32_t fft_spectrum_size, SpectalType type) {
+                            uint32_t fft_spectrum_size, SpectrumType type) {
   if (!self || !fft_spectrum || fft_spectrum_size <= 0U) {
     return NULL;
   }

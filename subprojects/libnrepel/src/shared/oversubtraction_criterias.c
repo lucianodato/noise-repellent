@@ -20,7 +20,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include "oversubtraction_criterias.h"
 #include "configurations.h"
 #include "masking_estimator.h"
-#include "spectral_features.h"
 #include "spectral_utils.h"
 #include <float.h>
 #include <math.h>
@@ -43,6 +42,7 @@ struct OversubtractionCriterias {
   uint32_t fft_size;
   uint32_t real_spectrum_size;
   uint32_t sample_rate;
+  SpectrumType spectrum_type;
 
   float *alpha;
   float *beta;
@@ -60,7 +60,8 @@ struct OversubtractionCriterias {
 OversubtractionCriterias *oversubtraction_criterias_initialize(
     const OversubtractionType subtraction_type,
     const uint32_t number_critical_bands, const uint32_t fft_size,
-    const CriticalBandType critical_band_type, const uint32_t sample_rate) {
+    const CriticalBandType critical_band_type, const uint32_t sample_rate,
+    SpectrumType spectrum_type) {
 
   OversubtractionCriterias *self =
       (OversubtractionCriterias *)calloc(1U, sizeof(OversubtractionCriterias));
@@ -71,6 +72,7 @@ OversubtractionCriterias *oversubtraction_criterias_initialize(
   self->real_spectrum_size = self->fft_size / 2U + 1U;
   self->critical_band_type = critical_band_type;
   self->sample_rate = sample_rate;
+  self->spectrum_type = spectrum_type;
 
   self->bark_noise_profile =
       (float *)calloc(self->number_critical_bands, sizeof(float));
@@ -86,8 +88,9 @@ OversubtractionCriterias *oversubtraction_criterias_initialize(
       (float *)calloc(self->real_spectrum_size, sizeof(float));
   self->clean_signal_estimation =
       (float *)calloc(self->real_spectrum_size, sizeof(float));
-  self->masking_estimation = masking_estimation_initialize(
-      self->fft_size, self->number_critical_bands, self->sample_rate);
+  self->masking_estimation =
+      masking_estimation_initialize(self->fft_size, self->number_critical_bands,
+                                    self->sample_rate, self->spectrum_type);
 
   return self;
 }

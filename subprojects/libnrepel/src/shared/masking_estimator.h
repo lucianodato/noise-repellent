@@ -20,6 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #ifndef MASKING_ESTIMATOR_H
 #define MASKING_ESTIMATOR_H
 
+#include "spectral_features.h"
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -27,7 +28,8 @@ typedef struct MaskingEstimator MaskingEstimator;
 
 MaskingEstimator *masking_estimation_initialize(uint32_t fft_size,
                                                 uint32_t number_critical_bands,
-                                                uint32_t sample_rate);
+                                                uint32_t sample_rate,
+                                                SpectrumType spectrum_type);
 void masking_estimation_free(MaskingEstimator *self);
 bool compute_masking_thresholds(MaskingEstimator *self, const float *spectrum,
                                 float *masking_thresholds);

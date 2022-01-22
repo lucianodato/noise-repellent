@@ -23,14 +23,23 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <stdbool.h>
 #include <stdint.h>
 
+typedef enum ZeroPaddingType {
+  NEXT_POWER_OF_TWO = 0,
+  FIXED_AMOUNT = 1,
+  NO_PADDING = 2,
+} ZeroPaddingType;
+
 typedef struct FftTransform FftTransform;
 
 FftTransform *fft_transform_initialize(uint32_t sample_rate,
-                                       float frame_size_ms);
+                                       float frame_size_ms,
+                                       ZeroPaddingType padding_type);
 FftTransform *fft_transform_initialize_bins(uint32_t fft_size);
 void fft_transform_free(FftTransform *self);
 bool fft_load_input_samples(FftTransform *self, const float *input);
+bool fft_get_output_samples(FftTransform *self, float *output);
 uint32_t get_fft_size(FftTransform *self);
+uint32_t get_frame_size(FftTransform *self);
 uint32_t get_fft_real_spectrum_size(FftTransform *self);
 bool compute_forward_fft(FftTransform *self);
 bool compute_backward_fft(FftTransform *self);
