@@ -37,8 +37,8 @@ bool direct_matrix_to_vector_spectral_convolution(const float *matrix_spectum,
                                                   const float *spectrum,
                                                   float *out_spectrum,
                                                   uint32_t spectrum_size);
-float max_spectral_value(const float *spectrum, uint32_t spectrum_size);
-float min_spectral_value(const float *spectrum, uint32_t spectrum_size);
+float max_spectral_value(const float *spectrum, uint32_t real_spectrum_size);
+float min_spectral_value(const float *spectrum, uint32_t real_spectrum_size);
 float fft_bin_to_freq(uint32_t bin_index, uint32_t sample_rate,
                       uint32_t fft_size);
 uint32_t freq_to_fft_bin(float freq, uint32_t sample_rate, uint32_t fft_size);

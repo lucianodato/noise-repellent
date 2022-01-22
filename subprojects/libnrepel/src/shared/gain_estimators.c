@@ -58,7 +58,7 @@ void denoise_mixer(const uint32_t fft_size, const uint32_t half_fft_size,
 void wiener_subtraction(const uint32_t real_spectrum_size,
                         const float *spectrum, float *gain_spectrum,
                         const float *noise_spectrum) {
-  for (uint32_t k = 1U; k <= real_spectrum_size; k++) {
+  for (uint32_t k = 1U; k < real_spectrum_size; k++) {
     if (noise_spectrum[k] > FLT_MIN) {
       if (spectrum[k] > noise_spectrum[k]) {
         gain_spectrum[k] = (spectrum[k] - noise_spectrum[k]) / spectrum[k];
@@ -73,7 +73,7 @@ void wiener_subtraction(const uint32_t real_spectrum_size,
 
 void spectral_gating(const uint32_t real_spectrum_size, const float *spectrum,
                      float *gain_spectrum, const float *noise_spectrum) {
-  for (uint32_t k = 1U; k <= real_spectrum_size; k++) {
+  for (uint32_t k = 1U; k < real_spectrum_size; k++) {
     if (noise_spectrum[k] > FLT_MIN) {
       if (spectrum[k] >= noise_spectrum[k]) {
         gain_spectrum[k] = 1.F;

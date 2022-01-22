@@ -33,7 +33,7 @@ inline float from_db_to_coefficient(const float value_db) {
   return expf(value_db / 10.F * logf(10.F));
 }
 
-int get_next_power_divisible_two(int number) {
+int get_next_divisible_two(int number) {
   int q = number / 2;
   int n1 = 2 * q;
   int n2 = (number * 2) > 0 ? (2 * (q + 1)) : (2 * (q - 1));
@@ -42,4 +42,8 @@ int get_next_power_divisible_two(int number) {
   }
 
   return n2;
+}
+
+int get_next_power_two(int number) {
+  return (int)roundf(powf(2.F, ceilf(log2f((float)number))));
 }
