@@ -18,7 +18,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
 #include "../src/signal_crossfade.h"
-#include "../subprojects/libnrepel/include/nrepel.h"
+#include "../subprojects/libspecbleach/include/specbleach.h"
 #include "lv2/core/lv2.h"
 #include <stdlib.h>
 
@@ -50,8 +50,8 @@ typedef struct NoiseRepellentAdaptivePlugin {
   float sample_rate;
   float *report_latency;
 
-  NoiseRepellentHandle lib_instance;
-  NrepelDenoiseParameters parameters;
+  SpectralBleachHandle lib_instance;
+  SpectralBleachParameters parameters;
   SignalCrossfade *soft_bypass;
 
   float *enable;
@@ -65,7 +65,7 @@ static void cleanup(LV2_Handle instance) {
   NoiseRepellentAdaptivePlugin *self = (NoiseRepellentAdaptivePlugin *)instance;
 
   if (self->lib_instance) {
-    nrepel_adaptive_free(self->lib_instance);
+    specbleach_adaptive_free(self->lib_instance);
   }
   if (self->soft_bypass) {
     signal_crossfade_free(self->soft_bypass);
@@ -82,7 +82,8 @@ static LV2_Handle instantiate(const LV2_Descriptor *descriptor,
 
   self->sample_rate = (float)rate;
 
-  self->lib_instance = nrepel_adaptive_initialize((uint32_t)self->sample_rate);
+  self->lib_instance =
+      specbleach_adaptive_initialize((uint32_t)self->sample_rate);
   if (!self->lib_instance) {
     cleanup((LV2_Handle)self);
     return NULL;
@@ -91,7 +92,7 @@ static LV2_Handle instantiate(const LV2_Descriptor *descriptor,
   self->soft_bypass = signal_crossfade_initialize((uint32_t)self->sample_rate);
 
   if (!self->soft_bypass) {
-    nrepel_free(self);
+    specbleach_free(self);
     return NULL;
   }
 
@@ -150,24 +151,24 @@ static void activate(LV2_Handle instance) {
   NoiseRepellentAdaptivePlugin *self = (NoiseRepellentAdaptivePlugin *)instance;
 
   *self->report_latency =
-      (float)nrepel_adaptive_get_latency(self->lib_instance);
+      (float)specbleach_adaptive_get_latency(self->lib_instance);
 }
 
 static void run(LV2_Handle instance, uint32_t number_of_samples) {
   NoiseRepellentAdaptivePlugin *self = (NoiseRepellentAdaptivePlugin *)instance;
 
   // clang-format off
-  self->parameters = (NrepelDenoiseParameters){
+  self->parameters = (SpectralBleachParameters){
       .residual_listen = (bool)*self->residual_listen,
       .reduction_amount = *self->reduction_amount,
       .noise_rescale = *self->noise_rescale
   };
   // clang-format on
 
-  nrepel_adaptive_load_parameters(self->lib_instance, self->parameters);
+  specbleach_adaptive_load_parameters(self->lib_instance, self->parameters);
 
-  nrepel_adaptive_process(self->lib_instance, number_of_samples, self->input_1,
-                          self->output_1);
+  specbleach_adaptive_process(self->lib_instance, number_of_samples,
+                              self->input_1, self->output_1);
 
   signal_crossfade_run(self->soft_bypass, number_of_samples, self->input_1,
                        self->output_1, (bool)*self->enable);
@@ -178,8 +179,8 @@ static void run_stereo(LV2_Handle instance, uint32_t number_of_samples) {
 
   run(instance, number_of_samples); // Call left side first
 
-  nrepel_adaptive_process(self->lib_instance, number_of_samples, self->input_2,
-                          self->output_2);
+  specbleach_adaptive_process(self->lib_instance, number_of_samples,
+                              self->input_2, self->output_2);
 
   signal_crossfade_run(self->soft_bypass, number_of_samples, self->input_2,
                        self->output_2, (bool)*self->enable);
