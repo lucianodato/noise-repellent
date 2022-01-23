@@ -22,6 +22,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 #include "critical_bands.h"
 #include "fft_transform.h"
+#include "oversubtraction_criterias.h"
 #include "spectral_features.h"
 #include "spectral_utils.h"
 
@@ -35,7 +36,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 // FFT configurations
 #define PADDING_CONFIGURATION_GENERAL NO_PADDING
-#define PADDING_CONFIGURATION_SPEECH FIXED_AMOUNT
+#define PADDING_CONFIGURATION_SPEECH NO_PADDING
 #define ZEROPADDING_AMOUNT 25
 
 // Absolute hearing thresholds
@@ -113,8 +114,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define UPPER_LIMIT 5.F
 
 // Masking
-#define N_CRITICAL_BANDS 25
 #define CRITICAL_BANDS_TYPE BARK_SCALE
+
+// Oversubtraction strategy
+#define OVERSUBTRACTION_TYPE MASKING_THRESHOLDS
 
 /* ------------------------------------------------------------------------ */
 /* ------------------- Adaptive Denoiser configurations ------------------- */
@@ -124,9 +127,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define SPECTRAL_TYPE_SPEECH POWER_SPECTRUM
 
 // Masking
-#define N_CRITICAL_BANDS_SPEECH 25
-#define CRITICAL_BANDS_TYPE_SPEECH BARK_SCALE
+#define CRITICAL_BANDS_TYPE_SPEECH OPUS_SCALE
 #define DEFAULT_MASKING_CEILING 2.F
 #define DEFAULT_MASKING_FLOOR 0.01F
+
+// Oversubtraction strategy
+#define OVERSUBTRACTION_TYPE_SPEECH MASKING_THRESHOLDS
 
 #endif // ifndef

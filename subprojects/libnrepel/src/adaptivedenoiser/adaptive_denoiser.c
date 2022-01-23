@@ -44,6 +44,8 @@ typedef struct SpectralAdaptiveDenoiser {
   float *noise_profile;
 
   SpectrumType spectrum_type;
+  OversubtractionType oversubtraction_type;
+  CriticalBandType band_type;
 
   OversubtractionCriterias *oversubtraction_criteria;
   AdaptiveNoiseEstimator *adaptive_estimator;
@@ -63,6 +65,8 @@ spectral_adaptive_denoiser_initialize(const uint32_t sample_rate,
   self->default_masking_ceiling = DEFAULT_MASKING_CEILING;
   self->default_masking_floor = DEFAULT_MASKING_FLOOR;
   self->spectrum_type = SPECTRAL_TYPE_SPEECH;
+  self->oversubtraction_type = OVERSUBTRACTION_TYPE_SPEECH;
+  self->band_type = CRITICAL_BANDS_TYPE_SPEECH;
 
   self->gain_spectrum =
       (float *)calloc(self->real_spectrum_size, sizeof(float));
@@ -78,8 +82,8 @@ spectral_adaptive_denoiser_initialize(const uint32_t sample_rate,
   self->denoised_spectrum = (float *)calloc((self->fft_size), sizeof(float));
 
   self->oversubtraction_criteria = oversubtraction_criterias_initialize(
-      MASKING_THRESHOLDS, N_CRITICAL_BANDS_SPEECH, self->fft_size,
-      CRITICAL_BANDS_TYPE_SPEECH, self->sample_rate, self->spectrum_type);
+      self->oversubtraction_type, self->fft_size, self->band_type,
+      self->sample_rate, self->spectrum_type);
 
   self->spectral_features =
       spectral_features_initialize(self->real_spectrum_size);

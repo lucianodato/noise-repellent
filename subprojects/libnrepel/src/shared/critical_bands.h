@@ -28,9 +28,8 @@ typedef struct CriticalBands CriticalBands;
 typedef enum CriticalBandType {
   BARK_SCALE = 0,
   MEL_SCALE = 1,
-  ERB_SCALE = 2,
-  // TODO (luciano/todo): opus critical bands
-  // TODO (luciano/todo): octave bands
+  OPUS_SCALE = 2,
+  OCTAVE_SCALE = 3,
 } CriticalBandType;
 
 typedef struct CriticalBandIndexes {
@@ -40,11 +39,11 @@ typedef struct CriticalBandIndexes {
 
 CriticalBands *critical_bands_initialize(uint32_t sample_rate,
                                          uint32_t fft_size,
-                                         uint32_t number_bands,
                                          CriticalBandType type);
 void critical_bands_free(CriticalBands *self);
 bool compute_critical_bands_spectrum(CriticalBands *self, const float *spectrum,
                                      float *critical_bands);
 CriticalBandIndexes get_band_indexes(CriticalBands *self, uint32_t band_number);
+uint32_t get_number_of_critical_bands(CriticalBands *self);
 
 #endif

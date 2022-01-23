@@ -38,11 +38,11 @@ static void masking_thresholds(OversubtractionCriterias *self,
 
 struct OversubtractionCriterias {
   OversubtractionType oversubtraction_type;
-  uint32_t number_critical_bands;
   uint32_t fft_size;
   uint32_t real_spectrum_size;
   uint32_t sample_rate;
   SpectrumType spectrum_type;
+  uint32_t number_critical_bands;
 
   float *alpha;
   float *beta;
@@ -58,8 +58,7 @@ struct OversubtractionCriterias {
 };
 
 OversubtractionCriterias *oversubtraction_criterias_initialize(
-    const OversubtractionType subtraction_type,
-    const uint32_t number_critical_bands, const uint32_t fft_size,
+    const OversubtractionType subtraction_type, const uint32_t fft_size,
     const CriticalBandType critical_band_type, const uint32_t sample_rate,
     SpectrumType spectrum_type) {
 
@@ -67,20 +66,23 @@ OversubtractionCriterias *oversubtraction_criterias_initialize(
       (OversubtractionCriterias *)calloc(1U, sizeof(OversubtractionCriterias));
 
   self->oversubtraction_type = subtraction_type;
-  self->number_critical_bands = number_critical_bands;
   self->fft_size = fft_size;
   self->real_spectrum_size = self->fft_size / 2U + 1U;
   self->critical_band_type = critical_band_type;
   self->sample_rate = sample_rate;
   self->spectrum_type = spectrum_type;
 
+  self->critical_bands = critical_bands_initialize(
+      self->sample_rate, self->fft_size, self->critical_band_type);
+  self->masking_estimation = masking_estimation_initialize(
+      self->fft_size, self->sample_rate, self->spectrum_type);
+  self->number_critical_bands =
+      get_number_of_critical_bands(self->critical_bands);
+
   self->bark_noise_profile =
       (float *)calloc(self->number_critical_bands, sizeof(float));
   self->bark_reference_spectrum =
       (float *)calloc(self->number_critical_bands, sizeof(float));
-  self->critical_bands = critical_bands_initialize(
-      self->sample_rate, self->fft_size, self->number_critical_bands,
-      self->critical_band_type);
 
   self->alpha = (float *)calloc(self->real_spectrum_size, sizeof(float));
   self->beta = (float *)calloc(self->real_spectrum_size, sizeof(float));
@@ -88,9 +90,6 @@ OversubtractionCriterias *oversubtraction_criterias_initialize(
       (float *)calloc(self->real_spectrum_size, sizeof(float));
   self->clean_signal_estimation =
       (float *)calloc(self->real_spectrum_size, sizeof(float));
-  self->masking_estimation =
-      masking_estimation_initialize(self->fft_size, self->number_critical_bands,
-                                    self->sample_rate, self->spectrum_type);
 
   return self;
 }

@@ -43,6 +43,8 @@ typedef struct SpectralDenoiser {
   float *denoised_spectrum;
 
   SpectrumType spectrum_type;
+  OversubtractionType oversubtraction_type;
+  CriticalBandType band_type;
   DenoiserParameters denoise_parameters;
 
   NoiseEstimator *noise_estimator;
@@ -68,6 +70,8 @@ SpectralProcessorHandle spectral_denoiser_initialize(
   self->hop = self->fft_size / overlap_factor;
   self->sample_rate = sample_rate;
   self->spectrum_type = SPECTRAL_TYPE_GENERAL;
+  self->oversubtraction_type = OVERSUBTRACTION_TYPE;
+  self->band_type = CRITICAL_BANDS_TYPE;
 
   self->gain_spectrum =
       (float *)calloc(self->real_spectrum_size, sizeof(float));
@@ -90,7 +94,7 @@ SpectralProcessorHandle spectral_denoiser_initialize(
       self->fft_size, self->sample_rate, self->hop);
 
   self->oversubtraction_criteria = oversubtraction_criterias_initialize(
-      MASKING_THRESHOLDS, N_CRITICAL_BANDS, self->fft_size, CRITICAL_BANDS_TYPE,
+      self->oversubtraction_type, self->fft_size, self->band_type,
       self->sample_rate, self->spectrum_type);
 
   self->whitener = spectral_whitening_initialize(self->fft_size,

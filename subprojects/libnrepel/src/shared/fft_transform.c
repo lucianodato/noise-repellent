@@ -120,6 +120,7 @@ bool fft_load_input_samples(FftTransform *self, const float *input) {
     return false;
   }
 
+  // TODO (luciano/todo): try centering samples in window
   memcpy(self->input_fft_buffer, input, sizeof(float) * self->frame_size);
 
   return true;

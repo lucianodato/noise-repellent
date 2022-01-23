@@ -50,9 +50,9 @@ struct MaskingEstimator {
   float *bark_reference_spectrum;
 };
 
-MaskingEstimator *masking_estimation_initialize(
-    const uint32_t fft_size, const uint32_t number_critical_bands,
-    const uint32_t sample_rate, SpectrumType spectrum_type) {
+MaskingEstimator *masking_estimation_initialize(const uint32_t fft_size,
+                                                const uint32_t sample_rate,
+                                                SpectrumType spectrum_type) {
 
   MaskingEstimator *self =
       (MaskingEstimator *)calloc(1U, sizeof(MaskingEstimator));
@@ -60,7 +60,11 @@ MaskingEstimator *masking_estimation_initialize(
   self->fft_size = fft_size;
   self->real_spectrum_size = self->fft_size / 2U + 1U;
   self->sample_rate = sample_rate;
-  self->number_critical_bands = number_critical_bands;
+
+  self->critical_bands = critical_bands_initialize(
+      self->sample_rate, self->fft_size, CRITICAL_BANDS_TYPE);
+  self->number_critical_bands =
+      get_number_of_critical_bands(self->critical_bands);
 
   self->spectral_spreading_function =
       (float *)calloc(((size_t)self->number_critical_bands *
@@ -81,9 +85,6 @@ MaskingEstimator *masking_estimation_initialize(
 
   self->reference_spectrum = absolute_hearing_thresholds_initialize(
       self->sample_rate, self->fft_size, spectrum_type);
-  self->critical_bands = critical_bands_initialize(
-      self->sample_rate, self->fft_size, self->number_critical_bands,
-      CRITICAL_BANDS_TYPE);
 
   compute_spectral_spreading_function(self);
   initialize_spectrum_with_value(self->unity_gain_bark_spectrum,
