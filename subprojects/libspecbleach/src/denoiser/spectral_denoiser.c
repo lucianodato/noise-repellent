@@ -73,10 +73,8 @@ SpectralProcessorHandle spectral_denoiser_initialize(
   self->oversubtraction_type = OVERSUBTRACTION_TYPE;
   self->band_type = CRITICAL_BANDS_TYPE;
 
-  self->gain_spectrum =
-      (float *)calloc(self->real_spectrum_size, sizeof(float));
-  initialize_spectrum_with_value(self->gain_spectrum, self->real_spectrum_size,
-                                 1.F);
+  self->gain_spectrum = (float *)calloc(self->fft_size, sizeof(float));
+  initialize_spectrum_with_value(self->gain_spectrum, self->fft_size, 1.F);
 
   self->noise_profile = noise_profile;
 
@@ -172,11 +170,12 @@ bool spectral_denoiser_run(SpectralProcessorHandle instance,
 
     if (self->transient_detected &&
         self->denoise_parameters.transient_threshold > 1.F) {
-      wiener_subtraction(self->real_spectrum_size, reference_spectrum,
-                         self->gain_spectrum, noise_profile);
+      wiener_subtraction(self->real_spectrum_size, self->fft_size,
+                         reference_spectrum, self->gain_spectrum,
+                         noise_profile);
     } else {
-      spectral_gating(self->real_spectrum_size, reference_spectrum,
-                      self->gain_spectrum, noise_profile);
+      spectral_gating(self->real_spectrum_size, self->fft_size,
+                      reference_spectrum, self->gain_spectrum, noise_profile);
     }
 
     // FIXME (luciano/fix): Apply whitening to gain weights instead of the
@@ -187,9 +186,8 @@ bool spectral_denoiser_run(SpectralProcessorHandle instance,
                              self->gain_spectrum);
     }
 
-    denoise_mixer(self->fft_size, self->real_spectrum_size, fft_spectrum,
-                  self->gain_spectrum, self->denoised_spectrum,
-                  self->residual_spectrum,
+    denoise_mixer(self->fft_size, fft_spectrum, self->gain_spectrum,
+                  self->denoised_spectrum, self->residual_spectrum,
                   self->denoise_parameters.residual_listen,
                   self->denoise_parameters.reduction_amount);
   }

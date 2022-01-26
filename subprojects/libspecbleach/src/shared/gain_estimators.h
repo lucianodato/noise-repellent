@@ -23,14 +23,16 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <stdbool.h>
 #include <stdint.h>
 
-void denoise_mixer(uint32_t fft_size, uint32_t half_fft_size,
-                   float *fft_spectrum, const float *gain_spectrum,
-                   float *denoised_spectrum, float *residual_spectrum,
-                   bool residual_listen, float reduction_amount);
-void spectral_gating(uint32_t real_spectrum_size, const float *spectrum,
-                     float *gain_spectrum, const float *noise_spectrum);
-void wiener_subtraction(uint32_t real_spectrum_size, const float *spectrum,
-                        float *gain_spectrum, const float *noise_spectrum);
+void denoise_mixer(uint32_t fft_size, float *fft_spectrum,
+                   const float *gain_spectrum, float *denoised_spectrum,
+                   float *residual_spectrum, bool residual_listen,
+                   float reduction_amount);
+void spectral_gating(uint32_t real_spectrum_size, uint32_t fft_size,
+                     const float *spectrum, float *gain_spectrum,
+                     const float *noise_spectrum);
+void wiener_subtraction(uint32_t real_spectrum_size, uint32_t fft_size,
+                        const float *spectrum, float *gain_spectrum,
+                        const float *noise_spectrum);
 void generalized_spectral_subtraction(uint32_t real_spectrum_size,
                                       const float *alpha, const float *beta,
                                       const float *spectrum,

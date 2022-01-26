@@ -68,10 +68,8 @@ spectral_adaptive_denoiser_initialize(const uint32_t sample_rate,
   self->oversubtraction_type = OVERSUBTRACTION_TYPE_SPEECH;
   self->band_type = CRITICAL_BANDS_TYPE_SPEECH;
 
-  self->gain_spectrum =
-      (float *)calloc(self->real_spectrum_size, sizeof(float));
-  initialize_spectrum_with_value(self->gain_spectrum, self->real_spectrum_size,
-                                 1.F);
+  self->gain_spectrum = (float *)calloc(self->fft_size, sizeof(float));
+  initialize_spectrum_with_value(self->gain_spectrum, self->fft_size, 1.F);
   self->noise_profile =
       (float *)calloc(self->real_spectrum_size, sizeof(float));
 
@@ -145,13 +143,14 @@ bool spectral_adaptive_denoiser_run(SpectralProcessorHandle instance,
                                  oversubtraction_parameters);
 
   // Get reduction gain weights
-  wiener_subtraction(self->real_spectrum_size, reference_spectrum,
-                     self->gain_spectrum, self->noise_profile);
+  wiener_subtraction(self->real_spectrum_size, self->fft_size,
+                     reference_spectrum, self->gain_spectrum,
+                     self->noise_profile);
 
   // Mix results
-  denoise_mixer(self->fft_size, self->real_spectrum_size, fft_spectrum,
-                self->gain_spectrum, self->denoised_spectrum,
-                self->residual_spectrum, self->parameters.residual_listen,
+  denoise_mixer(self->fft_size, fft_spectrum, self->gain_spectrum,
+                self->denoised_spectrum, self->residual_spectrum,
+                self->parameters.residual_listen,
                 self->parameters.reduction_amount);
 
   return true;

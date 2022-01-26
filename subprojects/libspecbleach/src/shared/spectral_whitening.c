@@ -31,7 +31,6 @@ struct SpectralWhitening {
   float max_decay_rate;
   uint32_t whitening_window_count;
   uint32_t fft_size;
-  uint32_t real_spectrum_size;
   uint32_t sample_rate;
   uint32_t hop;
 };
@@ -43,14 +42,12 @@ SpectralWhitening *spectral_whitening_initialize(const uint32_t fft_size,
       (SpectralWhitening *)calloc(1U, sizeof(SpectralWhitening));
 
   self->fft_size = fft_size;
-  self->real_spectrum_size = self->fft_size / 2U + 1U;
   self->sample_rate = sample_rate;
   self->hop = hop;
 
   self->whitened_residual_spectrum =
-      (float *)calloc(self->real_spectrum_size, sizeof(float));
-  self->residual_max_spectrum =
-      (float *)calloc(self->real_spectrum_size, sizeof(float));
+      (float *)calloc(self->fft_size, sizeof(float));
+  self->residual_max_spectrum = (float *)calloc(self->fft_size, sizeof(float));
   self->max_decay_rate =
       expf(-1000.F / (((WHITENING_DECAY_RATE) * (float)self->sample_rate) /
                       (float)self->hop));
@@ -73,7 +70,7 @@ bool spectral_whitening_run(SpectralWhitening *self,
 
   self->whitening_window_count++;
 
-  for (uint32_t k = 1U; k < self->real_spectrum_size; k++) {
+  for (uint32_t k = 1U; k < self->fft_size; k++) {
     if (self->whitening_window_count > 1U) {
       self->residual_max_spectrum[k] =
           fmaxf(fmaxf(fft_spectrum[k], WHITENING_FLOOR),
@@ -83,7 +80,7 @@ bool spectral_whitening_run(SpectralWhitening *self,
     }
   }
 
-  for (uint32_t k = 1U; k < self->real_spectrum_size; k++) {
+  for (uint32_t k = 1U; k < self->fft_size; k++) {
     if (fft_spectrum[k] > FLT_MIN) {
       self->whitened_residual_spectrum[k] =
           fft_spectrum[k] / self->residual_max_spectrum[k];

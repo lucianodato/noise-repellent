@@ -176,17 +176,18 @@ static void a_posteriori_snr(OversubtractionCriterias *self,
   float oversustraction_factor = 1.F;
 
   for (uint32_t k = 1U; k < self->real_spectrum_size; k++) {
-
     a_posteriori_snr = 10.F * log10f(spectrum[k] / noise_spectrum[k]);
+  }
 
-    if (a_posteriori_snr >= 0.F && a_posteriori_snr <= 20.F) {
-      oversustraction_factor = -0.05F * (a_posteriori_snr) + 5.F;
-    } else if (a_posteriori_snr < 0.F) {
-      oversustraction_factor = 5.F;
-    } else if (a_posteriori_snr > 20.F) {
-      oversustraction_factor = 1.F;
-    }
+  if (a_posteriori_snr >= 0.F && a_posteriori_snr <= 20.F) {
+    oversustraction_factor = -0.05F * (a_posteriori_snr) + 5.F;
+  } else if (a_posteriori_snr < 0.F) {
+    oversustraction_factor = 5.F;
+  } else if (a_posteriori_snr > 20.F) {
+    oversustraction_factor = 1.F;
+  }
 
+  for (uint32_t k = 1U; k < self->real_spectrum_size; k++) {
     noise_spectrum[k] *= parameters.noise_rescale * oversustraction_factor;
   }
 }
