@@ -22,6 +22,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include "../shared/gain_estimators.h"
 #include "../shared/noise_estimator.h"
 #include "../shared/oversubtraction_criterias.h"
+#include "../shared/postfilter.h"
 #include "../shared/spectral_features.h"
 #include "../shared/spectral_smoother.h"
 #include "../shared/spectral_utils.h"
@@ -37,6 +38,9 @@ typedef struct SbSpectralDenoiser {
   uint32_t real_spectrum_size;
   uint32_t sample_rate;
   uint32_t hop;
+  float default_oversubtraction;
+  float default_undersubtraction;
+  bool transient_detected;
 
   float *gain_spectrum;
   float *residual_spectrum;
@@ -49,10 +53,10 @@ typedef struct SbSpectralDenoiser {
 
   NoiseEstimator *noise_estimator;
   SpectralWhitening *whitener;
+  PostFilter *postfiltering;
   NoiseProfile *noise_profile;
   SpectralFeatures *spectral_features;
 
-  bool transient_detected;
   OversubtractionCriterias *oversubtraction_criteria;
   TransientDetector *transient_detection;
   SpectralSmoother *spectrum_smoothing;
@@ -72,6 +76,8 @@ SpectralProcessorHandle spectral_denoiser_initialize(
   self->spectrum_type = SPECTRAL_TYPE_GENERAL;
   self->oversubtraction_type = OVERSUBTRACTION_TYPE;
   self->band_type = CRITICAL_BANDS_TYPE;
+  self->default_oversubtraction = DEFAULT_OVERSUBTRACTION;
+  self->default_undersubtraction = DEFAULT_UNDERSUBTRACTION;
 
   self->gain_spectrum = (float *)calloc(self->fft_size, sizeof(float));
   initialize_spectrum_with_value(self->gain_spectrum, self->fft_size, 1.F);
@@ -86,6 +92,8 @@ SpectralProcessorHandle spectral_denoiser_initialize(
 
   self->spectral_features =
       spectral_features_initialize(self->real_spectrum_size);
+
+  self->postfiltering = postfilter_initialize(self->fft_size);
 
   self->transient_detection = transient_detector_initialize(self->fft_size);
   self->spectrum_smoothing = spectral_smoothing_initialize(
@@ -110,6 +118,7 @@ void spectral_denoiser_free(SpectralProcessorHandle instance) {
   transient_detector_free(self->transient_detection);
   spectral_smoothing_free(self->spectrum_smoothing);
   oversubtraction_criterias_free(self->oversubtraction_criteria);
+  postfilter_free(self->postfiltering);
 
   free(self->residual_spectrum);
   free(self->denoised_spectrum);
@@ -156,9 +165,9 @@ bool spectral_denoiser_run(SpectralProcessorHandle instance,
 
     OversustractionParameters oversubtraction_parameters =
         (OversustractionParameters){
-            .noise_rescale = self->denoise_parameters.noise_rescale,
-            .masking_ceil = self->denoise_parameters.masking_ceiling_limit,
-            .masking_floor = 0.F,
+            .oversubtraction = self->default_oversubtraction +
+                               self->denoise_parameters.noise_rescale,
+            .undersubtraction = self->default_undersubtraction,
         };
     apply_oversustraction_criteria(self->oversubtraction_criteria,
                                    reference_spectrum, noise_profile,
@@ -177,6 +186,9 @@ bool spectral_denoiser_run(SpectralProcessorHandle instance,
       spectral_gating(self->real_spectrum_size, self->fft_size,
                       reference_spectrum, self->gain_spectrum, noise_profile);
     }
+
+    // Apply post filtering to reduce residual noise on low SNR frames
+    postfilter_apply(self->postfiltering, fft_spectrum, self->gain_spectrum);
 
     // FIXME (luciano/fix): Apply whitening to gain weights instead of the
     // resulting noise residue

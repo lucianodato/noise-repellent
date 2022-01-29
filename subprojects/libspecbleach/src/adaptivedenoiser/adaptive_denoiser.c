@@ -22,6 +22,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include "../shared/configurations.h"
 #include "../shared/gain_estimators.h"
 #include "../shared/oversubtraction_criterias.h"
+#include "../shared/postfilter.h"
 #include "../shared/spectral_features.h"
 #include "../shared/spectral_utils.h"
 #include <float.h>
@@ -33,8 +34,8 @@ typedef struct SpectralAdaptiveDenoiser {
   uint32_t fft_size;
   uint32_t real_spectrum_size;
   uint32_t sample_rate;
-  float default_masking_ceiling;
-  float default_masking_floor;
+  float default_oversubtraction;
+  float default_undersubtraction;
 
   AdaptiveDenoiserParameters parameters;
 
@@ -48,6 +49,7 @@ typedef struct SpectralAdaptiveDenoiser {
   CriticalBandType band_type;
 
   OversubtractionCriterias *oversubtraction_criteria;
+  PostFilter *postfiltering;
   AdaptiveNoiseEstimator *adaptive_estimator;
   SpectralFeatures *spectral_features;
 } SpectralAdaptiveDenoiser;
@@ -62,8 +64,8 @@ spectral_adaptive_denoiser_initialize(const uint32_t sample_rate,
   self->fft_size = fft_size;
   self->real_spectrum_size = self->fft_size / 2U + 1U;
   self->sample_rate = sample_rate;
-  self->default_masking_ceiling = DEFAULT_MASKING_CEILING;
-  self->default_masking_floor = DEFAULT_MASKING_FLOOR;
+  self->default_oversubtraction = DEFAULT_OVERSUBTRACTION;
+  self->default_undersubtraction = DEFAULT_UNDERSUBTRACTION;
   self->spectrum_type = SPECTRAL_TYPE_SPEECH;
   self->oversubtraction_type = OVERSUBTRACTION_TYPE_SPEECH;
   self->band_type = CRITICAL_BANDS_TYPE_SPEECH;
@@ -78,6 +80,8 @@ spectral_adaptive_denoiser_initialize(const uint32_t sample_rate,
 
   self->residual_spectrum = (float *)calloc((self->fft_size), sizeof(float));
   self->denoised_spectrum = (float *)calloc((self->fft_size), sizeof(float));
+
+  self->postfiltering = postfilter_initialize(self->fft_size);
 
   self->oversubtraction_criteria = oversubtraction_criterias_initialize(
       self->oversubtraction_type, self->fft_size, self->band_type,
@@ -95,6 +99,7 @@ void spectral_adaptive_denoiser_free(SpectralProcessorHandle instance) {
   louizou_estimator_free(self->adaptive_estimator);
   spectral_features_free(self->spectral_features);
   oversubtraction_criterias_free(self->oversubtraction_criteria);
+  postfilter_free(self->postfiltering);
 
   free(self->residual_spectrum);
   free(self->denoised_spectrum);
@@ -134,9 +139,9 @@ bool spectral_adaptive_denoiser_run(SpectralProcessorHandle instance,
   // piecewise function
   OversustractionParameters oversubtraction_parameters =
       (OversustractionParameters){
-          .noise_rescale = self->parameters.noise_rescale,
-          .masking_ceil = self->default_masking_ceiling,
-          .masking_floor = self->default_masking_floor,
+          .oversubtraction =
+              self->default_oversubtraction + self->parameters.noise_rescale,
+          .undersubtraction = self->default_undersubtraction,
       };
   apply_oversustraction_criteria(self->oversubtraction_criteria,
                                  reference_spectrum, self->noise_profile,
@@ -146,6 +151,9 @@ bool spectral_adaptive_denoiser_run(SpectralProcessorHandle instance,
   wiener_subtraction(self->real_spectrum_size, self->fft_size,
                      reference_spectrum, self->gain_spectrum,
                      self->noise_profile);
+
+  // Apply post filtering to reduce residual noise on low SNR frames
+  postfilter_apply(self->postfiltering, fft_spectrum, self->gain_spectrum);
 
   // Mix results
   denoise_mixer(self->fft_size, fft_spectrum, self->gain_spectrum,

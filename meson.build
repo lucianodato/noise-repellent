@@ -1,9 +1,7 @@
 project('nrepellent.lv2','c',version: '0.2.0',default_options: ['c_std=c99'])
 
+# TODO fix visibility for library
 libspecbleach_proj = subproject('libspecbleach', default_options: ['default_library=static'])
-
-# hide all public symbols
-add_project_arguments('-fvisibility=hidden', language : 'c')
 
 #install folder
 if(get_option('buildtype') == 'release')
@@ -49,7 +47,8 @@ if current_os == 'windows' #windows
     extension = '.dll'
     exe_wrapper = true
 endif
-
+# hide all public symbols
+add_project_arguments('-fvisibility=hidden', language : 'c')
 #build of the shared object
 library('nrepellent',
     common_src,

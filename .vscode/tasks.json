@@ -3,7 +3,7 @@
         {
             "label": "CleanBuildFolder",
             "type": "shell",
-            "command": "rm -rf ./build"
+            "command": "rm -rf ./build ~/.lv2/nrepellent.lv2"
         },
         {
             "label": "MesonDebugConfig",

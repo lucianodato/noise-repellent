@@ -31,7 +31,6 @@ typedef struct DenoiserParameters {
   bool residual_listen;
   bool learn_noise;
   float release_time;
-  float masking_ceiling_limit;
   float whitening_factor;
   float transient_threshold;
 } DenoiserParameters;

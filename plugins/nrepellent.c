@@ -87,18 +87,17 @@ typedef enum PortIndex {
   NOISEREPELLENT_AMOUNT = 0,
   NOISEREPELLENT_NOISE_OFFSET = 1,
   NOISEREPELLENT_RELEASE = 2,
-  NOISEREPELLENT_MASKING = 3,
-  NOISEREPELLENT_TRANSIENT_PROTECT = 4,
-  NOISEREPELLENT_WHITENING = 5,
-  NOISEREPELLENT_NOISE_LEARN = 6,
-  NOISEREPELLENT_RESIDUAL_LISTEN = 7,
-  NOISEREPELLENT_RESET_NOISE_PROFILE = 8,
-  NOISEREPELLENT_ENABLE = 9,
-  NOISEREPELLENT_LATENCY = 10,
-  NOISEREPELLENT_INPUT_1 = 11,
-  NOISEREPELLENT_OUTPUT_1 = 12,
-  NOISEREPELLENT_INPUT_2 = 13,
-  NOISEREPELLENT_OUTPUT_2 = 14,
+  NOISEREPELLENT_TRANSIENT_PROTECT = 3,
+  NOISEREPELLENT_WHITENING = 4,
+  NOISEREPELLENT_NOISE_LEARN = 5,
+  NOISEREPELLENT_RESIDUAL_LISTEN = 6,
+  NOISEREPELLENT_RESET_NOISE_PROFILE = 7,
+  NOISEREPELLENT_ENABLE = 8,
+  NOISEREPELLENT_LATENCY = 9,
+  NOISEREPELLENT_INPUT_1 = 10,
+  NOISEREPELLENT_OUTPUT_1 = 11,
+  NOISEREPELLENT_INPUT_2 = 12,
+  NOISEREPELLENT_OUTPUT_2 = 13,
 } PortIndex;
 
 typedef struct NoiseRepellentAdaptivePlugin {
@@ -127,7 +126,6 @@ typedef struct NoiseRepellentAdaptivePlugin {
   float *residual_listen;
   float *reduction_amount;
   float *release_time;
-  float *masking_ceiling_limit;
   float *whitening_factor;
   float *transient_threshold;
   float *noise_rescale;
@@ -250,9 +248,6 @@ static void connect_port(LV2_Handle instance, uint32_t port, void *data) {
   case NOISEREPELLENT_RELEASE:
     self->release_time = (float *)data;
     break;
-  case NOISEREPELLENT_MASKING:
-    self->masking_ceiling_limit = (float *)data;
-    break;
   case NOISEREPELLENT_WHITENING:
     self->whitening_factor = (float *)data;
     break;
@@ -316,7 +311,6 @@ static void run(LV2_Handle instance, uint32_t number_of_samples) {
   self->parameters = (SpectralBleachParameters){
       .learn_noise = (bool)*self->learn_noise,
       .residual_listen = (bool)*self->residual_listen,
-      .masking_ceiling_limit = *self->masking_ceiling_limit,
       .reduction_amount = *self->reduction_amount,
       .noise_rescale = *self->noise_rescale,
       .release_time = *self->reduction_amount,

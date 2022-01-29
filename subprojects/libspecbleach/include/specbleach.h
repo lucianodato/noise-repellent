@@ -48,10 +48,9 @@ extern "C" {
 #include <stdint.h>
 
 // TODO (luciano/todo): Extract library to it's own repository when API is
-// stable. Re-add public header needed macros
+// stable.
 // TODO (luciano/todo): Document interface
 // TODO (luciano/todo): Test main file and increase coverage
-// TODO (luciano/todo): Add post filter for frequency smoothing
 // TODO (luciano/todo): Move Plugin functionality to the plugin.
 // noise_profile instance, parameters, etc.
 
@@ -62,7 +61,6 @@ typedef struct SpectralBleachParameters {
   bool residual_listen; // Plugin
   float reduction_amount;
   float release_time;
-  float masking_ceiling_limit; // Should be internal
   float whitening_factor;
   float transient_threshold; // Should be Adaptive or fixed
   float noise_rescale;

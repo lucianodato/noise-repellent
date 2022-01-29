@@ -32,9 +32,8 @@ typedef enum OversubtractionType {
 } OversubtractionType;
 
 typedef struct OversustractionParameters {
-  float masking_ceil;
-  float masking_floor;
-  float noise_rescale;
+  float undersubtraction;
+  float oversubtraction;
 } OversustractionParameters;
 
 typedef struct OversubtractionCriterias OversubtractionCriterias;

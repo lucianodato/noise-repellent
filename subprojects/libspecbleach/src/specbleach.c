@@ -174,7 +174,6 @@ bool specbleach_load_parameters(SpectralBleachHandle instance,
   self->denoise_parameters = (DenoiserParameters){
       .learn_noise = parameters.learn_noise,
       .residual_listen = parameters.residual_listen,
-      .masking_ceiling_limit = parameters.masking_ceiling_limit,
       .reduction_amount =
           from_db_to_coefficient(parameters.reduction_amount * -1.F),
       .noise_rescale = from_db_to_coefficient(parameters.noise_rescale),

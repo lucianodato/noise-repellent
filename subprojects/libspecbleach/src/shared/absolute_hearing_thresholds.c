@@ -56,7 +56,7 @@ absolute_hearing_thresholds_initialize(const uint32_t sample_rate,
 
   self->fft_transform = fft_transform_initialize_bins(fft_size);
 
-  self->fft_size = get_fft_size(self->fft_transform);
+  self->fft_size = fft_size;
   self->real_spectrum_size = self->fft_size / 2U + 1U;
   self->sample_rate = sample_rate;
   self->spectrum_type = spectrum_type;

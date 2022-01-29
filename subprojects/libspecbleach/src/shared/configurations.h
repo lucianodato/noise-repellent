@@ -35,8 +35,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 /* --------------------------------------------------------------------- */
 
 // FFT configurations
-#define PADDING_CONFIGURATION_GENERAL NO_PADDING
-#define PADDING_CONFIGURATION_SPEECH NO_PADDING
 #define ZEROPADDING_AMOUNT 50 // Even Number
 
 // Absolute hearing thresholds
@@ -58,6 +56,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
                     -25.F, -24.F, -23.F, -22.F, -19.F, -18.F, -18.F,           \
                     -18.F, -18.F, -18.F, -18.F}
 #endif
+
+// Postfilter SNR Threshold
+#define POSTFILTER_THRESHOLD 0.4F
+#define POSTFILTER_SCALE 10.0F
+#define PRESERVE_MINIMUN_GAIN (1)
 
 // Gain Estimators
 #define GAMMA1 2.F
@@ -84,28 +87,22 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define BAND_2_LEVEL 2.F
 #define BAND_3_LEVEL 5.F
 
-/* ----------------------------------------------------------- */
-/* ------------------- Stft configurations ------------------- */
-/* ----------------------------------------------------------- */
-
-// STFT configurations - Frame size in milliseconds
-#define FRAME_SIZE_GENERAL 46
-#define FRAME_SIZE_SPEECH 26
-
-// OverlapAdd configurations
-#define OVERLAP_FACTOR_GENERAL 4
-#define OVERLAP_FACTOR_SPEECH 2
-
-// Windows
-#define INPUT_WINDOW_TYPE_GENERAL VORBIS_WINDOW
-#define OUTPUT_WINDOW_TYPE_GENERAL VORBIS_WINDOW
-
-#define INPUT_WINDOW_TYPE_SPEECH VORBIS_WINDOW
-#define OUTPUT_WINDOW_TYPE_SPEECH VORBIS_WINDOW
+// Oversubtraction criterias
+#define DEFAULT_OVERSUBTRACTION 2.F
+#define DEFAULT_UNDERSUBTRACTION 0.01F
 
 /* --------------------------------------------------------------- */
 /* ------------------- Denoiser configurations ------------------- */
 /* --------------------------------------------------------------- */
+
+// STFT configurations - Frame size in milliseconds
+#define FRAME_SIZE_GENERAL 46
+#define OVERLAP_FACTOR_GENERAL 4
+#define INPUT_WINDOW_TYPE_GENERAL VORBIS_WINDOW
+#define OUTPUT_WINDOW_TYPE_GENERAL VORBIS_WINDOW
+
+// Fft configuration
+#define PADDING_CONFIGURATION_GENERAL NO_PADDING
 
 // Spectral Type
 #define SPECTRAL_TYPE_GENERAL POWER_SPECTRUM
@@ -123,15 +120,22 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 /* ------------------- Adaptive Denoiser configurations ------------------- */
 /* ------------------------------------------------------------------------ */
 
+// STFT configurations - Frame size in milliseconds
+#define FRAME_SIZE_SPEECH 26
+#define OVERLAP_FACTOR_SPEECH 2
+#define INPUT_WINDOW_TYPE_SPEECH VORBIS_WINDOW
+#define OUTPUT_WINDOW_TYPE_SPEECH VORBIS_WINDOW
+
 // Spectral Type
 #define SPECTRAL_TYPE_SPEECH POWER_SPECTRUM
 
+// Fft configurations
+#define PADDING_CONFIGURATION_SPEECH NO_PADDING
+
 // Masking
 #define CRITICAL_BANDS_TYPE_SPEECH OPUS_SCALE
-#define DEFAULT_MASKING_CEILING 2.F
-#define DEFAULT_MASKING_FLOOR 0.01F
 
 // Oversubtraction strategy
-#define OVERSUBTRACTION_TYPE_SPEECH MASKING_THRESHOLDS
+#define OVERSUBTRACTION_TYPE_SPEECH A_POSTERIORI_SNR_CRITICAL_BANDS
 
 #endif // ifndef
