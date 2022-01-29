@@ -27,16 +27,20 @@ void denoise_mixer(uint32_t fft_size, float *fft_spectrum,
                    const float *gain_spectrum, float *denoised_spectrum,
                    float *residual_spectrum, bool residual_listen,
                    float reduction_amount);
+void estimate_gains(uint32_t real_spectrum_size, uint32_t fft_size,
+                    const float *spectrum, const float *noise_spectrum,
+                    float *gain_spectrum, const float *alpha,
+                    const float *beta);
 void spectral_gating(uint32_t real_spectrum_size, uint32_t fft_size,
-                     const float *spectrum, float *gain_spectrum,
-                     const float *alpha, float *noise_spectrum);
+                     const float *spectrum, float *noise_spectrum,
+                     float *gain_spectrum, const float *alpha);
 void wiener_subtraction(uint32_t real_spectrum_size, uint32_t fft_size,
-                        const float *spectrum, float *gain_spectrum,
-                        const float *alpha, float *noise_spectrum);
+                        const float *spectrum, float *noise_spectrum,
+                        float *gain_spectrum, const float *alpha);
 void generalized_spectral_subtraction(uint32_t real_spectrum_size,
-                                      uint32_t fft_size, const float *alpha,
-                                      const float *beta, const float *spectrum,
+                                      uint32_t fft_size, const float *spectrum,
                                       const float *noise_spectrum,
-                                      float *gain_spectrum);
+                                      float *gain_spectrum, const float *alpha,
+                                      const float *beta);
 
 #endif

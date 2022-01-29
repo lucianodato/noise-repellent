@@ -187,12 +187,12 @@ bool spectral_denoiser_run(SpectralProcessorHandle instance,
     if (self->transient_detected &&
         self->denoise_parameters.transient_threshold > 1.F) {
       wiener_subtraction(self->real_spectrum_size, self->fft_size,
-                         reference_spectrum, self->gain_spectrum, self->alpha,
-                         noise_profile);
+                         reference_spectrum, noise_profile, self->gain_spectrum,
+                         self->alpha);
     } else {
       spectral_gating(self->real_spectrum_size, self->fft_size,
-                      reference_spectrum, self->gain_spectrum, self->alpha,
-                      noise_profile);
+                      reference_spectrum, noise_profile, self->gain_spectrum,
+                      self->alpha);
     }
 
     // Apply post filtering to reduce residual noise on low SNR frames

@@ -135,6 +135,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define CRITICAL_BANDS_TYPE_SPEECH OPUS_SCALE
 
 // Oversubtraction strategy
-#define OVERSUBTRACTION_TYPE_SPEECH A_POSTERIORI_SNR_CRITICAL_BANDS
+#define OVERSUBTRACTION_TYPE_SPEECH MASKING_THRESHOLDS
 
 #endif // ifndef

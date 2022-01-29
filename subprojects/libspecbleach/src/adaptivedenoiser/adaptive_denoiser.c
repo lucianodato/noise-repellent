@@ -154,9 +154,9 @@ bool spectral_adaptive_denoiser_run(SpectralProcessorHandle instance,
       self->alpha, self->beta, oversubtraction_parameters);
 
   // Get reduction gain weights
-  wiener_subtraction(self->real_spectrum_size, self->fft_size, self->alpha,
+  wiener_subtraction(self->real_spectrum_size, self->fft_size,
                      reference_spectrum, self->noise_profile,
-                     self->gain_spectrum);
+                     self->gain_spectrum, self->alpha);
 
   // Apply post filtering to reduce residual noise on low SNR frames
   postfilter_apply(self->postfiltering, fft_spectrum, self->gain_spectrum);
