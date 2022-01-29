@@ -22,6 +22,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 #include "critical_bands.h"
 #include "fft_transform.h"
+#include "gain_estimators.h"
 #include "noise_scaling_criterias.h"
 #include "spectral_features.h"
 #include "spectral_utils.h"
@@ -112,8 +113,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 // Masking
 #define CRITICAL_BANDS_TYPE BARK_SCALE
 
-// Oversubtraction strategy
+// Noise Scaling strategy
 #define OVERSUBTRACTION_TYPE MASKING_THRESHOLDS
+#define GAIN_ESTIMATION_TYPE WIENER
 
 /* ------------------------------------------------------------------------ */
 /* ------------------- Adaptive Denoiser configurations ------------------- */
@@ -134,7 +136,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 // Masking
 #define CRITICAL_BANDS_TYPE_SPEECH OPUS_SCALE
 
-// Oversubtraction strategy
-#define OVERSUBTRACTION_TYPE_SPEECH MASKING_THRESHOLDS
+// Noise Scaling strategy
+#define OVERSUBTRACTION_TYPE_SPEECH A_POSTERIORI_SNR_CRITICAL_BANDS
+#define GAIN_ESTIMATION_TYPE_SPEECH WIENER
 
 #endif // ifndef

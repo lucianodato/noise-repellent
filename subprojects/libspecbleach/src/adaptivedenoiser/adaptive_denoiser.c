@@ -49,6 +49,7 @@ typedef struct SpectralAdaptiveDenoiser {
   SpectrumType spectrum_type;
   NoiseScalingType noise_scaling_type;
   CriticalBandType band_type;
+  GainEstimationType gain_estimation_type;
 
   NoiseScalingCriterias *oversubtraction_criteria;
   PostFilter *postfiltering;
@@ -71,6 +72,7 @@ spectral_adaptive_denoiser_initialize(const uint32_t sample_rate,
   self->spectrum_type = SPECTRAL_TYPE_SPEECH;
   self->noise_scaling_type = OVERSUBTRACTION_TYPE_SPEECH;
   self->band_type = CRITICAL_BANDS_TYPE_SPEECH;
+  self->gain_estimation_type = GAIN_ESTIMATION_TYPE_SPEECH;
 
   self->gain_spectrum = (float *)calloc(self->fft_size, sizeof(float));
   initialize_spectrum_with_value(self->gain_spectrum, self->fft_size, 1.F);
@@ -154,9 +156,9 @@ bool spectral_adaptive_denoiser_run(SpectralProcessorHandle instance,
       self->alpha, self->beta, oversubtraction_parameters);
 
   // Get reduction gain weights
-  wiener_subtraction(self->real_spectrum_size, self->fft_size,
-                     reference_spectrum, self->noise_profile,
-                     self->gain_spectrum, self->alpha);
+  estimate_gains(self->real_spectrum_size, self->fft_size, reference_spectrum,
+                 self->noise_profile, self->gain_spectrum, self->alpha,
+                 self->beta, self->gain_estimation_type);
 
   // Apply post filtering to reduce residual noise on low SNR frames
   postfilter_apply(self->postfiltering, fft_spectrum, self->gain_spectrum);

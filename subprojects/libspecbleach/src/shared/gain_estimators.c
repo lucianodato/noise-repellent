@@ -51,10 +51,10 @@ void denoise_mixer(const uint32_t fft_size, float *fft_spectrum,
   }
 }
 
-void wiener_subtraction(const uint32_t real_spectrum_size,
-                        const uint32_t fft_size, const float *spectrum,
-                        float *noise_spectrum, float *gain_spectrum,
-                        const float *alpha) {
+static void wiener_subtraction(const uint32_t real_spectrum_size,
+                               const uint32_t fft_size, const float *spectrum,
+                               float *noise_spectrum, float *gain_spectrum,
+                               const float *alpha) {
   for (uint32_t k = 1U; k < real_spectrum_size; k++) {
     noise_spectrum[k] *= alpha[k];
 
@@ -72,9 +72,10 @@ void wiener_subtraction(const uint32_t real_spectrum_size,
   }
 }
 
-void spectral_gating(const uint32_t real_spectrum_size, const uint32_t fft_size,
-                     const float *spectrum, float *noise_spectrum,
-                     float *gain_spectrum, const float *alpha) {
+static void spectral_gating(const uint32_t real_spectrum_size,
+                            const uint32_t fft_size, const float *spectrum,
+                            float *noise_spectrum, float *gain_spectrum,
+                            const float *alpha) {
   for (uint32_t k = 1U; k < real_spectrum_size; k++) {
     noise_spectrum[k] *= alpha[k];
 
@@ -92,12 +93,10 @@ void spectral_gating(const uint32_t real_spectrum_size, const uint32_t fft_size,
   }
 }
 
-void generalized_spectral_subtraction(const uint32_t real_spectrum_size,
-                                      const uint32_t fft_size,
-                                      const float *spectrum,
-                                      const float *noise_spectrum,
-                                      float *gain_spectrum, const float *alpha,
-                                      const float *beta) {
+static void generalized_spectral_subtraction(
+    const uint32_t real_spectrum_size, const uint32_t fft_size,
+    const float *spectrum, const float *noise_spectrum, float *gain_spectrum,
+    const float *alpha, const float *beta) {
   for (uint32_t k = 1U; k < real_spectrum_size; k++) {
     if (spectrum[k] > FLT_MIN) {
       if (powf((noise_spectrum[k] / spectrum[k]), GAMMA1) <
@@ -118,5 +117,29 @@ void generalized_spectral_subtraction(const uint32_t real_spectrum_size,
     }
 
     gain_spectrum[fft_size - k] = gain_spectrum[k];
+  }
+}
+
+void estimate_gains(uint32_t real_spectrum_size, uint32_t fft_size,
+                    const float *spectrum, float *noise_spectrum,
+                    float *gain_spectrum, const float *alpha, const float *beta,
+                    GainEstimationType type) {
+  switch (type) {
+  case WIENER:
+    wiener_subtraction(real_spectrum_size, fft_size, spectrum, noise_spectrum,
+                       gain_spectrum, alpha);
+    break;
+  case GATES:
+    spectral_gating(real_spectrum_size, fft_size, spectrum, noise_spectrum,
+                    gain_spectrum, alpha);
+    break;
+  case GENERALIZED_SPECTRALSUBTRACION:
+    generalized_spectral_subtraction(real_spectrum_size, fft_size, spectrum,
+                                     noise_spectrum, gain_spectrum, alpha,
+                                     beta);
+    break;
+
+  default:
+    break;
   }
 }
