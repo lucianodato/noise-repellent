@@ -21,7 +21,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include "../shared/configurations.h"
 #include "../shared/gain_estimators.h"
 #include "../shared/noise_estimator.h"
-#include "../shared/oversubtraction_criterias.h"
+#include "../shared/noise_scaling_criterias.h"
 #include "../shared/postfilter.h"
 #include "../shared/spectral_features.h"
 #include "../shared/spectral_smoother.h"
@@ -43,11 +43,13 @@ typedef struct SbSpectralDenoiser {
   bool transient_detected;
 
   float *gain_spectrum;
+  float *alpha;
+  float *beta;
   float *residual_spectrum;
   float *denoised_spectrum;
 
   SpectrumType spectrum_type;
-  OversubtractionType oversubtraction_type;
+  NoiseScalingType noise_scaling_type;
   CriticalBandType band_type;
   DenoiserParameters denoise_parameters;
 
@@ -57,7 +59,7 @@ typedef struct SbSpectralDenoiser {
   NoiseProfile *noise_profile;
   SpectralFeatures *spectral_features;
 
-  OversubtractionCriterias *oversubtraction_criteria;
+  NoiseScalingCriterias *oversubtraction_criteria;
   TransientDetector *transient_detection;
   SpectralSmoother *spectrum_smoothing;
 } SbSpectralDenoiser;
@@ -74,13 +76,16 @@ SpectralProcessorHandle spectral_denoiser_initialize(
   self->hop = self->fft_size / overlap_factor;
   self->sample_rate = sample_rate;
   self->spectrum_type = SPECTRAL_TYPE_GENERAL;
-  self->oversubtraction_type = OVERSUBTRACTION_TYPE;
+  self->noise_scaling_type = OVERSUBTRACTION_TYPE;
   self->band_type = CRITICAL_BANDS_TYPE;
   self->default_oversubtraction = DEFAULT_OVERSUBTRACTION;
   self->default_undersubtraction = DEFAULT_UNDERSUBTRACTION;
 
   self->gain_spectrum = (float *)calloc(self->fft_size, sizeof(float));
   initialize_spectrum_with_value(self->gain_spectrum, self->fft_size, 1.F);
+  self->alpha = (float *)calloc(self->real_spectrum_size, sizeof(float));
+  initialize_spectrum_with_value(self->alpha, self->real_spectrum_size, 1.F);
+  self->beta = (float *)calloc(self->real_spectrum_size, sizeof(float));
 
   self->noise_profile = noise_profile;
 
@@ -99,8 +104,8 @@ SpectralProcessorHandle spectral_denoiser_initialize(
   self->spectrum_smoothing = spectral_smoothing_initialize(
       self->fft_size, self->sample_rate, self->hop);
 
-  self->oversubtraction_criteria = oversubtraction_criterias_initialize(
-      self->oversubtraction_type, self->fft_size, self->band_type,
+  self->oversubtraction_criteria = noise_scaling_criterias_initialize(
+      self->noise_scaling_type, self->fft_size, self->band_type,
       self->sample_rate, self->spectrum_type);
 
   self->whitener = spectral_whitening_initialize(self->fft_size,
@@ -117,12 +122,14 @@ void spectral_denoiser_free(SpectralProcessorHandle instance) {
   spectral_features_free(self->spectral_features);
   transient_detector_free(self->transient_detection);
   spectral_smoothing_free(self->spectrum_smoothing);
-  oversubtraction_criterias_free(self->oversubtraction_criteria);
+  noise_scaling_criterias_free(self->oversubtraction_criteria);
   postfilter_free(self->postfiltering);
 
   free(self->residual_spectrum);
   free(self->denoised_spectrum);
   free(self->gain_spectrum);
+  free(self->alpha);
+  free(self->beta);
   free(self);
 }
 
@@ -163,15 +170,15 @@ bool spectral_denoiser_run(SpectralProcessorHandle instance,
           self->denoise_parameters.transient_threshold, reference_spectrum);
     }
 
-    OversustractionParameters oversubtraction_parameters =
-        (OversustractionParameters){
+    NoiseScalingParameters oversubtraction_parameters =
+        (NoiseScalingParameters){
             .oversubtraction = self->default_oversubtraction +
                                self->denoise_parameters.noise_rescale,
             .undersubtraction = self->default_undersubtraction,
         };
-    apply_oversustraction_criteria(self->oversubtraction_criteria,
-                                   reference_spectrum, noise_profile,
-                                   oversubtraction_parameters);
+    apply_noise_scaling_criteria(self->oversubtraction_criteria,
+                                 reference_spectrum, noise_profile, self->alpha,
+                                 self->beta, oversubtraction_parameters);
 
     spectral_smoothing_run(self->spectrum_smoothing,
                            self->denoise_parameters.release_time,
@@ -180,11 +187,12 @@ bool spectral_denoiser_run(SpectralProcessorHandle instance,
     if (self->transient_detected &&
         self->denoise_parameters.transient_threshold > 1.F) {
       wiener_subtraction(self->real_spectrum_size, self->fft_size,
-                         reference_spectrum, self->gain_spectrum,
+                         reference_spectrum, self->gain_spectrum, self->alpha,
                          noise_profile);
     } else {
       spectral_gating(self->real_spectrum_size, self->fft_size,
-                      reference_spectrum, self->gain_spectrum, noise_profile);
+                      reference_spectrum, self->gain_spectrum, self->alpha,
+                      noise_profile);
     }
 
     // Apply post filtering to reduce residual noise on low SNR frames

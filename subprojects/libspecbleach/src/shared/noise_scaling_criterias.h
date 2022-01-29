@@ -25,27 +25,27 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <stdbool.h>
 #include <stdint.h>
 
-typedef enum OversubtractionType {
+typedef enum NoiseScalingType {
   A_POSTERIORI_SNR_CRITICAL_BANDS = 0,
   A_POSTERIORI_SNR = 1,
   MASKING_THRESHOLDS = 2,
-} OversubtractionType;
+} NoiseScalingType;
 
-typedef struct OversustractionParameters {
+typedef struct NoiseScalingParameters {
   float undersubtraction;
   float oversubtraction;
-} OversustractionParameters;
+} NoiseScalingParameters;
 
-typedef struct OversubtractionCriterias OversubtractionCriterias;
+typedef struct NoiseScalingCriterias NoiseScalingCriterias;
 
-OversubtractionCriterias *oversubtraction_criterias_initialize(
-    OversubtractionType subtraction_type, uint32_t fft_size,
+NoiseScalingCriterias *noise_scaling_criterias_initialize(
+    NoiseScalingType subtraction_type, uint32_t fft_size,
     CriticalBandType critical_band_type, uint32_t sample_rate,
     SpectrumType spectrum_type);
-void oversubtraction_criterias_free(OversubtractionCriterias *self);
-bool apply_oversustraction_criteria(OversubtractionCriterias *self,
-                                    const float *spectrum,
-                                    float *noise_spectrum,
-                                    OversustractionParameters parameters);
+void noise_scaling_criterias_free(NoiseScalingCriterias *self);
+bool apply_noise_scaling_criteria(NoiseScalingCriterias *self,
+                                  const float *spectrum, float *noise_spectrum,
+                                  float *alpha, float *beta,
+                                  NoiseScalingParameters parameters);
 
 #endif

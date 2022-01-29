@@ -7,7 +7,7 @@ shared_sources = [
     'src/shared/spectral_features.c',
     'src/shared/general_utils.c',
     'src/shared/spectral_whitening.c',
-    'src/shared/oversubtraction_criterias.c',
+    'src/shared/noise_scaling_criterias.c',
     'src/shared/postfilter.c',
     'src/shared/critical_bands.c',
     'src/shared/absolute_hearing_thresholds.c',

@@ -22,7 +22,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 #include "critical_bands.h"
 #include "fft_transform.h"
-#include "oversubtraction_criterias.h"
+#include "noise_scaling_criterias.h"
 #include "spectral_features.h"
 #include "spectral_utils.h"
 
@@ -66,10 +66,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define GAMMA1 2.F
 #define GAMMA2 0.5F
 
+// Oversubtraction criterias
 #define ALPHA_MAX 6.F
 #define ALPHA_MIN 1.F
 #define BETA_MAX 0.02F
 #define BETA_MIN 0.F
+#define DEFAULT_OVERSUBTRACTION ALPHA_MIN
+#define DEFAULT_UNDERSUBTRACTION BETA_MAX
 
 // Noise Estimator
 #define MIN_NUMBER_OF_WINDOWS_NOISE_AVERAGED 5
@@ -86,10 +89,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define BAND_1_LEVEL 2.F
 #define BAND_2_LEVEL 2.F
 #define BAND_3_LEVEL 5.F
-
-// Oversubtraction criterias
-#define DEFAULT_OVERSUBTRACTION 2.F
-#define DEFAULT_UNDERSUBTRACTION 0.01F
 
 /* --------------------------------------------------------------- */
 /* ------------------- Denoiser configurations ------------------- */

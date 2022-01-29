@@ -21,7 +21,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include "../shared/adaptive_noise_estimator.h"
 #include "../shared/configurations.h"
 #include "../shared/gain_estimators.h"
-#include "../shared/oversubtraction_criterias.h"
+#include "../shared/noise_scaling_criterias.h"
 #include "../shared/postfilter.h"
 #include "../shared/spectral_features.h"
 #include "../shared/spectral_utils.h"
@@ -39,16 +39,18 @@ typedef struct SpectralAdaptiveDenoiser {
 
   AdaptiveDenoiserParameters parameters;
 
+  float *alpha;
+  float *beta;
   float *gain_spectrum;
   float *residual_spectrum;
   float *denoised_spectrum;
   float *noise_profile;
 
   SpectrumType spectrum_type;
-  OversubtractionType oversubtraction_type;
+  NoiseScalingType noise_scaling_type;
   CriticalBandType band_type;
 
-  OversubtractionCriterias *oversubtraction_criteria;
+  NoiseScalingCriterias *oversubtraction_criteria;
   PostFilter *postfiltering;
   AdaptiveNoiseEstimator *adaptive_estimator;
   SpectralFeatures *spectral_features;
@@ -67,11 +69,14 @@ spectral_adaptive_denoiser_initialize(const uint32_t sample_rate,
   self->default_oversubtraction = DEFAULT_OVERSUBTRACTION;
   self->default_undersubtraction = DEFAULT_UNDERSUBTRACTION;
   self->spectrum_type = SPECTRAL_TYPE_SPEECH;
-  self->oversubtraction_type = OVERSUBTRACTION_TYPE_SPEECH;
+  self->noise_scaling_type = OVERSUBTRACTION_TYPE_SPEECH;
   self->band_type = CRITICAL_BANDS_TYPE_SPEECH;
 
   self->gain_spectrum = (float *)calloc(self->fft_size, sizeof(float));
   initialize_spectrum_with_value(self->gain_spectrum, self->fft_size, 1.F);
+  self->alpha = (float *)calloc(self->real_spectrum_size, sizeof(float));
+  initialize_spectrum_with_value(self->alpha, self->real_spectrum_size, 1.F);
+  self->beta = (float *)calloc(self->real_spectrum_size, sizeof(float));
   self->noise_profile =
       (float *)calloc(self->real_spectrum_size, sizeof(float));
 
@@ -83,8 +88,8 @@ spectral_adaptive_denoiser_initialize(const uint32_t sample_rate,
 
   self->postfiltering = postfilter_initialize(self->fft_size);
 
-  self->oversubtraction_criteria = oversubtraction_criterias_initialize(
-      self->oversubtraction_type, self->fft_size, self->band_type,
+  self->oversubtraction_criteria = noise_scaling_criterias_initialize(
+      self->noise_scaling_type, self->fft_size, self->band_type,
       self->sample_rate, self->spectrum_type);
 
   self->spectral_features =
@@ -98,12 +103,14 @@ void spectral_adaptive_denoiser_free(SpectralProcessorHandle instance) {
 
   louizou_estimator_free(self->adaptive_estimator);
   spectral_features_free(self->spectral_features);
-  oversubtraction_criterias_free(self->oversubtraction_criteria);
+  noise_scaling_criterias_free(self->oversubtraction_criteria);
   postfilter_free(self->postfiltering);
 
   free(self->residual_spectrum);
   free(self->denoised_spectrum);
   free(self->gain_spectrum);
+  free(self->alpha);
+  free(self->beta);
   free(self);
 }
 
@@ -137,20 +144,19 @@ bool spectral_adaptive_denoiser_run(SpectralProcessorHandle instance,
 
   // Scale estimated noise profile for oversubtraction using a posteriori SNR
   // piecewise function
-  OversustractionParameters oversubtraction_parameters =
-      (OversustractionParameters){
-          .oversubtraction =
-              self->default_oversubtraction + self->parameters.noise_rescale,
-          .undersubtraction = self->default_undersubtraction,
-      };
-  apply_oversustraction_criteria(self->oversubtraction_criteria,
-                                 reference_spectrum, self->noise_profile,
-                                 oversubtraction_parameters);
+  NoiseScalingParameters oversubtraction_parameters = (NoiseScalingParameters){
+      .oversubtraction =
+          self->default_oversubtraction + self->parameters.noise_rescale,
+      .undersubtraction = self->default_undersubtraction,
+  };
+  apply_noise_scaling_criteria(
+      self->oversubtraction_criteria, reference_spectrum, self->noise_profile,
+      self->alpha, self->beta, oversubtraction_parameters);
 
   // Get reduction gain weights
-  wiener_subtraction(self->real_spectrum_size, self->fft_size,
-                     reference_spectrum, self->gain_spectrum,
-                     self->noise_profile);
+  wiener_subtraction(self->real_spectrum_size, self->fft_size, self->alpha,
+                     reference_spectrum, self->noise_profile,
+                     self->gain_spectrum);
 
   // Apply post filtering to reduce residual noise on low SNR frames
   postfilter_apply(self->postfiltering, fft_spectrum, self->gain_spectrum);
