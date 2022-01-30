@@ -99,18 +99,19 @@ static void generalized_spectral_subtraction(
     const float *alpha, const float *beta) {
   for (uint32_t k = 1U; k < real_spectrum_size; k++) {
     if (spectrum[k] > FLT_MIN) {
-      if (powf((noise_spectrum[k] / spectrum[k]), GAMMA1) <
+      if (powf((noise_spectrum[k] / spectrum[k]), GSS_EXPONENT) <
           (1.F / (alpha[k] + beta[k]))) {
         gain_spectrum[k] =
-            fmaxf(powf(1.F - (alpha[k] *
-                              powf((noise_spectrum[k] / spectrum[k]), GAMMA1)),
-                       GAMMA2),
+            fmaxf(powf(1.F - (alpha[k] * powf((noise_spectrum[k] / spectrum[k]),
+                                              GSS_EXPONENT)),
+                       1.F / GSS_EXPONENT),
                   0.F);
       } else {
-        gain_spectrum[k] = fmaxf(
-            powf(beta[k] * powf((noise_spectrum[k] / spectrum[k]), GAMMA1),
-                 GAMMA2),
-            0.F);
+        gain_spectrum[k] =
+            fmaxf(powf(beta[k] * powf((noise_spectrum[k] / spectrum[k]),
+                                      GSS_EXPONENT),
+                       1.F / GSS_EXPONENT),
+                  0.F);
       }
     } else {
       gain_spectrum[k] = 1.F;

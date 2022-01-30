@@ -195,7 +195,6 @@ static void a_posteriori_snr(NoiseScalingCriterias *self, const float *spectrum,
   }
 }
 
-// FIXME (luciano/fixme): fix broken alpha and beta calculation
 static void masking_thresholds(NoiseScalingCriterias *self,
                                const float *spectrum, float *noise_spectrum,
                                float *alpha, float *beta,
@@ -209,25 +208,25 @@ static void masking_thresholds(NoiseScalingCriterias *self,
   compute_masking_thresholds(self->masking_estimation, spectrum,
                              self->masking_thresholds);
 
-  float max_masked_tmp =
+  float max_masked_value =
       max_spectral_value(self->masking_thresholds, self->real_spectrum_size);
-  float min_masked_tmp =
+  float min_masked_value =
       min_spectral_value(self->masking_thresholds, self->real_spectrum_size);
 
   for (uint32_t k = 1U; k < self->real_spectrum_size; k++) {
-    if (self->masking_thresholds[k] == max_masked_tmp) {
+    if (self->masking_thresholds[k] == max_masked_value) {
       alpha[k] = ALPHA_MIN;
       beta[k] = BETA_MIN;
     }
-    if (self->masking_thresholds[k] == min_masked_tmp) {
+    if (self->masking_thresholds[k] == min_masked_value) {
       alpha[k] = parameters.oversubtraction;
       beta[k] = parameters.undersubtraction;
     }
-    if (self->masking_thresholds[k] < max_masked_tmp &&
-        self->masking_thresholds[k] > min_masked_tmp) {
+    if (self->masking_thresholds[k] < max_masked_value &&
+        self->masking_thresholds[k] > min_masked_value) {
       const float normalized_value =
-          (self->masking_thresholds[k] - min_masked_tmp) /
-          (max_masked_tmp - min_masked_tmp);
+          (self->masking_thresholds[k] - min_masked_value) /
+          (max_masked_value - min_masked_value);
 
       alpha[k] = (1.F - normalized_value) * ALPHA_MIN +
                  normalized_value * parameters.oversubtraction;

@@ -26,6 +26,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include "noise_scaling_criterias.h"
 #include "spectral_features.h"
 #include "spectral_utils.h"
+#include <stdbool.h>
 
 #ifndef M_PI
 #define M_PI 3.1415926535F
@@ -48,7 +49,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define WHITENING_FLOOR 0.02F
 
 // Masking Thresholds
-#define BIAS 0
+#define BIAS false
 #define HIGH_FREQ_BIAS 20.F
 #if BIAS
 #define relative_thresholds                                                    \
@@ -61,11 +62,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 // Postfilter SNR Threshold
 #define POSTFILTER_THRESHOLD 0.4F
 #define POSTFILTER_SCALE 10.0F
-#define PRESERVE_MINIMUN_GAIN (1)
+#define PRESERVE_MINIMUN_GAIN true
 
 // Gain Estimators
-#define GAMMA1 2.F
-#define GAMMA2 0.5F
+#define GSS_EXPONENT                                                           \
+  2.0F // 2 Power Subtraction / 1 Magnitude Subtraxtion / 0.5 Spectral
+       // Subtraction
 
 // Oversubtraction criterias
 #define ALPHA_MAX 6.F
@@ -137,7 +139,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define CRITICAL_BANDS_TYPE_SPEECH OPUS_SCALE
 
 // Noise Scaling strategy
-#define OVERSUBTRACTION_TYPE_SPEECH A_POSTERIORI_SNR_CRITICAL_BANDS
+#define OVERSUBTRACTION_TYPE_SPEECH MASKING_THRESHOLDS
 #define GAIN_ESTIMATION_TYPE_SPEECH WIENER
 
 #endif // ifndef
