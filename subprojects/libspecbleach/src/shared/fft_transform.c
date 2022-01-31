@@ -33,6 +33,7 @@ struct FftTransform {
 
   uint32_t fft_size;
   uint32_t frame_size;
+  uint32_t zeropadding_amount;
   ZeroPaddingType padding_type;
   uint32_t padding_amount;
   float *input_fft_buffer;
@@ -41,11 +42,13 @@ struct FftTransform {
 
 FftTransform *fft_transform_initialize(const uint32_t sample_rate,
                                        const float frame_size_ms,
-                                       const ZeroPaddingType padding_type) {
+                                       const ZeroPaddingType padding_type,
+                                       const uint32_t zeropadding_amount) {
   FftTransform *self = (FftTransform *)calloc(1U, sizeof(FftTransform));
 
   self->padding_type = padding_type;
   self->frame_size = (uint32_t)((frame_size_ms / 1000.F) * (float)sample_rate);
+  self->zeropadding_amount = zeropadding_amount;
 
   self->fft_size = calculate_fft_size(self);
 
@@ -91,7 +94,7 @@ static uint32_t calculate_fft_size(FftTransform *self) {
     return next_power_of_two;
   }
   case FIXED_AMOUNT: {
-    self->padding_amount = ZEROPADDING_AMOUNT;
+    self->padding_amount = self->zeropadding_amount;
     return get_next_divisible_two(
         (int)(self->frame_size + self->padding_amount));
   }

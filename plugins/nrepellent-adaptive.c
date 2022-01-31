@@ -27,9 +27,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define NOISEREPELLENT_ADAPTIVE_STEREO_URI                                     \
   "https://github.com/lucianodato/noise-repellent#adaptive-stereo"
 
-// TODO (luciano/todo): Use state mapping and unmapping instead of ladspa float
-// arguments
-
 typedef enum PortIndex {
   NOISEREPELLENT_AMOUNT = 0,
   NOISEREPELLENT_NOISE_OFFSET = 1,

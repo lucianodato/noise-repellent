@@ -28,10 +28,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 static void a_posteriori_snr_critical_bands(NoiseScalingCriterias *self,
                                             const float *spectrum,
                                             float *noise_spectrum, float *alpha,
+                                            float *beta,
                                             NoiseScalingParameters parameters);
 static void a_posteriori_snr(NoiseScalingCriterias *self, const float *spectrum,
                              const float *noise_spectrum, float *alpha,
-                             NoiseScalingParameters parameters);
+                             float *beta, NoiseScalingParameters parameters);
 static void masking_thresholds(NoiseScalingCriterias *self,
                                const float *spectrum, float *noise_spectrum,
                                float *alpha, float *beta,
@@ -44,6 +45,10 @@ struct NoiseScalingCriterias {
   uint32_t sample_rate;
   SpectrumType spectrum_type;
   uint32_t number_critical_bands;
+  float lower_snr;
+  float higher_snr;
+  float alpha_minimun;
+  float beta_minimun;
 
   float *masking_thresholds;
   float *clean_signal_estimation;
@@ -70,6 +75,10 @@ NoiseScalingCriterias *noise_scaling_criterias_initialize(
   self->critical_band_type = critical_band_type;
   self->sample_rate = sample_rate;
   self->spectrum_type = spectrum_type;
+  self->lower_snr = LOWER_SNR;
+  self->higher_snr = HIGHER_SNR;
+  self->alpha_minimun = ALPHA_MIN;
+  self->beta_minimun = BETA_MIN;
 
   self->critical_bands = critical_bands_initialize(
       self->sample_rate, self->fft_size, self->critical_band_type);
@@ -113,11 +122,11 @@ bool apply_noise_scaling_criteria(NoiseScalingCriterias *self,
 
   switch (self->noise_scaling_type) {
   case A_POSTERIORI_SNR_CRITICAL_BANDS:
-    a_posteriori_snr_critical_bands(self, spectrum, noise_spectrum, alpha,
+    a_posteriori_snr_critical_bands(self, spectrum, noise_spectrum, alpha, beta,
                                     parameters);
     break;
   case A_POSTERIORI_SNR:
-    a_posteriori_snr(self, spectrum, noise_spectrum, alpha, parameters);
+    a_posteriori_snr(self, spectrum, noise_spectrum, alpha, beta, parameters);
     break;
   case MASKING_THRESHOLDS:
     masking_thresholds(self, spectrum, noise_spectrum, alpha, beta, parameters);
@@ -133,6 +142,7 @@ bool apply_noise_scaling_criteria(NoiseScalingCriterias *self,
 static void a_posteriori_snr_critical_bands(NoiseScalingCriterias *self,
                                             const float *spectrum,
                                             float *noise_spectrum, float *alpha,
+                                            float *beta,
                                             NoiseScalingParameters parameters) {
 
   compute_critical_bands_spectrum(self->critical_bands, noise_spectrum,
@@ -150,7 +160,8 @@ static void a_posteriori_snr_critical_bands(NoiseScalingCriterias *self,
     a_posteriori_snr = 10.F * log10f(self->bark_reference_spectrum[j] /
                                      self->bark_noise_profile[j]);
 
-    if (a_posteriori_snr >= 0.F && a_posteriori_snr <= 20.F) {
+    if (a_posteriori_snr >= self->lower_snr &&
+        a_posteriori_snr <= self->higher_snr) {
       oversustraction_factor =
           -0.05F * (a_posteriori_snr) + parameters.oversubtraction;
     } else if (a_posteriori_snr < 0.F) {
@@ -168,7 +179,7 @@ static void a_posteriori_snr_critical_bands(NoiseScalingCriterias *self,
 
 static void a_posteriori_snr(NoiseScalingCriterias *self, const float *spectrum,
                              const float *noise_spectrum, float *alpha,
-                             NoiseScalingParameters parameters) {
+                             float *beta, NoiseScalingParameters parameters) {
   float a_posteriori_snr = 20.F;
   float oversustraction_factor = 1.F;
   float noisy_spectrum_sum = 0.F;
@@ -181,7 +192,8 @@ static void a_posteriori_snr(NoiseScalingCriterias *self, const float *spectrum,
 
   a_posteriori_snr = 10.F * log10f(noisy_spectrum_sum / noise_spectrum_sum);
 
-  if (a_posteriori_snr >= 0.F && a_posteriori_snr <= 20.F) {
+  if (a_posteriori_snr >= self->lower_snr &&
+      a_posteriori_snr <= self->higher_snr) {
     oversustraction_factor =
         -0.05F * (a_posteriori_snr) + parameters.oversubtraction;
   } else if (a_posteriori_snr < 0.F) {
@@ -215,8 +227,8 @@ static void masking_thresholds(NoiseScalingCriterias *self,
 
   for (uint32_t k = 1U; k < self->real_spectrum_size; k++) {
     if (self->masking_thresholds[k] == max_masked_value) {
-      alpha[k] = ALPHA_MIN;
-      beta[k] = BETA_MIN;
+      alpha[k] = self->alpha_minimun;
+      beta[k] = self->beta_minimun;
     }
     if (self->masking_thresholds[k] == min_masked_value) {
       alpha[k] = parameters.oversubtraction;
@@ -228,9 +240,9 @@ static void masking_thresholds(NoiseScalingCriterias *self,
           (self->masking_thresholds[k] - min_masked_value) /
           (max_masked_value - min_masked_value);
 
-      alpha[k] = (1.F - normalized_value) * ALPHA_MIN +
+      alpha[k] = (1.F - normalized_value) * self->alpha_minimun +
                  normalized_value * parameters.oversubtraction;
-      beta[k] = (1.F - normalized_value) * BETA_MIN +
+      beta[k] = (1.F - normalized_value) * self->beta_minimun +
                 normalized_value * parameters.undersubtraction;
     }
   }

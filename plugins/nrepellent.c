@@ -30,12 +30,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <stdlib.h>
 #include <string.h>
 
-#define NOISEREPELLENT_URI "https://github.com/lucianodato/noise-repellent"
+#define NOISEREPELLENT_URI "https://github.com/lucianodato/noise-repellent#new"
 #define NOISEREPELLENT_STEREO_URI                                              \
-  "https://github.com/lucianodato/noise-repellent-stereo"
-
-// TODO (luciano/todo): Use state mapping and unmapping instead of ladspa float
-// arguments
+  "https://github.com/lucianodato/noise-repellent-stereo#new"
 
 typedef struct URIs {
   LV2_URID atom_Int;
@@ -355,7 +352,7 @@ static LV2_State_Status save(LV2_Handle instance,
                              LV2_State_Handle handle, uint32_t flags,
                              const LV2_Feature *const *features) {
   NoiseRepellentAdaptivePlugin *self = (NoiseRepellentAdaptivePlugin *)instance;
-
+  // FIXME (luciano/fixme): Fix noise profile not being saved with session
   if (!specbleach_noise_profile_available(self->lib_instance_1)) {
     return LV2_STATE_SUCCESS;
   }

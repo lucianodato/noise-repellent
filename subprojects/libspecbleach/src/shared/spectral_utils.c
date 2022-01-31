@@ -173,7 +173,7 @@ bool get_rolling_mean_spectrum(float *averaged_spectrum,
                                const float *current_spectrum,
                                const uint32_t number_of_blocks,
                                const uint32_t spectrum_size) {
-  if (!averaged_spectrum || !current_spectrum || (spectrum_size <= 0U)) {
+  if (!averaged_spectrum || !current_spectrum || spectrum_size <= 0U) {
     return false;
   }
 
@@ -181,7 +181,7 @@ bool get_rolling_mean_spectrum(float *averaged_spectrum,
     if (number_of_blocks <= 1U) {
       averaged_spectrum[k] = current_spectrum[k];
     } else {
-      averaged_spectrum[k] += (averaged_spectrum[k] - current_spectrum[k]) /
+      averaged_spectrum[k] += (current_spectrum[k] - averaged_spectrum[k]) /
                               (float)number_of_blocks;
     }
   }

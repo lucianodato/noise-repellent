@@ -33,7 +33,8 @@ typedef struct FftTransform FftTransform;
 
 FftTransform *fft_transform_initialize(uint32_t sample_rate,
                                        float frame_size_ms,
-                                       ZeroPaddingType padding_type);
+                                       ZeroPaddingType padding_type,
+                                       uint32_t zeropadding_amount);
 FftTransform *fft_transform_initialize_bins(uint32_t fft_size);
 void fft_transform_free(FftTransform *self);
 bool fft_load_input_samples(FftTransform *self, const float *input);

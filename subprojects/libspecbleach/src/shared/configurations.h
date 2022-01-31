@@ -36,9 +36,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 /* ------------------- Shared Modules configurations ------------------- */
 /* --------------------------------------------------------------------- */
 
-// FFT configurations
-#define ZEROPADDING_AMOUNT 50 // Even Number
-
 // Absolute hearing thresholds
 #define REFERENCE_SINE_WAVE_FREQ 1000.F
 #define REFERENCE_LEVEL 90.F
@@ -72,10 +69,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 // Oversubtraction criterias
 #define ALPHA_MAX 6.F
 #define ALPHA_MIN 1.F
-#define BETA_MAX 0.02F
-#define BETA_MIN 0.F
+#define BETA_MAX 0.01F
+#define BETA_MIN 0.000016F
 #define DEFAULT_OVERSUBTRACTION ALPHA_MIN
 #define DEFAULT_UNDERSUBTRACTION BETA_MAX
+#define LOWER_SNR 0.F
+#define HIGHER_SNR 20.F
 
 // Noise Estimator
 #define MIN_NUMBER_OF_WINDOWS_NOISE_AVERAGED 5
@@ -100,11 +99,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 // STFT configurations - Frame size in milliseconds
 #define FRAME_SIZE_GENERAL 46
 #define OVERLAP_FACTOR_GENERAL 4
-#define INPUT_WINDOW_TYPE_GENERAL VORBIS_WINDOW
-#define OUTPUT_WINDOW_TYPE_GENERAL VORBIS_WINDOW
+#define INPUT_WINDOW_TYPE_GENERAL BLACKMAN_WINDOW
+#define OUTPUT_WINDOW_TYPE_GENERAL BLACKMAN_WINDOW
 
 // Fft configuration
 #define PADDING_CONFIGURATION_GENERAL NO_PADDING
+#define ZEROPADDING_AMOUNT_GENERAL 50 // Even Number
 
 // Spectral Type
 #define SPECTRAL_TYPE_GENERAL POWER_SPECTRUM
@@ -113,7 +113,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define UPPER_LIMIT 5.F
 
 // Masking
-#define CRITICAL_BANDS_TYPE BARK_SCALE
+#define CRITICAL_BANDS_TYPE OPUS_SCALE
 
 // Noise Scaling strategy
 #define OVERSUBTRACTION_TYPE MASKING_THRESHOLDS
@@ -129,11 +129,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define INPUT_WINDOW_TYPE_SPEECH VORBIS_WINDOW
 #define OUTPUT_WINDOW_TYPE_SPEECH VORBIS_WINDOW
 
-// Spectral Type
-#define SPECTRAL_TYPE_SPEECH POWER_SPECTRUM
-
 // Fft configurations
 #define PADDING_CONFIGURATION_SPEECH NO_PADDING
+#define ZEROPADDING_AMOUNT_SPEECH 50 // Even Number
+
+// Spectral Type
+#define SPECTRAL_TYPE_SPEECH POWER_SPECTRUM
 
 // Masking
 #define CRITICAL_BANDS_TYPE_SPEECH OPUS_SCALE

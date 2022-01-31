@@ -18,8 +18,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
 #include "noise_estimator.h"
-#include "configurations.h"
 #include "spectral_features.h"
+#include "spectral_utils.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -57,11 +57,6 @@ bool noise_estimation_run(NoiseEstimator *self, float *signal_spectrum) {
       self->real_spectrum_size);
 
   increment_blocks_averaged(self->noise_profile);
-
-  if (get_noise_profile_blocks_averaged(self->noise_profile) >
-      MIN_NUMBER_OF_WINDOWS_NOISE_AVERAGED) {
-    set_noise_estimation_available(self->noise_profile);
-  }
 
   return true;
 }

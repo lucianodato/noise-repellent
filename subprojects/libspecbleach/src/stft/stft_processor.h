@@ -31,7 +31,8 @@ typedef struct StftProcessor StftProcessor;
 StftProcessor *
 stft_processor_initialize(uint32_t sample_rate, float stft_frame_size,
                           uint32_t overlap_factor, ZeroPaddingType padding_type,
-                          WindowTypes input_window, WindowTypes output_window);
+                          uint32_t zeropadding_amount, WindowTypes input_window,
+                          WindowTypes output_window);
 void stft_processor_free(StftProcessor *self);
 uint32_t get_stft_latency(StftProcessor *self);
 uint32_t get_stft_fft_size(StftProcessor *self);

@@ -16,7 +16,7 @@
   foaf:homepage <https://github.com/lucianodato> ;
   foaf:mbox <mailto:lucianodato@gmail.com> .
 
-<https://github.com/lucianodato/noise-repellent-stereo>
+<https://github.com/lucianodato/noise-repellent-stereo#new>
   a lv2:Plugin, lv2:SpectralPlugin, lv2:UtilityPlugin, doap:Project ;
   doap:maintainer <https://github.com/lucianodato#me> ;
   doap:license <https://opensource.org/licenses/LGPL-3.0> ;
@@ -59,7 +59,7 @@
       "Décalage des seuils"@fr ,
       "Thresholds offset" ;
     lv2:minimum -12.0 ;
-    lv2:maximum 12.0 ;
+    lv2:maximum 0.0 ;
     lv2:default 0.0 ;
     lv2:designation lv2:gain ;
     units:unit units:db ;
@@ -101,10 +101,6 @@
     lv2:default 0.0 ;
     lv2:designation lv2:control ;
     units:unit units:pc ;
-    units:conversion [
-      units:factor 0.01 ;
-      units:to units:coef
-    ] ;
   ], [
     a lv2:ControlPort,
       lv2:InputPort ;
@@ -143,7 +139,7 @@
     lv2:maximum 1 ;
     lv2:default 0 ;
     lv2:designation lv2:control ;
-    lv2:portProperty lv2:toggled, lv2:integer, pprop:trigger; # TODO make it work in DAWs as trigger (test with jalv)
+    lv2:portProperty lv2:toggled, lv2:integer, pprop:trigger;
   ], [
     a lv2:InputPort, lv2:ControlPort ;
     lv2:index 8 ;

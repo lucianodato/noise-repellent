@@ -45,6 +45,7 @@ typedef struct SbSpectralDenoiser {
   float *gain_spectrum;
   float *alpha;
   float *beta;
+  float *noise_spectrum;
   float *residual_spectrum;
   float *denoised_spectrum;
 
@@ -90,6 +91,8 @@ SpectralProcessorHandle spectral_denoiser_initialize(
   self->beta = (float *)calloc(self->real_spectrum_size, sizeof(float));
 
   self->noise_profile = noise_profile;
+  self->noise_spectrum =
+      (float *)calloc(self->real_spectrum_size, sizeof(float));
 
   self->noise_estimator =
       noise_estimation_initialize(self->fft_size, noise_profile);
@@ -161,46 +164,46 @@ bool spectral_denoiser_run(SpectralProcessorHandle instance,
 
   if (self->denoise_parameters.learn_noise) {
     noise_estimation_run(self->noise_estimator, reference_spectrum);
-  }
-
-  if (is_noise_estimation_available(self->noise_profile)) {
-    float *noise_profile = get_noise_profile(self->noise_profile);
-
-    if (self->denoise_parameters.transient_threshold > 1.F) {
-      self->transient_detected = transient_detector_run(
-          self->transient_detection,
-          self->denoise_parameters.transient_threshold, reference_spectrum);
-    }
+  } else if (is_noise_estimation_available(self->noise_profile)) {
+    memcpy(self->noise_spectrum, get_noise_profile(self->noise_profile),
+           self->real_spectrum_size * sizeof(float));
 
     NoiseScalingParameters oversubtraction_parameters =
         (NoiseScalingParameters){
             .oversubtraction = self->default_oversubtraction +
                                self->denoise_parameters.noise_rescale,
-            .undersubtraction = self->default_undersubtraction,
+            .undersubtraction = self->denoise_parameters.reduction_amount,
         };
     apply_noise_scaling_criteria(self->oversubtraction_criteria,
-                                 reference_spectrum, noise_profile, self->alpha,
-                                 self->beta, oversubtraction_parameters);
+                                 reference_spectrum, self->noise_spectrum,
+                                 self->alpha, self->beta,
+                                 oversubtraction_parameters);
 
-    spectral_smoothing_run(self->spectrum_smoothing,
-                           self->denoise_parameters.release_time,
-                           reference_spectrum);
+    // TODO (luciano/todo): merge spectral smoothing and transient detection
+    // together if (self->denoise_parameters.transient_threshold > 1.F) {
+    //   self->transient_detected = transient_detector_run(
+    //       self->transient_detection,
+    //       self->denoise_parameters.transient_threshold, reference_spectrum);
+    // }
+    // spectral_smoothing_run(self->spectrum_smoothing,
+    //                        self->denoise_parameters.release_time,
+    //                        reference_spectrum);
 
     // Get reduction gain weights
     estimate_gains(self->real_spectrum_size, self->fft_size, reference_spectrum,
-                   noise_profile, self->gain_spectrum, self->alpha, self->beta,
-                   self->gain_estimation_type);
+                   self->noise_spectrum, self->gain_spectrum, self->alpha,
+                   self->beta, self->gain_estimation_type);
 
     // Apply post filtering to reduce residual noise on low SNR frames
     postfilter_apply(self->postfiltering, fft_spectrum, self->gain_spectrum);
 
     // FIXME (luciano/fix): Apply whitening to gain weights instead of the
     // resulting noise residue
-    if (self->denoise_parameters.whitening_factor > 0.F) {
-      spectral_whitening_run(self->whitener,
-                             self->denoise_parameters.whitening_factor,
-                             self->gain_spectrum);
-    }
+    // if (self->denoise_parameters.whitening_factor > 0.F) {
+    //   spectral_whitening_run(self->whitener,
+    //                          self->denoise_parameters.whitening_factor,
+    //                          self->gain_spectrum);
+    // }
 
     denoise_mixer(self->fft_size, fft_spectrum, self->gain_spectrum,
                   self->denoised_spectrum, self->residual_spectrum,

@@ -18,6 +18,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
 #include "noise_profile.h"
+#include "configurations.h"
 #include "spectral_utils.h"
 #include <stdlib.h>
 #include <string.h>
@@ -47,10 +48,6 @@ void noise_profile_free(NoiseProfile *self) {
 
 bool is_noise_estimation_available(NoiseProfile *self) {
   return self->noise_spectrum_available;
-}
-
-void set_noise_estimation_available(NoiseProfile *self) {
-  self->noise_spectrum_available = true;
 }
 
 float *get_noise_profile(NoiseProfile *self) { return self->noise_profile; }
@@ -86,6 +83,12 @@ bool increment_blocks_averaged(NoiseProfile *self) {
   }
 
   self->noise_profile_blocks_averaged++;
+
+  if (self->noise_profile_blocks_averaged >
+          MIN_NUMBER_OF_WINDOWS_NOISE_AVERAGED &&
+      !self->noise_spectrum_available) {
+    self->noise_spectrum_available = true;
+  }
 
   return true;
 }

@@ -44,12 +44,13 @@ StftProcessor *stft_processor_initialize(const uint32_t sample_rate,
                                          const float stft_frame_size,
                                          const uint32_t overlap_factor,
                                          ZeroPaddingType padding_type,
+                                         const uint32_t zeropadding_amount,
                                          WindowTypes input_window,
                                          WindowTypes output_window) {
   StftProcessor *self = (StftProcessor *)calloc(1U, sizeof(StftProcessor));
 
-  self->fft_transform =
-      fft_transform_initialize(sample_rate, stft_frame_size, padding_type);
+  self->fft_transform = fft_transform_initialize(
+      sample_rate, stft_frame_size, padding_type, zeropadding_amount);
 
   self->fft_size = get_fft_size(self->fft_transform);
   self->frame_size = get_frame_size(self->fft_transform);
