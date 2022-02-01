@@ -23,45 +23,17 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <float.h>
 #include <math.h>
 
-void denoise_mixer(const uint32_t fft_size, float *fft_spectrum,
-                   const float *gain_spectrum, float *denoised_spectrum,
-                   float *residual_spectrum, const bool residual_listen,
-                   const float reduction_amount) {
-
-  // Get denoised spectrum - Apply to both real and complex parts
-  for (uint32_t k = 1U; k < fft_size; k++) {
-    denoised_spectrum[k] = fft_spectrum[k] * gain_spectrum[k];
-  }
-
-  // Get residual spectrum - Apply to both real and complex parts
-  for (uint32_t k = 1U; k < fft_size; k++) {
-    residual_spectrum[k] = fft_spectrum[k] - denoised_spectrum[k];
-  }
-
-  // Mix denoised and residual
-  if (residual_listen) {
-    for (uint32_t k = 1U; k < fft_size; k++) {
-      fft_spectrum[k] = residual_spectrum[k];
-    }
-  } else {
-    for (uint32_t k = 1U; k < fft_size; k++) {
-      fft_spectrum[k] =
-          denoised_spectrum[k] + residual_spectrum[k] * reduction_amount;
-    }
-  }
-}
-
 static void wiener_subtraction(const uint32_t real_spectrum_size,
                                const uint32_t fft_size, const float *spectrum,
                                float *noise_spectrum, float *gain_spectrum,
-                               const float *alpha, const float *beta) {
+                               const float *alpha) {
   for (uint32_t k = 1U; k < real_spectrum_size; k++) {
     if (noise_spectrum[k] > FLT_MIN) {
       noise_spectrum[k] *= alpha[k];
       if (spectrum[k] > noise_spectrum[k]) {
         gain_spectrum[k] = (spectrum[k] - noise_spectrum[k]) / spectrum[k];
       } else {
-        gain_spectrum[k] = beta[k];
+        gain_spectrum[k] = 0.F;
       }
       gain_spectrum[fft_size - k] = gain_spectrum[k];
     } else {
@@ -126,7 +98,7 @@ void estimate_gains(uint32_t real_spectrum_size, uint32_t fft_size,
   switch (type) {
   case WIENER:
     wiener_subtraction(real_spectrum_size, fft_size, spectrum, noise_spectrum,
-                       gain_spectrum, alpha, beta);
+                       gain_spectrum, alpha);
     break;
   case GATES:
     spectral_gating(real_spectrum_size, fft_size, spectrum, noise_spectrum,

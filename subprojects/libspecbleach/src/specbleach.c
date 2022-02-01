@@ -215,8 +215,8 @@ specbleach_adaptive_initialize(const uint32_t sample_rate) {
 
   const uint32_t fft_size = get_stft_fft_size(self->stft_processor);
 
-  self->adaptive_spectral_denoiser =
-      spectral_adaptive_denoiser_initialize(self->sample_rate, fft_size);
+  self->adaptive_spectral_denoiser = spectral_adaptive_denoiser_initialize(
+      self->sample_rate, fft_size, OVERLAP_FACTOR_SPEECH);
 
   if (!self->adaptive_spectral_denoiser) {
     specbleach_free(self);

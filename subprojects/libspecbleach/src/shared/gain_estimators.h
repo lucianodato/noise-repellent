@@ -29,10 +29,6 @@ typedef enum GainEstimationType {
   GENERALIZED_SPECTRALSUBTRACION = 2,
 } GainEstimationType;
 
-void denoise_mixer(uint32_t fft_size, float *fft_spectrum,
-                   const float *gain_spectrum, float *denoised_spectrum,
-                   float *residual_spectrum, bool residual_listen,
-                   float reduction_amount);
 void estimate_gains(uint32_t real_spectrum_size, uint32_t fft_size,
                     const float *spectrum, float *noise_spectrum,
                     float *gain_spectrum, const float *alpha, const float *beta,

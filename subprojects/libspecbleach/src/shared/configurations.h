@@ -43,7 +43,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 // Spectral Whitening
 #define WHITENING_DECAY_RATE 1000.F
-#define WHITENING_FLOOR 0.02F
+#define WHITENING_FLOOR 0.01F
 
 // Masking Thresholds
 #define BIAS false
@@ -72,7 +72,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define BETA_MAX 0.01F
 #define BETA_MIN 0.000016F
 #define DEFAULT_OVERSUBTRACTION ALPHA_MIN
-#define DEFAULT_UNDERSUBTRACTION BETA_MAX
+#define DEFAULT_UNDERSUBTRACTION BETA_MIN
 #define LOWER_SNR 0.F
 #define HIGHER_SNR 20.F
 

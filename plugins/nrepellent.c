@@ -97,7 +97,7 @@ typedef enum PortIndex {
   NOISEREPELLENT_OUTPUT_2 = 13,
 } PortIndex;
 
-typedef struct NoiseRepellentAdaptivePlugin {
+typedef struct NoiseRepellentPlugin {
   const float *input_1;
   const float *input_2;
   float *output_1;
@@ -117,6 +117,9 @@ typedef struct NoiseRepellentAdaptivePlugin {
   SpectralBleachParameters parameters;
   NoiseProfileState *noise_profile_state_1;
   NoiseProfileState *noise_profile_state_2;
+  float *noise_profile_1;
+  float *noise_profile_2;
+  uint32_t profile_size;
 
   float *enable;
   float *learn_noise;
@@ -128,10 +131,10 @@ typedef struct NoiseRepellentAdaptivePlugin {
   float *noise_rescale;
   float *reset_noise_profile;
 
-} NoiseRepellentAdaptivePlugin;
+} NoiseRepellentPlugin;
 
 static void cleanup(LV2_Handle instance) {
-  NoiseRepellentAdaptivePlugin *self = (NoiseRepellentAdaptivePlugin *)instance;
+  NoiseRepellentPlugin *self = (NoiseRepellentPlugin *)instance;
 
   if (self->noise_profile_state_1) {
     noise_profile_state_free(self->noise_profile_state_1);
@@ -163,8 +166,8 @@ static void cleanup(LV2_Handle instance) {
 static LV2_Handle instantiate(const LV2_Descriptor *descriptor,
                               const double rate, const char *bundle_path,
                               const LV2_Feature *const *features) {
-  NoiseRepellentAdaptivePlugin *self = (NoiseRepellentAdaptivePlugin *)calloc(
-      1U, sizeof(NoiseRepellentAdaptivePlugin));
+  NoiseRepellentPlugin *self =
+      (NoiseRepellentPlugin *)calloc(1U, sizeof(NoiseRepellentPlugin));
 
   // clang-format off
   const char *missing =
@@ -211,9 +214,11 @@ static LV2_Handle instantiate(const LV2_Descriptor *descriptor,
     return NULL;
   }
 
-  self->noise_profile_state_1 = noise_profile_state_initialize(
-      self->uris.atom_Float,
-      specbleach_get_noise_profile_size(self->lib_instance_1));
+  self->profile_size = specbleach_get_noise_profile_size(self->lib_instance_1);
+  self->noise_profile_state_1 =
+      noise_profile_state_initialize(self->uris.atom_Float, self->profile_size);
+
+  self->noise_profile_1 = (float *)calloc(self->profile_size, sizeof(float));
 
   if (strstr(self->plugin_uri, NOISEREPELLENT_STEREO_URI)) {
     self->lib_instance_2 = specbleach_initialize((uint32_t)self->sample_rate);
@@ -225,15 +230,16 @@ static LV2_Handle instantiate(const LV2_Descriptor *descriptor,
     }
 
     self->noise_profile_state_2 = noise_profile_state_initialize(
-        self->uris.atom_Float,
-        specbleach_get_noise_profile_size(self->lib_instance_2));
+        self->uris.atom_Float, self->profile_size);
+
+    self->noise_profile_2 = (float *)calloc(self->profile_size, sizeof(float));
   }
 
   return (LV2_Handle)self;
 }
 
 static void connect_port(LV2_Handle instance, uint32_t port, void *data) {
-  NoiseRepellentAdaptivePlugin *self = (NoiseRepellentAdaptivePlugin *)instance;
+  NoiseRepellentPlugin *self = (NoiseRepellentPlugin *)instance;
 
   switch ((PortIndex)port) {
   case NOISEREPELLENT_AMOUNT:
@@ -279,7 +285,7 @@ static void connect_port(LV2_Handle instance, uint32_t port, void *data) {
 
 static void connect_port_stereo(LV2_Handle instance, uint32_t port,
                                 void *data) {
-  NoiseRepellentAdaptivePlugin *self = (NoiseRepellentAdaptivePlugin *)instance;
+  NoiseRepellentPlugin *self = (NoiseRepellentPlugin *)instance;
 
   connect_port(instance, port, data);
 
@@ -296,13 +302,13 @@ static void connect_port_stereo(LV2_Handle instance, uint32_t port,
 }
 
 static void activate(LV2_Handle instance) {
-  NoiseRepellentAdaptivePlugin *self = (NoiseRepellentAdaptivePlugin *)instance;
+  NoiseRepellentPlugin *self = (NoiseRepellentPlugin *)instance;
 
   *self->report_latency = (float)specbleach_get_latency(self->lib_instance_1);
 }
 
 static void run(LV2_Handle instance, uint32_t number_of_samples) {
-  NoiseRepellentAdaptivePlugin *self = (NoiseRepellentAdaptivePlugin *)instance;
+  NoiseRepellentPlugin *self = (NoiseRepellentPlugin *)instance;
 
   // clang-format off
   self->parameters = (SpectralBleachParameters){
@@ -330,7 +336,7 @@ static void run(LV2_Handle instance, uint32_t number_of_samples) {
 }
 
 static void run_stereo(LV2_Handle instance, uint32_t number_of_samples) {
-  NoiseRepellentAdaptivePlugin *self = (NoiseRepellentAdaptivePlugin *)instance;
+  NoiseRepellentPlugin *self = (NoiseRepellentPlugin *)instance;
 
   run(instance, number_of_samples);
 
@@ -351,14 +357,13 @@ static LV2_State_Status save(LV2_Handle instance,
                              LV2_State_Store_Function store,
                              LV2_State_Handle handle, uint32_t flags,
                              const LV2_Feature *const *features) {
-  NoiseRepellentAdaptivePlugin *self = (NoiseRepellentAdaptivePlugin *)instance;
+  NoiseRepellentPlugin *self = (NoiseRepellentPlugin *)instance;
   // FIXME (luciano/fixme): Fix noise profile not being saved with session
   if (!specbleach_noise_profile_available(self->lib_instance_1)) {
     return LV2_STATE_SUCCESS;
   }
 
-  uint32_t noise_profile_size =
-      specbleach_get_noise_profile_size(self->lib_instance_1);
+  uint32_t noise_profile_size = self->profile_size;
 
   store(handle, self->state.property_noise_profile_size, &noise_profile_size,
         sizeof(uint32_t), self->uris.atom_Int,
@@ -376,7 +381,7 @@ static LV2_State_Status save(LV2_Handle instance,
          sizeof(float) * noise_profile_size);
 
   store(handle, self->state.property_noise_profile_1,
-        (void *)self->noise_profile_state_1, sizeof(float) * noise_profile_size,
+        (void *)self->noise_profile_state_1, noise_profile_get_size(),
         self->uris.atom_Vector, LV2_STATE_IS_POD | LV2_STATE_IS_PORTABLE);
 
   if (strstr(self->plugin_uri, NOISEREPELLENT_STEREO_URI)) {
@@ -385,9 +390,8 @@ static LV2_State_Status save(LV2_Handle instance,
            sizeof(float) * noise_profile_size);
 
     store(handle, self->state.property_noise_profile_2,
-          (void *)self->noise_profile_state_2,
-          sizeof(float) * noise_profile_size, self->uris.atom_Vector,
-          LV2_STATE_IS_POD | LV2_STATE_IS_PORTABLE);
+          (void *)self->noise_profile_state_2, noise_profile_get_size(),
+          self->uris.atom_Vector, LV2_STATE_IS_POD | LV2_STATE_IS_PORTABLE);
   }
 
   return LV2_STATE_SUCCESS;
@@ -397,7 +401,7 @@ static LV2_State_Status restore(LV2_Handle instance,
                                 LV2_State_Retrieve_Function retrieve,
                                 LV2_State_Handle handle, uint32_t flags,
                                 const LV2_Feature *const *features) {
-  NoiseRepellentAdaptivePlugin *self = (NoiseRepellentAdaptivePlugin *)instance;
+  NoiseRepellentPlugin *self = (NoiseRepellentPlugin *)instance;
 
   size_t size = 0U;
   uint32_t type = 0U;
@@ -422,8 +426,10 @@ static LV2_State_Status restore(LV2_Handle instance,
     return LV2_STATE_ERR_NO_PROPERTY;
   }
 
-  specbleach_load_noise_profile(self->lib_instance_1,
-                                (float *)LV2_ATOM_BODY(saved_noise_profile_1),
+  memcpy(self->noise_profile_1, (float *)LV2_ATOM_BODY(saved_noise_profile_1),
+         sizeof(float) * self->profile_size);
+
+  specbleach_load_noise_profile(self->lib_instance_1, self->noise_profile_1,
                                 *fftsize, *averagedblocks);
 
   if (strstr(self->plugin_uri, NOISEREPELLENT_STEREO_URI)) {
@@ -434,8 +440,10 @@ static LV2_State_Status restore(LV2_Handle instance,
       return LV2_STATE_ERR_NO_PROPERTY;
     }
 
-    specbleach_load_noise_profile(self->lib_instance_2,
-                                  (float *)LV2_ATOM_BODY(saved_noise_profile_2),
+    memcpy(self->noise_profile_2, (float *)LV2_ATOM_BODY(saved_noise_profile_2),
+           sizeof(float) * self->profile_size);
+
+    specbleach_load_noise_profile(self->lib_instance_2, self->noise_profile_2,
                                   *fftsize, *averagedblocks);
   }
 

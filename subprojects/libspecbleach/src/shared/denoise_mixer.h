@@ -17,26 +17,25 @@ You should have received a copy of the GNU Lesser General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
-#ifndef SPECTRAL_ADAPTIVE_DENOISER_H
-#define SPECTRAL_ADAPTIVE_DENOISER_H
+#ifndef DENOISE_MIXER_H
+#define DENOISE_MIXER_H
 
-#include "../shared/spectral_processor.h"
 #include <stdbool.h>
 #include <stdint.h>
 
-typedef struct AdaptiveDenoiserParameters {
-  float reduction_amount;
-  float noise_rescale;
+typedef struct DenoiseMixerParameters {
+  float noise_level;
   bool residual_listen;
-} AdaptiveDenoiserParameters;
+  float whitening_amount;
+} DenoiseMixerParameters;
 
-SpectralProcessorHandle
-spectral_adaptive_denoiser_initialize(uint32_t sample_rate, uint32_t fft_size,
-                                      uint32_t overlap_factor);
-void spectral_adaptive_denoiser_free(SpectralProcessorHandle instance);
-bool load_adaptive_reduction_parameters(SpectralProcessorHandle instance,
-                                        AdaptiveDenoiserParameters parameters);
-bool spectral_adaptive_denoiser_run(SpectralProcessorHandle instance,
-                                    float *fft_spectrum);
+typedef struct DenoiseMixer DenoiseMixer;
+
+DenoiseMixer *denoise_mixer_initialize(uint32_t fft_size, uint32_t sample_rate,
+                                       uint32_t hop);
+void denoise_mixer_free(DenoiseMixer *self);
+bool denoise_mixer_run(DenoiseMixer *self, float *fft_spectrum,
+                       const float *gain_spectrum,
+                       DenoiseMixerParameters parameters);
 
 #endif

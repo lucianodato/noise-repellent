@@ -19,6 +19,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 #include "spectral_denoiser.h"
 #include "../shared/configurations.h"
+#include "../shared/denoise_mixer.h"
 #include "../shared/gain_estimators.h"
 #include "../shared/noise_estimator.h"
 #include "../shared/noise_scaling_criterias.h"
@@ -26,7 +27,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include "../shared/spectral_features.h"
 #include "../shared/spectral_smoother.h"
 #include "../shared/spectral_utils.h"
-#include "../shared/spectral_whitening.h"
 #include "../shared/transient_detector.h"
 #include <float.h>
 #include <math.h>
@@ -46,8 +46,6 @@ typedef struct SbSpectralDenoiser {
   float *alpha;
   float *beta;
   float *noise_spectrum;
-  float *residual_spectrum;
-  float *denoised_spectrum;
 
   SpectrumType spectrum_type;
   NoiseScalingType noise_scaling_type;
@@ -56,10 +54,10 @@ typedef struct SbSpectralDenoiser {
   GainEstimationType gain_estimation_type;
 
   NoiseEstimator *noise_estimator;
-  SpectralWhitening *whitener;
   PostFilter *postfiltering;
   NoiseProfile *noise_profile;
   SpectralFeatures *spectral_features;
+  DenoiseMixer *mixer;
 
   NoiseScalingCriterias *oversubtraction_criteria;
   TransientDetector *transient_detection;
@@ -97,9 +95,6 @@ SpectralProcessorHandle spectral_denoiser_initialize(
   self->noise_estimator =
       noise_estimation_initialize(self->fft_size, noise_profile);
 
-  self->residual_spectrum = (float *)calloc((self->fft_size), sizeof(float));
-  self->denoised_spectrum = (float *)calloc((self->fft_size), sizeof(float));
-
   self->spectral_features =
       spectral_features_initialize(self->real_spectrum_size);
 
@@ -113,8 +108,8 @@ SpectralProcessorHandle spectral_denoiser_initialize(
       self->noise_scaling_type, self->fft_size, self->band_type,
       self->sample_rate, self->spectrum_type);
 
-  self->whitener = spectral_whitening_initialize(self->fft_size,
-                                                 self->sample_rate, self->hop);
+  self->mixer =
+      denoise_mixer_initialize(self->fft_size, self->sample_rate, self->hop);
 
   return self;
 }
@@ -122,19 +117,18 @@ SpectralProcessorHandle spectral_denoiser_initialize(
 void spectral_denoiser_free(SpectralProcessorHandle instance) {
   SbSpectralDenoiser *self = (SbSpectralDenoiser *)instance;
 
-  spectral_whitening_free(self->whitener);
   noise_estimation_free(self->noise_estimator);
   spectral_features_free(self->spectral_features);
   transient_detector_free(self->transient_detection);
   spectral_smoothing_free(self->spectrum_smoothing);
   noise_scaling_criterias_free(self->oversubtraction_criteria);
   postfilter_free(self->postfiltering);
+  denoise_mixer_free(self->mixer);
 
-  free(self->residual_spectrum);
-  free(self->denoised_spectrum);
   free(self->gain_spectrum);
   free(self->alpha);
   free(self->beta);
+  free(self->noise_spectrum);
   free(self);
 }
 
@@ -168,11 +162,12 @@ bool spectral_denoiser_run(SpectralProcessorHandle instance,
     memcpy(self->noise_spectrum, get_noise_profile(self->noise_profile),
            self->real_spectrum_size * sizeof(float));
 
+    // TODO (luciano/todo): refactor noise scaling vs noise oversubtraction
     NoiseScalingParameters oversubtraction_parameters =
         (NoiseScalingParameters){
             .oversubtraction = self->default_oversubtraction +
                                self->denoise_parameters.noise_rescale,
-            .undersubtraction = self->denoise_parameters.reduction_amount,
+            .undersubtraction = self->default_undersubtraction,
         };
     apply_noise_scaling_criteria(self->oversubtraction_criteria,
                                  reference_spectrum, self->noise_spectrum,
@@ -180,7 +175,8 @@ bool spectral_denoiser_run(SpectralProcessorHandle instance,
                                  oversubtraction_parameters);
 
     // TODO (luciano/todo): merge spectral smoothing and transient detection
-    // together if (self->denoise_parameters.transient_threshold > 1.F) {
+    // together
+    // if (self->denoise_parameters.transient_threshold > 1.F) {
     //   self->transient_detected = transient_detector_run(
     //       self->transient_detection,
     //       self->denoise_parameters.transient_threshold, reference_spectrum);
@@ -197,18 +193,14 @@ bool spectral_denoiser_run(SpectralProcessorHandle instance,
     // Apply post filtering to reduce residual noise on low SNR frames
     postfilter_apply(self->postfiltering, fft_spectrum, self->gain_spectrum);
 
-    // FIXME (luciano/fix): Apply whitening to gain weights instead of the
-    // resulting noise residue
-    // if (self->denoise_parameters.whitening_factor > 0.F) {
-    //   spectral_whitening_run(self->whitener,
-    //                          self->denoise_parameters.whitening_factor,
-    //                          self->gain_spectrum);
-    // }
+    DenoiseMixerParameters mixer_parameters = (DenoiseMixerParameters){
+        .noise_level = self->denoise_parameters.reduction_amount,
+        .residual_listen = self->denoise_parameters.residual_listen,
+        .whitening_amount = self->denoise_parameters.whitening_factor,
+    };
 
-    denoise_mixer(self->fft_size, fft_spectrum, self->gain_spectrum,
-                  self->denoised_spectrum, self->residual_spectrum,
-                  self->denoise_parameters.residual_listen,
-                  self->denoise_parameters.reduction_amount);
+    denoise_mixer_run(self->mixer, fft_spectrum, self->gain_spectrum,
+                      mixer_parameters);
   }
 
   return true;

@@ -20,6 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include "adaptive_denoiser.h"
 #include "../shared/adaptive_noise_estimator.h"
 #include "../shared/configurations.h"
+#include "../shared/denoise_mixer.h"
 #include "../shared/gain_estimators.h"
 #include "../shared/noise_scaling_criterias.h"
 #include "../shared/postfilter.h"
@@ -34,6 +35,7 @@ typedef struct SpectralAdaptiveDenoiser {
   uint32_t fft_size;
   uint32_t real_spectrum_size;
   uint32_t sample_rate;
+  uint32_t hop;
   float default_oversubtraction;
   float default_undersubtraction;
 
@@ -51,6 +53,7 @@ typedef struct SpectralAdaptiveDenoiser {
   CriticalBandType band_type;
   GainEstimationType gain_estimation_type;
 
+  DenoiseMixer *mixer;
   NoiseScalingCriterias *oversubtraction_criteria;
   PostFilter *postfiltering;
   AdaptiveNoiseEstimator *adaptive_estimator;
@@ -59,7 +62,8 @@ typedef struct SpectralAdaptiveDenoiser {
 
 SpectralProcessorHandle
 spectral_adaptive_denoiser_initialize(const uint32_t sample_rate,
-                                      const uint32_t fft_size) {
+                                      const uint32_t fft_size,
+                                      const uint32_t overlap_factor) {
 
   SpectralAdaptiveDenoiser *self =
       (SpectralAdaptiveDenoiser *)calloc(1U, sizeof(SpectralAdaptiveDenoiser));
@@ -67,6 +71,7 @@ spectral_adaptive_denoiser_initialize(const uint32_t sample_rate,
   self->fft_size = fft_size;
   self->real_spectrum_size = self->fft_size / 2U + 1U;
   self->sample_rate = sample_rate;
+  self->hop = self->fft_size / overlap_factor;
   self->default_oversubtraction = DEFAULT_OVERSUBTRACTION;
   self->default_undersubtraction = DEFAULT_UNDERSUBTRACTION;
   self->spectrum_type = SPECTRAL_TYPE_SPEECH;
@@ -97,6 +102,9 @@ spectral_adaptive_denoiser_initialize(const uint32_t sample_rate,
   self->spectral_features =
       spectral_features_initialize(self->real_spectrum_size);
 
+  self->mixer =
+      denoise_mixer_initialize(self->fft_size, self->sample_rate, self->hop);
+
   return self;
 }
 
@@ -107,6 +115,7 @@ void spectral_adaptive_denoiser_free(SpectralProcessorHandle instance) {
   spectral_features_free(self->spectral_features);
   noise_scaling_criterias_free(self->oversubtraction_criteria);
   postfilter_free(self->postfiltering);
+  denoise_mixer_free(self->mixer);
 
   free(self->residual_spectrum);
   free(self->denoised_spectrum);
@@ -164,10 +173,13 @@ bool spectral_adaptive_denoiser_run(SpectralProcessorHandle instance,
   postfilter_apply(self->postfiltering, fft_spectrum, self->gain_spectrum);
 
   // Mix results
-  denoise_mixer(self->fft_size, fft_spectrum, self->gain_spectrum,
-                self->denoised_spectrum, self->residual_spectrum,
-                self->parameters.residual_listen,
-                self->parameters.reduction_amount);
+  DenoiseMixerParameters mixer_parameters = (DenoiseMixerParameters){
+      .noise_level = self->parameters.reduction_amount,
+      .residual_listen = self->parameters.residual_listen,
+  };
+
+  denoise_mixer_run(self->mixer, fft_spectrum, self->gain_spectrum,
+                    mixer_parameters);
 
   return true;
 }
