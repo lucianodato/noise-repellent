@@ -19,10 +19,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 #include "noise_profile_state.h"
 
+#define MAX_PROFILE_SIZE 8192
+
 struct NoiseProfileState {
   uint32_t child_size;
   uint32_t child_type;
-  float *elements;
+  float elements[MAX_PROFILE_SIZE];
 }; // LV2 Atoms Vector Specification
 
 NoiseProfileState *
@@ -32,12 +34,12 @@ noise_profile_state_initialize(LV2_URID child_type,
       (NoiseProfileState *)calloc(1U, sizeof(NoiseProfileState));
   self->child_type = (uint32_t)child_type;
   self->child_size = (uint32_t)sizeof(float);
-  self->elements = (float *)calloc(noise_profile_size, sizeof(float));
+
   return self;
 }
 
 void noise_profile_state_free(NoiseProfileState *self) {
-  free(self->elements);
+  // free(self->elements);
   free(self);
 }
 

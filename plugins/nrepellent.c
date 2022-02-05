@@ -215,6 +215,7 @@ static LV2_Handle instantiate(const LV2_Descriptor *descriptor,
   }
 
   self->profile_size = specbleach_get_noise_profile_size(self->lib_instance_1);
+  lv2_log_error(&self->log, "Profile Size <%zu>\n", (size_t)self->profile_size);
   self->noise_profile_state_1 =
       noise_profile_state_initialize(self->uris.atom_Float, self->profile_size);
 
@@ -363,9 +364,7 @@ static LV2_State_Status save(LV2_Handle instance,
     return LV2_STATE_SUCCESS;
   }
 
-  uint32_t noise_profile_size = self->profile_size;
-
-  store(handle, self->state.property_noise_profile_size, &noise_profile_size,
+  store(handle, self->state.property_noise_profile_size, &self->profile_size,
         sizeof(uint32_t), self->uris.atom_Int,
         LV2_STATE_IS_POD | LV2_STATE_IS_PORTABLE);
 
@@ -378,7 +377,7 @@ static LV2_State_Status save(LV2_Handle instance,
 
   memcpy(noise_profile_get_elements(self->noise_profile_state_1),
          specbleach_get_noise_profile(self->lib_instance_1),
-         sizeof(float) * noise_profile_size);
+         sizeof(float) * self->profile_size);
 
   store(handle, self->state.property_noise_profile_1,
         (void *)self->noise_profile_state_1, noise_profile_get_size(),
@@ -387,7 +386,7 @@ static LV2_State_Status save(LV2_Handle instance,
   if (strstr(self->plugin_uri, NOISEREPELLENT_STEREO_URI)) {
     memcpy(noise_profile_get_elements(self->noise_profile_state_2),
            specbleach_get_noise_profile(self->lib_instance_2),
-           sizeof(float) * noise_profile_size);
+           sizeof(float) * self->profile_size);
 
     store(handle, self->state.property_noise_profile_2,
           (void *)self->noise_profile_state_2, noise_profile_get_size(),
