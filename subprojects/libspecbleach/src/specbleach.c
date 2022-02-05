@@ -177,7 +177,7 @@ bool specbleach_load_parameters(SpectralBleachHandle instance,
       .reduction_amount =
           from_db_to_coefficient(parameters.reduction_amount * -1.F),
       .noise_rescale = from_db_to_coefficient(parameters.noise_rescale),
-      .release_time = parameters.reduction_amount,
+      .release_time = parameters.release_time,
       .transient_threshold = parameters.transient_threshold,
       .whitening_factor = parameters.whitening_factor / 100.F,
   };

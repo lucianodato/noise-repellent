@@ -23,13 +23,20 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <stdbool.h>
 #include <stdint.h>
 
+typedef enum TimeSmoothingType {
+  FIXED_RELEASE = 1,
+  ADAPTIVE_RELEASE = 2,
+} TimeSmoothingType;
+
 typedef struct SpectralSmoother SpectralSmoother;
 
 SpectralSmoother *spectral_smoothing_initialize(uint32_t fft_size,
                                                 uint32_t sample_rate,
-                                                uint32_t hop);
+                                                uint32_t hop,
+                                                TimeSmoothingType type);
 void spectral_smoothing_free(SpectralSmoother *self);
 bool spectral_smoothing_run(SpectralSmoother *self, float release,
-                            const float *signal_spectrum);
+                            float *signal_spectrum,
+                            const float *noise_spectrum);
 
 #endif

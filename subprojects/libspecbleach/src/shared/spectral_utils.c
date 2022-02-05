@@ -92,8 +92,8 @@ float max_spectral_value(const float *spectrum,
     return 0.F;
   }
 
-  float max = spectrum[0];
-  for (uint32_t k = 1U; k < real_spectrum_size; k++) {
+  float max = spectrum[1];
+  for (uint32_t k = 2U; k < real_spectrum_size; k++) {
     max = fmaxf(spectrum[k], max);
   }
   return max;
@@ -105,8 +105,8 @@ float min_spectral_value(const float *spectrum,
     return 0.F;
   }
 
-  float min = spectrum[0];
-  for (uint32_t k = 1U; k < real_spectrum_size; k++) {
+  float min = spectrum[1];
+  for (uint32_t k = 2U; k < real_spectrum_size; k++) {
     min = fminf(spectrum[k], min);
   }
   return min;

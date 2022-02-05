@@ -44,8 +44,9 @@ NoiseScalingCriterias *noise_scaling_criterias_initialize(
     SpectrumType spectrum_type);
 void noise_scaling_criterias_free(NoiseScalingCriterias *self);
 bool apply_noise_scaling_criteria(NoiseScalingCriterias *self,
-                                  const float *spectrum, float *noise_spectrum,
-                                  float *alpha, float *beta,
+                                  const float *spectrum,
+                                  const float *noise_spectrum, float *alpha,
+                                  float *beta,
                                   NoiseScalingParameters parameters);
 
 #endif

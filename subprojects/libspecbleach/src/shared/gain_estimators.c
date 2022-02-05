@@ -25,13 +25,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 static void wiener_subtraction(const uint32_t real_spectrum_size,
                                const uint32_t fft_size, const float *spectrum,
-                               float *noise_spectrum, float *gain_spectrum,
-                               const float *alpha) {
+                               const float *noise_spectrum,
+                               float *gain_spectrum) {
   for (uint32_t k = 1U; k < real_spectrum_size; k++) {
     if (noise_spectrum[k] > FLT_MIN) {
-      noise_spectrum[k] *= alpha[k];
       if (spectrum[k] > noise_spectrum[k]) {
-        gain_spectrum[k] = (spectrum[k] - noise_spectrum[k]) / spectrum[k];
+        gain_spectrum[k] = (spectrum[k] - (noise_spectrum[k])) / spectrum[k];
       } else {
         gain_spectrum[k] = 0.F;
       }
@@ -45,11 +44,9 @@ static void wiener_subtraction(const uint32_t real_spectrum_size,
 
 static void spectral_gating(const uint32_t real_spectrum_size,
                             const uint32_t fft_size, const float *spectrum,
-                            float *noise_spectrum, float *gain_spectrum,
-                            const float *alpha) {
+                            const float *noise_spectrum, float *gain_spectrum) {
   for (uint32_t k = 1U; k < real_spectrum_size; k++) {
     if (noise_spectrum[k] > FLT_MIN) {
-      noise_spectrum[k] *= alpha[k];
       if (spectrum[k] >= noise_spectrum[k]) {
         gain_spectrum[k] = 1.F;
       } else {
@@ -91,18 +88,27 @@ static void generalized_spectral_subtraction(
   }
 }
 
+static void scale_noise_profile(uint32_t real_spectrum_size,
+                                float *noise_spectrum, const float *alpha) {
+  for (uint32_t k = 1U; k < real_spectrum_size; k++) {
+    noise_spectrum[k] *= alpha[k];
+  }
+}
+
 void estimate_gains(uint32_t real_spectrum_size, uint32_t fft_size,
                     const float *spectrum, float *noise_spectrum,
                     float *gain_spectrum, const float *alpha, const float *beta,
                     GainEstimationType type) {
   switch (type) {
-  case WIENER:
-    wiener_subtraction(real_spectrum_size, fft_size, spectrum, noise_spectrum,
-                       gain_spectrum, alpha);
-    break;
   case GATES:
+    scale_noise_profile(real_spectrum_size, noise_spectrum, alpha);
     spectral_gating(real_spectrum_size, fft_size, spectrum, noise_spectrum,
-                    gain_spectrum, alpha);
+                    gain_spectrum);
+    break;
+  case WIENER:
+    scale_noise_profile(real_spectrum_size, noise_spectrum, alpha);
+    wiener_subtraction(real_spectrum_size, fft_size, spectrum, noise_spectrum,
+                       gain_spectrum);
     break;
   case GENERALIZED_SPECTRALSUBTRACION:
     generalized_spectral_subtraction(real_spectrum_size, fft_size, spectrum,

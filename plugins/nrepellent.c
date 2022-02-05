@@ -317,7 +317,7 @@ static void run(LV2_Handle instance, uint32_t number_of_samples) {
       .residual_listen = (bool)*self->residual_listen,
       .reduction_amount = *self->reduction_amount,
       .noise_rescale = *self->noise_rescale,
-      .release_time = *self->reduction_amount,
+      .release_time = *self->release_time,
       .transient_threshold = *self->transient_threshold,
       .whitening_factor = *self->whitening_factor,
   };
@@ -359,7 +359,6 @@ static LV2_State_Status save(LV2_Handle instance,
                              LV2_State_Handle handle, uint32_t flags,
                              const LV2_Feature *const *features) {
   NoiseRepellentPlugin *self = (NoiseRepellentPlugin *)instance;
-  // FIXME (luciano/fixme): Fix noise profile not being saved with session
   if (!specbleach_noise_profile_available(self->lib_instance_1)) {
     return LV2_STATE_SUCCESS;
   }

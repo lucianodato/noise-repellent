@@ -27,16 +27,16 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 static void a_posteriori_snr_critical_bands(NoiseScalingCriterias *self,
                                             const float *spectrum,
-                                            float *noise_spectrum, float *alpha,
-                                            float *beta,
+                                            const float *noise_spectrum,
+                                            float *alpha,
                                             NoiseScalingParameters parameters);
 static void a_posteriori_snr(NoiseScalingCriterias *self, const float *spectrum,
                              const float *noise_spectrum, float *alpha,
-                             float *beta, NoiseScalingParameters parameters);
+                             NoiseScalingParameters parameters);
 static void masking_thresholds(NoiseScalingCriterias *self,
-                               const float *spectrum, float *noise_spectrum,
-                               float *alpha, float *beta,
-                               NoiseScalingParameters parameters);
+                               const float *spectrum,
+                               const float *noise_spectrum, float *alpha,
+                               float *beta, NoiseScalingParameters parameters);
 
 struct NoiseScalingCriterias {
   NoiseScalingType noise_scaling_type;
@@ -113,8 +113,9 @@ void noise_scaling_criterias_free(NoiseScalingCriterias *self) {
 }
 
 bool apply_noise_scaling_criteria(NoiseScalingCriterias *self,
-                                  const float *spectrum, float *noise_spectrum,
-                                  float *alpha, float *beta,
+                                  const float *spectrum,
+                                  const float *noise_spectrum, float *alpha,
+                                  float *beta,
                                   NoiseScalingParameters parameters) {
   if (!spectrum || !noise_spectrum) {
     return false;
@@ -122,11 +123,11 @@ bool apply_noise_scaling_criteria(NoiseScalingCriterias *self,
 
   switch (self->noise_scaling_type) {
   case A_POSTERIORI_SNR_CRITICAL_BANDS:
-    a_posteriori_snr_critical_bands(self, spectrum, noise_spectrum, alpha, beta,
+    a_posteriori_snr_critical_bands(self, spectrum, noise_spectrum, alpha,
                                     parameters);
     break;
   case A_POSTERIORI_SNR:
-    a_posteriori_snr(self, spectrum, noise_spectrum, alpha, beta, parameters);
+    a_posteriori_snr(self, spectrum, noise_spectrum, alpha, parameters);
     break;
   case MASKING_THRESHOLDS:
     masking_thresholds(self, spectrum, noise_spectrum, alpha, beta, parameters);
@@ -141,8 +142,8 @@ bool apply_noise_scaling_criteria(NoiseScalingCriterias *self,
 
 static void a_posteriori_snr_critical_bands(NoiseScalingCriterias *self,
                                             const float *spectrum,
-                                            float *noise_spectrum, float *alpha,
-                                            float *beta,
+                                            const float *noise_spectrum,
+                                            float *alpha,
                                             NoiseScalingParameters parameters) {
 
   compute_critical_bands_spectrum(self->critical_bands, noise_spectrum,
@@ -179,7 +180,7 @@ static void a_posteriori_snr_critical_bands(NoiseScalingCriterias *self,
 
 static void a_posteriori_snr(NoiseScalingCriterias *self, const float *spectrum,
                              const float *noise_spectrum, float *alpha,
-                             float *beta, NoiseScalingParameters parameters) {
+                             NoiseScalingParameters parameters) {
   float a_posteriori_snr = 20.F;
   float oversustraction_factor = 1.F;
   float noisy_spectrum_sum = 0.F;
@@ -208,16 +209,17 @@ static void a_posteriori_snr(NoiseScalingCriterias *self, const float *spectrum,
 }
 
 static void masking_thresholds(NoiseScalingCriterias *self,
-                               const float *spectrum, float *noise_spectrum,
-                               float *alpha, float *beta,
-                               NoiseScalingParameters parameters) {
+                               const float *spectrum,
+                               const float *noise_spectrum, float *alpha,
+                               float *beta, NoiseScalingParameters parameters) {
 
   for (uint32_t k = 1U; k < self->real_spectrum_size; k++) {
     self->clean_signal_estimation[k] =
-        fmaxf(spectrum[k] - noise_spectrum[k], FLT_MIN);
+        fmaxf(spectrum[k] - noise_spectrum[k], 0.F);
   }
 
-  compute_masking_thresholds(self->masking_estimation, spectrum,
+  compute_masking_thresholds(self->masking_estimation,
+                             self->clean_signal_estimation,
                              self->masking_thresholds);
 
   float max_masked_value =
@@ -229,21 +231,18 @@ static void masking_thresholds(NoiseScalingCriterias *self,
     if (self->masking_thresholds[k] == max_masked_value) {
       alpha[k] = self->alpha_minimun;
       beta[k] = self->beta_minimun;
-    }
-    if (self->masking_thresholds[k] == min_masked_value) {
+    } else if (self->masking_thresholds[k] == min_masked_value) {
       alpha[k] = parameters.oversubtraction;
       beta[k] = parameters.undersubtraction;
-    }
-    if (self->masking_thresholds[k] < max_masked_value &&
-        self->masking_thresholds[k] > min_masked_value) {
+    } else {
       const float normalized_value =
           (self->masking_thresholds[k] - min_masked_value) /
           (max_masked_value - min_masked_value);
 
-      alpha[k] = (1.F - normalized_value) * self->alpha_minimun +
-                 normalized_value * parameters.oversubtraction;
-      beta[k] = (1.F - normalized_value) * self->beta_minimun +
-                normalized_value * parameters.undersubtraction;
+      alpha[k] = (1.F - normalized_value) * parameters.oversubtraction +
+                 normalized_value * self->alpha_minimun;
+      beta[k] = (1.F - normalized_value) * parameters.undersubtraction +
+                normalized_value * self->beta_minimun;
     }
   }
 }

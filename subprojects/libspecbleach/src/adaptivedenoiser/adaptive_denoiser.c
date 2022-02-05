@@ -54,7 +54,7 @@ typedef struct SpectralAdaptiveDenoiser {
   GainEstimationType gain_estimation_type;
 
   DenoiseMixer *mixer;
-  NoiseScalingCriterias *oversubtraction_criteria;
+  NoiseScalingCriterias *noise_scaling_criteria;
   PostFilter *postfiltering;
   AdaptiveNoiseEstimator *adaptive_estimator;
   SpectralFeatures *spectral_features;
@@ -95,7 +95,7 @@ spectral_adaptive_denoiser_initialize(const uint32_t sample_rate,
 
   self->postfiltering = postfilter_initialize(self->fft_size);
 
-  self->oversubtraction_criteria = noise_scaling_criterias_initialize(
+  self->noise_scaling_criteria = noise_scaling_criterias_initialize(
       self->noise_scaling_type, self->fft_size, self->band_type,
       self->sample_rate, self->spectrum_type);
 
@@ -113,7 +113,7 @@ void spectral_adaptive_denoiser_free(SpectralProcessorHandle instance) {
 
   louizou_estimator_free(self->adaptive_estimator);
   spectral_features_free(self->spectral_features);
-  noise_scaling_criterias_free(self->oversubtraction_criteria);
+  noise_scaling_criterias_free(self->noise_scaling_criteria);
   postfilter_free(self->postfiltering);
   denoise_mixer_free(self->mixer);
 
@@ -160,9 +160,9 @@ bool spectral_adaptive_denoiser_run(SpectralProcessorHandle instance,
           self->default_oversubtraction + self->parameters.noise_rescale,
       .undersubtraction = self->default_undersubtraction,
   };
-  apply_noise_scaling_criteria(
-      self->oversubtraction_criteria, reference_spectrum, self->noise_profile,
-      self->alpha, self->beta, oversubtraction_parameters);
+  apply_noise_scaling_criteria(self->noise_scaling_criteria, reference_spectrum,
+                               self->noise_profile, self->alpha, self->beta,
+                               oversubtraction_parameters);
 
   // Get reduction gain weights
   estimate_gains(self->real_spectrum_size, self->fft_size, reference_spectrum,

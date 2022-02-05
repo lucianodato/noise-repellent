@@ -52,6 +52,7 @@ typedef struct SbSpectralDenoiser {
   CriticalBandType band_type;
   DenoiserParameters denoise_parameters;
   GainEstimationType gain_estimation_type;
+  TimeSmoothingType time_smoothing_type;
 
   NoiseEstimator *noise_estimator;
   PostFilter *postfiltering;
@@ -59,7 +60,7 @@ typedef struct SbSpectralDenoiser {
   SpectralFeatures *spectral_features;
   DenoiseMixer *mixer;
 
-  NoiseScalingCriterias *oversubtraction_criteria;
+  NoiseScalingCriterias *noise_scaling_criteria;
   TransientDetector *transient_detection;
   SpectralSmoother *spectrum_smoothing;
 } SbSpectralDenoiser;
@@ -81,6 +82,7 @@ SpectralProcessorHandle spectral_denoiser_initialize(
   self->default_oversubtraction = DEFAULT_OVERSUBTRACTION;
   self->default_undersubtraction = DEFAULT_UNDERSUBTRACTION;
   self->gain_estimation_type = GAIN_ESTIMATION_TYPE;
+  self->time_smoothing_type = TIME_SMOOTHING_TYPE;
 
   self->gain_spectrum = (float *)calloc(self->fft_size, sizeof(float));
   initialize_spectrum_with_value(self->gain_spectrum, self->fft_size, 1.F);
@@ -102,9 +104,9 @@ SpectralProcessorHandle spectral_denoiser_initialize(
 
   self->transient_detection = transient_detector_initialize(self->fft_size);
   self->spectrum_smoothing = spectral_smoothing_initialize(
-      self->fft_size, self->sample_rate, self->hop);
+      self->fft_size, self->sample_rate, self->hop, self->time_smoothing_type);
 
-  self->oversubtraction_criteria = noise_scaling_criterias_initialize(
+  self->noise_scaling_criteria = noise_scaling_criterias_initialize(
       self->noise_scaling_type, self->fft_size, self->band_type,
       self->sample_rate, self->spectrum_type);
 
@@ -121,7 +123,7 @@ void spectral_denoiser_free(SpectralProcessorHandle instance) {
   spectral_features_free(self->spectral_features);
   transient_detector_free(self->transient_detection);
   spectral_smoothing_free(self->spectrum_smoothing);
-  noise_scaling_criterias_free(self->oversubtraction_criteria);
+  noise_scaling_criterias_free(self->noise_scaling_criteria);
   postfilter_free(self->postfiltering);
   denoise_mixer_free(self->mixer);
 
@@ -162,17 +164,15 @@ bool spectral_denoiser_run(SpectralProcessorHandle instance,
     memcpy(self->noise_spectrum, get_noise_profile(self->noise_profile),
            self->real_spectrum_size * sizeof(float));
 
-    // TODO (luciano/todo): refactor noise scaling vs noise oversubtraction
     NoiseScalingParameters oversubtraction_parameters =
         (NoiseScalingParameters){
             .oversubtraction = self->default_oversubtraction +
                                self->denoise_parameters.noise_rescale,
             .undersubtraction = self->default_undersubtraction,
         };
-    apply_noise_scaling_criteria(self->oversubtraction_criteria,
-                                 reference_spectrum, self->noise_spectrum,
-                                 self->alpha, self->beta,
-                                 oversubtraction_parameters);
+    apply_noise_scaling_criteria(
+        self->noise_scaling_criteria, reference_spectrum, self->noise_spectrum,
+        self->alpha, self->beta, oversubtraction_parameters);
 
     // TODO (luciano/todo): merge spectral smoothing and transient detection
     // together
@@ -183,7 +183,7 @@ bool spectral_denoiser_run(SpectralProcessorHandle instance,
     // }
     // spectral_smoothing_run(self->spectrum_smoothing,
     //                        self->denoise_parameters.release_time,
-    //                        reference_spectrum);
+    //                        reference_spectrum, self->noise_spectrum);
 
     // Get reduction gain weights
     estimate_gains(self->real_spectrum_size, self->fft_size, reference_spectrum,

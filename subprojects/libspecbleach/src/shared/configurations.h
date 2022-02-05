@@ -25,6 +25,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include "gain_estimators.h"
 #include "noise_scaling_criterias.h"
 #include "spectral_features.h"
+#include "spectral_smoother.h"
 #include "spectral_utils.h"
 #include <stdbool.h>
 
@@ -70,9 +71,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define ALPHA_MAX 6.F
 #define ALPHA_MIN 1.F
 #define BETA_MAX 0.01F
-#define BETA_MIN 0.000016F
+#define BETA_MIN 0.F
 #define DEFAULT_OVERSUBTRACTION ALPHA_MIN
-#define DEFAULT_UNDERSUBTRACTION BETA_MIN
+#define DEFAULT_UNDERSUBTRACTION BETA_MAX
 #define LOWER_SNR 0.F
 #define HIGHER_SNR 20.F
 
@@ -99,8 +100,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 // STFT configurations - Frame size in milliseconds
 #define FRAME_SIZE_GENERAL 46
 #define OVERLAP_FACTOR_GENERAL 4
-#define INPUT_WINDOW_TYPE_GENERAL BLACKMAN_WINDOW
-#define OUTPUT_WINDOW_TYPE_GENERAL BLACKMAN_WINDOW
+#define INPUT_WINDOW_TYPE_GENERAL HANN_WINDOW
+#define OUTPUT_WINDOW_TYPE_GENERAL HANN_WINDOW
 
 // Fft configuration
 #define PADDING_CONFIGURATION_GENERAL NO_PADDING
@@ -118,6 +119,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 // Noise Scaling strategy
 #define OVERSUBTRACTION_TYPE MASKING_THRESHOLDS
 #define GAIN_ESTIMATION_TYPE WIENER
+
+// Time Smoothing
+#define TIME_SMOOTHING_TYPE FIXED_RELEASE
 
 /* ------------------------------------------------------------------------ */
 /* ------------------- Adaptive Denoiser configurations ------------------- */
