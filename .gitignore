@@ -36,3 +36,6 @@ build/
 
 # Valgrind dumps
 *.valgrind
+
+# Vscode files
+.vscode/
