@@ -27,7 +27,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include "../shared/spectral_features.h"
 #include "../shared/spectral_smoother.h"
 #include "../shared/spectral_utils.h"
-#include "../shared/transient_detector.h"
 #include <float.h>
 #include <math.h>
 #include <stdlib.h>
@@ -40,7 +39,6 @@ typedef struct SbSpectralDenoiser {
   uint32_t hop;
   float default_oversubtraction;
   float default_undersubtraction;
-  bool transient_detected;
 
   float *gain_spectrum;
   float *alpha;
@@ -61,7 +59,6 @@ typedef struct SbSpectralDenoiser {
   DenoiseMixer *mixer;
 
   NoiseScalingCriterias *noise_scaling_criteria;
-  TransientDetector *transient_detection;
   SpectralSmoother *spectrum_smoothing;
 } SbSpectralDenoiser;
 
@@ -102,7 +99,6 @@ SpectralProcessorHandle spectral_denoiser_initialize(
 
   self->postfiltering = postfilter_initialize(self->fft_size);
 
-  self->transient_detection = transient_detector_initialize(self->fft_size);
   self->spectrum_smoothing = spectral_smoothing_initialize(
       self->fft_size, self->sample_rate, self->hop, self->time_smoothing_type);
 
@@ -121,7 +117,6 @@ void spectral_denoiser_free(SpectralProcessorHandle instance) {
 
   noise_estimation_free(self->noise_estimator);
   spectral_features_free(self->spectral_features);
-  transient_detector_free(self->transient_detection);
   spectral_smoothing_free(self->spectrum_smoothing);
   noise_scaling_criterias_free(self->noise_scaling_criteria);
   postfilter_free(self->postfiltering);
@@ -174,16 +169,9 @@ bool spectral_denoiser_run(SpectralProcessorHandle instance,
         self->noise_scaling_criteria, reference_spectrum, self->noise_spectrum,
         self->alpha, self->beta, oversubtraction_parameters);
 
-    // TODO (luciano/todo): merge spectral smoothing and transient detection
-    // together
-    // if (self->denoise_parameters.transient_threshold > 1.F) {
-    //   self->transient_detected = transient_detector_run(
-    //       self->transient_detection,
-    //       self->denoise_parameters.transient_threshold, reference_spectrum);
-    // }
-    // spectral_smoothing_run(self->spectrum_smoothing,
-    //                        self->denoise_parameters.release_time,
-    //                        reference_spectrum, self->noise_spectrum);
+    spectral_smoothing_run(self->spectrum_smoothing,
+                           self->denoise_parameters.release_time,
+                           reference_spectrum, self->noise_spectrum);
 
     // Get reduction gain weights
     estimate_gains(self->real_spectrum_size, self->fft_size, reference_spectrum,

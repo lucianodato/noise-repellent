@@ -56,9 +56,7 @@ void transient_detector_free(TransientDetector *self) {
   free(self);
 }
 
-bool transient_detector_run(TransientDetector *self,
-                            const float transient_threshold,
-                            const float *spectrum) {
+bool transient_detector_run(TransientDetector *self, const float *spectrum) {
   const float reduction_function = spectral_flux(
       spectrum, self->previous_spectrum, self->real_spectrum_size);
 
@@ -72,7 +70,7 @@ bool transient_detector_run(TransientDetector *self,
   }
 
   const float adapted_threshold =
-      (UPPER_LIMIT - transient_threshold) * self->rolling_mean;
+      (UPPER_LIMIT - DEFAULT_TRANSIENT_THRESHOLD) * self->rolling_mean;
 
   memcpy(self->previous_spectrum, spectrum,
          sizeof(float) * self->real_spectrum_size);

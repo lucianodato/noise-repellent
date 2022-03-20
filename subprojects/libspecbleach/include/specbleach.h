@@ -61,7 +61,6 @@ typedef struct SpectralBleachParameters {
   float reduction_amount;
   float release_time;
   float whitening_factor;
-  float transient_threshold; // Should be Adaptive or fixed
   float noise_rescale;
 } SpectralBleachParameters;
 

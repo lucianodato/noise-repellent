@@ -112,6 +112,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 // Transient protection
 #define UPPER_LIMIT 5.F
+#define DEFAULT_TRANSIENT_THRESHOLD 2.F
 
 // Masking
 #define CRITICAL_BANDS_TYPE OPUS_SCALE
@@ -121,14 +122,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define GAIN_ESTIMATION_TYPE WIENER
 
 // Time Smoothing
-#define TIME_SMOOTHING_TYPE FIXED_RELEASE
+#define TIME_SMOOTHING_TYPE TRANSIENT_AWARE
 
 /* ------------------------------------------------------------------------ */
 /* ------------------- Adaptive Denoiser configurations ------------------- */
 /* ------------------------------------------------------------------------ */
 
 // STFT configurations - Frame size in milliseconds
-#define FRAME_SIZE_SPEECH 26
+#define FRAME_SIZE_SPEECH 20
 #define OVERLAP_FACTOR_SPEECH 2
 #define INPUT_WINDOW_TYPE_SPEECH VORBIS_WINDOW
 #define OUTPUT_WINDOW_TYPE_SPEECH VORBIS_WINDOW

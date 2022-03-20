@@ -32,7 +32,6 @@ typedef struct DenoiserParameters {
   bool learn_noise;
   float release_time;
   float whitening_factor;
-  float transient_threshold;
 } DenoiserParameters;
 
 SpectralProcessorHandle

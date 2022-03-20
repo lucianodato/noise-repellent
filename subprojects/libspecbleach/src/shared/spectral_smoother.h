@@ -26,6 +26,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 typedef enum TimeSmoothingType {
   FIXED_RELEASE = 1,
   ADAPTIVE_RELEASE = 2,
+  TRANSIENT_AWARE = 3,
 } TimeSmoothingType;
 
 typedef struct SpectralSmoother SpectralSmoother;
