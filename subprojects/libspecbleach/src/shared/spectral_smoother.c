@@ -89,6 +89,7 @@ void spectral_smoothing_free(SpectralSmoother *self) {
 }
 
 bool spectral_smoothing_run(SpectralSmoother *self, const float release,
+                            const bool transient_protection,
                             float *signal_spectrum,
                             const float *noise_spectrum) {
   if (!self || !signal_spectrum) {
@@ -107,7 +108,12 @@ bool spectral_smoothing_run(SpectralSmoother *self, const float release,
     spectrum_adaptive_time_smoothing(self, signal_spectrum, noise_spectrum);
     break;
   case TRANSIENT_AWARE:
-    spectrum_transient_aware_time_smoothing(self, signal_spectrum);
+    if (transient_protection) {
+      spectrum_transient_aware_time_smoothing(self, signal_spectrum);
+    } else {
+      spectrum_time_smoothing(self);
+    }
+    break;
   default:
     break;
   }

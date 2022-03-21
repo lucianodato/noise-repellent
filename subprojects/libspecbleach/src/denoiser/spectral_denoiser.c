@@ -171,6 +171,7 @@ bool spectral_denoiser_run(SpectralProcessorHandle instance,
 
     spectral_smoothing_run(self->spectrum_smoothing,
                            self->denoise_parameters.release_time,
+                           self->denoise_parameters.transient_protection,
                            reference_spectrum, self->noise_spectrum);
 
     // Get reduction gain weights

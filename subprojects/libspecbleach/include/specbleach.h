@@ -58,6 +58,7 @@ typedef void *SpectralBleachHandle;
 typedef struct SpectralBleachParameters {
   bool learn_noise;     // Plugin
   bool residual_listen; // Plugin
+  bool transient_protection;
   float reduction_amount;
   float release_time;
   float whitening_factor;

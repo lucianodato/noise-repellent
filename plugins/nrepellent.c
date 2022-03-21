@@ -85,15 +85,16 @@ typedef enum PortIndex {
   NOISEREPELLENT_NOISE_OFFSET = 1,
   NOISEREPELLENT_RELEASE = 2,
   NOISEREPELLENT_WHITENING = 3,
-  NOISEREPELLENT_NOISE_LEARN = 4,
-  NOISEREPELLENT_RESIDUAL_LISTEN = 5,
-  NOISEREPELLENT_RESET_NOISE_PROFILE = 6,
-  NOISEREPELLENT_ENABLE = 7,
-  NOISEREPELLENT_LATENCY = 8,
-  NOISEREPELLENT_INPUT_1 = 9,
-  NOISEREPELLENT_OUTPUT_1 = 10,
-  NOISEREPELLENT_INPUT_2 = 11,
-  NOISEREPELLENT_OUTPUT_2 = 12,
+  NOISEREPELLENT_TRANSIENT_PROTECTION = 4,
+  NOISEREPELLENT_NOISE_LEARN = 5,
+  NOISEREPELLENT_RESIDUAL_LISTEN = 6,
+  NOISEREPELLENT_RESET_NOISE_PROFILE = 7,
+  NOISEREPELLENT_ENABLE = 8,
+  NOISEREPELLENT_LATENCY = 9,
+  NOISEREPELLENT_INPUT_1 = 10,
+  NOISEREPELLENT_OUTPUT_1 = 11,
+  NOISEREPELLENT_INPUT_2 = 12,
+  NOISEREPELLENT_OUTPUT_2 = 13,
 } PortIndex;
 
 typedef struct NoiseRepellentPlugin {
@@ -122,6 +123,7 @@ typedef struct NoiseRepellentPlugin {
 
   float *enable;
   float *learn_noise;
+  float *transient_protection;
   float *residual_listen;
   float *reduction_amount;
   float *release_time;
@@ -253,6 +255,9 @@ static void connect_port(LV2_Handle instance, uint32_t port, void *data) {
   case NOISEREPELLENT_WHITENING:
     self->whitening_factor = (float *)data;
     break;
+  case NOISEREPELLENT_TRANSIENT_PROTECTION:
+    self->transient_protection = (float *)data;
+    break;
   case NOISEREPELLENT_NOISE_LEARN:
     self->learn_noise = (float *)data;
     break;
@@ -310,6 +315,7 @@ static void run(LV2_Handle instance, uint32_t number_of_samples) {
   self->parameters = (SpectralBleachParameters){
       .learn_noise = (bool)*self->learn_noise,
       .residual_listen = (bool)*self->residual_listen,
+      .transient_protection = (bool)*self->transient_protection,
       .reduction_amount = *self->reduction_amount,
       .noise_rescale = *self->noise_rescale,
       .release_time = *self->release_time,
