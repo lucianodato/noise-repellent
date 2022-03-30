@@ -29,15 +29,18 @@ typedef enum TimeSmoothingType {
   TRANSIENT_AWARE = 3,
 } TimeSmoothingType;
 
+typedef struct TimeSmoothingParameters {
+  float smoothing;
+  bool transient_protection_enabled;
+} TimeSmoothingParameters;
+
 typedef struct SpectralSmoother SpectralSmoother;
 
 SpectralSmoother *spectral_smoothing_initialize(uint32_t fft_size,
-                                                uint32_t sample_rate,
-                                                uint32_t hop,
                                                 TimeSmoothingType type);
 void spectral_smoothing_free(SpectralSmoother *self);
-bool spectral_smoothing_run(SpectralSmoother *self, float release,
-                            bool transient_protection, float *signal_spectrum,
-                            const float *noise_spectrum);
+bool spectral_smoothing_run(SpectralSmoother *self,
+                            TimeSmoothingParameters parameters,
+                            float *signal_spectrum);
 
 #endif

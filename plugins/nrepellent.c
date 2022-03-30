@@ -83,7 +83,7 @@ static inline void map_state(LV2_URID_Map *map, State *state, const char *uri) {
 typedef enum PortIndex {
   NOISEREPELLENT_AMOUNT = 0,
   NOISEREPELLENT_NOISE_OFFSET = 1,
-  NOISEREPELLENT_RELEASE = 2,
+  NOISEREPELLENT_SMOOTHING = 2,
   NOISEREPELLENT_WHITENING = 3,
   NOISEREPELLENT_TRANSIENT_PROTECTION = 4,
   NOISEREPELLENT_NOISE_LEARN = 5,
@@ -126,7 +126,7 @@ typedef struct NoiseRepellentPlugin {
   float *transient_protection;
   float *residual_listen;
   float *reduction_amount;
-  float *release_time;
+  float *smoothing_factor;
   float *whitening_factor;
   float *noise_rescale;
   float *reset_noise_profile;
@@ -249,8 +249,8 @@ static void connect_port(LV2_Handle instance, uint32_t port, void *data) {
   case NOISEREPELLENT_NOISE_OFFSET:
     self->noise_rescale = (float *)data;
     break;
-  case NOISEREPELLENT_RELEASE:
-    self->release_time = (float *)data;
+  case NOISEREPELLENT_SMOOTHING:
+    self->smoothing_factor = (float *)data;
     break;
   case NOISEREPELLENT_WHITENING:
     self->whitening_factor = (float *)data;
@@ -318,7 +318,7 @@ static void run(LV2_Handle instance, uint32_t number_of_samples) {
       .transient_protection = (bool)*self->transient_protection,
       .reduction_amount = *self->reduction_amount,
       .noise_rescale = *self->noise_rescale,
-      .release_time = *self->release_time,
+      .smoothing_factor = *self->smoothing_factor,
       .whitening_factor = *self->whitening_factor,
   };
   // clang-format on

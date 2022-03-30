@@ -99,8 +99,8 @@ SpectralProcessorHandle spectral_denoiser_initialize(
 
   self->postfiltering = postfilter_initialize(self->fft_size);
 
-  self->spectrum_smoothing = spectral_smoothing_initialize(
-      self->fft_size, self->sample_rate, self->hop, self->time_smoothing_type);
+  self->spectrum_smoothing =
+      spectral_smoothing_initialize(self->fft_size, self->time_smoothing_type);
 
   self->noise_scaling_criteria = noise_scaling_criterias_initialize(
       self->noise_scaling_type, self->fft_size, self->band_type,
@@ -169,10 +169,14 @@ bool spectral_denoiser_run(SpectralProcessorHandle instance,
         self->noise_scaling_criteria, reference_spectrum, self->noise_spectrum,
         self->alpha, self->beta, oversubtraction_parameters);
 
+    TimeSmoothingParameters spectral_smoothing_parameters =
+        (TimeSmoothingParameters){
+            .smoothing = self->denoise_parameters.smoothing_factor,
+            .transient_protection_enabled =
+                self->denoise_parameters.transient_protection,
+        };
     spectral_smoothing_run(self->spectrum_smoothing,
-                           self->denoise_parameters.release_time,
-                           self->denoise_parameters.transient_protection,
-                           reference_spectrum, self->noise_spectrum);
+                           spectral_smoothing_parameters, reference_spectrum);
 
     // Get reduction gain weights
     estimate_gains(self->real_spectrum_size, self->fft_size, reference_spectrum,

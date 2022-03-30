@@ -60,7 +60,7 @@ typedef struct SpectralBleachParameters {
   bool residual_listen; // Plugin
   bool transient_protection;
   float reduction_amount;
-  float release_time;
+  float smoothing_factor;
   float whitening_factor;
   float noise_rescale;
 } SpectralBleachParameters;
