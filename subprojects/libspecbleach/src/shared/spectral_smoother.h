@@ -24,9 +24,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include <stdint.h>
 
 typedef enum TimeSmoothingType {
-  FIXED_RELEASE = 1,
-  ADAPTIVE_RELEASE = 2,
-  TRANSIENT_AWARE = 3,
+  FIXED = 1,
+  TRANSIENT_AWARE = 2,
 } TimeSmoothingType;
 
 typedef struct TimeSmoothingParameters {

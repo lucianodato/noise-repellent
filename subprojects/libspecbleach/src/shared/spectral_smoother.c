@@ -87,7 +87,7 @@ bool spectral_smoothing_run(SpectralSmoother *self,
          sizeof(float) * self->real_spectrum_size);
 
   switch (self->type) {
-  case FIXED_RELEASE:
+  case FIXED:
     spectrum_time_smoothing(self, parameters.smoothing);
     break;
   case TRANSIENT_AWARE:

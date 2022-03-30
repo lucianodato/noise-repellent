@@ -30,13 +30,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 typedef enum PortIndex {
   NOISEREPELLENT_AMOUNT = 0,
   NOISEREPELLENT_NOISE_OFFSET = 1,
-  NOISEREPELLENT_RESIDUAL_LISTEN = 2,
-  NOISEREPELLENT_ENABLE = 3,
-  NOISEREPELLENT_LATENCY = 4,
-  NOISEREPELLENT_INPUT_1 = 5,
-  NOISEREPELLENT_OUTPUT_1 = 6,
-  NOISEREPELLENT_INPUT_2 = 7,
-  NOISEREPELLENT_OUTPUT_2 = 8,
+  NOISEREPELLENT_NOISE_SMOOTHING = 2,
+  NOISEREPELLENT_RESIDUAL_LISTEN = 3,
+  NOISEREPELLENT_ENABLE = 4,
+  NOISEREPELLENT_LATENCY = 5,
+  NOISEREPELLENT_INPUT_1 = 6,
+  NOISEREPELLENT_OUTPUT_1 = 7,
+  NOISEREPELLENT_INPUT_2 = 8,
+  NOISEREPELLENT_OUTPUT_2 = 9,
 } PortIndex;
 
 typedef struct NoiseRepellentAdaptivePlugin {
@@ -54,6 +55,7 @@ typedef struct NoiseRepellentAdaptivePlugin {
   float *enable;
   float *residual_listen;
   float *reduction_amount;
+  float *smoothing_factor;
   float *noise_rescale;
 
 } NoiseRepellentAdaptivePlugin;
@@ -105,6 +107,9 @@ static void connect_port(LV2_Handle instance, uint32_t port, void *data) {
     break;
   case NOISEREPELLENT_NOISE_OFFSET:
     self->noise_rescale = (float *)data;
+    break;
+  case NOISEREPELLENT_NOISE_SMOOTHING:
+    self->smoothing_factor = (float *)data;
     break;
   case NOISEREPELLENT_RESIDUAL_LISTEN:
     self->residual_listen = (float *)data;
@@ -158,6 +163,7 @@ static void run(LV2_Handle instance, uint32_t number_of_samples) {
   self->parameters = (SpectralBleachParameters){
       .residual_listen = (bool)*self->residual_listen,
       .reduction_amount = *self->reduction_amount,
+      .smoothing_factor = *self->smoothing_factor,
       .noise_rescale = *self->noise_rescale
   };
   // clang-format on

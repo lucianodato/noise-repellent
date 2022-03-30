@@ -148,4 +148,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #define OVERSUBTRACTION_TYPE_SPEECH MASKING_THRESHOLDS
 #define GAIN_ESTIMATION_TYPE_SPEECH WIENER
 
+// Time Smoothing
+#define TIME_SMOOTHING_TYPE_SPEECH FIXED
+
 #endif // ifndef

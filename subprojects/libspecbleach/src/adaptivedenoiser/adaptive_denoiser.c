@@ -25,6 +25,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include "../shared/noise_scaling_criterias.h"
 #include "../shared/postfilter.h"
 #include "../shared/spectral_features.h"
+#include "../shared/spectral_smoother.h"
 #include "../shared/spectral_utils.h"
 #include <float.h>
 #include <math.h>
@@ -52,9 +53,11 @@ typedef struct SpectralAdaptiveDenoiser {
   NoiseScalingType noise_scaling_type;
   CriticalBandType band_type;
   GainEstimationType gain_estimation_type;
+  TimeSmoothingType time_smoothing_type;
 
   DenoiseMixer *mixer;
   NoiseScalingCriterias *noise_scaling_criteria;
+  SpectralSmoother *spectrum_smoothing;
   PostFilter *postfiltering;
   AdaptiveNoiseEstimator *adaptive_estimator;
   SpectralFeatures *spectral_features;
@@ -78,6 +81,7 @@ spectral_adaptive_denoiser_initialize(const uint32_t sample_rate,
   self->noise_scaling_type = OVERSUBTRACTION_TYPE_SPEECH;
   self->band_type = CRITICAL_BANDS_TYPE_SPEECH;
   self->gain_estimation_type = GAIN_ESTIMATION_TYPE_SPEECH;
+  self->time_smoothing_type = TIME_SMOOTHING_TYPE_SPEECH;
 
   self->gain_spectrum = (float *)calloc(self->fft_size, sizeof(float));
   initialize_spectrum_with_value(self->gain_spectrum, self->fft_size, 1.F);
@@ -94,6 +98,9 @@ spectral_adaptive_denoiser_initialize(const uint32_t sample_rate,
   self->denoised_spectrum = (float *)calloc((self->fft_size), sizeof(float));
 
   self->postfiltering = postfilter_initialize(self->fft_size);
+
+  self->spectrum_smoothing =
+      spectral_smoothing_initialize(self->fft_size, self->time_smoothing_type);
 
   self->noise_scaling_criteria = noise_scaling_criterias_initialize(
       self->noise_scaling_type, self->fft_size, self->band_type,
@@ -163,6 +170,13 @@ bool spectral_adaptive_denoiser_run(SpectralProcessorHandle instance,
   apply_noise_scaling_criteria(self->noise_scaling_criteria, reference_spectrum,
                                self->noise_profile, self->alpha, self->beta,
                                oversubtraction_parameters);
+
+  TimeSmoothingParameters spectral_smoothing_parameters =
+      (TimeSmoothingParameters){
+          .smoothing = self->parameters.smoothing_factor,
+      };
+  spectral_smoothing_run(self->spectrum_smoothing,
+                         spectral_smoothing_parameters, reference_spectrum);
 
   // Get reduction gain weights
   estimate_gains(self->real_spectrum_size, self->fft_size, reference_spectrum,

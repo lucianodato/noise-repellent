@@ -27,6 +27,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 typedef struct AdaptiveDenoiserParameters {
   float reduction_amount;
   float noise_rescale;
+  float smoothing_factor;
   bool residual_listen;
 } AdaptiveDenoiserParameters;
 
