@@ -50,7 +50,6 @@ extern "C" {
 // TODO (luciano/todo): Extract library to it's own repository when API is
 // stable.
 // TODO (luciano/todo): Document interface
-// TODO (luciano/todo): Test main file and increase coverage
 // TODO (luciano/todo): Handle parameter in a future proof way
 
 typedef void *SpectralBleachHandle;

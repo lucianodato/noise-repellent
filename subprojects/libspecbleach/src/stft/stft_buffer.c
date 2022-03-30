@@ -27,7 +27,6 @@ struct StftBuffer {
   uint32_t stft_frame_size;
   uint32_t block_step;
 
-  // TODO (luciano/todo): replace FIFO buffers with one single lock free Queue
   float *in_fifo;
   float *out_fifo;
 };

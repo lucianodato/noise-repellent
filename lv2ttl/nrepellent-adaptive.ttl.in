@@ -72,7 +72,6 @@
     lv2:minimum 0 ;
     lv2:maximum 1 ;
     lv2:default 0 ;
-    lv2:designation lv2:control ;
     lv2:portProperty lv2:toggled, lv2:integer ;
   ], [
     a lv2:InputPort, lv2:ControlPort ;
@@ -83,7 +82,7 @@
     lv2:maximum 1 ;
     lv2:default 1 ;
     lv2:designation lv2:enabled ;
-    lv2:portProperty lv2:toggled, lv2:integer, pprop:notOnGUI ; 
+    lv2:portProperty lv2:toggled, lv2:integer ; 
   ], [
     a lv2:OutputPort,
       lv2:ControlPort ;
@@ -93,7 +92,7 @@
     lv2:minimum 0 ;
     lv2:maximum 8192 ;
     lv2:designation lv2:latency ;
-    lv2:portProperty lv2:integer, pprop:notOnGUI ;
+    lv2:portProperty lv2:integer ;
     units:unit units:frame ;
   ], [
     a lv2:AudioPort,
