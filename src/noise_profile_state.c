@@ -27,9 +27,7 @@ struct NoiseProfileState {
   float elements[MAX_PROFILE_SIZE];
 }; // LV2 Atoms Vector Specification
 
-NoiseProfileState *
-noise_profile_state_initialize(LV2_URID child_type,
-                               const uint32_t noise_profile_size) {
+NoiseProfileState *noise_profile_state_initialize(LV2_URID child_type) {
   NoiseProfileState *self =
       (NoiseProfileState *)calloc(1U, sizeof(NoiseProfileState));
   self->child_type = (uint32_t)child_type;
