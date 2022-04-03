@@ -65,7 +65,6 @@ jobs:
         run: |
           if [ ! -d PawPaw ]; then
             git clone https://github.com/DISTRHO/PawPaw.git
-            git -C PawPaw checkout ${PAWPAW_VERSION}
           fi
           ./PawPaw/bootstrap-plugins.sh  macos-universal && ./PawPaw/.cleanup.sh macos-universal
       - name: Build noise-repellent
@@ -106,7 +105,6 @@ jobs:
         run: |
           if [ ! -d PawPaw ]; then
             git clone https://github.com/DISTRHO/PawPaw.git
-            git -C PawPaw checkout ${PAWPAW_VERSION}
           fi
           ./PawPaw/bootstrap-plugins.sh macos && ./PawPaw/.cleanup.sh macos
       - name: Build noise-repellent
@@ -160,7 +158,6 @@ jobs:
         run: |
           if [ ! -d PawPaw ]; then
             git clone https://github.com/DISTRHO/PawPaw.git
-            git -C PawPaw checkout ${PAWPAW_VERSION}
           fi
           ./PawPaw/bootstrap-plugins.sh win32 && ./PawPaw/.cleanup.sh win32
       - name: Build noise-repellent
