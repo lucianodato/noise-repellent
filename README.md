@@ -1,6 +1,6 @@
 # noise-repellent
 
-An suite of lv2 plugins for noise reduction.
+An suite of lv2 plugins for noise reduction that uses libspecbleach.
 
 [![build](https://github.com/lucianodato/noise-repellent/actions/workflows/build.yml/badge.svg)](https://github.com/lucianodato/noise-repellent/actions/workflows/build.yml)
 
@@ -11,9 +11,9 @@ An suite of lv2 plugins for noise reduction.
 
 ## Features
 
-* Adaptive and manual noise estimation
+* Adaptive noise reduction plugin for low latency voice denoise
+* Manual noise capture plugin for customizable noise reduction
 * Adjustable Reduction and many other parameters to tweak the reduction
-* Uses a psychoacoustic model to reduce artifacts of the reduction
 * Option to listen to the residual signal
 * Soft bypass
 * Noise profile saved with the session
