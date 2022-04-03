@@ -47,6 +47,7 @@ if current_os == 'windows' #windows
     extension = '.dll'
     exe_wrapper = true
 endif
+
 # hide all public symbols
 add_project_arguments('-fvisibility=hidden', language : 'c')
 #build of the shared object

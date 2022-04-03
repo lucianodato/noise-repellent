@@ -170,7 +170,8 @@ jobs:
         run: |
           pushd PawPaw && source local.env win32 && popd
           wineboot -u
-          meson build --buildtype release --prefix /tmp --libdir /tmp --default-library static --cross-file ./meson/win32.ini
+          extraconfrules="--cross-file "${PWD}/meson/win32.ini" ${extraconfrules}"
+          meson build --buildtype release --prefix /tmp --libdir /tmp --default-library static ${extraconfrules}
           ninja -v -C build
           ninja -C build install
           mv /tmp/lv2/nrepellent.lv2 ./nrepellent.lv2
