@@ -1,7 +1,6 @@
-
 # noise-repellent
 
-An lv2 plug-in for broadband noise reduction.
+An suite of lv2 plugins for noise reduction.
 
 [![build](https://github.com/lucianodato/noise-repellent/actions/workflows/build.yml/badge.svg)](https://github.com/lucianodato/noise-repellent/actions/workflows/build.yml)
 
@@ -12,12 +11,9 @@ An lv2 plug-in for broadband noise reduction.
 
 ## Features
 
-* Adaptive and manual noise thresholds estimation
-* Adjustable Reduction
-* Adjustable offset of thresholds to perform over-subtraction
-* Time smoothing and a masking estimation to reduce artifacts
-* Basic onset detector to avoid transients suppression
-* Whitening of the noise floor to mask artifacts and to recover higher frequencies
+* Adaptive and manual noise estimation
+* Adjustable Reduction and many other parameters to tweak the reduction
+* Uses a psychoacoustic model to reduce artifacts of the reduction
 * Option to listen to the residual signal
 * Soft bypass
 * Noise profile saved with the session
@@ -29,17 +25,17 @@ An lv2 plug-in for broadband noise reduction.
 
 ## Install
 
-Binaries for most platforms are provided with releases but if you are an experienced user you can go ahead an compile it from source. Just extract the adequate zip file for your platform to your lv2 plugins folder (normally /usr/local/lib/lv2 or $HOME/.lv2)
+Binaries for most platforms are provided with Github release. Just extract the adequate zip file for your platform to your lv2 plugins folder (normally /usr/local/lib/lv2 or $HOME/.lv2)
 
-To compile and install this plug-in you will need the LV2 SDK, Meson build system, ninja compiler, git and fftw3 library (>= 3.3.5 is recommended to avoid threading issues).
+If you wish to compile yourself and install this plug-in you will need the LV2 SDK, Meson build system, ninja compiler, git and fftw3 library.
 
 Installation:
 
 ```bash
   git clone https://github.com/lucianodato/noise-repellent.git
   cd noise-repellent
-  meson build --buildtype release --prefix (your-os-appropriate-location-fullpath)
-  ninja -v -C build
+  meson build --buildtype=release --prefix=/usr --libdir=lib (your-os-appropriate-location-fullpath)
+  ninja -C build -v
   sudo ninja -C build install
 ```
 

@@ -39,3 +39,6 @@ build/
 
 # Vscode files
 .vscode/
+
+# Downloaded wrap files
+subprojects/libspecbleach/
