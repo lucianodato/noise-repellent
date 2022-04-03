@@ -30,14 +30,14 @@ jobs:
           meson build --buildtype release --prefix /tmp --libdir /tmp
           ninja -v -C build
           ninja -C build install
-          mv /tmp/lv2/nrepel.lv2 ./nrepel.lv2
+          mv /tmp/lv2/nrepellent.lv2 ./nrepellent.lv2
       - name: Set sha8
         id: slug
         run: echo "::set-output name=sha8::$(echo ${{ github.sha }} | cut -c1-8)"
       - uses: actions/upload-artifact@v2
         with:
           name: noise-repellent-ubuntu-20.04-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
-          path: ~/work/noise-repellent/noise-repellent/nrepel.lv2
+          path: ~/work/noise-repellent/noise-repellent/nrepellent.lv2
 
   macos_universal:
     runs-on: macos-10.15
@@ -75,14 +75,14 @@ jobs:
           meson build --buildtype release --prefix /tmp --libdir /tmp --default-library shared
           ninja -v -C build
           ninja -C build install
-          mv /tmp/lv2/nrepel.lv2 ./nrepel.lv2
+          mv /tmp/lv2/nrepellent.lv2 ./nrepellent.lv2
       - name: Set sha8
         id: slug
         run: echo "::set-output name=sha8::$(echo ${{ github.sha }} | cut -c1-8)"
       - uses: actions/upload-artifact@v2
         with:
           name: noise-repellent-macOS-universal-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
-          path: ~/work/noise-repellent/noise-repellent/nrepel.lv2
+          path: ~/work/noise-repellent/noise-repellent/nrepellent.lv2
 
   macos:
     runs-on: macos-10.15
@@ -116,14 +116,14 @@ jobs:
           meson build --buildtype release --prefix /tmp --libdir /tmp --default-library shared
           ninja -v -C build
           ninja -C build install
-          mv /tmp/lv2/nrepel.lv2 ./nrepel.lv2
+          mv /tmp/lv2/nrepellent.lv2 ./nrepellent.lv2
       - name: Set sha8
         id: slug
         run: echo "::set-output name=sha8::$(echo ${{ github.sha }} | cut -c1-8)"
       - uses: actions/upload-artifact@v2
         with:
           name: noise-repellent-macOS-intel-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
-          path: ~/work/noise-repellent/noise-repellent/nrepel.lv2
+          path: ~/work/noise-repellent/noise-repellent/nrepellent.lv2
 
   win32:
     runs-on: ubuntu-20.04
@@ -171,7 +171,7 @@ jobs:
           meson build --buildtype release --prefix /tmp --libdir /tmp --default-library static
           ninja -v -C build
           ninja -C build install
-          mv /tmp/lv2/nrepel.lv2 ./nrepel.lv2
+          mv /tmp/lv2/nrepellent.lv2 ./nrepellent.lv2
       - name: Set sha8
         id: slug
         run: echo "::set-output name=sha8::$(echo ${{ github.sha }} | cut -c1-8)"
@@ -193,4 +193,4 @@ jobs:
     # - uses: actions/upload-artifact@v2
     #   with:
     #     name: noise-repellent-win32-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
-    #     path: ~/work/noise-repellent/noise-repellent/nrepel.lv2
+    #     path: ~/work/noise-repellent/noise-repellent/nrepellent.lv2
