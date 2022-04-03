@@ -26,8 +26,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 
 typedef struct NoiseProfileState NoiseProfileState;
 
-NoiseProfileState *noise_profile_state_initialize(LV2_URID child_type,
-                                                  uint32_t noise_profile_size);
+NoiseProfileState *noise_profile_state_initialize(LV2_URID child_type);
 void noise_profile_state_free(NoiseProfileState *self);
 float *noise_profile_get_elements(NoiseProfileState *self);
 size_t noise_profile_get_size();
