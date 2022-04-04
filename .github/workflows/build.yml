@@ -170,13 +170,11 @@ jobs:
         run: |
           pushd PawPaw && source local.env win32 && popd
           wineboot -u
-          extraconfrules="--cross-file "$PWD/meson/win32.ini" ${extraconfrules}"
-          meson build --buildtype release --prefix /tmp --libdir /tmp --default-library static ${extraconfrules}
-          cat build/meson-logs/meson-log.txt
+          extraconfrules="--cross-file $PWD/meson/win32.ini"
+          meson build --buildtype release --prefix /tmp --libdir /tmp --default-library static $extraconfrules
           ninja -v -C build
           ninja -C build install
           mv /tmp/lv2/nrepellent.lv2 ./nrepellent.lv2
-
       - name: Set sha8
         id: slug
         run: echo "::set-output name=sha8::$(echo ${{ github.sha }} | cut -c1-8)"
