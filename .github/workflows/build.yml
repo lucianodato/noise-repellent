@@ -153,7 +153,7 @@ jobs:
           sudo dpkg --add-architecture i386
           sudo apt update
           sudo apt-get install -qy autopoint build-essential meson mingw-w64 \
-            binutils-mingw-w64-i686 g++-mingw-w64-i686 wine-stable:i386 wine-binfmt \
+            binutils-mingw-w64-i686 g++-mingw-w64-i686 wine-stable:i386 wine-binfmt wine-gecko \
       - name: Cache debian packages
         run: |
           mkdir -p ~/PawPawBuilds/debs && \
@@ -177,21 +177,6 @@ jobs:
       - name: Set sha8
         id: slug
         run: echo "::set-output name=sha8::$(echo ${{ github.sha }} | cut -c1-8)"
-      - name: Generate Windows installer
-        shell: bash 
-        run: |
-          # Setup wine
-          export WINEPREFIX=$PWD/innosetup
-          wineboot -u
-          # Download and install innosetup
-          curl -L https://jrsoftware.org/download.php/is.exe?site=2 -o is.exe
-          xvfb-run wine is.exe /allusers /dir=C:\\InnoSeup /nocancel /norestart /verysilent
-          # create installer
-          ln -sf $PWD/destdir windows/inno/win32
-          pushd windows/inno
-          echo "#define VERSION \"${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}\"" > version.iss
-          xvfb-run wine ${WINEPREFIX}/drive_c/InnoSeup/ISCC.exe win32-mini.iss
-          popd
       - uses: actions/upload-artifact@v2
         with:
           name: noise-repellent-win32-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
