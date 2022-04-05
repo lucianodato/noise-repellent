@@ -152,7 +152,7 @@ jobs:
         run: |
           sudo dpkg --add-architecture i386
           sudo apt update
-          sudo apt-get install -qy autopoint build-essential meson mingw-w64 llvm \
+          sudo apt-get install -qy autopoint build-essential meson mingw-w64 \
             binutils-mingw-w64-i686 g++-mingw-w64-i686 wine-stable:i386 wine-binfmt \
       - name: Cache debian packages
         run: |
@@ -170,18 +170,10 @@ jobs:
         run: |
           pushd PawPaw && source local.env win32 && popd
           wineboot -u
-          meson build --buildtype release --prefix /tmp --libdir /tmp --default-library shared --cross-file $PWD/meson/win32.ini
+          meson build --buildtype release --prefix /tmp --libdir /tmp --cross-file $PWD/meson/win32.ini
           ninja -v -C build
           ninja -C build install
           mv /tmp/lv2/nrepellent.lv2 ./nrepellent.lv2
-      # - name: Generate MSVC lib files
-      #   shell: bash
-      #   run: |
-      #     # 32bit
-      #     pushd /tmp/lv2/nrepellent.lv2
-      #     llvm-dlltool -m i386 -D nrpellent-adaptive.dll -d nrpellent-adaptive.def -l nrpellent-adaptive.lib
-      #     llvm-dlltool -m i386 -D nrpellent.dll -d nrpellent.def -l nrpellent.lib
-      #     popd
       - name: Set sha8
         id: slug
         run: echo "::set-output name=sha8::$(echo ${{ github.sha }} | cut -c1-8)"
