@@ -215,7 +215,7 @@ static LV2_Handle instantiate(const LV2_Descriptor *descriptor,
   }
 
   self->profile_size = specbleach_get_noise_profile_size(self->lib_instance_1);
-  lv2_log_error(&self->log, "Profile Size <%zu>\n", (size_t)self->profile_size);
+  lv2_log_error(&self->log, "Profile Size <%u>\n", (size_t)self->profile_size);
   self->noise_profile_state_1 =
       noise_profile_state_initialize(self->uris.atom_Float);
 

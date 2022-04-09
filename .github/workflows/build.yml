@@ -152,7 +152,7 @@ jobs:
         run: |
           sudo dpkg --add-architecture i386
           sudo apt update
-          sudo apt-get install -qy autopoint build-essential meson mingw-w64 \
+          sudo apt-get install -qy build-essential meson mingw-w64 \
             binutils-mingw-w64-i686 g++-mingw-w64-i686 wine-stable:i386 wine-binfmt \
       - name: Cache debian packages
         run: |
