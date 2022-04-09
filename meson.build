@@ -15,15 +15,15 @@ common_src = ['src/signal_crossfade.c']
 noise_repellent_src = ['plugins/nrepellent.c', 'src/noise_profile_state.c']
 noise_repellent_adaptive_src = 'plugins/nrepellent-adaptive.c'
 
+#get the host operating system and configure install path and shared object extension
+current_os = host_machine.system()
+current_arch = host_machine.cpu_family()
+
 #dependencies for noise repellent
 lv2_dep = dependency('lv2', required : true)
 nrepel_dep = libspecbleach_proj.get_variable('libspecbleach_dep')
 m_dep = meson.get_compiler('c').find_library('m', required : true)
 nr_dep = [lv2_dep,nrepel_dep,m_dep]
-
-#get the host operating system and configure install path and shared object extension
-current_os = host_machine.system()
-current_arch = host_machine.cpu_family()
 
 #compiler flags
 cflags = []
@@ -35,6 +35,9 @@ endif
 # Add osx multiarch flags when appropriate
 if current_os == 'darwin'
     cflags += ['-mrecip']
+endif
+if current_os == 'windows'
+    cflags += ['-fstack-protector']
 endif
 
 # Extension for library by os
