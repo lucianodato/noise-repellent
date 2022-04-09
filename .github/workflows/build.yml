@@ -123,7 +123,66 @@ jobs:
           name: noise-repellent-macOS-intel-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
           path: ~/work/noise-repellent/noise-repellent/nrepellent.lv2
 
-  win32:
+  # win32:
+  #   runs-on: ubuntu-20.04
+  #   steps:
+  #     - uses: actions/checkout@v2
+  #       with:
+  #         submodules: recursive
+  #     - name: Set up cache
+  #       uses: actions/cache@v2
+  #       with:
+  #         path: |
+  #           ~/PawPawBuilds/builds
+  #           ~/PawPawBuilds/debs
+  #           ~/PawPawBuilds/downloads
+  #           ~/PawPawBuilds/targets
+  #         key: win32
+  #     - name: Restore debian packages cache
+  #       run: |
+  #         if [ -d ~/PawPawBuilds/debs ] && [ "$(ls ~/PawPawBuilds/debs | wc -l)" -ne 0 ]; then \
+  #           sudo cp ~/PawPawBuilds/debs/*.deb /var/cache/apt/archives/; \
+  #         fi
+  #     - name: Fix GitHub's mess
+  #       run: |
+  #         sudo rm -f /etc/apt/sources.list.d/microsoft-prod.list
+  #         sudo apt-get update -qq
+  #         sudo apt-get install -yqq --allow-downgrades libpcre2-8-0/focal libpcre2-16-0/focal libpcre2-32-0/focal libpcre2-posix2/focal
+  #     - name: Set up dependencies
+  #       run: |
+  #         sudo dpkg --add-architecture i386
+  #         sudo apt update
+  #         sudo apt-get install -qy build-essential meson mingw-w64 \
+  #           binutils-mingw-w64-i686 g++-mingw-w64-i686 wine-stable:i386 wine-binfmt \
+  #     - name: Cache debian packages
+  #       run: |
+  #         mkdir -p ~/PawPawBuilds/debs && \
+  #         sudo mv /var/cache/apt/archives/*.deb ~/PawPawBuilds/debs/
+  #     - name: Bootstrap win32 cross-compiled
+  #       shell: bash
+  #       run: |
+  #         if [ ! -d PawPaw ]; then
+  #           git clone https://github.com/DISTRHO/PawPaw.git
+  #         fi
+  #         ./PawPaw/bootstrap-plugins.sh win32 && ./PawPaw/.cleanup.sh win32
+  #     - name: Build noise-repellent
+  #       shell: bash
+  #       run: |
+  #         pushd PawPaw && source local.env win32 && popd
+  #         wineboot -u
+  #         meson build --buildtype release --prefix /tmp --libdir /tmp --cross-file $PWD/meson/win32.ini
+  #         ninja -v -C build
+  #         ninja -C build install
+  #         mv /tmp/lv2/nrepellent.lv2 ./nrepellent.lv2
+  #     - name: Set sha8
+  #       id: slug
+  #       run: echo "::set-output name=sha8::$(echo ${{ github.sha }} | cut -c1-8)"
+  #     - uses: actions/upload-artifact@v2
+  #       with:
+  #         name: noise-repellent-win32-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
+  #         path: ~/work/noise-repellent/noise-repellent/nrepellent.lv2
+
+  win64:
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v2
@@ -153,7 +212,7 @@ jobs:
           sudo dpkg --add-architecture i386
           sudo apt update
           sudo apt-get install -qy build-essential meson mingw-w64 \
-            binutils-mingw-w64-i686 g++-mingw-w64-i686 wine-stable:i386 wine-binfmt \
+            binutils-mingw-w64-64 g++-mingw-w64-64 wine-stable wine-binfmt \
       - name: Cache debian packages
         run: |
           mkdir -p ~/PawPawBuilds/debs && \
@@ -164,13 +223,13 @@ jobs:
           if [ ! -d PawPaw ]; then
             git clone https://github.com/DISTRHO/PawPaw.git
           fi
-          ./PawPaw/bootstrap-plugins.sh win32 && ./PawPaw/.cleanup.sh win32
+          ./PawPaw/bootstrap-plugins.sh win64 && ./PawPaw/.cleanup.sh win32
       - name: Build noise-repellent
         shell: bash
         run: |
-          pushd PawPaw && source local.env win32 && popd
+          pushd PawPaw && source local.env win64 && popd
           wineboot -u
-          meson build --buildtype release --prefix /tmp --libdir /tmp --cross-file $PWD/meson/win32.ini
+          meson build --buildtype release --prefix /tmp --libdir /tmp --cross-file $PWD/meson/win64.ini
           ninja -v -C build
           ninja -C build install
           mv /tmp/lv2/nrepellent.lv2 ./nrepellent.lv2
