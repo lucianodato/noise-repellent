@@ -217,13 +217,13 @@ jobs:
         run: |
           mkdir -p ~/PawPawBuilds/debs && \
           sudo mv /var/cache/apt/archives/*.deb ~/PawPawBuilds/debs/
-      - name: Bootstrap win32 cross-compiled
+      - name: Bootstrap win64 cross-compiled
         shell: bash
         run: |
           if [ ! -d PawPaw ]; then
             git clone https://github.com/DISTRHO/PawPaw.git
           fi
-          ./PawPaw/bootstrap-plugins.sh win64 && ./PawPaw/.cleanup.sh win32
+          ./PawPaw/bootstrap-plugins.sh win64 && ./PawPaw/.cleanup.sh win64
       - name: Build noise-repellent
         shell: bash
         run: |
