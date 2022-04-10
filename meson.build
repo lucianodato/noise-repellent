@@ -36,9 +36,6 @@ endif
 if current_os == 'darwin'
     cflags += ['-mrecip']
 endif
-if current_os == 'windows'
-    cflags += ['-fno-stack-protector','-U_FORTIFY_SOURCE']
-endif
 
 # Extension for library by os
 if current_os == 'darwin' #mac

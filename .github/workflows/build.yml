@@ -228,6 +228,8 @@ jobs:
         run: |
           pushd PawPaw && source local.env win64 && popd
           wineboot -u
+          export PATH+=":/usr/i686-w64-mingw32/bin"
+          export LDFLAGS+="-L~/PawPawBuilds/targets/win64/lib32"
           meson build --buildtype release --prefix /tmp --libdir /tmp --cross-file $PWD/meson/win64.ini
           ninja -v -C build
           ninja -C build install
