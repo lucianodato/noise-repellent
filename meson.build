@@ -37,7 +37,7 @@ if current_os == 'darwin'
     cflags += ['-mrecip']
 endif
 if current_os == 'windows'
-    cflags += ['-fstack-protector-strong']
+    cflags += ['-fno-stack-protector']
 endif
 
 # Extension for library by os
