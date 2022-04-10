@@ -1,6 +1,6 @@
-project('nrepellent.lv2','c',version: '0.2.0',default_options: ['c_std=c99'])
+project('nrepellent.lv2','c',version: '0.2.0',default_options: ['default_library=shared','c_std=c99'])
 
-libspecbleach_proj = subproject('libspecbleach', default_options: ['default_library=static'])
+libspecbleach_proj = subproject('libspecbleach', default_options: ['default_library=static','c_std=c99'])
 
 #install folder
 if(get_option('buildtype') == 'release')
