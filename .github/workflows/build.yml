@@ -70,11 +70,12 @@ jobs:
       - name: Build noise-repellent
         shell: bash
         run: |
-          pushd PawPaw && source local.env macos-universal && popd
+          pushd PawPaw && source local.env macos-universal
           meson build --buildtype release --prefix /tmp --libdir /tmp
           ninja -v -C build
           ninja -C build install
           mv /tmp/lv2/nrepellent.lv2 ./nrepellent.lv2
+          popd
       - name: Set sha8
         id: slug
         run: echo "::set-output name=sha8::$(echo ${{ github.sha }} | cut -c1-8)"
@@ -110,11 +111,12 @@ jobs:
       - name: Build noise-repellent
         shell: bash
         run: |
-          pushd PawPaw && source local.env macos && popd
+          pushd PawPaw && source local.env macos
           meson build --buildtype release --prefix /tmp --libdir /tmp
           ninja -v -C build
           ninja -C build install
           mv /tmp/lv2/nrepellent.lv2 ./nrepellent.lv2
+          popd
       - name: Set sha8
         id: slug
         run: echo "::set-output name=sha8::$(echo ${{ github.sha }} | cut -c1-8)"
@@ -152,7 +154,7 @@ jobs:
         run: |
           sudo dpkg --add-architecture i386
           sudo apt update
-          sudo apt-get install -qy build-essential meson mingw-w64 mingw-w64-i686-dev \
+          sudo apt-get install -qy build-essential meson mingw-w64 \
             binutils-mingw-w64-i686 g++-mingw-w64-i686 wine-stable:i386 wine-binfmt \
       - name: Cache debian packages
         run: |
@@ -168,12 +170,13 @@ jobs:
       - name: Build noise-repellent
         shell: bash
         run: |
-          pushd PawPaw && source local.env win32 && popd
+          pushd PawPaw && source local.env win32
           wineboot -u
           meson build --buildtype release --prefix /tmp --libdir /tmp --cross-file $PWD/meson/win32.ini
           ninja -v -C build
           ninja -C build install
           mv /tmp/lv2/nrepellent.lv2 ./nrepellent.lv2
+          popd
       - name: Set sha8
         id: slug
         run: echo "::set-output name=sha8::$(echo ${{ github.sha }} | cut -c1-8)"
@@ -210,7 +213,7 @@ jobs:
       - name: Set up dependencies
         run: |
           sudo apt update
-          sudo apt-get install -qy build-essential meson mingw-w64 mingw-w64-x86-64-dev \
+          sudo apt-get install -qy build-essential meson mingw-w64 \
             binutils-mingw-w64-x86-64 g++-mingw-w64-x86-64  wine-stable wine-binfmt \
       - name: Cache debian packages
         run: |
@@ -226,12 +229,13 @@ jobs:
       - name: Build noise-repellent
         shell: bash
         run: |
-          pushd PawPaw && source local.env win64 && popd
+          pushd PawPaw && source local.env win64
           wineboot -u
           meson build --buildtype release --prefix /tmp --libdir /tmp --cross-file $PWD/meson/win64.ini
           ninja -v -C build
           ninja -C build install
           mv /tmp/lv2/nrepellent.lv2 ./nrepellent.lv2
+          popd
       - name: Set sha8
         id: slug
         run: echo "::set-output name=sha8::$(echo ${{ github.sha }} | cut -c1-8)"
