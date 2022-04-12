@@ -70,12 +70,11 @@ jobs:
       - name: Build noise-repellent
         shell: bash
         run: |
-          pushd PawPaw && source local.env macos-universal
+          pushd PawPaw && source local.env macos-universal && popd
           meson build --buildtype release --prefix /tmp --libdir /tmp
           ninja -v -C build
           ninja -C build install
           mv /tmp/lv2/nrepellent.lv2 ./nrepellent.lv2
-          popd
       - name: Set sha8
         id: slug
         run: echo "::set-output name=sha8::$(echo ${{ github.sha }} | cut -c1-8)"
@@ -111,12 +110,11 @@ jobs:
       - name: Build noise-repellent
         shell: bash
         run: |
-          pushd PawPaw && source local.env macos
+          pushd PawPaw && source local.env macos && popd
           meson build --buildtype release --prefix /tmp --libdir /tmp
           ninja -v -C build
           ninja -C build install
           mv /tmp/lv2/nrepellent.lv2 ./nrepellent.lv2
-          popd
       - name: Set sha8
         id: slug
         run: echo "::set-output name=sha8::$(echo ${{ github.sha }} | cut -c1-8)"
@@ -170,13 +168,13 @@ jobs:
       - name: Build noise-repellent
         shell: bash
         run: |
-          pushd PawPaw && source local.env win32
+          pushd PawPaw && source local.env win32 && popd
+          export LDFLAGS+="-L~/PawPawBuilds/targets/win64/lib32"
           wineboot -u
           meson build --buildtype release --prefix /tmp --libdir /tmp --cross-file $PWD/meson/win32.ini
           ninja -v -C build
           ninja -C build install
           mv /tmp/lv2/nrepellent.lv2 ./nrepellent.lv2
-          popd
       - name: Set sha8
         id: slug
         run: echo "::set-output name=sha8::$(echo ${{ github.sha }} | cut -c1-8)"
@@ -229,13 +227,13 @@ jobs:
       - name: Build noise-repellent
         shell: bash
         run: |
-          pushd PawPaw && source local.env win64
+          pushd PawPaw && source local.env win64 && popd
           wineboot -u
+          export LDFLAGS+="-L~/PawPawBuilds/targets/win64/lib32"
           meson build --buildtype release --prefix /tmp --libdir /tmp --cross-file $PWD/meson/win64.ini
           ninja -v -C build
           ninja -C build install
           mv /tmp/lv2/nrepellent.lv2 ./nrepellent.lv2
-          popd
       - name: Set sha8
         id: slug
         run: echo "::set-output name=sha8::$(echo ${{ github.sha }} | cut -c1-8)"
