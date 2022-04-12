@@ -168,7 +168,7 @@ jobs:
       - name: Build noise-repellent
         shell: bash
         run: |
-          pushd PawPaw && source local.env win32 && popd
+          # pushd PawPaw && source local.env win32 && popd
           wineboot -u
           meson build --buildtype release --prefix /tmp --libdir /tmp --cross-file $PWD/meson/win32.ini
           ninja -v -C build
