@@ -152,7 +152,7 @@ jobs:
         run: |
           sudo dpkg --add-architecture i386
           sudo apt update
-          sudo apt-get install -qy build-essential meson mingw-w64 \
+          sudo apt-get install -qy build-essential meson mingw-w64 mingw-w64-i686-dev \
             binutils-mingw-w64-i686 g++-mingw-w64-i686 wine-stable:i386 wine-binfmt \
       - name: Cache debian packages
         run: |
@@ -168,7 +168,7 @@ jobs:
       - name: Build noise-repellent
         shell: bash
         run: |
-          # pushd PawPaw && source local.env win32 && popd
+          pushd PawPaw && source local.env win32 && popd
           wineboot -u
           meson build --buildtype release --prefix /tmp --libdir /tmp --cross-file $PWD/meson/win32.ini
           ninja -v -C build
@@ -210,7 +210,7 @@ jobs:
       - name: Set up dependencies
         run: |
           sudo apt update
-          sudo apt-get install -qy build-essential meson mingw-w64 \
+          sudo apt-get install -qy build-essential meson mingw-w64 mingw-w64-x86-64-dev \
             binutils-mingw-w64-x86-64 g++-mingw-w64-x86-64  wine-stable wine-binfmt \
       - name: Cache debian packages
         run: |
