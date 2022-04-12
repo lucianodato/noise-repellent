@@ -51,7 +51,7 @@ endif
 # hide all public symbols
 add_project_arguments('-fvisibility=hidden', language : 'c')
 #build of the shared object
-shared_library('nrepellent',
+library('nrepellent',
     common_src,
     noise_repellent_src,
     name_prefix: '',
@@ -61,7 +61,7 @@ shared_library('nrepellent',
     install_dir : install_folder
 )
 
-shared_library('nrepellent-adaptive',
+library('nrepellent-adaptive',
     common_src,
     noise_repellent_adaptive_src,
     name_prefix: '',
