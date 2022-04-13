@@ -239,5 +239,5 @@ jobs:
         run: echo "::set-output name=sha8::$(echo ${{ github.sha }} | cut -c1-8)"
       - uses: actions/upload-artifact@v2
         with:
-          name: noise-repellent-win32-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
+          name: noise-repellent-win64-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
           path: ~/work/noise-repellent/noise-repellent/nrepellent.lv2
