@@ -3,7 +3,6 @@ on:
   push:
     branches:
       - "*"
-      - "!DEVELOPMENT"
   pull_request:
     branches:
       - "*"
