@@ -1,6 +1,6 @@
-project('nrepellent.lv2','c',version: '0.2.0',default_options: ['c_std=c99'])
+project('nrepellent.lv2','c',version: '0.2.0',default_options: ['default_library=shared','c_std=c99'])
 
-libspecbleach_proj = subproject('libspecbleach', default_options: ['default_library=static'])
+libspecbleach_proj = subproject('libspecbleach', default_options: ['default_library=static','c_std=c99'])
 
 #install folder
 if(get_option('buildtype') == 'release')
@@ -15,15 +15,15 @@ common_src = ['src/signal_crossfade.c']
 noise_repellent_src = ['plugins/nrepellent.c', 'src/noise_profile_state.c']
 noise_repellent_adaptive_src = 'plugins/nrepellent-adaptive.c'
 
+#get the host operating system and configure install path and shared object extension
+current_os = host_machine.system()
+current_arch = host_machine.cpu_family()
+
 #dependencies for noise repellent
 lv2_dep = dependency('lv2', required : true)
 nrepel_dep = libspecbleach_proj.get_variable('libspecbleach_dep')
 m_dep = meson.get_compiler('c').find_library('m', required : true)
 nr_dep = [lv2_dep,nrepel_dep,m_dep]
-
-#get the host operating system and configure install path and shared object extension
-current_os = host_machine.system()
-current_arch = host_machine.cpu_family()
 
 #compiler flags
 cflags = []
@@ -47,6 +47,7 @@ if current_os == 'windows' #windows
     extension = '.dll'
     exe_wrapper = true
 endif
+
 # hide all public symbols
 add_project_arguments('-fvisibility=hidden', language : 'c')
 #build of the shared object
