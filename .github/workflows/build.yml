@@ -8,6 +8,7 @@ on:
       - "*"
 
 env:
+  PAWPAW_VERSION: 8c69660ab10b75cd7a488f41386dbcb4c8802c5a
   DEBIAN_FRONTEND: noninteractive
   HOMEBREW_NO_AUTO_UPDATE: 1
 
@@ -63,6 +64,7 @@ jobs:
         run: |
           if [ ! -d PawPaw ]; then
             git clone https://github.com/DISTRHO/PawPaw.git
+            git -C PawPaw checkout ${PAWPAW_VERSION}
           fi
           ./PawPaw/bootstrap-plugins.sh  macos-universal && ./PawPaw/.cleanup.sh macos-universal
       - name: Build noise-repellent
@@ -103,6 +105,7 @@ jobs:
         run: |
           if [ ! -d PawPaw ]; then
             git clone https://github.com/DISTRHO/PawPaw.git
+            git -C PawPaw checkout ${PAWPAW_VERSION}
           fi
           ./PawPaw/bootstrap-plugins.sh macos && ./PawPaw/.cleanup.sh macos
       - name: Build noise-repellent
@@ -163,6 +166,7 @@ jobs:
         run: |
           if [ ! -d PawPaw ]; then
             git clone https://github.com/DISTRHO/PawPaw.git
+            git -C PawPaw checkout ${PAWPAW_VERSION}
           fi
           ./PawPaw/bootstrap-plugins.sh win32 && ./PawPaw/.cleanup.sh win32
       - name: Build noise-repellent
@@ -177,7 +181,7 @@ jobs:
       - name: Set sha8
         id: slug
         run: echo "::set-output name=sha8::$(echo ${{ github.sha }} | cut -c1-8)"
-      - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v2
         with:
           name: noise-repellent-win32-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
           path: ~/work/noise-repellent/noise-repellent/nrepellent.lv2
