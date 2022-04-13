@@ -151,6 +151,7 @@ jobs:
       - name: Set up dependencies
         run: |
           sudo dpkg --add-architecture i386
+          sudo sh -c "echo 'deb http://archive.ubuntu.com/ubuntu/ $(lsb_release -cs)-proposed restricted main multiverse universe' >> /etc/apt/sources.list.d/proposed-repositories.list"
           sudo apt update
           sudo apt-get install -qy build-essential meson mingw-w64 \
             binutils-mingw-w64-i686 g++-mingw-w64-i686 wine-stable:i386 wine-binfmt \
@@ -169,7 +170,6 @@ jobs:
         shell: bash
         run: |
           pushd PawPaw && source local.env win32 && popd
-          export LDFLAGS+="-L~/PawPawBuilds/targets/win64/lib32"
           wineboot -u
           meson build --buildtype release --prefix /tmp --libdir /tmp --cross-file $PWD/meson/win32.ini
           ninja -v -C build
@@ -210,6 +210,7 @@ jobs:
           sudo apt-get install -yqq --allow-downgrades libpcre2-8-0/focal libpcre2-16-0/focal libpcre2-32-0/focal libpcre2-posix2/focal
       - name: Set up dependencies
         run: |
+          sudo sh -c "echo 'deb http://archive.ubuntu.com/ubuntu/ $(lsb_release -cs)-proposed restricted main multiverse universe' >> /etc/apt/sources.list.d/proposed-repositories.list"
           sudo apt update
           sudo apt-get install -qy build-essential meson mingw-w64 \
             binutils-mingw-w64-x86-64 g++-mingw-w64-x86-64  wine-stable wine-binfmt \
@@ -229,7 +230,6 @@ jobs:
         run: |
           pushd PawPaw && source local.env win64 && popd
           wineboot -u
-          export LDFLAGS+="-L~/PawPawBuilds/targets/win64/lib32"
           meson build --buildtype release --prefix /tmp --libdir /tmp --cross-file $PWD/meson/win64.ini
           ninja -v -C build
           ninja -C build install
