@@ -148,6 +148,7 @@ jobs:
           sudo rm -f /etc/apt/sources.list.d/microsoft-prod.list
           sudo apt-get update -qq
           sudo apt-get install -yqq --allow-downgrades libpcre2-8-0/focal libpcre2-16-0/focal libpcre2-32-0/focal libpcre2-posix2/focal
+          # add repository to get a newer meson version where cross compiling works
           sudo add-apt-repository -y ppa:ubuntustudio-ppa/backports
       - name: Set up dependencies
         run: |
@@ -171,7 +172,7 @@ jobs:
         run: |
           pushd PawPaw && source local.env win32 && popd
           wineboot -u
-          meson build --buildtype release --prefix /tmp --libdir /tmp --cross-file $PWD/meson/win32.ini
+          meson build --buildtype release --prefix /tmp --libdir /tmp --cross-file $PWD/setup/win32.ini
           ninja -v -C build
           ninja -C build install
           mv /tmp/lv2/nrepellent.lv2 ./nrepellent.lv2
@@ -208,6 +209,7 @@ jobs:
           sudo rm -f /etc/apt/sources.list.d/microsoft-prod.list
           sudo apt-get update -qq
           sudo apt-get install -yqq --allow-downgrades libpcre2-8-0/focal libpcre2-16-0/focal libpcre2-32-0/focal libpcre2-posix2/focal
+          # add repository to get a newer meson version where cross compiling works
           sudo add-apt-repository -y ppa:ubuntustudio-ppa/backports
       - name: Set up dependencies
         run: |
@@ -230,7 +232,7 @@ jobs:
         run: |
           pushd PawPaw && source local.env win64 && popd
           wineboot -u
-          meson build --buildtype release --prefix /tmp --libdir /tmp --cross-file $PWD/meson/win64.ini
+          meson build --buildtype release --prefix /tmp --libdir /tmp --cross-file $PWD/setup/win64.ini
           ninja -v -C build
           ninja -C build install
           mv /tmp/lv2/nrepellent.lv2 ./nrepellent.lv2
