@@ -4,11 +4,6 @@ An suite of lv2 plugins for noise reduction that uses [libspecbleach](https://gi
 
 [![build](https://github.com/lucianodato/noise-repellent/actions/workflows/build.yml/badge.svg)](https://github.com/lucianodato/noise-repellent/actions/workflows/build.yml)
 
-## Demo
-
-[![Demo 1](http://img.youtube.com/vi/iNVxCvgcnig/0.jpg)](http://www.youtube.com/watch?v=iNVxCvgcnig "")
-[![Demo 2](http://img.youtube.com/vi/LeKyGoAmbFE/0.jpg)](https://www.youtube.com/watch?v=LeKyGoAmbFE "")
-
 ## Features
 
 * Adaptive noise reduction plugin for low latency voice denoise
