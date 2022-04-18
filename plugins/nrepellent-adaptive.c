@@ -18,7 +18,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 */
 
 #include "../src/signal_crossfade.h"
-#include "../subprojects/libspecbleach/include/specbleach.h"
+#include "../subprojects/libspecbleach/include/specbleach_adenoiser.h"
 #include "lv2/core/lv2.h"
 #include <stdlib.h>
 
@@ -91,7 +91,7 @@ static LV2_Handle instantiate(const LV2_Descriptor *descriptor,
   self->soft_bypass = signal_crossfade_initialize((uint32_t)self->sample_rate);
 
   if (!self->soft_bypass) {
-    specbleach_free(self);
+    specbleach_adaptive_free(self);
     return NULL;
   }
 

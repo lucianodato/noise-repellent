@@ -20,7 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/
 #include "../src/noise_profile_state.h"
 #include "../src/signal_crossfade.h"
 
-#include "../subprojects/libspecbleach/include/specbleach.h"
+#include "../subprojects/libspecbleach/include/specbleach_denoiser.h"
 #include "lv2/atom/atom.h"
 #include "lv2/core/lv2.h"
 #include "lv2/core/lv2_util.h"
