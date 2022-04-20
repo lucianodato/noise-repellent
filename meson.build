@@ -42,7 +42,6 @@ library('nrepellent',
     noise_repellent_src,
     name_prefix: '',
     dependencies: nr_dep,
-    c_args: cflags, 
     install: true,
     install_dir : install_folder
 )
@@ -52,7 +51,6 @@ library('nrepellent-adaptive',
     noise_repellent_adaptive_src,
     name_prefix: '',
     dependencies: nr_dep,
-    c_args: cflags, 
     install: true,
     install_dir : install_folder
 )
