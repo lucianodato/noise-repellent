@@ -34,5 +34,11 @@
 # Builds
 build/
 
-# VScode
-.vscode
+# Valgrind dumps
+*.valgrind
+
+# Vscode files
+.vscode/
+
+# Downloaded wrap files
+subprojects/libspecbleach/

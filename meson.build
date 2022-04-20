@@ -1,96 +1,115 @@
-project('nrepel.lv2','c',version: '0.2.0',default_options: ['c_std=c99'])
+project('nrepellent.lv2','c',version: '0.2.0',default_options: ['default_library=shared','c_std=c99'])
 
-sord_validate = find_program('sord_validate', native : true, required : false)
-cp = find_program('cp')
-clone = [cp, '@INPUT@', '@OUTPUT@']
-
-#source to compile
-src = 'src/nrepel.c'
-
-#dependencies for noise repellent
-cc = meson.get_compiler('c')
-m_dep = cc.find_library('m', required : true)
-fftw_dep = dependency('fftw3f', required : true)
-lv2_dep = dependency('lv2', required : true)
-nr_dep = [m_dep,fftw_dep,lv2_dep]
-
-#compiler default flags
-add_global_arguments('-fomit-frame-pointer','-fno-finite-math-only','-Wno-unused-function',language : 'c')
+libspecbleach_proj = subproject('libspecbleach',default_options: ['default_library=static'])
 
 #install folder
-install_folder = join_paths(get_option('libdir'), 'lv2', meson.project_name())
+if(get_option('buildtype') == 'release')
+    lv2_directory = join_paths(get_option('libdir'), 'lv2')
+else
+    lv2_directory = '.lv2'
+endif
+install_folder = join_paths(lv2_directory, meson.project_name())
+
+# sources to compile
+common_src = ['src/signal_crossfade.c']
+noise_repellent_src = ['plugins/nrepellent.c', 'src/noise_profile_state.c']
+noise_repellent_adaptive_src = 'plugins/nrepellent-adaptive.c'
+
+#dependencies for noise repellent
+lv2_dep = dependency('lv2', required: true)
+libspecbleach_dep = libspecbleach_proj.get_variable('libspecbleach_dep')
+m_dep = meson.get_compiler('c').find_library('m', required: true)
+all_dep = [lv2_dep,libspecbleach_dep,m_dep]
 
 #get the host operating system and configure install path and shared object extension
 current_os = host_machine.system()
-current_arch = host_machine.cpu_family()
-cflags = []
 
-# Add x86_64 optimization where appropriate (not for ARM, not for riscv)
-if current_arch != 'aarch64' and current_arch != 'riscv64'
-    cflags += ['-ffast-math', '-msse','-msse2','-mfpmath=sse']
-endif
-
-# Add osx multiarch flags when appropriate
-if current_os == 'darwin'
-    cflags += ['-mrecip',
-            '-march=i386',
-            '-march=x86-64',
-            '-mmacosx-version-min=10.5',
-            '-DMAC_OS_X_VERSION_MAX_ALLOWED=105']
-endif
-
-# Extension for library by os
 if current_os == 'darwin' #mac
     extension = '.dylib'
 else #unix like    
     extension = '.so'
-endif #windows
-if current_os == 'windows' or current_os == 'cygwin'
+endif 
+if current_os == 'windows' #windows
     extension = '.dll'
+    exe_wrapper = true
 endif
 
 #build of the shared object
-shared_library('nrepel',
-    src,
+library('nrepellent',
+    common_src,
+    noise_repellent_src,
     name_prefix: '',
-    dependencies: nr_dep,
-    c_args: cflags, 
+    dependencies: all_dep,
     install: true,
-    install_dir : install_folder
+    install_dir: install_folder
+)
+
+library('nrepellent-adaptive',
+    common_src,
+    noise_repellent_adaptive_src,
+    name_prefix: '',
+    dependencies: all_dep,
+    install: true,
+    install_dir: install_folder
 )
 	
 #Getting version from project configuration or from git tags
 version_array = meson.project_version().split('.')
-if version_array.length() == 0
+
+git = find_program('git', native: true, required: false)
+if version_array.length() == 0 and git.found()
     version_array = run_command('git', 'describe').stdout().strip().split('-')[0].split('.')
 endif
 
-#Configure manifest.ttl and install
+#Configure manifest.ttl
 manifest_conf = configuration_data()
 manifest_conf.set('LIB_EXT', extension)
-manifest_conf.set('MAJOR_VERSION', version_array[0])
-manifest_conf.set('MINOR_VERSION', version_array[1])
-manifest_conf.set('MICRO_VERSION', version_array[2])
 
 manifest_ttl = configure_file(
-    input : 'lv2ttl/manifest.ttl.in',
-    output : 'manifest.ttl',
-    configuration : manifest_conf,
-    install : true,
-	install_dir : install_folder
+    input: 'lv2ttl/manifest.ttl.in',
+    output: 'manifest.ttl',
+    configuration: manifest_conf,
+    install: true,
+	install_dir: install_folder
 )
 
-#Configure nrepel.ttl and install
+data_conf = configuration_data()
+data_conf.set('MAJOR_VERSION', version_array[0])
+data_conf.set('MINOR_VERSION', version_array[1])
+data_conf.set('MICRO_VERSION', version_array[2])
+
+#Configure nrepellent.ttl
 nrepel_ttl = configure_file(
-    input : join_paths('lv2ttl', 'nrepel.ttl.in'),
-    output : 'nrepel.ttl',
-    configuration : manifest_conf,
-    install : true,
-	install_dir : install_folder
+    input: join_paths('lv2ttl', 'nrepellent.ttl.in'),
+    output: 'nrepellent.ttl',
+    configuration: data_conf,
+    install: true,
+	install_dir: install_folder
 )
 
-# testing ttls
-if sord_validate.found()
-	test('LV2 validation', sord_validate,
-		args : [run_command('find','./lv2 -name "*.ttl"').stdout(), run_command('find','. -name "*.ttl"').stdout()])
-endif
+#Configure nrepellent.ttl
+nrepel_ttl = configure_file(
+    input: join_paths('lv2ttl', 'nrepellent#stereo.ttl.in'),
+    output: 'nrepellent#stereo.ttl',
+    configuration: data_conf,
+    install: true,
+	install_dir: install_folder
+)
+
+#Configure nrepellent-adaptive.ttl
+nrepel_ttl_adaptive = configure_file(
+    input: join_paths('lv2ttl', 'nrepellent-adaptive.ttl.in'),
+    output: 'nrepellent-adaptive.ttl',
+    configuration: data_conf,
+    install: true,
+	install_dir: install_folder
+)
+
+#Configure nrepellent-adaptive#stereo.ttl
+nrepel_ttl_adaptive_stereo = configure_file(
+    input: join_paths('lv2ttl', 'nrepellent-adaptive#stereo.ttl.in'),
+    output: 'nrepellent-adaptive#stereo.ttl',
+    configuration: data_conf,
+    install: true,
+	install_dir: install_folder
+)

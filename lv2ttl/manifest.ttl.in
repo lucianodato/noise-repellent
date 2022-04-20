@@ -1,7 +1,22 @@
 @prefix lv2:  <http://lv2plug.in/ns/lv2core#>.
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#>.
 
-<https://github.com/lucianodato/noise-repellent>
+<https://github.com/lucianodato/noise-repellent#new>
   a lv2:Plugin;
-  lv2:binary <nrepel@LIB_EXT@> ;
-  rdfs:seeAlso <nrepel.ttl> .
+  lv2:binary <nrepellent@LIB_EXT@> ;
+  rdfs:seeAlso <nrepellent.ttl> .
+  
+<https://github.com/lucianodato/noise-repellent-stereo#new>
+  a lv2:Plugin;
+  lv2:binary <nrepellent@LIB_EXT@> ;
+  rdfs:seeAlso <nrepellent#stereo.ttl> .
+
+<https://github.com/lucianodato/noise-repellent#adaptive>
+  a lv2:Plugin;
+  lv2:binary <nrepellent-adaptive@LIB_EXT@> ;
+  rdfs:seeAlso <nrepellent-adaptive.ttl> .
+  
+<https://github.com/lucianodato/noise-repellent#adaptive-stereo>
+  a lv2:Plugin;
+  lv2:binary <nrepellent-adaptive@LIB_EXT@> ;
+  rdfs:seeAlso <nrepellent-adaptive#stereo.ttl> .
