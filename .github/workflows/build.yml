@@ -21,6 +21,8 @@ jobs:
           submodules: recursive
       - name: Set up dependencies
         run: |
+          # add repository to get a newer meson version where cross compiling works
+          sudo add-apt-repository -y ppa:ubuntustudio-ppa/backports
           sudo apt-get update -qq
           sudo apt-get install -qq meson lv2-dev libfftw3-dev ninja-build
       - name: Build noise-repellent
