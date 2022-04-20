@@ -19,14 +19,14 @@
 <https://github.com/lucianodato/noise-repellent#adaptive>
   a lv2:Plugin, lv2:SpectralPlugin, lv2:UtilityPlugin, doap:Project ;
   doap:maintainer <https://github.com/lucianodato#me> ;
-  doap:license <https://opensource.org/licenses/LGPL-3.0> ;
   doap:name "Repelente de ruido"@es ,
     "Répulseur de bruit"@fr ,
     "Noise repellent Adaptive" ;
+	doap:license <https://opensource.org/licenses/LGPL-3.0> ;
   doap:shortdesc "Un plugin LV2 para la reduccion de ruido"@es ,
-               "Un plugin LV2 pour la réduction du bruit à large bande"@fr ,
-               "An LV2 plugin for broadband noise reduction" ;
-  lv2:project <https://github.com/lucianodato/noise-repellent> ;
+    "Un plugin LV2 pour la réduction du bruit à large bande"@fr ,
+    "An LV2 plugin for broadband noise reduction" ;
+  lv2:project <https://github.com/lucianodato/noise-repellent#adaptive> ;
   lv2:optionalFeature lv2:isLive, lv2:hardRTCapable ;
 
   lv2:minorVersion @MINOR_VERSION@ ;

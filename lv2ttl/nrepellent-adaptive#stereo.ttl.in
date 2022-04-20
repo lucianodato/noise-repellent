@@ -26,7 +26,7 @@
   doap:shortdesc "Un plugin LV2 para la reduccion de ruido"@es ,
                "Un plugin LV2 pour la réduction du bruit à large bande"@fr ,
                "An LV2 plugin for broadband noise reduction" ;
-  lv2:project <https://github.com/lucianodato/noise-repellent> ;
+  lv2:project <https://github.com/lucianodato/noise-repellent#adaptive-stereo>> ;
   lv2:optionalFeature lv2:isLive, lv2:hardRTCapable ;
 
   lv2:minorVersion @MINOR_VERSION@ ;
