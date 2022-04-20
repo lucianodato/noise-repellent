@@ -1,6 +1,6 @@
 project('nrepellent.lv2','c',version: '0.2.0',default_options: ['default_library=shared','c_std=c99'])
 
-libspecbleach_proj = subproject('libspecbleach', default_options: ['default_library=static','c_std=c99'])
+libspecbleach_proj = subproject('libspecbleach',default_options: ['default_library=static'])
 
 #install folder
 if(get_option('buildtype') == 'release')
@@ -16,10 +16,10 @@ noise_repellent_src = ['plugins/nrepellent.c', 'src/noise_profile_state.c']
 noise_repellent_adaptive_src = 'plugins/nrepellent-adaptive.c'
 
 #dependencies for noise repellent
-lv2_dep = dependency('lv2', required : true)
-nrepel_dep = libspecbleach_proj.get_variable('libspecbleach_dep')
-m_dep = meson.get_compiler('c').find_library('m', required : true)
-nr_dep = [lv2_dep,nrepel_dep,m_dep]
+lv2_dep = dependency('lv2', required: true)
+libspecbleach_dep = libspecbleach_proj.get_variable('libspecbleach_dep')
+m_dep = meson.get_compiler('c').find_library('m', required: true)
+all_dep = [lv2_dep,libspecbleach_dep,m_dep]
 
 #get the host operating system and configure install path and shared object extension
 current_os = host_machine.system()
@@ -39,24 +39,24 @@ library('nrepellent',
     common_src,
     noise_repellent_src,
     name_prefix: '',
-    dependencies: nr_dep,
+    dependencies: all_dep,
     install: true,
-    install_dir : install_folder
+    install_dir: install_folder
 )
 
 library('nrepellent-adaptive',
     common_src,
     noise_repellent_adaptive_src,
     name_prefix: '',
-    dependencies: nr_dep,
+    dependencies: all_dep,
     install: true,
-    install_dir : install_folder
+    install_dir: install_folder
 )
 	
 #Getting version from project configuration or from git tags
 version_array = meson.project_version().split('.')
 
-git = find_program('git', native : true, required : false)
+git = find_program('git', native: true, required: false)
 if version_array.length() == 0 and git.found()
     version_array = run_command('git', 'describe').stdout().strip().split('-')[0].split('.')
 endif
@@ -66,11 +66,11 @@ manifest_conf = configuration_data()
 manifest_conf.set('LIB_EXT', extension)
 
 manifest_ttl = configure_file(
-    input : 'lv2ttl/manifest.ttl.in',
-    output : 'manifest.ttl',
-    configuration : manifest_conf,
-    install : true,
-	install_dir : install_folder
+    input: 'lv2ttl/manifest.ttl.in',
+    output: 'manifest.ttl',
+    configuration: manifest_conf,
+    install: true,
+	install_dir: install_folder
 )
 
 data_conf = configuration_data()
@@ -80,36 +80,36 @@ data_conf.set('MICRO_VERSION', version_array[2])
 
 #Configure nrepellent.ttl
 nrepel_ttl = configure_file(
-    input : join_paths('lv2ttl', 'nrepellent.ttl.in'),
-    output : 'nrepellent.ttl',
-    configuration : data_conf,
-    install : true,
-	install_dir : install_folder
+    input: join_paths('lv2ttl', 'nrepellent.ttl.in'),
+    output: 'nrepellent.ttl',
+    configuration: data_conf,
+    install: true,
+	install_dir: install_folder
 )
 
 #Configure nrepellent.ttl
 nrepel_ttl = configure_file(
-    input : join_paths('lv2ttl', 'nrepellent#stereo.ttl.in'),
-    output : 'nrepellent#stereo.ttl',
-    configuration : data_conf,
-    install : true,
-	install_dir : install_folder
+    input: join_paths('lv2ttl', 'nrepellent#stereo.ttl.in'),
+    output: 'nrepellent#stereo.ttl',
+    configuration: data_conf,
+    install: true,
+	install_dir: install_folder
 )
 
 #Configure nrepellent-adaptive.ttl
 nrepel_ttl_adaptive = configure_file(
-    input : join_paths('lv2ttl', 'nrepellent-adaptive.ttl.in'),
-    output : 'nrepellent-adaptive.ttl',
-    configuration : data_conf,
-    install : true,
-	install_dir : install_folder
+    input: join_paths('lv2ttl', 'nrepellent-adaptive.ttl.in'),
+    output: 'nrepellent-adaptive.ttl',
+    configuration: data_conf,
+    install: true,
+	install_dir: install_folder
 )
 
 #Configure nrepellent-adaptive#stereo.ttl
 nrepel_ttl_adaptive_stereo = configure_file(
-    input : join_paths('lv2ttl', 'nrepellent-adaptive#stereo.ttl.in'),
-    output : 'nrepellent-adaptive#stereo.ttl',
-    configuration : data_conf,
-    install : true,
-	install_dir : install_folder
+    input: join_paths('lv2ttl', 'nrepellent-adaptive#stereo.ttl.in'),
+    output: 'nrepellent-adaptive#stereo.ttl',
+    configuration: data_conf,
+    install: true,
+	install_dir: install_folder
 )
