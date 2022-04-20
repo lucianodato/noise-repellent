@@ -26,7 +26,8 @@ jobs:
       - name: Build noise-repellent
         shell: bash
         run: |
-          CFLAGS="-fvisibility=hidden -ffast-math -msse -msse2 -mfpmath=sse" meson build --buildtype release --prefix /tmp --libdir /tmp
+          CFLAGS="-fvisibility=hidden -ffast-math -msse -msse2 -mfpmath=sse" 
+          meson build --buildtype release --prefix /tmp --libdir /tmp -Dlibspecbleach:default_library=static
           ninja -v -C build
           ninja -C build install
           mv /tmp/lv2/nrepellent.lv2 ./nrepellent.lv2
