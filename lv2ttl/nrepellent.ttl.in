@@ -43,7 +43,7 @@
       "Quantité de réduction"@fr ,
       "Reduction amount" ;
     lv2:minimum 0.0 ;
-    lv2:maximum 48.0 ;
+    lv2:maximum 40.0 ;
     lv2:default 10.0 ;
     lv2:designation lv2:threshold ;
     units:unit units:db ;
