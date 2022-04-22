@@ -155,7 +155,7 @@ jobs:
           sudo dpkg --add-architecture i386
           sudo apt update
           sudo apt-get install -qy build-essential python3-pip mingw-w64 \
-            binutils-mingw-w64-i686 g++-mingw-w64-i686 wine-stable:i386 wine-binfmt \
+            binutils-mingw-w64-i686 g++-mingw-w64-i686 wine-stable:i386 wine-binfmt
           sudo pip install meson
       - name: Cache debian packages
         run: |
@@ -215,7 +215,7 @@ jobs:
         run: |
           sudo apt update
           sudo apt-get install -qy build-essential python3-pip mingw-w64 \
-            binutils-mingw-w64-x86-64 g++-mingw-w64-x86-64  wine-stable wine-binfmt \
+            binutils-mingw-w64-x86-64 g++-mingw-w64-x86-64  wine-stable wine-binfmt
           sudo pip install meson
       - name: Cache debian packages
         run: |
