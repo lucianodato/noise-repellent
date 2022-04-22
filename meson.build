@@ -31,7 +31,6 @@ else #unix like
 endif 
 if current_os == 'windows' #windows
     extension = '.dll'
-    exe_wrapper = true
 endif
 
 #build of the shared object

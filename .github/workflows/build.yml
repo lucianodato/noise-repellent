@@ -21,10 +21,9 @@ jobs:
           submodules: recursive
       - name: Set up dependencies
         run: |
-          # add repository to get a newer meson version where cross compiling works
-          sudo add-apt-repository -y ppa:ubuntustudio-ppa/backports
           sudo apt-get update -qq
-          sudo apt-get install -qq meson lv2-dev libfftw3-dev ninja-build
+          sudo apt-get install -qq python3-pip lv2-dev libfftw3-dev ninja-build
+          sudo pip install meson
       - name: Build noise-repellent
         shell: bash
         run: |
@@ -151,14 +150,13 @@ jobs:
           sudo rm -f /etc/apt/sources.list.d/microsoft-prod.list
           sudo apt-get update -qq
           sudo apt-get install -yqq --allow-downgrades libpcre2-8-0/focal libpcre2-16-0/focal libpcre2-32-0/focal libpcre2-posix2/focal
-          # add repository to get a newer meson version where cross compiling works
-          sudo add-apt-repository -y ppa:ubuntustudio-ppa/backports
       - name: Set up dependencies
         run: |
           sudo dpkg --add-architecture i386
           sudo apt update
-          sudo apt-get install -qy build-essential meson mingw-w64 \
+          sudo apt-get install -qy build-essential python3-pip mingw-w64 \
             binutils-mingw-w64-i686 g++-mingw-w64-i686 wine-stable:i386 wine-binfmt \
+          sudo pip install meson
       - name: Cache debian packages
         run: |
           mkdir -p ~/PawPawBuilds/debs && \
@@ -213,13 +211,12 @@ jobs:
           sudo rm -f /etc/apt/sources.list.d/microsoft-prod.list
           sudo apt-get update -qq
           sudo apt-get install -yqq --allow-downgrades libpcre2-8-0/focal libpcre2-16-0/focal libpcre2-32-0/focal libpcre2-posix2/focal
-          # add repository to get a newer meson version where cross compiling works
-          sudo add-apt-repository -y ppa:ubuntustudio-ppa/backports
       - name: Set up dependencies
         run: |
           sudo apt update
-          sudo apt-get install -qy build-essential meson mingw-w64 \
+          sudo apt-get install -qy build-essential python3-pip mingw-w64 \
             binutils-mingw-w64-x86-64 g++-mingw-w64-x86-64  wine-stable wine-binfmt \
+          sudo pip install meson
       - name: Cache debian packages
         run: |
           mkdir -p ~/PawPawBuilds/debs && \
