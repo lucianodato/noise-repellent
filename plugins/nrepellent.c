@@ -21,13 +21,13 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include "../src/noise_profile_state.h"
 #include "../src/signal_crossfade.h"
 
-#include "../subprojects/libspecbleach/include/specbleach_denoiser.h"
 #include "lv2/atom/atom.h"
 #include "lv2/core/lv2.h"
 #include "lv2/core/lv2_util.h"
 #include "lv2/log/logger.h"
 #include "lv2/state/state.h"
 #include "lv2/urid/urid.h"
+#include "specbleach_denoiser.h"
 #include <stdlib.h>
 #include <string.h>
 

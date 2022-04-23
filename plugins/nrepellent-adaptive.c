@@ -19,12 +19,12 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 
 #include "../src/signal_crossfade.h"
-#include "../subprojects/libspecbleach/include/specbleach_adenoiser.h"
 #include "lv2/atom/atom.h"
 #include "lv2/core/lv2.h"
 #include "lv2/core/lv2_util.h"
 #include "lv2/log/logger.h"
 #include "lv2/urid/urid.h"
+#include "specbleach_adenoiser.h"
 #include <stdlib.h>
 
 #define NOISEREPELLENT_ADAPTIVE_URI                                            \
