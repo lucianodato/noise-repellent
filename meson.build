@@ -1,6 +1,4 @@
-project('nrepellent.lv2','c',version: '0.2.0',default_options: ['default_library=shared','c_std=c99'])
-
-libspecbleach_proj = subproject('libspecbleach',default_options: ['default_library=static'])
+project('nrepellent.lv2','c',version: '0.2.1',default_options: ['default_library=shared','c_std=c99'])
 
 #install folder
 if(get_option('buildtype') == 'release')
@@ -17,7 +15,7 @@ noise_repellent_adaptive_src = 'plugins/nrepellent-adaptive.c'
 
 #dependencies for noise repellent
 lv2_dep = dependency('lv2', required: true)
-libspecbleach_dep = libspecbleach_proj.get_variable('libspecbleach_dep')
+libspecbleach_dep = dependency('libspecbleach', fallback : ['libspecbleach', 'libspecbleach_dep'], default_options: ['default_library=static'], required: true)
 m_dep = meson.get_compiler('c').find_library('m', required: true)
 all_dep = [lv2_dep,libspecbleach_dep,m_dep]
 

@@ -43,7 +43,7 @@
       "Quantité de réduction"@fr ,
       "Reduction amount" ;
     lv2:minimum 0.0 ;
-    lv2:maximum 48.0 ;
+    lv2:maximum 40.0 ;
     lv2:default 10.0 ;
     lv2:designation lv2:threshold ;
     units:unit units:db ;
@@ -58,8 +58,8 @@
     lv2:name "Compensacion de umbrales"@es ,
       "Décalage des seuils"@fr ,
       "Thresholds offset" ;
-    lv2:minimum -12.0 ;
-    lv2:maximum 0.0 ;
+    lv2:minimum 0.0 ;
+    lv2:maximum 12.0 ;
     lv2:default 0.0 ;
     lv2:designation lv2:gain ;
     units:unit units:db ;

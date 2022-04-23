@@ -200,7 +200,7 @@ jobs:
             ~/PawPawBuilds/debs
             ~/PawPawBuilds/downloads
             ~/PawPawBuilds/targets
-          key: win32
+          key: win64
       - name: Restore debian packages cache
         run: |
           if [ -d ~/PawPawBuilds/debs ] && [ "$(ls ~/PawPawBuilds/debs | wc -l)" -ne 0 ]; then \

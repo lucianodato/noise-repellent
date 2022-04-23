@@ -19,14 +19,29 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 
 #include "../src/signal_crossfade.h"
-#include "../subprojects/libspecbleach/include/specbleach_adenoiser.h"
+#include "lv2/atom/atom.h"
 #include "lv2/core/lv2.h"
+#include "lv2/core/lv2_util.h"
+#include "lv2/log/logger.h"
+#include "lv2/urid/urid.h"
+#include "specbleach_adenoiser.h"
 #include <stdlib.h>
 
 #define NOISEREPELLENT_ADAPTIVE_URI                                            \
   "https://github.com/lucianodato/noise-repellent#adaptive"
 #define NOISEREPELLENT_ADAPTIVE_STEREO_URI                                     \
   "https://github.com/lucianodato/noise-repellent#adaptive-stereo"
+
+typedef struct URIs {
+  LV2_URID plugin;
+} URIs;
+
+static inline void map_uris(LV2_URID_Map *map, URIs *uris, const char *uri) {
+  uris->plugin =
+      strcmp(uri, NOISEREPELLENT_ADAPTIVE_URI)
+          ? map->map(map->handle, NOISEREPELLENT_ADAPTIVE_URI)
+          : map->map(map->handle, NOISEREPELLENT_ADAPTIVE_STEREO_URI);
+}
 
 typedef enum PortIndex {
   NOISEREPELLENT_AMOUNT = 0,
@@ -49,7 +64,13 @@ typedef struct NoiseRepellentAdaptivePlugin {
   float sample_rate;
   float *report_latency;
 
-  SpectralBleachHandle lib_instance;
+  LV2_URID_Map *map;
+  LV2_Log_Logger log;
+  URIs uris;
+  char *plugin_uri;
+
+  SpectralBleachHandle lib_instance_1;
+  SpectralBleachHandle lib_instance_2;
   SpectralBleachParameters parameters;
   SignalCrossfade *soft_bypass;
 
@@ -64,9 +85,18 @@ typedef struct NoiseRepellentAdaptivePlugin {
 static void cleanup(LV2_Handle instance) {
   NoiseRepellentAdaptivePlugin *self = (NoiseRepellentAdaptivePlugin *)instance;
 
-  if (self->lib_instance) {
-    specbleach_adaptive_free(self->lib_instance);
+  if (self->lib_instance_1) {
+    specbleach_adaptive_free(self->lib_instance_1);
   }
+
+  if (self->lib_instance_2) {
+    specbleach_adaptive_free(self->lib_instance_2);
+  }
+
+  if (self->plugin_uri) {
+    free(self->plugin_uri);
+  }
+
   if (self->soft_bypass) {
     signal_crossfade_free(self->soft_bypass);
   }
@@ -80,11 +110,39 @@ static LV2_Handle instantiate(const LV2_Descriptor *descriptor,
   NoiseRepellentAdaptivePlugin *self = (NoiseRepellentAdaptivePlugin *)calloc(
       1U, sizeof(NoiseRepellentAdaptivePlugin));
 
+  // clang-format off
+  const char *missing =
+      lv2_features_query(features,
+                         LV2_LOG__log, &self->log.log, false,
+                         LV2_URID__map, &self->map, true,
+                         NULL);
+  // clang-format on
+
+  lv2_log_logger_set_map(&self->log, self->map);
+
+  if (missing) {
+    lv2_log_error(&self->log, "Missing feature <%s>\n", missing);
+    cleanup((LV2_Handle)self);
+    return NULL;
+  }
+
+  if (strstr(descriptor->URI, NOISEREPELLENT_ADAPTIVE_URI)) {
+    self->plugin_uri = (char *)calloc(
+        strlen(NOISEREPELLENT_ADAPTIVE_STEREO_URI) + 1, sizeof(char));
+    strcpy(self->plugin_uri, descriptor->URI);
+  } else {
+    self->plugin_uri =
+        (char *)calloc(strlen(NOISEREPELLENT_ADAPTIVE_URI) + 1, sizeof(char));
+    strcpy(self->plugin_uri, descriptor->URI);
+  }
+
+  map_uris(self->map, &self->uris, self->plugin_uri);
+
   self->sample_rate = (float)rate;
 
-  self->lib_instance =
+  self->lib_instance_1 =
       specbleach_adaptive_initialize((uint32_t)self->sample_rate);
-  if (!self->lib_instance) {
+  if (!self->lib_instance_1) {
     cleanup((LV2_Handle)self);
     return NULL;
   }
@@ -94,6 +152,17 @@ static LV2_Handle instantiate(const LV2_Descriptor *descriptor,
   if (!self->soft_bypass) {
     specbleach_adaptive_free(self);
     return NULL;
+  }
+
+  if (strstr(self->plugin_uri, NOISEREPELLENT_ADAPTIVE_STEREO_URI)) {
+    self->lib_instance_2 =
+        specbleach_adaptive_initialize((uint32_t)self->sample_rate);
+
+    if (!self->lib_instance_2) {
+      lv2_log_error(&self->log, "Error initializing <%s>\n", self->plugin_uri);
+      cleanup((LV2_Handle)self);
+      return NULL;
+    }
   }
 
   return (LV2_Handle)self;
@@ -154,7 +223,7 @@ static void activate(LV2_Handle instance) {
   NoiseRepellentAdaptivePlugin *self = (NoiseRepellentAdaptivePlugin *)instance;
 
   *self->report_latency =
-      (float)specbleach_adaptive_get_latency(self->lib_instance);
+      (float)specbleach_adaptive_get_latency(self->lib_instance_1);
 }
 
 static void run(LV2_Handle instance, uint32_t number_of_samples) {
@@ -169,9 +238,9 @@ static void run(LV2_Handle instance, uint32_t number_of_samples) {
   };
   // clang-format on
 
-  specbleach_adaptive_load_parameters(self->lib_instance, self->parameters);
+  specbleach_adaptive_load_parameters(self->lib_instance_1, self->parameters);
 
-  specbleach_adaptive_process(self->lib_instance, number_of_samples,
+  specbleach_adaptive_process(self->lib_instance_1, number_of_samples,
                               self->input_1, self->output_1);
 
   signal_crossfade_run(self->soft_bypass, number_of_samples, self->input_1,
@@ -183,7 +252,9 @@ static void run_stereo(LV2_Handle instance, uint32_t number_of_samples) {
 
   run(instance, number_of_samples); // Call left side first
 
-  specbleach_adaptive_process(self->lib_instance, number_of_samples,
+  specbleach_adaptive_load_parameters(self->lib_instance_2, self->parameters);
+
+  specbleach_adaptive_process(self->lib_instance_2, number_of_samples,
                               self->input_2, self->output_2);
 
   signal_crossfade_run(self->soft_bypass, number_of_samples, self->input_2,

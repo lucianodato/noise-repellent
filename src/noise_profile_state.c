@@ -37,10 +37,7 @@ NoiseProfileState *noise_profile_state_initialize(LV2_URID child_type) {
   return self;
 }
 
-void noise_profile_state_free(NoiseProfileState *self) {
-  // free(self->elements);
-  free(self);
-}
+void noise_profile_state_free(NoiseProfileState *self) { free(self); }
 
 float *noise_profile_get_elements(NoiseProfileState *self) {
   return self->elements;
