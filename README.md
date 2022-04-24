@@ -17,7 +17,7 @@ A suite of lv2 plugins for noise reduction that uses [libspecbleach](https://git
 
 Binaries for most platforms are provided with Github release. Just extract the adequate zip file for your platform to your [lv2 plugins folder](https://lv2plug.in/pages/filesystem-hierarchy-standard.html)
 
-If you wish to compile yourself and install this plug-in you will need the a C compiling toolchain, LV2 SDK, Meson build system, ninja compiler, git and libspecbleach library (if it doesn't find it it will download and compile it).
+If you wish to compile yourself and install this plug-in you will need the a C compiling toolchain, LV2 SDK, Meson build system, ninja compiler, git and libspecbleach library (if it doesn't find it it will download and compile it. In this case make sure to have libspecbleach dependencies installed).
 
 Installation:
 
