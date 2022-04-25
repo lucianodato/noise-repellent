@@ -1,11 +1,7 @@
 project('nrepellent.lv2','c',version: '0.2.2',default_options: ['default_library=shared','c_std=c99'])
 
 #install folder
-if(get_option('buildtype') == 'release')
-    lv2_directory = join_paths(get_option('libdir'), 'lv2')
-else
-    lv2_directory = '.lv2'
-endif
+lv2_directory = join_paths(get_option('libdir'), 'lv2')
 install_folder = join_paths(lv2_directory, meson.project_name())
 
 # sources to compile
