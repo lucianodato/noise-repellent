@@ -235,7 +235,7 @@ jobs:
           wineboot -u
           meson build --buildtype release --prefix /tmp --libdir /tmp --cross-file $PWD/setup/win64.ini
           meson compile -v -C build
-          ninja install -C build --skip-subprojects
+          meson install -C build --skip-subprojects
           mv /tmp/lv2/nrepellent.lv2 ./nrepellent.lv2
       - name: Set sha8
         id: slug
