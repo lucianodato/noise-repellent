@@ -28,8 +28,8 @@ jobs:
         shell: bash
         run: |
           CFLAGS="-fvisibility=hidden -ffast-math -msse -msse2 -mfpmath=sse" meson build --buildtype release --prefix /tmp --libdir /tmp
-          ninja -v -C build
-          ninja -C build install
+          meson compile -v -C build
+          meson install -C build --skip-subprojects
           mv /tmp/lv2/nrepellent.lv2 ./nrepellent.lv2
       - name: Set sha8
         id: slug
@@ -73,8 +73,8 @@ jobs:
         run: |
           pushd PawPaw && source local.env macos-universal && popd
           meson build --buildtype release --prefix /tmp --libdir /tmp
-          ninja -v -C build
-          ninja -C build install
+          meson compile -v -C build
+          meson install -C build --skip-subprojects
           mv /tmp/lv2/nrepellent.lv2 ./nrepellent.lv2
       - name: Set sha8
         id: slug
@@ -114,8 +114,8 @@ jobs:
         run: |
           pushd PawPaw && source local.env macos && popd
           meson build --buildtype release --prefix /tmp --libdir /tmp
-          ninja -v -C build
-          ninja -C build install
+          meson compile -v -C build
+          meson install -C build --skip-subprojects
           mv /tmp/lv2/nrepellent.lv2 ./nrepellent.lv2
       - name: Set sha8
         id: slug
@@ -175,8 +175,8 @@ jobs:
           pushd PawPaw && source local.env win32 && popd
           wineboot -u
           meson build --buildtype release --prefix /tmp --libdir /tmp --cross-file $PWD/setup/win32.ini
-          ninja -v -C build
-          ninja -C build install
+          meson compile -v -C build
+          meson install -C build --skip-subprojects
           mv /tmp/lv2/nrepellent.lv2 ./nrepellent.lv2
       - name: Set sha8
         id: slug
@@ -234,8 +234,8 @@ jobs:
           pushd PawPaw && source local.env win64 && popd
           wineboot -u
           meson build --buildtype release --prefix /tmp --libdir /tmp --cross-file $PWD/setup/win64.ini
-          ninja -v -C build
-          ninja -C build install
+          meson compile -v -C build
+          meson install -C build --skip-subprojects
           mv /tmp/lv2/nrepellent.lv2 ./nrepellent.lv2
       - name: Set sha8
         id: slug
