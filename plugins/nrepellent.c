@@ -50,7 +50,7 @@ typedef struct State {
   LV2_URID property_averaged_blocks;
 } State;
 
-static inline void map_uris(LV2_URID_Map *map, URIs *uris, const char *uri) {
+static void map_uris(LV2_URID_Map *map, URIs *uris, const char *uri) {
   uris->plugin = strcmp(uri, NOISEREPELLENT_URI)
                      ? map->map(map->handle, NOISEREPELLENT_URI)
                      : map->map(map->handle, NOISEREPELLENT_STEREO_URI);
@@ -60,7 +60,7 @@ static inline void map_uris(LV2_URID_Map *map, URIs *uris, const char *uri) {
   uris->atom_URID = map->map(map->handle, LV2_ATOM__URID);
 }
 
-static inline void map_state(LV2_URID_Map *map, State *state, const char *uri) {
+static void map_state(LV2_URID_Map *map, State *state, const char *uri) {
   if (!strcmp(uri, NOISEREPELLENT_URI)) {
     state->property_noise_profile_1 =
         map->map(map->handle, NOISEREPELLENT_STEREO_URI "#noiseprofile");
