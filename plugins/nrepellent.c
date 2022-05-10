@@ -50,7 +50,7 @@ typedef struct State {
   LV2_URID property_averaged_blocks;
 } State;
 
-static inline void map_uris(LV2_URID_Map *map, URIs *uris, const char *uri) {
+static void map_uris(LV2_URID_Map *map, URIs *uris, const char *uri) {
   uris->plugin = strcmp(uri, NOISEREPELLENT_URI)
                      ? map->map(map->handle, NOISEREPELLENT_URI)
                      : map->map(map->handle, NOISEREPELLENT_STEREO_URI);
@@ -60,7 +60,7 @@ static inline void map_uris(LV2_URID_Map *map, URIs *uris, const char *uri) {
   uris->atom_URID = map->map(map->handle, LV2_ATOM__URID);
 }
 
-static inline void map_state(LV2_URID_Map *map, State *state, const char *uri) {
+static void map_state(LV2_URID_Map *map, State *state, const char *uri) {
   if (!strcmp(uri, NOISEREPELLENT_URI)) {
     state->property_noise_profile_1 =
         map->map(map->handle, NOISEREPELLENT_STEREO_URI "#noiseprofile");
@@ -139,14 +139,16 @@ static void cleanup(LV2_Handle instance) {
 
   if (self->noise_profile_state_1) {
     noise_profile_state_free(self->noise_profile_state_1);
-  }
-
-  if (self->noise_profile_state_2) {
-    noise_profile_state_free(self->noise_profile_state_2);
+    free(self->noise_profile_1);
   }
 
   if (self->lib_instance_1) {
     specbleach_free(self->lib_instance_1);
+  }
+
+  if (self->noise_profile_state_2) {
+    noise_profile_state_free(self->noise_profile_state_2);
+    free(self->noise_profile_2);
   }
 
   if (self->lib_instance_2) {
@@ -188,11 +190,11 @@ static LV2_Handle instantiate(const LV2_Descriptor *descriptor,
 
   if (strstr(descriptor->URI, NOISEREPELLENT_STEREO_URI)) {
     self->plugin_uri =
-        (char *)calloc(strlen(NOISEREPELLENT_STEREO_URI) + 1, sizeof(char));
+        (char *)calloc(strlen(NOISEREPELLENT_STEREO_URI) + 1U, sizeof(char));
     strcpy(self->plugin_uri, descriptor->URI);
   } else {
     self->plugin_uri =
-        (char *)calloc(strlen(NOISEREPELLENT_URI) + 1, sizeof(char));
+        (char *)calloc(strlen(NOISEREPELLENT_URI) + 1U, sizeof(char));
     strcpy(self->plugin_uri, descriptor->URI);
   }
 
@@ -204,7 +206,7 @@ static LV2_Handle instantiate(const LV2_Descriptor *descriptor,
   self->soft_bypass = signal_crossfade_initialize((uint32_t)self->sample_rate);
 
   if (!self->soft_bypass) {
-    specbleach_free(self);
+    cleanup((LV2_Handle)self);
     return NULL;
   }
 

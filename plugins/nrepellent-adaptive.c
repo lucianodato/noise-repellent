@@ -36,7 +36,7 @@ typedef struct URIs {
   LV2_URID plugin;
 } URIs;
 
-static inline void map_uris(LV2_URID_Map *map, URIs *uris, const char *uri) {
+static void map_uris(LV2_URID_Map *map, URIs *uris, const char *uri) {
   uris->plugin =
       strcmp(uri, NOISEREPELLENT_ADAPTIVE_URI)
           ? map->map(map->handle, NOISEREPELLENT_ADAPTIVE_URI)
@@ -150,7 +150,7 @@ static LV2_Handle instantiate(const LV2_Descriptor *descriptor,
   self->soft_bypass = signal_crossfade_initialize((uint32_t)self->sample_rate);
 
   if (!self->soft_bypass) {
-    specbleach_adaptive_free(self);
+    cleanup((LV2_Handle)self);
     return NULL;
   }
 
