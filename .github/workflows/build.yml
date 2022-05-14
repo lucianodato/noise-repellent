@@ -36,18 +36,25 @@ jobs:
       - name: Set sha8
         id: slug
         run: echo "::set-output name=sha8::$(echo ${{ github.sha }} | cut -c1-8)"
+      - name: Pack build
+        shell: bash
+        run: |
+          zip -r noise-repellent-linux64-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }} ~/work/noise-repellent/noise-repellent/nrepellent.lv2
       - uses: actions/upload-artifact@v2
         with:
           name: noise-repellent-linux64-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
-          path: ~/work/noise-repellent/noise-repellent/nrepellent.lv2
-      - name: Release
+          path: noise-repellent-linux64-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}.zip
+      - name: Rename zip if tag branch
+        shell: bash
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          mv noise-repellent-linux64-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }} noise-repellent-linux64-${{ github.ref }}
+      - name: Upload Release
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          draft: true
-          prerelease: true
           files: 
-            noise-repellent-linux64-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
+            noise-repellent-linux64-${{ github.ref }}
 
   macos_universal:
     runs-on: macos-10.15
@@ -89,18 +96,25 @@ jobs:
       - name: Set sha8
         id: slug
         run: echo "::set-output name=sha8::$(echo ${{ github.sha }} | cut -c1-8)"
+      - name: Pack build
+        shell: bash
+        run: |
+          zip -r noise-repellent-macOS-universal-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }} ~/work/noise-repellent/noise-repellent/nrepellent.lv2
       - uses: actions/upload-artifact@v2
         with:
           name: noise-repellent-macOS-universal-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
-          path: ~/work/noise-repellent/noise-repellent/nrepellent.lv2
-      - name: Release
+          path: noise-repellent-macOS-universal-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}.zip
+      - name: Rename zip if tag branch
+        shell: bash
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          mv noise-repellent-macOS-universal-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }} noise-repellent-macOS-universal-${{ github.ref }}
+      - name: Upload Release
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          draft: true
-          prerelease: true
           files: 
-            noise-repellent-macOS-universal-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
+            noise-repellent-macOS-universal-${{ github.ref }}
 
   macos:
     runs-on: macos-10.15
@@ -138,19 +152,25 @@ jobs:
       - name: Set sha8
         id: slug
         run: echo "::set-output name=sha8::$(echo ${{ github.sha }} | cut -c1-8)"
+      - name: Pack build
+        shell: bash
+        run: |
+          zip -r noise-repellent-macOS-intel-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }} ~/work/noise-repellent/noise-repellent/nrepellent.lv2
       - uses: actions/upload-artifact@v2
         with:
           name: noise-repellent-macOS-intel-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
-          path: ~/work/noise-repellent/noise-repellent/nrepellent.lv2
-      - name: Release
+          path: noise-repellent-macOS-intel-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}.zip
+      - name: Rename zip if tag branch
+        shell: bash
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          mv noise-repellent-macOS-intel-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }} noise-repellent-macOS-intel-${{ github.ref }}
+      - name: Upload Release
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          draft: true
-          prerelease: true
           files: 
-            noise-repellent-macOS-intel-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
-
+            noise-repellent-macOS-intel-${{ github.ref }}
   win32:
     runs-on: ubuntu-20.04
     steps:
@@ -207,19 +227,25 @@ jobs:
       - name: Set sha8
         id: slug
         run: echo "::set-output name=sha8::$(echo ${{ github.sha }} | cut -c1-8)"
+      - name: Pack build
+        shell: bash
+        run: |
+          zip -r noise-repellent-win32-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }} ~/work/noise-repellent/noise-repellent/nrepellent.lv2
       - uses: actions/upload-artifact@v2
         with:
           name: noise-repellent-win32-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
-          path: ~/work/noise-repellent/noise-repellent/nrepellent.lv2
-      - name: Release
+          path: noise-repellent-win32-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}.zip
+      - name: Rename zip if tag branch
+        shell: bash
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          mv noise-repellent-win32-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }} noise-repellent-win32-${{ github.ref }}
+      - name: Upload Release
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          draft: true
-          prerelease: true
           files: 
-            noise-repellent-win32-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
-
+            noise-repellent-win32-${{ github.ref }}
   win64:
     runs-on: ubuntu-20.04
     steps:
@@ -274,15 +300,22 @@ jobs:
       - name: Set sha8
         id: slug
         run: echo "::set-output name=sha8::$(echo ${{ github.sha }} | cut -c1-8)"
+      - name: Pack build
+        shell: bash
+        run: |
+          zip -r noise-repellent-win64-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }} ~/work/noise-repellent/noise-repellent/nrepellent.lv2
       - uses: actions/upload-artifact@v2
         with:
           name: noise-repellent-win64-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
-          path: ~/work/noise-repellent/noise-repellent/nrepellent.lv2
-      - name: Release
+          path: noise-repellent-win64-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}.zip
+      - name: Rename zip if tag branch
+        shell: bash
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          noise-repellent-win64-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }} noise-repellent-win64-${{ github.ref }}
+      - name: Upload Release
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          draft: true
-          prerelease: true
           files: 
-            noise-repellent-win64-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
+            noise-repellent-win64-${{ github.ref }}
