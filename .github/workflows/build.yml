@@ -48,7 +48,7 @@ jobs:
         shell: bash
         if: startsWith(github.ref, 'refs/tags/')
         run: |
-          mv noise-repellent-linux64-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }} noise-repellent-linux64-${{ github.ref }}
+          mv noise-repellent-linux64-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}.zip noise-repellent-linux64-${{ github.ref }}.zip
       - name: Upload Release
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
@@ -108,7 +108,7 @@ jobs:
         shell: bash
         if: startsWith(github.ref, 'refs/tags/')
         run: |
-          mv noise-repellent-macOS-universal-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }} noise-repellent-macOS-universal-${{ github.ref }}
+          mv noise-repellent-macOS-universal-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}.zip noise-repellent-macOS-universal-${{ github.ref }}.zip
       - name: Upload Release
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
@@ -164,7 +164,7 @@ jobs:
         shell: bash
         if: startsWith(github.ref, 'refs/tags/')
         run: |
-          mv noise-repellent-macOS-intel-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }} noise-repellent-macOS-intel-${{ github.ref }}
+          mv noise-repellent-macOS-intel-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}.zip noise-repellent-macOS-intel-${{ github.ref }}.zip
       - name: Upload Release
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
@@ -239,7 +239,7 @@ jobs:
         shell: bash
         if: startsWith(github.ref, 'refs/tags/')
         run: |
-          mv noise-repellent-win32-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }} noise-repellent-win32-${{ github.ref }}
+          mv noise-repellent-win32-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}.zip noise-repellent-win32-${{ github.ref }}.zip
       - name: Upload Release
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
@@ -312,7 +312,7 @@ jobs:
         shell: bash
         if: startsWith(github.ref, 'refs/tags/')
         run: |
-          noise-repellent-win64-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }} noise-repellent-win64-${{ github.ref }}
+          noise-repellent-win64-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}.zip noise-repellent-win64-${{ github.ref }}.zip
       - name: Upload Release
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
