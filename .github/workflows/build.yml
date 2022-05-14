@@ -91,6 +91,14 @@ jobs:
         with:
           name: noise-repellent-macOS-universal-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
           path: ~/work/noise-repellent/noise-repellent/nrepellent.lv2
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          draft: true
+          prerelease: true
+          files: 
+            noise-repellent-macOS-universal-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
 
   macos:
     runs-on: macos-10.15
@@ -132,6 +140,14 @@ jobs:
         with:
           name: noise-repellent-macOS-intel-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
           path: ~/work/noise-repellent/noise-repellent/nrepellent.lv2
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          draft: true
+          prerelease: true
+          files: 
+            noise-repellent-macOS-intel-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
 
   win32:
     runs-on: ubuntu-20.04
@@ -193,6 +209,14 @@ jobs:
         with:
           name: noise-repellent-win32-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
           path: ~/work/noise-repellent/noise-repellent/nrepellent.lv2
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          draft: true
+          prerelease: true
+          files: 
+            noise-repellent-win32-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
 
   win64:
     runs-on: ubuntu-20.04
@@ -252,3 +276,11 @@ jobs:
         with:
           name: noise-repellent-win64-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
           path: ~/work/noise-repellent/noise-repellent/nrepellent.lv2
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          draft: true
+          prerelease: true
+          files: 
+            noise-repellent-win64-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
