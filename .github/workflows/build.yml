@@ -38,6 +38,14 @@ jobs:
         with:
           name: noise-repellent-linux64-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
           path: ~/work/noise-repellent/noise-repellent/nrepellent.lv2
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          draft: true
+          prerelease: true
+          files: 
+            noise-repellent-linux64-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
 
   macos_universal:
     runs-on: macos-10.15
