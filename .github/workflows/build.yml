@@ -39,7 +39,7 @@ jobs:
       - name: Pack build
         shell: bash
         run: |
-          zip -r noise-repellent-linux64-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }} ~/work/noise-repellent/noise-repellent/nrepellent.lv2
+          zip -jr noise-repellent-linux64-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }} ~/work/noise-repellent/noise-repellent/nrepellent.lv2
       - uses: actions/upload-artifact@v2
         with:
           name: noise-repellent-linux64-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
@@ -99,7 +99,7 @@ jobs:
       - name: Pack build
         shell: bash
         run: |
-          zip -r noise-repellent-macOS-universal-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }} ~/work/noise-repellent/noise-repellent/nrepellent.lv2
+          zip -jr noise-repellent-macOS-universal-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }} ~/work/noise-repellent/noise-repellent/nrepellent.lv2
       - uses: actions/upload-artifact@v2
         with:
           name: noise-repellent-macOS-universal-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
@@ -155,7 +155,7 @@ jobs:
       - name: Pack build
         shell: bash
         run: |
-          zip -r noise-repellent-macOS-intel-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }} ~/work/noise-repellent/noise-repellent/nrepellent.lv2
+          zip -jr noise-repellent-macOS-intel-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }} ~/work/noise-repellent/noise-repellent/nrepellent.lv2
       - uses: actions/upload-artifact@v2
         with:
           name: noise-repellent-macOS-intel-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
@@ -230,7 +230,7 @@ jobs:
       - name: Pack build
         shell: bash
         run: |
-          zip -r noise-repellent-win32-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }} ~/work/noise-repellent/noise-repellent/nrepellent.lv2
+          zip -jr noise-repellent-win32-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }} ~/work/noise-repellent/noise-repellent/nrepellent.lv2
       - uses: actions/upload-artifact@v2
         with:
           name: noise-repellent-win32-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
@@ -303,7 +303,7 @@ jobs:
       - name: Pack build
         shell: bash
         run: |
-          zip -r noise-repellent-win64-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }} ~/work/noise-repellent/noise-repellent/nrepellent.lv2
+          zip -jr noise-repellent-win64-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }} ~/work/noise-repellent/noise-repellent/nrepellent.lv2
       - uses: actions/upload-artifact@v2
         with:
           name: noise-repellent-win64-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
