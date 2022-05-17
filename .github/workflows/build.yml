@@ -39,12 +39,13 @@ jobs:
       - name: Pack build
         shell: bash
         run: |
-          zip -jr noise-repellent-linux64-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }} ~/work/noise-repellent/noise-repellent/nrepellent.lv2
+          zip -jr noise-repellent-linux64-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }} ~/work/noise-repellent/noise-repellent
       - uses: actions/upload-artifact@v2
         with:
           name: noise-repellent-linux64-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
           path: noise-repellent-linux64-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}.zip
       - name: Get release version number
+        if: startsWith(github.ref, 'refs/tags/')
         id: get_version
         uses: battila7/get-version-action@v2
       - name: Rename zip if tag branch
@@ -102,12 +103,13 @@ jobs:
       - name: Pack build
         shell: bash
         run: |
-          zip -jr noise-repellent-macOS-universal-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }} ~/work/noise-repellent/noise-repellent/nrepellent.lv2
+          zip -jr noise-repellent-macOS-universal-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }} ~/work/noise-repellent/noise-repellent
       - uses: actions/upload-artifact@v2
         with:
           name: noise-repellent-macOS-universal-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
           path: noise-repellent-macOS-universal-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}.zip
       - name: Get release version number
+        if: startsWith(github.ref, 'refs/tags/')
         id: get_version
         uses: battila7/get-version-action@v2
       - name: Rename zip if tag branch
@@ -161,12 +163,13 @@ jobs:
       - name: Pack build
         shell: bash
         run: |
-          zip -jr noise-repellent-macOS-intel-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }} ~/work/noise-repellent/noise-repellent/nrepellent.lv2
+          zip -jr noise-repellent-macOS-intel-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }} ~/work/noise-repellent/noise-repellent
       - uses: actions/upload-artifact@v2
         with:
           name: noise-repellent-macOS-intel-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
           path: noise-repellent-macOS-intel-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}.zip
       - name: Get release version number
+        if: startsWith(github.ref, 'refs/tags/')
         id: get_version
         uses: battila7/get-version-action@v2
       - name: Rename zip if tag branch
@@ -239,8 +242,9 @@ jobs:
       - name: Pack build
         shell: bash
         run: |
-          zip -jr noise-repellent-win32-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }} ~/work/noise-repellent/noise-repellent/nrepellent.lv2
+          zip -jr noise-repellent-win32-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }} ~/work/noise-repellent/noise-repellent
       - name: Get release version number
+        if: startsWith(github.ref, 'refs/tags/')
         id: get_version
         uses: battila7/get-version-action@v2
       - uses: actions/upload-artifact@v2
@@ -315,12 +319,13 @@ jobs:
       - name: Pack build
         shell: bash
         run: |
-          zip -jr noise-repellent-win64-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }} ~/work/noise-repellent/noise-repellent/nrepellent.lv2
+          zip -jr noise-repellent-win64-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }} ~/work/noise-repellent/noise-repellent
       - uses: actions/upload-artifact@v2
         with:
           name: noise-repellent-win64-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
           path: noise-repellent-win64-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}.zip
       - name: Get release version number
+        if: startsWith(github.ref, 'refs/tags/')
         id: get_version
         uses: battila7/get-version-action@v2
       - name: Rename zip if tag branch
