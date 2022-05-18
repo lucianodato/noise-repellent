@@ -88,7 +88,8 @@
   ], [
     a lv2:InputPort, lv2:ControlPort ;
     lv2:index 4 ;
-    lv2:name "Actif"@fr ,
+    lv2:name "Activar"@es ,
+      "Actif"@fr ,
       "Enable" ;
     lv2:symbol "enable" ;
     lv2:minimum 0 ;
@@ -99,8 +100,7 @@
   ], [
     a lv2:OutputPort,
       lv2:ControlPort ;
-    lv2:name "latence"@fr ,
-      "latency" ;
+    lv2:name "latency" ;
     lv2:index 5 ;
     lv2:symbol "latency" ;
     lv2:minimum 0 ;
@@ -113,15 +113,13 @@
       lv2:InputPort ;
     lv2:index 6 ;
     lv2:symbol "input" ;
-    lv2:name "Entrée"@fr ,
-      "Input" ;
+    lv2:name "Input" ;
   ], [
     a lv2:AudioPort,
       lv2:OutputPort ;
     lv2:index 7 ;
     lv2:symbol "output" ;
-    lv2:name "Sortie"@fr ,
-      "Output" ;
+    lv2:name "Output" ;
   ];
   rdfs:comment "Un plugin LV2 para la reduccion de ruido. Version adaptativa para voces"@es,
                "Un greffon LV2 pour la réduction du bruit à large bande"@fr,
