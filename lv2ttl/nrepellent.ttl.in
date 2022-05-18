@@ -149,8 +149,8 @@
   ], [
     a lv2:OutputPort,
       lv2:ControlPort ;
-    lv2:name "Latence"@fr ,
-      "Latency" ;
+    lv2:name "latence"@fr ,
+      "latency" ;
     lv2:index 9 ;
     lv2:symbol "latency" ;
     lv2:minimum 0 ;
