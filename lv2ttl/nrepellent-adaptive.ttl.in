@@ -24,7 +24,7 @@
     "Noise repellent Adaptive" ;
 	doap:license <https://opensource.org/licenses/LGPL-3.0> ;
   doap:shortdesc "Un plugin LV2 para la reduccion de ruido"@es ,
-    "Un plugin LV2 pour la réduction du bruit à large bande"@fr ,
+    "Un greffon LV2 pour la réduction du bruit à large bande"@fr ,
     "An LV2 plugin for broadband noise reduction" ;
   lv2:project <https://github.com/lucianodato/noise-repellent#adaptive> ;
   lv2:optionalFeature lv2:isLive, lv2:hardRTCapable ;
@@ -54,7 +54,7 @@
     lv2:index 1 ;
     lv2:symbol "offset" ;
     lv2:name "Fuerza de reduccion"@es ,
-      ""@fr ,
+      "Force de réduction"@fr ,
       "Reduction strenght" ;
     lv2:minimum 0.0 ;
     lv2:maximum 12.0 ;
@@ -88,7 +88,8 @@
   ], [
     a lv2:InputPort, lv2:ControlPort ;
     lv2:index 4 ;
-    lv2:name "Enable" ;
+    lv2:name "Actif"@fr ,
+      "Enable" ;
     lv2:symbol "enable" ;
     lv2:minimum 0 ;
     lv2:maximum 1 ;
@@ -98,7 +99,8 @@
   ], [
     a lv2:OutputPort,
       lv2:ControlPort ;
-    lv2:name "latency" ;
+    lv2:name "latence"@fr ,
+      "latency" ;
     lv2:index 5 ;
     lv2:symbol "latency" ;
     lv2:minimum 0 ;
@@ -111,15 +113,17 @@
       lv2:InputPort ;
     lv2:index 6 ;
     lv2:symbol "input" ;
-    lv2:name "Input" ;
+    lv2:name "Entrée"@fr ,
+      "Input" ;
   ], [
     a lv2:AudioPort,
       lv2:OutputPort ;
     lv2:index 7 ;
     lv2:symbol "output" ;
-    lv2:name "Output" ;
+    lv2:name "Sortie"@fr ,
+      "Output" ;
   ];
   rdfs:comment "Un plugin LV2 para la reduccion de ruido. Version adaptativa para voces"@es,
-               "Un plugin LV2 pour la réduction du bruit à large bande"@fr,
+               "Un greffon LV2 pour la réduction du bruit à large bande"@fr,
                "An LV2 plugin for broadband noise reduction. Adaptive version for speech audio" ;
 .
