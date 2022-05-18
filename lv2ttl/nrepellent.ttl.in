@@ -24,7 +24,7 @@
     "Répulseur de bruit"@fr ,
     "Noise repellent" ;
   doap:shortdesc "Un plugin LV2 para la reduccion de ruido"@es ,
-               "Un plugin LV2 pour la réduction du bruit à large bande"@fr ,
+               "Un greffon LV2 pour la réduction du bruit à large bande"@fr ,
                "An LV2 plugin for broadband noise reduction" ;
   lv2:project <https://github.com/lucianodato/noise-repellent#new> ;
   lv2:optionalFeature lv2:isLive, lv2:hardRTCapable ;
@@ -138,7 +138,8 @@
   ], [
     a lv2:InputPort, lv2:ControlPort ;
     lv2:index 8 ;
-    lv2:name "Enable" ;
+    lv2:name "Actif"@fr ,
+      "Enable" ;
     lv2:symbol "enable" ;
     lv2:minimum 0 ;
     lv2:maximum 1 ;
@@ -148,7 +149,8 @@
   ], [
     a lv2:OutputPort,
       lv2:ControlPort ;
-    lv2:name "latency" ;
+    lv2:name "latence"@fr ,
+      "latency" ;
     lv2:index 9 ;
     lv2:symbol "latency" ;
     lv2:minimum 0 ;
@@ -161,15 +163,17 @@
       lv2:InputPort ;
     lv2:index 10 ;
     lv2:symbol "input" ;
-    lv2:name "Input" ;
+    lv2:name "Entrée"@fr ,
+      "Input" ;
   ], [
     a lv2:AudioPort,
       lv2:OutputPort ;
     lv2:index 11 ;
     lv2:symbol "output" ;
-    lv2:name "Output" ;
+    lv2:name "Sortie"@fr ,
+      "Output" ;
   ];
   rdfs:comment "Un plugin LV2 para la reduccion de ruido"@es,
-               "Un plugin LV2 pour la réduction du bruit à large bande"@fr,
+               "Un greffon LV2 pour la réduction du bruit à large bande"@fr,
                "An LV2 plugin for broadband noise reduction" ;
 .
