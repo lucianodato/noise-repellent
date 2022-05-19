@@ -15,12 +15,19 @@ libspecbleach_dep = dependency('libspecbleach', fallback : ['libspecbleach', 'li
 m_dep = meson.get_compiler('c').find_library('m', required: true)
 all_dep = [lv2_dep,libspecbleach_dep,m_dep]
 
+#get the host operating system and cpu architecture
+current_os = host_machine.system()
+current_arch = build_machine.cpu_family()
+
 # shared c_args for libraries
 lib_c_args = ['-fvisibility=hidden']
 
-#get the host operating system and configure install path and shared object extension
-current_os = host_machine.system()
+# Add default x86 and x86_64 optimizations
+if current_arch == 'x86' or current_arch == 'x86_64'
+    lib_c_args += ['-msse','-msse2','-mfpmath=sse','-ffast-math','-fomit-frame-pointer','-fno-finite-math-only']
+endif
 
+# Configure extension for shared object
 if current_os == 'darwin' #mac
     extension = '.dylib'
 else #unix like    
