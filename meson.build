@@ -27,7 +27,7 @@ if current_arch == 'x86' or current_arch == 'x86_64'
     lib_c_args += ['-msse','-msse2','-mfpmath=sse','-ffast-math','-fomit-frame-pointer','-fno-finite-math-only']
 endif
 if current_os == 'darwin'
-    lib_c_args += ['-march=i386', '-march=x86-64']
+    lib_c_args += ['-march=x86', '-march=x86-64']
 endif
 
 
