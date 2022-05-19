@@ -24,7 +24,7 @@ lib_c_args = ['-fvisibility=hidden']
 
 # Add default x86 and x86_64 optimizations
 if current_os == 'darwin'
-    lib_c_args += ['-march=x86', '-march=x86-64']
+    lib_c_args += ['-mtune=native', '-march=native']
 endif
 if current_arch == 'x86' or current_arch == 'x86_64'
     lib_c_args += ['-msse','-msse2','-mfpmath=sse','-ffast-math','-fomit-frame-pointer','-fno-finite-math-only']
