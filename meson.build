@@ -1,4 +1,4 @@
-project('nrepellent.lv2','c',version: '0.2.2',default_options: ['default_library=shared','c_std=c99'])
+project('nrepellent.lv2','c',version: '0.2.3',default_options: ['default_library=shared','c_std=c99'])
 
 #install folder
 lv2_directory = join_paths(get_option('libdir'), 'lv2')
