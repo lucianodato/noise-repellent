@@ -15,6 +15,9 @@ libspecbleach_dep = dependency('libspecbleach', fallback : ['libspecbleach', 'li
 m_dep = meson.get_compiler('c').find_library('m', required: true)
 all_dep = [lv2_dep,libspecbleach_dep,m_dep]
 
+# shared c_args for libraries
+lib_c_args = ['-fvisibility=hidden']
+
 #get the host operating system and configure install path and shared object extension
 current_os = host_machine.system()
 
@@ -31,6 +34,7 @@ endif
 library('nrepellent',
     common_src,
     noise_repellent_src,
+    c_args: lib_c_args,
     name_prefix: '',
     dependencies: all_dep,
     install: true,
@@ -40,6 +44,7 @@ library('nrepellent',
 library('nrepellent-adaptive',
     common_src,
     noise_repellent_adaptive_src,
+    c_args: lib_c_args,
     name_prefix: '',
     dependencies: all_dep,
     install: true,
