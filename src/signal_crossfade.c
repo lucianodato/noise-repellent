@@ -58,7 +58,7 @@ static void signal_crossfade_update_wetdry_target(SignalCrossfade *self,
     self->wet_dry_target = 0.F;
   }
 
-  self->wet_dry += self->tau * (self->wet_dry_target - self->wet_dry) + FLT_MIN;
+  self->wet_dry += self->tau * (self->wet_dry_target - self->wet_dry);
 }
 
 bool signal_crossfade_run(SignalCrossfade *self,
