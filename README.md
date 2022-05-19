@@ -17,14 +17,14 @@ A suite of lv2 plugins for noise reduction that uses [libspecbleach](https://git
 
 Binaries for most platforms are provided with Github release. Just extract the adequate zip file for your platform to your [lv2 plugins folder](https://lv2plug.in/pages/filesystem-hierarchy-standard.html)
 
-If you wish to compile yourself and install this plug-in you will need the a C compiling toolchain, LV2 SDK, Meson build system, ninja compiler, git and libspecbleach library (if it doesn't find it it will download and compile it. In this case make sure to have libspecbleach dependencies installed).
+If you wish to compile yourself and install this plug-in you will need the a C compiling toolchain, LV2 SDK, Meson build system, ninja compiler, git and libspecbleach library (if it doesn't find it it will download and compile it. In this case make sure to have libspecbleach dependencies installed). It is recommended for you to include some optimizations in environment CFLAGS if you are in x86_64 architecture like the suggested bellow but you can customize them for the architecture that you are in.
 
 Installation:
 
 ```bash
   git clone https://github.com/lucianodato/noise-repellent.git
   cd noise-repellent
-  meson build --buildtype=release --prefix=/usr --libdir=lib (your-os-appropriate-location-fullpath)
+  CFLAGS="-ffast-math -msse -msse2 -mfpmath=sse" meson build --buildtype=release --prefix=/usr --libdir=lib (your-os-appropriate-location-fullpath)
   meson compile -C build -v
   sudo meson install -C build
 ```

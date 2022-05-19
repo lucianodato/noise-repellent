@@ -29,7 +29,7 @@ jobs:
       - name: Build noise-repellent
         shell: bash
         run: |
-          CFLAGS="-fvisibility=hidden -ffast-math -msse -msse2 -mfpmath=sse" meson build --buildtype release --prefix /tmp --libdir /tmp
+          CFLAGS="-ffast-math -msse -msse2 -mfpmath=sse" meson build --buildtype release --prefix /tmp --libdir /tmp
           meson compile -v -C build
           meson install -C build --skip-subprojects
           mv /tmp/lv2/nrepellent.lv2 ./nrepellent.lv2
