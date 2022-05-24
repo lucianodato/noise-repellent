@@ -317,7 +317,7 @@ static void run(LV2_Handle instance, uint32_t number_of_samples) {
 
   // clang-format off
   self->parameters = (SpectralBleachParameters){
-      .learn_noise = (bool)*self->learn_noise,
+      .learn_noise = (int)*self->learn_noise,
       .residual_listen = (bool)*self->residual_listen,
       .transient_protection = (bool)*self->transient_protection,
       .reduction_amount = *self->reduction_amount,
