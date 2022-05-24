@@ -119,12 +119,8 @@
             rdfs:label "Maximum of Noise", "Maximo del Ruido"@es ;
             rdf:value 2
     ] ; 
-    lv2:scalePoint [
-            rdfs:label "Minimum of Noise", "Minimo del Ruido"@es ;
-            rdf:value 3
-    ] ;
     lv2:minimum 0 ;
-    lv2:maximum 3 ;
+    lv2:maximum 2 ;
     lv2:default 0 ;
     lv2:portProperty lv2:integer ;
   ], [    
