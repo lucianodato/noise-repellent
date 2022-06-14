@@ -34,6 +34,7 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #define NOISEREPELLENT_URI "https://github.com/lucianodato/noise-repellent#new"
 #define NOISEREPELLENT_STEREO_URI                                              \
   "https://github.com/lucianodato/noise-repellent-stereo#new"
+#define FRAME_SIZE 46
 
 typedef struct URIs {
   LV2_URID atom_Int;
@@ -214,7 +215,8 @@ static LV2_Handle instantiate(const LV2_Descriptor *descriptor,
     return NULL;
   }
 
-  self->lib_instance_1 = specbleach_initialize((uint32_t)self->sample_rate);
+  self->lib_instance_1 =
+      specbleach_initialize((uint32_t)self->sample_rate, FRAME_SIZE);
   if (!self->lib_instance_1) {
     lv2_log_error(&self->log, "Error initializing <%s>\n", self->plugin_uri);
     cleanup((LV2_Handle)self);
@@ -230,7 +232,8 @@ static LV2_Handle instantiate(const LV2_Descriptor *descriptor,
   self->noise_profile_1 = (float *)calloc(self->profile_size, sizeof(float));
 
   if (strstr(self->plugin_uri, NOISEREPELLENT_STEREO_URI)) {
-    self->lib_instance_2 = specbleach_initialize((uint32_t)self->sample_rate);
+    self->lib_instance_2 =
+        specbleach_initialize((uint32_t)self->sample_rate, FRAME_SIZE);
 
     if (!self->lib_instance_2) {
       lv2_log_error(&self->log, "Error initializing <%s>\n", self->plugin_uri);

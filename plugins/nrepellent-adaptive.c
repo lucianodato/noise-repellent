@@ -31,6 +31,7 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
   "https://github.com/lucianodato/noise-repellent#adaptive"
 #define NOISEREPELLENT_ADAPTIVE_STEREO_URI                                     \
   "https://github.com/lucianodato/noise-repellent#adaptive-stereo"
+#define FRAME_SIZE 36
 
 typedef struct URIs {
   LV2_URID plugin;
@@ -145,7 +146,7 @@ static LV2_Handle instantiate(const LV2_Descriptor *descriptor,
   self->sample_rate = (float)rate;
 
   self->lib_instance_1 =
-      specbleach_adaptive_initialize((uint32_t)self->sample_rate);
+      specbleach_adaptive_initialize((uint32_t)self->sample_rate, FRAME_SIZE);
   if (!self->lib_instance_1) {
     cleanup((LV2_Handle)self);
     return NULL;
@@ -160,7 +161,7 @@ static LV2_Handle instantiate(const LV2_Descriptor *descriptor,
 
   if (strstr(self->plugin_uri, NOISEREPELLENT_ADAPTIVE_STEREO_URI)) {
     self->lib_instance_2 =
-        specbleach_adaptive_initialize((uint32_t)self->sample_rate);
+        specbleach_adaptive_initialize((uint32_t)self->sample_rate, FRAME_SIZE);
 
     if (!self->lib_instance_2) {
       lv2_log_error(&self->log, "Error initializing <%s>\n", self->plugin_uri);
