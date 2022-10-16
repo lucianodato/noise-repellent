@@ -86,7 +86,7 @@
     lv2:symbol "offset" ;
     lv2:name "Fuerza de reduccion"@es ,
       "Force de réduction"@fr ,
-      "Reduction strenght" ;
+      "Reduction strength" ;
     lv2:minimum 0.0 ;
     lv2:maximum 12.0 ;
     lv2:default 2.0 ;
@@ -117,9 +117,21 @@
     lv2:default 0.0 ;
     units:unit units:pc ;
   ], [
+    a lv2:ControlPort,
+      lv2:InputPort ;
+    lv2:index 5 ;
+    lv2:symbol "whitening" ;
+    lv2:name "Blanqueo de residuo"@es ,
+      "Blanchissement du bruit"@fr ,
+      "Residual whitening" ;
+    lv2:minimum 0.0 ;
+    lv2:maximum 100.0 ;
+    lv2:default 0.0 ;
+    units:unit units:pc ;
+  ], [  
     a lv2:InputPort,
     lv2:ControlPort ;
-    lv2:index 5 ;
+    lv2:index 6 ;
     lv2:symbol "Residual_listen" ;
     lv2:name "Escuchar Residuo"@es ,
       "Écoute résiduelle"@fr ,
@@ -130,7 +142,7 @@
     lv2:portProperty lv2:toggled, lv2:integer ;
   ], [
     a lv2:InputPort, lv2:ControlPort ;
-    lv2:index 6 ;
+    lv2:index 7 ;
     lv2:name "Activar"@es ,
       "Actif"@fr ,
       "Enable" ;
@@ -144,7 +156,7 @@
     a lv2:OutputPort,
       lv2:ControlPort ;
     lv2:name "latency" ;
-    lv2:index 7 ;
+    lv2:index 8 ;
     lv2:symbol "latency" ;
     lv2:minimum 0 ;
     lv2:maximum 8192 ;
@@ -154,25 +166,25 @@
   ], [
     a lv2:AudioPort,
       lv2:InputPort ;
-    lv2:index 8 ;
+    lv2:index 9 ;
     lv2:symbol "input_1" ;
     lv2:name "Input Left" ;
   ], [
     a lv2:AudioPort,
       lv2:OutputPort ;
-    lv2:index 9 ;
+    lv2:index 10 ;
     lv2:symbol "output_1" ;
     lv2:name "Output Left" ;
   ], [
     a lv2:AudioPort,
       lv2:InputPort ;
-    lv2:index 10 ;
+    lv2:index 11 ;
     lv2:symbol "input_2" ;
     lv2:name "Input Right" ;
   ], [
     a lv2:AudioPort,
       lv2:OutputPort ;
-    lv2:index 11 ;
+    lv2:index 12 ;
     lv2:symbol "output_2" ;
     lv2:name "Output Right" ;
   ];

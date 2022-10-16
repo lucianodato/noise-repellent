@@ -50,13 +50,14 @@ typedef enum PortIndex {
   NOISEREPELLENT_NOISE_OFFSET = 2,
   NOISEREPELLENT_POSTFILTER = 3,
   NOISEREPELLENT_NOISE_SMOOTHING = 4,
-  NOISEREPELLENT_RESIDUAL_LISTEN = 5,
-  NOISEREPELLENT_ENABLE = 6,
-  NOISEREPELLENT_LATENCY = 7,
-  NOISEREPELLENT_INPUT_1 = 8,
-  NOISEREPELLENT_OUTPUT_1 = 9,
-  NOISEREPELLENT_INPUT_2 = 10,
-  NOISEREPELLENT_OUTPUT_2 = 11,
+  NOISEREPELLENT_WHITENING = 5,
+  NOISEREPELLENT_RESIDUAL_LISTEN = 6, 
+  NOISEREPELLENT_ENABLE = 7,
+  NOISEREPELLENT_LATENCY = 8,
+  NOISEREPELLENT_INPUT_1 = 9,
+  NOISEREPELLENT_OUTPUT_1 = 10,
+  NOISEREPELLENT_INPUT_2 = 11,
+  NOISEREPELLENT_OUTPUT_2 = 12,
 } PortIndex;
 
 typedef struct NoiseRepellentAdaptivePlugin {
@@ -82,6 +83,7 @@ typedef struct NoiseRepellentAdaptivePlugin {
   float *noise_scaling_type;
   float *reduction_amount;
   float *smoothing_factor;
+  float *whitening_factor;
   float *noise_rescale;
   float *postfilter_threshold;
 
@@ -192,6 +194,9 @@ static void connect_port(LV2_Handle instance, uint32_t port, void *data) {
   case NOISEREPELLENT_NOISE_SMOOTHING:
     self->smoothing_factor = (float *)data;
     break;
+  case NOISEREPELLENT_WHITENING:
+    self->whitening_factor = (float *)data;
+    break;
   case NOISEREPELLENT_RESIDUAL_LISTEN:
     self->residual_listen = (float *)data;
     break;
@@ -245,6 +250,7 @@ static void run(LV2_Handle instance, uint32_t number_of_samples) {
       .residual_listen = (bool)*self->residual_listen,
       .reduction_amount = *self->reduction_amount,
       .smoothing_factor = *self->smoothing_factor,
+      .whitening_factor = *self->whitening_factor,
       .noise_rescale = *self->noise_rescale,
       .noise_scaling_type = (int)*self->noise_scaling_type,
       .post_filter_threshold = *self->postfilter_threshold,
