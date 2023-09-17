@@ -51,7 +51,7 @@ typedef enum PortIndex {
   NOISEREPELLENT_POSTFILTER = 3,
   NOISEREPELLENT_NOISE_SMOOTHING = 4,
   NOISEREPELLENT_WHITENING = 5,
-  NOISEREPELLENT_RESIDUAL_LISTEN = 6, 
+  NOISEREPELLENT_RESIDUAL_LISTEN = 6,
   NOISEREPELLENT_ENABLE = 7,
   NOISEREPELLENT_LATENCY = 8,
   NOISEREPELLENT_INPUT_1 = 9,
@@ -133,7 +133,7 @@ static LV2_Handle instantiate(const LV2_Descriptor *descriptor,
     return NULL;
   }
 
-  if (strstr(descriptor->URI, NOISEREPELLENT_ADAPTIVE_URI)) {
+  if (!strcmp(descriptor->URI, NOISEREPELLENT_ADAPTIVE_STEREO_URI)) {
     self->plugin_uri = (char *)calloc(
         strlen(NOISEREPELLENT_ADAPTIVE_STEREO_URI) + 1, sizeof(char));
     strcpy(self->plugin_uri, descriptor->URI);
@@ -161,7 +161,7 @@ static LV2_Handle instantiate(const LV2_Descriptor *descriptor,
     return NULL;
   }
 
-  if (strstr(self->plugin_uri, NOISEREPELLENT_ADAPTIVE_STEREO_URI)) {
+  if (!strcmp(self->plugin_uri, NOISEREPELLENT_ADAPTIVE_STEREO_URI)) {
     self->lib_instance_2 =
         specbleach_adaptive_initialize((uint32_t)self->sample_rate, FRAME_SIZE);
 
@@ -259,11 +259,12 @@ static void run(LV2_Handle instance, uint32_t number_of_samples) {
 
   specbleach_adaptive_load_parameters(self->lib_instance_1, self->parameters);
 
-  specbleach_adaptive_process(self->lib_instance_1, number_of_samples,
-                              self->input_1, self->output_1);
+  if(*self->enable)
+    specbleach_adaptive_process(self->lib_instance_1, number_of_samples,
+                                self->input_1, self->output_1);
 
-  signal_crossfade_run(self->soft_bypass, number_of_samples, self->input_1,
-                       self->output_1, (bool)*self->enable);
+  /*signal_crossfade_run(self->soft_bypass, number_of_samples, self->input_1,
+                       self->output_1, (bool)*self->enable);*/
 }
 
 static void run_stereo(LV2_Handle instance, uint32_t number_of_samples) {
@@ -273,11 +274,12 @@ static void run_stereo(LV2_Handle instance, uint32_t number_of_samples) {
 
   specbleach_adaptive_load_parameters(self->lib_instance_2, self->parameters);
 
-  specbleach_adaptive_process(self->lib_instance_2, number_of_samples,
-                              self->input_2, self->output_2);
+  if(*self->enable)
+    specbleach_adaptive_process(self->lib_instance_2, number_of_samples,
+                                self->input_2, self->output_2);
 
-  signal_crossfade_run(self->soft_bypass, number_of_samples, self->input_2,
-                       self->output_2, (bool)*self->enable);
+  /*signal_crossfade_run(self->soft_bypass, number_of_samples, self->input_2,
+                       self->output_2, (bool)*self->enable);*/
 }
 
 // clang-format off

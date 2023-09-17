@@ -62,7 +62,7 @@ static void map_uris(LV2_URID_Map *map, URIs *uris, const char *uri) {
 }
 
 static void map_state(LV2_URID_Map *map, State *state, const char *uri) {
-  if (strcmp(uri, NOISEREPELLENT_URI)) {
+  if (!strcmp(uri, NOISEREPELLENT_STEREO_URI)) {
     state->property_noise_profile_1 =
         map->map(map->handle, NOISEREPELLENT_STEREO_URI "#noiseprofile");
     state->property_noise_profile_2 =
@@ -71,7 +71,6 @@ static void map_state(LV2_URID_Map *map, State *state, const char *uri) {
         map->map(map->handle, NOISEREPELLENT_STEREO_URI "#noiseprofilesize");
     state->property_averaged_blocks = map->map(
         map->handle, NOISEREPELLENT_STEREO_URI "#noiseprofileaveragedblocks");
-
   } else {
     state->property_noise_profile_1 =
         map->map(map->handle, NOISEREPELLENT_URI "#noiseprofile");
@@ -193,15 +192,8 @@ static LV2_Handle instantiate(const LV2_Descriptor *descriptor,
     return NULL;
   }
 
-  if (strstr(descriptor->URI, NOISEREPELLENT_STEREO_URI)) {
-    self->plugin_uri =
-        (char *)calloc(strlen(NOISEREPELLENT_STEREO_URI) + 1U, sizeof(char));
-    strcpy(self->plugin_uri, descriptor->URI);
-  } else {
-    self->plugin_uri =
-        (char *)calloc(strlen(NOISEREPELLENT_URI) + 1U, sizeof(char));
-    strcpy(self->plugin_uri, descriptor->URI);
-  }
+  self->plugin_uri = (char *)calloc(strlen(descriptor->URI) + 1U, sizeof(char));
+  strcpy(self->plugin_uri, descriptor->URI);
 
   map_uris(self->map, &self->uris, self->plugin_uri);
   map_state(self->map, &self->state, self->plugin_uri);
@@ -231,7 +223,7 @@ static LV2_Handle instantiate(const LV2_Descriptor *descriptor,
 
   self->noise_profile_1 = (float *)calloc(self->profile_size, sizeof(float));
 
-  if (strstr(self->plugin_uri, NOISEREPELLENT_STEREO_URI)) {
+  if (!strcmp(self->plugin_uri, NOISEREPELLENT_STEREO_URI)) {
     self->lib_instance_2 =
         specbleach_initialize((uint32_t)self->sample_rate, FRAME_SIZE);
 
@@ -296,18 +288,6 @@ static void connect_port(LV2_Handle instance, uint32_t port, void *data) {
   case NOISEREPELLENT_OUTPUT_1:
     self->output_1 = (float *)data;
     break;
-  default:
-    break;
-  }
-}
-
-static void connect_port_stereo(LV2_Handle instance, uint32_t port,
-                                void *data) {
-  NoiseRepellentPlugin *self = (NoiseRepellentPlugin *)instance;
-
-  connect_port(instance, port, data);
-
-  switch ((PortIndex)port) {
   case NOISEREPELLENT_INPUT_2:
     self->input_2 = (const float *)data;
     break;
@@ -348,11 +328,12 @@ static void run(LV2_Handle instance, uint32_t number_of_samples) {
     specbleach_reset_noise_profile(self->lib_instance_1);
   }
 
-  specbleach_process(self->lib_instance_1, number_of_samples, self->input_1,
-                     self->output_1);
+  if(*self->enable)
+    specbleach_process(self->lib_instance_1, number_of_samples, self->input_1,
+                       self->output_1);
 
-  signal_crossfade_run(self->soft_bypass, number_of_samples, self->input_1,
-                       self->output_1, (bool)*self->enable);
+  /*signal_crossfade_run(self->soft_bypass, number_of_samples, self->input_1,
+                       self->output_1, (bool)*self->enable);*/
 }
 
 static void run_stereo(LV2_Handle instance, uint32_t number_of_samples) {
@@ -366,11 +347,12 @@ static void run_stereo(LV2_Handle instance, uint32_t number_of_samples) {
     specbleach_reset_noise_profile(self->lib_instance_2);
   }
 
-  specbleach_process(self->lib_instance_2, number_of_samples, self->input_2,
-                     self->output_2);
+  if(*self->enable)
+    specbleach_process(self->lib_instance_2, number_of_samples, self->input_2,
+                       self->output_2);
 
-  signal_crossfade_run(self->soft_bypass, number_of_samples, self->input_2,
-                       self->output_2, (bool)*self->enable);
+  /*signal_crossfade_run(self->soft_bypass, number_of_samples, self->input_2,
+                       self->output_2, (bool)*self->enable);*/
 }
 
 static LV2_State_Status save(LV2_Handle instance,
@@ -401,7 +383,7 @@ static LV2_State_Status save(LV2_Handle instance,
         (void *)self->noise_profile_state_1, noise_profile_get_size(),
         self->uris.atom_Vector, LV2_STATE_IS_POD | LV2_STATE_IS_PORTABLE);
 
-  if (strstr(self->plugin_uri, NOISEREPELLENT_STEREO_URI)) {
+  if (!strcmp(self->plugin_uri, NOISEREPELLENT_STEREO_URI)) {
     memcpy(noise_profile_get_elements(self->noise_profile_state_2),
            specbleach_get_noise_profile(self->lib_instance_2),
            sizeof(float) * self->profile_size);
@@ -449,7 +431,7 @@ static LV2_State_Status restore(LV2_Handle instance,
   specbleach_load_noise_profile(self->lib_instance_1, self->noise_profile_1,
                                 *fftsize, *averagedblocks);
 
-  if (strstr(self->plugin_uri, NOISEREPELLENT_STEREO_URI)) {
+  if (!strcmp(self->plugin_uri, NOISEREPELLENT_STEREO_URI)) {
     const void *saved_noise_profile_2 = retrieve(
         handle, self->state.property_noise_profile_2, &size, &type, &valflags);
     if (!saved_noise_profile_2 || size != noise_profile_get_size() ||
@@ -490,7 +472,7 @@ static const LV2_Descriptor descriptor = {
 static const LV2_Descriptor descriptor_stereo = {
     NOISEREPELLENT_STEREO_URI,
     instantiate,
-    connect_port_stereo,
+    connect_port,
     activate,
     run_stereo,
     NULL,
