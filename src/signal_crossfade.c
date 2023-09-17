@@ -71,7 +71,7 @@ bool signal_crossfade_run(SignalCrossfade *self,
   signal_crossfade_update_wetdry_target(self, enable);
 
   for (uint32_t k = 0U; k < number_of_samples; k++) {
-    output[k] = input[k];
+    output[k] = (1.F - self->wet_dry) * input[k] + output[k] * self->wet_dry;
   }
 
   return true;
