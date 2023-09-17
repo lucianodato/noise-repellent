@@ -62,7 +62,7 @@ static void map_uris(LV2_URID_Map *map, URIs *uris, const char *uri) {
 }
 
 static void map_state(LV2_URID_Map *map, State *state, const char *uri) {
-  if (!strcmp(uri, NOISEREPELLENT_URI)) {
+  if (strcmp(uri, NOISEREPELLENT_URI)) {
     state->property_noise_profile_1 =
         map->map(map->handle, NOISEREPELLENT_STEREO_URI "#noiseprofile");
     state->property_noise_profile_2 =
