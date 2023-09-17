@@ -34,6 +34,7 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #define NOISEREPELLENT_URI "https://github.com/lucianodato/noise-repellent#new"
 #define NOISEREPELLENT_STEREO_URI                                              \
   "https://github.com/lucianodato/noise-repellent-stereo#new"
+#define FRAME_SIZE 46
 
 typedef struct URIs {
   LV2_URID atom_Int;
@@ -82,20 +83,22 @@ static void map_state(LV2_URID_Map *map, State *state, const char *uri) {
 }
 
 typedef enum PortIndex {
-  NOISEREPELLENT_AMOUNT = 0,
-  NOISEREPELLENT_NOISE_OFFSET = 1,
-  NOISEREPELLENT_SMOOTHING = 2,
-  NOISEREPELLENT_WHITENING = 3,
-  NOISEREPELLENT_TRANSIENT_PROTECTION = 4,
-  NOISEREPELLENT_NOISE_LEARN = 5,
-  NOISEREPELLENT_RESIDUAL_LISTEN = 6,
-  NOISEREPELLENT_RESET_NOISE_PROFILE = 7,
-  NOISEREPELLENT_ENABLE = 8,
-  NOISEREPELLENT_LATENCY = 9,
-  NOISEREPELLENT_INPUT_1 = 10,
-  NOISEREPELLENT_OUTPUT_1 = 11,
-  NOISEREPELLENT_INPUT_2 = 12,
-  NOISEREPELLENT_OUTPUT_2 = 13,
+  NOISEREPELLENT_NOISE_LEARN = 0,
+  NOISEREPELLENT_AMOUNT = 1,
+  NOISEREPELLENT_NOISE_REDUCTION_TYPE = 2,
+  NOISEREPELLENT_NOISE_OFFSET = 3,
+  NOISEREPELLENT_POSTFILTER = 4,
+  NOISEREPELLENT_SMOOTHING = 5,
+  NOISEREPELLENT_WHITENING = 6,
+  NOISEREPELLENT_TRANSIENT_PROTECTION = 7,
+  NOISEREPELLENT_RESIDUAL_LISTEN = 8,
+  NOISEREPELLENT_RESET_NOISE_PROFILE = 9,
+  NOISEREPELLENT_ENABLE = 10,
+  NOISEREPELLENT_LATENCY = 11,
+  NOISEREPELLENT_INPUT_1 = 12,
+  NOISEREPELLENT_OUTPUT_1 = 13,
+  NOISEREPELLENT_INPUT_2 = 14,
+  NOISEREPELLENT_OUTPUT_2 = 15,
 } PortIndex;
 
 typedef struct NoiseRepellentPlugin {
@@ -124,11 +127,13 @@ typedef struct NoiseRepellentPlugin {
 
   float *enable;
   float *learn_noise;
+  float *noise_scaling_type;
   float *transient_protection;
   float *residual_listen;
   float *reduction_amount;
   float *smoothing_factor;
   float *whitening_factor;
+  float *postfilter_threshold;
   float *noise_rescale;
   float *reset_noise_profile;
 
@@ -210,7 +215,8 @@ static LV2_Handle instantiate(const LV2_Descriptor *descriptor,
     return NULL;
   }
 
-  self->lib_instance_1 = specbleach_initialize((uint32_t)self->sample_rate);
+  self->lib_instance_1 =
+      specbleach_initialize((uint32_t)self->sample_rate, FRAME_SIZE);
   if (!self->lib_instance_1) {
     lv2_log_error(&self->log, "Error initializing <%s>\n", self->plugin_uri);
     cleanup((LV2_Handle)self);
@@ -226,7 +232,8 @@ static LV2_Handle instantiate(const LV2_Descriptor *descriptor,
   self->noise_profile_1 = (float *)calloc(self->profile_size, sizeof(float));
 
   if (strstr(self->plugin_uri, NOISEREPELLENT_STEREO_URI)) {
-    self->lib_instance_2 = specbleach_initialize((uint32_t)self->sample_rate);
+    self->lib_instance_2 =
+        specbleach_initialize((uint32_t)self->sample_rate, FRAME_SIZE);
 
     if (!self->lib_instance_2) {
       lv2_log_error(&self->log, "Error initializing <%s>\n", self->plugin_uri);
@@ -250,6 +257,9 @@ static void connect_port(LV2_Handle instance, uint32_t port, void *data) {
   case NOISEREPELLENT_AMOUNT:
     self->reduction_amount = (float *)data;
     break;
+  case NOISEREPELLENT_NOISE_REDUCTION_TYPE:
+    self->noise_scaling_type = (float *)data;
+    break;
   case NOISEREPELLENT_NOISE_OFFSET:
     self->noise_rescale = (float *)data;
     break;
@@ -258,6 +268,9 @@ static void connect_port(LV2_Handle instance, uint32_t port, void *data) {
     break;
   case NOISEREPELLENT_WHITENING:
     self->whitening_factor = (float *)data;
+    break;
+  case NOISEREPELLENT_POSTFILTER:
+    self->postfilter_threshold = (float *)data;
     break;
   case NOISEREPELLENT_TRANSIENT_PROTECTION:
     self->transient_protection = (float *)data;
@@ -317,13 +330,15 @@ static void run(LV2_Handle instance, uint32_t number_of_samples) {
 
   // clang-format off
   self->parameters = (SpectralBleachParameters){
-      .learn_noise = (bool)*self->learn_noise,
+      .learn_noise = (int)*self->learn_noise,
       .residual_listen = (bool)*self->residual_listen,
+      .noise_scaling_type = (int)*self->noise_scaling_type,
       .transient_protection = (bool)*self->transient_protection,
       .reduction_amount = *self->reduction_amount,
       .noise_rescale = *self->noise_rescale,
       .smoothing_factor = *self->smoothing_factor,
       .whitening_factor = *self->whitening_factor,
+      .post_filter_threshold = *self->postfilter_threshold,
   };
   // clang-format on
 
