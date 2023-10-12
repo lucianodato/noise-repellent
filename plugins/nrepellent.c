@@ -51,7 +51,7 @@ typedef struct State {
 } State;
 
 static void map_uris(LV2_URID_Map *map, URIs *uris, const char *uri) {
-  uris->plugin = strcmp(uri, NOISEREPELLENT_URI)
+  uris->plugin = strcmp(uri, NOISEREPELLENT_URI) == 0
                      ? map->map(map->handle, NOISEREPELLENT_URI)
                      : map->map(map->handle, NOISEREPELLENT_STEREO_URI);
   uris->atom_Int = map->map(map->handle, LV2_ATOM__Int);
@@ -61,7 +61,7 @@ static void map_uris(LV2_URID_Map *map, URIs *uris, const char *uri) {
 }
 
 static void map_state(LV2_URID_Map *map, State *state, const char *uri) {
-  if (!strcmp(uri, NOISEREPELLENT_URI)) {
+  if (strcmp(uri, NOISEREPELLENT_STEREO_URI) == 0) {
     state->property_noise_profile_1 =
         map->map(map->handle, NOISEREPELLENT_STEREO_URI "#noiseprofile");
     state->property_noise_profile_2 =

@@ -38,7 +38,7 @@ typedef struct URIs {
 
 static void map_uris(LV2_URID_Map *map, URIs *uris, const char *uri) {
   uris->plugin =
-      strcmp(uri, NOISEREPELLENT_ADAPTIVE_URI)
+      strcmp(uri, NOISEREPELLENT_ADAPTIVE_URI) == 0
           ? map->map(map->handle, NOISEREPELLENT_ADAPTIVE_URI)
           : map->map(map->handle, NOISEREPELLENT_ADAPTIVE_STEREO_URI);
 }
