@@ -409,17 +409,19 @@ static LV2_State_Status restore(LV2_Handle instance,
   uint32_t type = 0U;
   uint32_t valflags = 0U;
 
-  const uint32_t *fftsize = (const uint32_t *)retrieve(
+  const uint32_t *saved_fftsize = (const uint32_t *)retrieve(
       handle, self->state.property_noise_profile_size, &size, &type, &valflags);
-  if (fftsize == NULL || type != self->uris.atom_Int) {
+  if (saved_fftsize == NULL || type != self->uris.atom_Int) {
     return LV2_STATE_ERR_NO_PROPERTY;
   }
+  const uint32_t fftsize = *saved_fftsize;
 
-  const uint32_t *averagedblocks = (const uint32_t *)retrieve(
+  const uint32_t *saved_averagedblocks = (const uint32_t *)retrieve(
       handle, self->state.property_averaged_blocks, &size, &type, &valflags);
-  if (averagedblocks == NULL || type != self->uris.atom_Int) {
+  if (saved_averagedblocks == NULL || type != self->uris.atom_Int) {
     return LV2_STATE_ERR_NO_PROPERTY;
   }
+  const uint32_t averagedblocks = *saved_averagedblocks;
 
   const void *saved_noise_profile_1 = retrieve(
       handle, self->state.property_noise_profile_1, &size, &type, &valflags);
@@ -432,7 +434,7 @@ static LV2_State_Status restore(LV2_Handle instance,
          sizeof(float) * self->profile_size);
 
   specbleach_load_noise_profile(self->lib_instance_1, self->noise_profile_1,
-                                *fftsize, *averagedblocks);
+                                fftsize, averagedblocks);
 
   if (strstr(self->plugin_uri, NOISEREPELLENT_STEREO_URI)) {
     const void *saved_noise_profile_2 = retrieve(
@@ -446,7 +448,7 @@ static LV2_State_Status restore(LV2_Handle instance,
            sizeof(float) * self->profile_size);
 
     specbleach_load_noise_profile(self->lib_instance_2, self->noise_profile_2,
-                                  *fftsize, *averagedblocks);
+                                  fftsize, averagedblocks);
   }
 
   return LV2_STATE_SUCCESS;
