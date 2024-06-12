@@ -59,6 +59,8 @@ typedef enum PortIndex {
 typedef struct NoiseRepellentAdaptivePlugin {
   const float *input_1;
   const float *input_2;
+  float *input_buf_1;
+  float *input_buf_2;
   float *output_1;
   float *output_2;
   float sample_rate;
@@ -99,6 +101,14 @@ static void cleanup(LV2_Handle instance) {
 
   if (self->soft_bypass) {
     signal_crossfade_free(self->soft_bypass);
+  }
+
+  if (self->input_buf_1) {
+    free(self->input_buf_1);
+  }
+
+  if (self->input_buf_2) {
+    free(self->input_buf_2);
   }
 
   free(instance);
@@ -154,11 +164,29 @@ static LV2_Handle instantiate(const LV2_Descriptor *descriptor,
     return NULL;
   }
 
+  // input_buf_1 is needed for crossfade if the host uses in-place buffers
+  // (e.g. Ardour)
+  self->input_buf_1 = (float *)calloc((size_t)self->sample_rate, sizeof(float));
+  if (!self->input_buf_1) {
+    lv2_log_error(&self->log, "Error initializing <%s>\n", self->plugin_uri);
+    cleanup((LV2_Handle)self);
+    return NULL;
+  }
+
   if (strstr(self->plugin_uri, NOISEREPELLENT_ADAPTIVE_STEREO_URI)) {
     self->lib_instance_2 =
         specbleach_adaptive_initialize((uint32_t)self->sample_rate);
 
     if (!self->lib_instance_2) {
+      lv2_log_error(&self->log, "Error initializing <%s>\n", self->plugin_uri);
+      cleanup((LV2_Handle)self);
+      return NULL;
+    }
+
+    // input_buf_2 is needed for crossfade if the host uses in-place buffers
+    // (e.g. Ardour)
+    self->input_buf_2 = (float *)calloc((size_t)self->sample_rate, sizeof(float));
+    if (!self->input_buf_2) {
       lv2_log_error(&self->log, "Error initializing <%s>\n", self->plugin_uri);
       cleanup((LV2_Handle)self);
       return NULL;
@@ -224,10 +252,25 @@ static void activate(LV2_Handle instance) {
 
   *self->report_latency =
       (float)specbleach_adaptive_get_latency(self->lib_instance_1);
+
+  if (self->input_buf_1) {
+    memset(self->input_buf_1, 0.F, (size_t)self->sample_rate * sizeof(float));
+  }
+
+  if (self->input_buf_2) {
+    memset(self->input_buf_2, 0.F, (size_t)self->sample_rate * sizeof(float));
+  }
 }
 
 static void run(LV2_Handle instance, uint32_t number_of_samples) {
   NoiseRepellentAdaptivePlugin *self = (NoiseRepellentAdaptivePlugin *)instance;
+
+  // If the host gave us in-place buffers, we need to keep a copy of the input
+  if (self->input_1 == self->output_1) {
+    memcpy(self->input_buf_1, self->input_1, sizeof(float) *
+            (number_of_samples <= self->sample_rate ?
+              (size_t)number_of_samples : (size_t)self->sample_rate));
+  }
 
   // clang-format off
   self->parameters = (SpectralBleachParameters){
@@ -243,7 +286,8 @@ static void run(LV2_Handle instance, uint32_t number_of_samples) {
   specbleach_adaptive_process(self->lib_instance_1, number_of_samples,
                               self->input_1, self->output_1);
 
-  signal_crossfade_run(self->soft_bypass, number_of_samples, self->input_1,
+  signal_crossfade_run(self->soft_bypass, number_of_samples,
+                       self->input_1 == self->output_1 ? self->input_buf_1 : self->input_1,
                        self->output_1, (bool)*self->enable);
 }
 
@@ -252,12 +296,20 @@ static void run_stereo(LV2_Handle instance, uint32_t number_of_samples) {
 
   run(instance, number_of_samples); // Call left side first
 
+  // If the host gave us in-place buffers, we need to keep a copy of the input
+  if (self->input_2 == self->output_2) {
+    memcpy(self->input_buf_2, self->input_2, sizeof(float) *
+            (number_of_samples <= self->sample_rate ?
+              (size_t)number_of_samples : (size_t)self->sample_rate));
+  }
+
   specbleach_adaptive_load_parameters(self->lib_instance_2, self->parameters);
 
   specbleach_adaptive_process(self->lib_instance_2, number_of_samples,
                               self->input_2, self->output_2);
 
-  signal_crossfade_run(self->soft_bypass, number_of_samples, self->input_2,
+  signal_crossfade_run(self->soft_bypass, number_of_samples,
+                       self->input_2 == self->output_2 ? self->input_buf_2 : self->input_2,
                        self->output_2, (bool)*self->enable);
 }
 
