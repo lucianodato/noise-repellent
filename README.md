@@ -4,6 +4,8 @@ A suite of lv2 plugins for noise reduction that uses [libspecbleach](https://git
 
 [![build](https://github.com/lucianodato/noise-repellent/actions/workflows/build.yml/badge.svg)](https://github.com/lucianodato/noise-repellent/actions/workflows/build.yml)
 
+**WARNING!!!!** This project is not being actively mantained currently
+
 ## Features
 
 * Adaptive noise reduction plugin for low latency voice denoise
