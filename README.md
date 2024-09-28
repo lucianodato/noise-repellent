@@ -21,8 +21,10 @@ Installation:
 
 ```bash
   git clone https://github.com/Efenstor/noise-repellent-DEV-Efenstor-fork.git --branch=DEVELOPMENT
-  cd noise-repellent
-  meson build --buildtype=release --prefix=/usr/local --libdir=lib (your-os-appropriate-location-fullpath)
+  cd noise-repellent-DEV-Efenstor-fork
+  mkdir build
+  cd build
+  meson build .. --buildtype=release
   meson compile -C build -v
   sudo meson install -C build
 ```
