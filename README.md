@@ -1,4 +1,6 @@
-# noise-repellent
+# noise-repellent-DEV-Efenstor-fork
+
+###This is the fixed development branch of the original noise-repellent, probably not quite stable but tested and useable.
 
 A suite of lv2 plugins for noise reduction that uses [libspecbleach](https://github.com/lucianodato/libspecbleach) C library.
 
