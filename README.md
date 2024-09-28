@@ -24,9 +24,9 @@ Installation:
   cd noise-repellent-DEV-Efenstor-fork
   mkdir build
   cd build
-  meson build .. --buildtype=release
-  meson compile -C build -v
-  sudo meson install -C build
+  meson .. --buildtype=release
+  meson compile -v
+  sudo meson install
 ```
 
 ## Use Instuctions
