@@ -72,7 +72,7 @@ jobs:
             noise-repellent-linux64-${{ steps.get_version.outputs.version }}.zip
 
   macos-universal:
-    runs-on: macos-13
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
         with:
@@ -138,7 +138,7 @@ jobs:
         run: |
           sudo apt update
           sudo apt-get install -qy build-essential ninja-build python3-pip mingw-w64 \
-            binutils-mingw-w64-x86-64 g++-mingw-w64-x86-64 wine-stable wine-binfmt
+            binutils-mingw-w64-x86-64 g++-mingw-w64-x86-64 wine-stable wine-binfmt gperf
           sudo pip3 install meson --break-system-packages
       - name: Bootstrap win64 cross-compiled
         shell: bash
