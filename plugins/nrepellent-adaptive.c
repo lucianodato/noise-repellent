@@ -36,7 +36,7 @@ typedef struct URIs {
   LV2_URID plugin;
 } URIs;
 
-static void map_uris(LV2_URID_Map *map, URIs *uris, const char *uri) {
+static void map_uris(LV2_URID_Map* map, URIs* uris, const char* uri) {
   uris->plugin =
       strcmp(uri, NOISEREPELLENT_ADAPTIVE_URI)
           ? map->map(map->handle, NOISEREPELLENT_ADAPTIVE_URI)
@@ -57,33 +57,33 @@ typedef enum PortIndex {
 } PortIndex;
 
 typedef struct NoiseRepellentAdaptivePlugin {
-  const float *input_1;
-  const float *input_2;
-  float *output_1;
-  float *output_2;
+  const float* input_1;
+  const float* input_2;
+  float* output_1;
+  float* output_2;
   float sample_rate;
-  float *report_latency;
+  float* report_latency;
 
-  LV2_URID_Map *map;
+  LV2_URID_Map* map;
   LV2_Log_Logger log;
   URIs uris;
-  char *plugin_uri;
+  char* plugin_uri;
 
   SpectralBleachHandle lib_instance_1;
   SpectralBleachHandle lib_instance_2;
   SpectralBleachParameters parameters;
-  SignalCrossfade *soft_bypass;
+  SignalCrossfade* soft_bypass;
 
-  float *enable;
-  float *residual_listen;
-  float *reduction_amount;
-  float *smoothing_factor;
-  float *noise_rescale;
+  float* enable;
+  float* residual_listen;
+  float* reduction_amount;
+  float* smoothing_factor;
+  float* noise_rescale;
 
 } NoiseRepellentAdaptivePlugin;
 
 static void cleanup(LV2_Handle instance) {
-  NoiseRepellentAdaptivePlugin *self = (NoiseRepellentAdaptivePlugin *)instance;
+  NoiseRepellentAdaptivePlugin* self = (NoiseRepellentAdaptivePlugin*)instance;
 
   if (self->lib_instance_1) {
     specbleach_adaptive_free(self->lib_instance_1);
@@ -104,10 +104,10 @@ static void cleanup(LV2_Handle instance) {
   free(instance);
 }
 
-static LV2_Handle instantiate(const LV2_Descriptor *descriptor,
-                              const double rate, const char *bundle_path,
-                              const LV2_Feature *const *features) {
-  NoiseRepellentAdaptivePlugin *self = (NoiseRepellentAdaptivePlugin *)calloc(
+static LV2_Handle instantiate(const LV2_Descriptor* descriptor,
+                              const double rate, const char* bundle_path,
+                              const LV2_Feature* const* features) {
+  NoiseRepellentAdaptivePlugin* self = (NoiseRepellentAdaptivePlugin*)calloc(
       1U, sizeof(NoiseRepellentAdaptivePlugin));
 
   // clang-format off
@@ -127,12 +127,12 @@ static LV2_Handle instantiate(const LV2_Descriptor *descriptor,
   }
 
   if (strstr(descriptor->URI, NOISEREPELLENT_ADAPTIVE_URI)) {
-    self->plugin_uri = (char *)calloc(
+    self->plugin_uri = (char*)calloc(
         strlen(NOISEREPELLENT_ADAPTIVE_STEREO_URI) + 1, sizeof(char));
     strcpy(self->plugin_uri, descriptor->URI);
   } else {
     self->plugin_uri =
-        (char *)calloc(strlen(NOISEREPELLENT_ADAPTIVE_URI) + 1, sizeof(char));
+        (char*)calloc(strlen(NOISEREPELLENT_ADAPTIVE_URI) + 1, sizeof(char));
     strcpy(self->plugin_uri, descriptor->URI);
   }
 
@@ -140,8 +140,11 @@ static LV2_Handle instantiate(const LV2_Descriptor *descriptor,
 
   self->sample_rate = (float)rate;
 
-  self->lib_instance_1 =
-      specbleach_adaptive_initialize((uint32_t)self->sample_rate);
+#ifndef DEFAULT_FRAME_SIZE_MS
+#define DEFAULT_FRAME_SIZE_MS 40
+#endif
+  self->lib_instance_1 = specbleach_adaptive_initialize(
+      (uint32_t)self->sample_rate, (float)DEFAULT_FRAME_SIZE_MS);
   if (!self->lib_instance_1) {
     cleanup((LV2_Handle)self);
     return NULL;
@@ -155,8 +158,8 @@ static LV2_Handle instantiate(const LV2_Descriptor *descriptor,
   }
 
   if (strstr(self->plugin_uri, NOISEREPELLENT_ADAPTIVE_STEREO_URI)) {
-    self->lib_instance_2 =
-        specbleach_adaptive_initialize((uint32_t)self->sample_rate);
+    self->lib_instance_2 = specbleach_adaptive_initialize(
+        (uint32_t)self->sample_rate, (float)DEFAULT_FRAME_SIZE_MS);
 
     if (!self->lib_instance_2) {
       lv2_log_error(&self->log, "Error initializing <%s>\n", self->plugin_uri);
@@ -168,66 +171,66 @@ static LV2_Handle instantiate(const LV2_Descriptor *descriptor,
   return (LV2_Handle)self;
 }
 
-static void connect_port(LV2_Handle instance, uint32_t port, void *data) {
-  NoiseRepellentAdaptivePlugin *self = (NoiseRepellentAdaptivePlugin *)instance;
+static void connect_port(LV2_Handle instance, uint32_t port, void* data) {
+  NoiseRepellentAdaptivePlugin* self = (NoiseRepellentAdaptivePlugin*)instance;
 
   switch ((PortIndex)port) {
-  case NOISEREPELLENT_AMOUNT:
-    self->reduction_amount = (float *)data;
-    break;
-  case NOISEREPELLENT_NOISE_OFFSET:
-    self->noise_rescale = (float *)data;
-    break;
-  case NOISEREPELLENT_NOISE_SMOOTHING:
-    self->smoothing_factor = (float *)data;
-    break;
-  case NOISEREPELLENT_RESIDUAL_LISTEN:
-    self->residual_listen = (float *)data;
-    break;
-  case NOISEREPELLENT_ENABLE:
-    self->enable = (float *)data;
-    break;
-  case NOISEREPELLENT_LATENCY:
-    self->report_latency = (float *)data;
-    break;
-  case NOISEREPELLENT_INPUT_1:
-    self->input_1 = (const float *)data;
-    break;
-  case NOISEREPELLENT_OUTPUT_1:
-    self->output_1 = (float *)data;
-    break;
-  default:
-    break;
+    case NOISEREPELLENT_AMOUNT:
+      self->reduction_amount = (float*)data;
+      break;
+    case NOISEREPELLENT_NOISE_OFFSET:
+      self->noise_rescale = (float*)data;
+      break;
+    case NOISEREPELLENT_NOISE_SMOOTHING:
+      self->smoothing_factor = (float*)data;
+      break;
+    case NOISEREPELLENT_RESIDUAL_LISTEN:
+      self->residual_listen = (float*)data;
+      break;
+    case NOISEREPELLENT_ENABLE:
+      self->enable = (float*)data;
+      break;
+    case NOISEREPELLENT_LATENCY:
+      self->report_latency = (float*)data;
+      break;
+    case NOISEREPELLENT_INPUT_1:
+      self->input_1 = (const float*)data;
+      break;
+    case NOISEREPELLENT_OUTPUT_1:
+      self->output_1 = (float*)data;
+      break;
+    default:
+      break;
   }
 }
 
 static void connect_port_stereo(LV2_Handle instance, uint32_t port,
-                                void *data) {
-  NoiseRepellentAdaptivePlugin *self = (NoiseRepellentAdaptivePlugin *)instance;
+                                void* data) {
+  NoiseRepellentAdaptivePlugin* self = (NoiseRepellentAdaptivePlugin*)instance;
 
   connect_port(instance, port, data);
 
   switch ((PortIndex)port) {
-  case NOISEREPELLENT_INPUT_2:
-    self->input_2 = (const float *)data;
-    break;
-  case NOISEREPELLENT_OUTPUT_2:
-    self->output_2 = (float *)data;
-    break;
-  default:
-    break;
+    case NOISEREPELLENT_INPUT_2:
+      self->input_2 = (const float*)data;
+      break;
+    case NOISEREPELLENT_OUTPUT_2:
+      self->output_2 = (float*)data;
+      break;
+    default:
+      break;
   }
 }
 
 static void activate(LV2_Handle instance) {
-  NoiseRepellentAdaptivePlugin *self = (NoiseRepellentAdaptivePlugin *)instance;
+  NoiseRepellentAdaptivePlugin* self = (NoiseRepellentAdaptivePlugin*)instance;
 
   *self->report_latency =
       (float)specbleach_adaptive_get_latency(self->lib_instance_1);
 }
 
 static void run(LV2_Handle instance, uint32_t number_of_samples) {
-  NoiseRepellentAdaptivePlugin *self = (NoiseRepellentAdaptivePlugin *)instance;
+  NoiseRepellentAdaptivePlugin* self = (NoiseRepellentAdaptivePlugin*)instance;
 
   // clang-format off
   self->parameters = (SpectralBleachParameters){
@@ -248,7 +251,7 @@ static void run(LV2_Handle instance, uint32_t number_of_samples) {
 }
 
 static void run_stereo(LV2_Handle instance, uint32_t number_of_samples) {
-  NoiseRepellentAdaptivePlugin *self = (NoiseRepellentAdaptivePlugin *)instance;
+  NoiseRepellentAdaptivePlugin* self = (NoiseRepellentAdaptivePlugin*)instance;
 
   run(instance, number_of_samples); // Call left side first
 
@@ -285,13 +288,13 @@ static const LV2_Descriptor descriptor_adaptive_stereo = {
 };
 // clang-format on
 
-LV2_SYMBOL_EXPORT const LV2_Descriptor *lv2_descriptor(uint32_t index) {
+LV2_SYMBOL_EXPORT const LV2_Descriptor* lv2_descriptor(uint32_t index) {
   switch (index) {
-  case 0:
-    return &descriptor_adaptive;
-  case 1:
-    return &descriptor_adaptive_stereo;
-  default:
-    return NULL;
+    case 0:
+      return &descriptor_adaptive;
+    case 1:
+      return &descriptor_adaptive_stereo;
+    default:
+      return NULL;
   }
 }
