@@ -49,13 +49,12 @@ meson install -C build
 
 You can configure the build options using `-Doption=value`:
 
-- `default_frame_size_ms`: Set the default frame size in ms (default: 40).
 - `custom_warning_level`: 0-3 (default: 2).
 - `enable_sanitizers`: Enable address/undefined sanitizers (default: false).
 
 Example:
 ```bash
-meson setup build -Ddefault_frame_size_ms=20 -Dbuildtype=debug
+meson setup build -Dbuildtype=debug
 ```
 
 ## Usage

@@ -25,12 +25,7 @@ option('sanitize_undefined',
        value: true,
        description: 'Enable undefined behavior sanitizer (only if enable_sanitizers is true)')
 
-option('default_frame_size_ms',
-       type: 'integer',
-       min: 20,
-       max: 100,
-       value: 40,
-       description: 'Default frame size in milliseconds for libspecbleach (20-100ms recommended)')
+
 
 option('lv2dir',
        type: 'string',

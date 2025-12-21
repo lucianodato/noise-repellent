@@ -97,9 +97,7 @@ if get_option('enable_sanitizers')
   endif
 endif
 
-# Get configurable frame size
-frame_size_ms = get_option('default_frame_size_ms')
-lib_c_args += ['-DDEFAULT_FRAME_SIZE_MS=' + frame_size_ms.to_string()]
+
 
 # Configure extension for shared object
 if current_os == 'darwin'  # mac
@@ -208,6 +206,6 @@ summary({
   'Warning Level': custom_warning_level,
   'Warnings as Errors': get_option('treat_warnings_as_errors'),
   'Sanitizers': get_option('enable_sanitizers'),
-  'Default Frame Size': frame_size_ms.to_string() + 'ms',
+
   'Install Directory': install_folder,
 }, section: 'Configuration')
