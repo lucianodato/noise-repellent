@@ -13,6 +13,7 @@ env:
   PAWPAW_VERSION: cea7e2f2eea7b819d3cd075c1a82458bf9afce48
   DEBIAN_FRONTEND: noninteractive
   HOMEBREW_NO_AUTO_UPDATE: 1
+  PAWPAW_SKIP_GLIB: 1 # Also skips fluidsynth
 
 jobs:
   lint:
