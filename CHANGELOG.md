@@ -18,3 +18,11 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 - Fixed strict prototype warnings in C headers.
+- Fixed stereo state restoration logic (Thanks @orivej).
+- Fixed bypass issue for hosts using in-place buffers (e.g., Ardour) (Thanks @jmaibaum).
+
+### Added
+- New control parameters from development branch:
+    - **Noise Scaling Type**: Choose between different reduction algorithms.
+    - **Post-filter Threshold**: Fine-tune the reduction threshold.
+    - **Residual Whitening**: Added to the standard plugin (previously only in adaptive).
