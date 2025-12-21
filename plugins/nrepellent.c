@@ -52,7 +52,7 @@ typedef struct State {
 } State;
 
 static void map_uris(LV2_URID_Map* map, URIs* uris, const char* uri) {
-  uris->plugin = strcmp(uri, NOISEREPELLENT_URI)
+  uris->plugin = strcmp(uri, NOISEREPELLENT_URI) == 0
                      ? map->map(map->handle, NOISEREPELLENT_URI)
                      : map->map(map->handle, NOISEREPELLENT_STEREO_URI);
   uris->atom_Int = map->map(map->handle, LV2_ATOM__Int);
@@ -62,7 +62,7 @@ static void map_uris(LV2_URID_Map* map, URIs* uris, const char* uri) {
 }
 
 static void map_state(LV2_URID_Map* map, State* state, const char* uri) {
-  if (!strcmp(uri, NOISEREPELLENT_URI)) {
+  if (strcmp(uri, NOISEREPELLENT_STEREO_URI) == 0) {
     state->property_noise_profile_1 =
         map->map(map->handle, NOISEREPELLENT_STEREO_URI "#noiseprofile");
     state->property_noise_profile_2 =
@@ -104,6 +104,8 @@ typedef enum PortIndex {
 typedef struct NoiseRepellentPlugin {
   const float* input_1;
   const float* input_2;
+  float* input_buf_1;
+  float* input_buf_2;
   float* output_1;
   float* output_2;
   float sample_rate;
@@ -145,6 +147,14 @@ static void cleanup(LV2_Handle instance) {
   if (self->noise_profile_state_1) {
     noise_profile_state_free(self->noise_profile_state_1);
     free(self->noise_profile_1);
+  }
+
+  if (self->input_buf_1) {
+    free(self->input_buf_1);
+  }
+
+  if (self->input_buf_2) {
+    free(self->input_buf_2);
   }
 
   if (self->lib_instance_1) {
@@ -215,6 +225,15 @@ static LV2_Handle instantiate(const LV2_Descriptor* descriptor,
     return NULL;
   }
 
+  // input_buf_1 is needed for crossfade if the host uses in-place buffers
+  // (e.g. Ardour)
+  self->input_buf_1 = (float*)calloc((size_t)self->sample_rate, sizeof(float));
+  if (!self->input_buf_1) {
+    lv2_log_error(&self->log, "Error initializing <%s>\n", self->plugin_uri);
+    cleanup((LV2_Handle)self);
+    return NULL;
+  }
+
 #ifndef DEFAULT_FRAME_SIZE_MS
 #define DEFAULT_FRAME_SIZE_MS 40
 #endif
@@ -248,6 +267,16 @@ static LV2_Handle instantiate(const LV2_Descriptor* descriptor,
         noise_profile_state_initialize(self->uris.atom_Float);
 
     self->noise_profile_2 = (float*)calloc(self->profile_size, sizeof(float));
+
+    // input_buf_2 is needed for crossfade if the host uses in-place buffers
+    // (e.g. Ardour)
+    self->input_buf_2 =
+        (float*)calloc((size_t)self->sample_rate, sizeof(float));
+    if (!self->input_buf_2) {
+      lv2_log_error(&self->log, "Error initializing <%s>\n", self->plugin_uri);
+      cleanup((LV2_Handle)self);
+      return NULL;
+    }
   }
 
   return (LV2_Handle)self;
@@ -326,10 +355,26 @@ static void activate(LV2_Handle instance) {
   NoiseRepellentPlugin* self = (NoiseRepellentPlugin*)instance;
 
   *self->report_latency = (float)specbleach_get_latency(self->lib_instance_1);
+
+  if (self->input_buf_1) {
+    memset(self->input_buf_1, 0.F, (size_t)self->sample_rate * sizeof(float));
+  }
+
+  if (self->input_buf_2) {
+    memset(self->input_buf_2, 0.F, (size_t)self->sample_rate * sizeof(float));
+  }
 }
 
 static void run(LV2_Handle instance, uint32_t number_of_samples) {
   NoiseRepellentPlugin* self = (NoiseRepellentPlugin*)instance;
+
+  // If the host gave us in-place buffers, we need to keep a copy of the input
+  if (self->input_1 == self->output_1) {
+    memcpy(self->input_buf_1, self->input_1,
+           sizeof(float) * (number_of_samples <= self->sample_rate
+                                ? (size_t)number_of_samples
+                                : (size_t)self->sample_rate));
+  }
 
   // clang-format off
   self->parameters = (SpectralBleachParameters){
@@ -354,14 +399,24 @@ static void run(LV2_Handle instance, uint32_t number_of_samples) {
   specbleach_process(self->lib_instance_1, number_of_samples, self->input_1,
                      self->output_1);
 
-  signal_crossfade_run(self->soft_bypass, number_of_samples, self->input_1,
-                       self->output_1, (bool)*self->enable);
+  signal_crossfade_run(
+      self->soft_bypass, number_of_samples,
+      self->input_1 == self->output_1 ? self->input_buf_1 : self->input_1,
+      self->output_1, (bool)*self->enable);
 }
 
 static void run_stereo(LV2_Handle instance, uint32_t number_of_samples) {
   NoiseRepellentPlugin* self = (NoiseRepellentPlugin*)instance;
 
   run(instance, number_of_samples);
+
+  // If the host gave us in-place buffers, we need to keep a copy of the input
+  if (self->input_2 == self->output_2) {
+    memcpy(self->input_buf_2, self->input_2,
+           sizeof(float) * (number_of_samples <= self->sample_rate
+                                ? (size_t)number_of_samples
+                                : (size_t)self->sample_rate));
+  }
 
   specbleach_load_parameters(self->lib_instance_2, self->parameters);
 
@@ -372,8 +427,10 @@ static void run_stereo(LV2_Handle instance, uint32_t number_of_samples) {
   specbleach_process(self->lib_instance_2, number_of_samples, self->input_2,
                      self->output_2);
 
-  signal_crossfade_run(self->soft_bypass, number_of_samples, self->input_2,
-                       self->output_2, (bool)*self->enable);
+  signal_crossfade_run(
+      self->soft_bypass, number_of_samples,
+      self->input_2 == self->output_2 ? self->input_buf_2 : self->input_2,
+      self->output_2, (bool)*self->enable);
 }
 
 static LV2_State_Status save(LV2_Handle instance,
@@ -427,17 +484,19 @@ static LV2_State_Status restore(LV2_Handle instance,
   uint32_t type = 0U;
   uint32_t valflags = 0U;
 
-  const uint32_t* fftsize = (const uint32_t*)retrieve(
+  const uint32_t* saved_fftsize = (const uint32_t*)retrieve(
       handle, self->state.property_noise_profile_size, &size, &type, &valflags);
-  if (fftsize == NULL || type != self->uris.atom_Int) {
+  if (saved_fftsize == NULL || type != self->uris.atom_Int) {
     return LV2_STATE_ERR_NO_PROPERTY;
   }
+  const uint32_t fftsize = *saved_fftsize;
 
-  const uint32_t* averagedblocks = (const uint32_t*)retrieve(
+  const uint32_t* saved_averagedblocks = (const uint32_t*)retrieve(
       handle, self->state.property_averaged_blocks, &size, &type, &valflags);
-  if (averagedblocks == NULL || type != self->uris.atom_Int) {
+  if (saved_averagedblocks == NULL || type != self->uris.atom_Int) {
     return LV2_STATE_ERR_NO_PROPERTY;
   }
+  const uint32_t averagedblocks = *saved_averagedblocks;
 
   const void* saved_noise_profile_1 = retrieve(
       handle, self->state.property_noise_profile_1, &size, &type, &valflags);
@@ -450,7 +509,7 @@ static LV2_State_Status restore(LV2_Handle instance,
          sizeof(float) * self->profile_size);
 
   specbleach_load_noise_profile(self->lib_instance_1, self->noise_profile_1,
-                                *fftsize, *averagedblocks);
+                                fftsize, averagedblocks);
 
   if (strstr(self->plugin_uri, NOISEREPELLENT_STEREO_URI)) {
     const void* saved_noise_profile_2 = retrieve(
@@ -464,7 +523,7 @@ static LV2_State_Status restore(LV2_Handle instance,
            sizeof(float) * self->profile_size);
 
     specbleach_load_noise_profile(self->lib_instance_2, self->noise_profile_2,
-                                  *fftsize, *averagedblocks);
+                                  fftsize, averagedblocks);
   }
 
   return LV2_STATE_SUCCESS;
