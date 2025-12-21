@@ -154,7 +154,7 @@ jobs:
         run: |
           pushd PawPaw && source local.env win64 && popd
           wineboot -u
-          meson setup build --buildtype release --prefix /tmp --libdir /tmp --cross-file $PWD/setup/win64.ini
+          meson setup build --buildtype release --prefix /tmp --libdir /tmp -Dlv2dir=/tmp/lv2 --cross-file $PWD/setup/win64.ini
           meson compile -v -C build
           meson install -C build --skip-subprojects
           mv /tmp/lv2/nrepellent.lv2 ./nrepellent.lv2
