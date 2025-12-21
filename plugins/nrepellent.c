@@ -118,6 +118,7 @@ typedef struct NoiseRepellentPlugin {
   char* plugin_uri;
 
   SignalCrossfade* soft_bypass;
+  SignalCrossfade* soft_bypass_2;
   SpectralBleachHandle lib_instance_1;
   SpectralBleachHandle lib_instance_2;
   SpectralBleachParameters parameters;
@@ -177,6 +178,9 @@ static void cleanup(LV2_Handle instance) {
   if (self->soft_bypass) {
     signal_crossfade_free(self->soft_bypass);
   }
+  if (self->soft_bypass_2) {
+    signal_crossfade_free(self->soft_bypass_2);
+  }
 
   free(instance);
 }
@@ -217,13 +221,6 @@ static LV2_Handle instantiate(const LV2_Descriptor* descriptor,
   map_state(self->map, &self->state, self->plugin_uri);
 
   self->sample_rate = (float)rate;
-
-  self->soft_bypass = signal_crossfade_initialize((uint32_t)self->sample_rate);
-
-  if (!self->soft_bypass) {
-    cleanup((LV2_Handle)self);
-    return NULL;
-  }
 
   // input_buf_1 is needed for crossfade if the host uses in-place buffers
   // (e.g. Ardour)
@@ -274,6 +271,24 @@ static LV2_Handle instantiate(const LV2_Descriptor* descriptor,
         (float*)calloc((size_t)self->sample_rate, sizeof(float));
     if (!self->input_buf_2) {
       lv2_log_error(&self->log, "Error initializing <%s>\n", self->plugin_uri);
+      cleanup((LV2_Handle)self);
+      return NULL;
+    }
+  }
+
+  uint32_t latency = specbleach_get_latency(self->lib_instance_1);
+  self->soft_bypass =
+      signal_crossfade_initialize((uint32_t)self->sample_rate, latency);
+
+  if (!self->soft_bypass) {
+    cleanup((LV2_Handle)self);
+    return NULL;
+  }
+
+  if (self->lib_instance_2) {
+    self->soft_bypass_2 =
+        signal_crossfade_initialize((uint32_t)self->sample_rate, latency);
+    if (!self->soft_bypass_2) {
       cleanup((LV2_Handle)self);
       return NULL;
     }
@@ -428,7 +443,7 @@ static void run_stereo(LV2_Handle instance, uint32_t number_of_samples) {
                      self->output_2);
 
   signal_crossfade_run(
-      self->soft_bypass, number_of_samples,
+      self->soft_bypass_2, number_of_samples,
       self->input_2 == self->output_2 ? self->input_buf_2 : self->input_2,
       self->output_2, (bool)*self->enable);
 }
