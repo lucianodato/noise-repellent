@@ -1,40 +1,70 @@
-# noise-repellent
+# Noise Repellent
 
-A suite of lv2 plugins for noise reduction that uses [libspecbleach](https://github.com/lucianodato/libspecbleach) C library.
+A suite of LV2 plugins for real-time spectral noise reduction, built on the [libspecbleach](https://github.com/lucianodato/libspecbleach) library.
 
-[![build](https://github.com/lucianodato/noise-repellent/actions/workflows/build.yml/badge.svg)](https://github.com/lucianodato/noise-repellent/actions/workflows/build.yml)
-
-**WARNING!!!!** This project is not being actively mantained currently
+[![CI Build](https://github.com/lucianodato/noise-repellent/actions/workflows/build.yml/badge.svg)](https://github.com/lucianodato/noise-repellent/actions/workflows/build.yml)
 
 ## Features
 
-* Adaptive noise reduction plugin for low latency voice denoise
-* Manual noise capture based plugin for customizable noise reduction
-* Adjustable Reduction and many other parameters to tweak the reduction
-* Option to listen to the residual signal
-* Soft bypass
-* Noise profile saved with the session
+* **Manual capture noise reduction**: Typical noise reduction where you capture a noise profile.
+* **Adaptive noise reduction**: Automatic noise suppression, optimized for voice (low latency).
+* **Adjustable parameters**: Reduction amount, smoothing, whitening, and transient protection.
+* **Residual listening**: Hear exactly what is being removed.
+* **Soft bypass**: Cross-faded bypass to avoid clicks.
+* **State saving**: Noise profiles are saved with your host session.
 
-## Install
+## Installation
 
-Binaries for most platforms are provided with Github release. Just extract the adequate zip file for your platform to your [lv2 plugins folder](https://lv2plug.in/pages/filesystem-hierarchy-standard.html)
+### From Binaries
+Binaries for Linux, macOS, and Windows are provided in the [GitHub Releases](https://github.com/lucianodato/noise-repellent/releases) page. Extract the folder to your LV2 plugins directory:
+- **Linux**: `~/.lv2/` or `/usr/lib/lv2/`
+- **macOS**: `~/Library/Audio/Plug-Ins/LV2/` or `/Library/Audio/Plug-Ins/LV2/`
+- **Windows**: `%COMMONPROGRAMFILES%\LV2\`
 
-If you wish to compile yourself and install this plug-in you will need the a C compiling toolchain, LV2 SDK, Meson build system, ninja compiler, git and libspecbleach library (if it doesn't find it it will download and compile it. In this case make sure to have libspecbleach dependencies installed).
+### From Source
 
-Installation:
+**Requirements:**
+- Meson build system >= 0.60.0 & Ninja
+- C Compiler (GCC/Clang)
+- LV2 development headers
+- `pkg-config`
+
+**Build:**
 
 ```bash
-  git clone https://github.com/lucianodato/noise-repellent.git
-  cd noise-repellent
-  meson build --buildtype=release --prefix=/usr --libdir=lib (your-os-appropriate-location-fullpath)
-  meson compile -C build -v
-  sudo meson install -C build
+git clone https://github.com/lucianodato/noise-repellent.git
+cd noise-repellent
+
+# Configure build
+meson setup build --buildtype=release
+
+# Compile
+meson compile -C build
+
+# Install (sudo may be required)
+meson install -C build
 ```
 
-Noise-repellent is on Arch community at <https://www.archlinux.org/packages/community/x86_64/noise-repellent/>.
+**Build Options:**
 
-Noise-repellent is also available in KXStudios repositories <https://kx.studio/Repositories:Plugins>
+You can configure the build options using `-Doption=value`:
 
-## Use Instuctions
+- `custom_warning_level`: 0-3 (default: 2).
+- `enable_sanitizers`: Enable address/undefined sanitizers (default: false).
 
-Please refer to project's wiki <https://github.com/lucianodato/noise-repellent/wiki>
+Example:
+```bash
+meson setup build -Dbuildtype=debug
+```
+
+## Usage
+
+Please refer to the [Project Wiki](https://github.com/lucianodato/noise-repellent/wiki) for detailed usage instructions.
+
+## Contributing
+
+Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
+
+## License
+
+This project is licensed under the LGPL-3.0 License - see the [LICENSE](LICENSE) file for details.

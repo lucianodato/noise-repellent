@@ -1,0 +1,33 @@
+option('custom_warning_level',
+       type: 'integer',
+       min: 0,
+       max: 3,
+       value: 2,
+       description: 'Custom warning level (0=none, 1=basic, 2=extra, 3=pedantic)')
+
+option('treat_warnings_as_errors',
+       type: 'boolean',
+       value: false,
+       description: 'Treat compiler warnings as errors')
+
+option('enable_sanitizers',
+       type: 'boolean',
+       value: false,
+       description: 'Enable sanitizers (address, undefined) for debug builds')
+
+option('sanitize_address',
+       type: 'boolean',
+       value: true,
+       description: 'Enable address sanitizer (only if enable_sanitizers is true)')
+
+option('sanitize_undefined',
+       type: 'boolean',
+       value: true,
+       description: 'Enable undefined behavior sanitizer (only if enable_sanitizers is true)')
+
+
+
+option('lv2dir',
+       type: 'string',
+       value: '',
+       description: 'Install directory for LV2 bundles (absolute path or relative to prefix)')

@@ -27,9 +27,9 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 typedef struct NoiseProfileState NoiseProfileState;
 
-NoiseProfileState *noise_profile_state_initialize(LV2_URID child_type);
-void noise_profile_state_free(NoiseProfileState *self);
-float *noise_profile_get_elements(NoiseProfileState *self);
-size_t noise_profile_get_size();
+NoiseProfileState* noise_profile_state_initialize(LV2_URID child_type);
+void noise_profile_state_free(NoiseProfileState* self);
+float* noise_profile_get_elements(NoiseProfileState* self);
+size_t noise_profile_get_size(void);
 
 #endif

@@ -10,37 +10,49 @@ on:
       - "*"
 
 env:
-  PAWPAW_VERSION: c37490457b3b9a8183d99145ab0cbf8921da03a8
+  PAWPAW_VERSION: cea7e2f2eea7b819d3cd075c1a82458bf9afce48
   DEBIAN_FRONTEND: noninteractive
   HOMEBREW_NO_AUTO_UPDATE: 1
+  PAWPAW_SKIP_GLIB: 1 # Also skips fluidsynth
 
 jobs:
-  linux64:
-    runs-on: ubuntu-20.04
+  lint:
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
+      - name: Install clang-format
+        run: sudo apt-get install -y clang-format
+      - name: Check Formatting
+        run: |
+          ./subprojects/libspecbleach/scripts/check_format.sh || true # If script doesn't exist yet, we'll use inline
+          find . -name "*.[ch]" | grep -v "/build/" | grep -v "/subprojects/" | xargs clang-format --dry-run -Werror
+
+  linux64:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
       - name: Set up dependencies
         run: |
           sudo apt-get update -qq
           sudo apt-get install -qq python3-pip lv2-dev libfftw3-dev ninja-build
-          sudo pip install meson
+          sudo pip3 install meson --break-system-packages
       - name: Build noise-repellent
         shell: bash
         run: |
-          meson build --buildtype release --prefix /tmp --libdir /tmp
+          meson setup build --buildtype release --prefix /tmp --libdir /tmp
           meson compile -v -C build
           meson install -C build --skip-subprojects
           mv /tmp/lv2/nrepellent.lv2 ./nrepellent.lv2
       - name: Set sha8
         id: slug
-        run: echo "::set-output name=sha8::$(echo ${{ github.sha }} | cut -c1-8)"
+        run: echo "sha8=$(echo ${{ github.sha }} | cut -c1-8)" >> $GITHUB_OUTPUT
       - name: Pack build
         shell: bash
         run: |
           zip -r noise-repellent-linux64-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }} ./nrepellent.lv2
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v4
         with:
           name: noise-repellent-linux64-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
           path: noise-repellent-linux64-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}.zip
@@ -60,27 +72,24 @@ jobs:
           files: 
             noise-repellent-linux64-${{ steps.get_version.outputs.version }}.zip
 
-  macos_universal:
-    runs-on: macos-10.15
+  macos-universal:
+    runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
       - name: Set up cache
-        uses: actions/cache@v2
+        uses: actions/cache@v4
         with:
           path: |
             ~/PawPawBuilds/builds
             ~/PawPawBuilds/downloads
             ~/PawPawBuilds/targets
-          key: macos-universal
+          key: macos-universal-${{ hashFiles('**/meson.build') }}
+          restore-keys: macos-universal-
       - name: Set up dependencies
         run: |
-          brew install meson ninja
-      - name: Fix up Xcode
-        run: |
-          sudo rm -Rf /Library/Developer/CommandLineTools/SDKs/*
-          sudo xcode-select -s /Applications/Xcode_12.3.app
+          brew install autoconf automake cmake coreutils gawk git gnu-sed jq make meson ninja pkg-config libtool
       - name: Bootstrap macOS universal
         shell: bash
         run: |
@@ -88,220 +97,56 @@ jobs:
             git clone https://github.com/DISTRHO/PawPaw.git
             git -C PawPaw checkout ${PAWPAW_VERSION}
           fi
-          ./PawPaw/bootstrap-plugins.sh  macos-universal && ./PawPaw/.cleanup.sh macos-universal
+          # Note: We might need adjustments for newer macOS environment, but keeping script calls
+          ./PawPaw/bootstrap-plugins.sh macos-universal && ./PawPaw/.cleanup.sh macos-universal
       - name: Build noise-repellent
         shell: bash
         run: |
           pushd PawPaw && source local.env macos-universal && popd
-          meson build --buildtype release --prefix /tmp --libdir /tmp
+          meson setup build --buildtype release --prefix /tmp --libdir /tmp -Dlv2dir=/tmp/lv2
           meson compile -v -C build
           meson install -C build --skip-subprojects
           mv /tmp/lv2/nrepellent.lv2 ./nrepellent.lv2
       - name: Set sha8
         id: slug
-        run: echo "::set-output name=sha8::$(echo ${{ github.sha }} | cut -c1-8)"
+        run: echo "sha8=$(echo ${{ github.sha }} | cut -c1-8)" >> $GITHUB_OUTPUT
       - name: Pack build
         shell: bash
         run: |
           zip -r noise-repellent-macOS-universal-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }} ./nrepellent.lv2
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v4
         with:
           name: noise-repellent-macOS-universal-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
           path: noise-repellent-macOS-universal-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}.zip
-      - name: Get release version number
-        if: startsWith(github.ref, 'refs/tags/')
-        id: get_version
-        uses: battila7/get-version-action@v2
-      - name: Rename zip if tag branch
-        shell: bash
-        if: startsWith(github.ref, 'refs/tags/')
-        run: |
-          mv noise-repellent-macOS-universal-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}.zip noise-repellent-macOS-universal-${{ steps.get_version.outputs.version }}.zip
-      - name: Upload Release
-        uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/')
-        with:
-          files: 
-            noise-repellent-macOS-universal-${{ steps.get_version.outputs.version }}.zip
-
-  macos:
-    runs-on: macos-10.15
-    steps:
-      - uses: actions/checkout@v2
-        with:
-          submodules: recursive
-      - name: Set up cache
-        uses: actions/cache@v2
-        with:
-          path: |
-            ~/PawPawBuilds/builds
-            ~/PawPawBuilds/downloads
-            ~/PawPawBuilds/targets
-          key: macos
-      - name: Set up dependencies
-        run: |
-          brew install meson ninja
-      - name: Bootstrap macOS intel
-        shell: bash
-        run: |
-          if [ ! -d PawPaw ]; then
-            git clone https://github.com/DISTRHO/PawPaw.git
-            git -C PawPaw checkout ${PAWPAW_VERSION}
-          fi
-          ./PawPaw/bootstrap-plugins.sh macos && ./PawPaw/.cleanup.sh macos
-      - name: Build noise-repellent
-        shell: bash
-        run: |
-          pushd PawPaw && source local.env macos && popd
-          meson build --buildtype release --prefix /tmp --libdir /tmp
-          meson compile -v -C build
-          meson install -C build --skip-subprojects
-          mv /tmp/lv2/nrepellent.lv2 ./nrepellent.lv2
-      - name: Set sha8
-        id: slug
-        run: echo "::set-output name=sha8::$(echo ${{ github.sha }} | cut -c1-8)"
-      - name: Pack build
-        shell: bash
-        run: |
-          zip -r noise-repellent-macOS-intel-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }} ./nrepellent.lv2
-      - uses: actions/upload-artifact@v2
-        with:
-          name: noise-repellent-macOS-intel-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
-          path: noise-repellent-macOS-intel-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}.zip
-      - name: Get release version number
-        if: startsWith(github.ref, 'refs/tags/')
-        id: get_version
-        uses: battila7/get-version-action@v2
-      - name: Rename zip if tag branch
-        shell: bash
-        if: startsWith(github.ref, 'refs/tags/')
-        run: |
-          mv noise-repellent-macOS-intel-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}.zip noise-repellent-macOS-intel-${{ steps.get_version.outputs.version }}.zip
-      - name: Upload Release
-        uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/')
-        with:
-          files: 
-            noise-repellent-macOS-intel-${{ steps.get_version.outputs.version }}.zip
-  win32:
-    runs-on: ubuntu-20.04
-    steps:
-      - uses: actions/checkout@v2
-        with:
-          submodules: recursive
-      - name: Set up cache
-        uses: actions/cache@v2
-        with:
-          path: |
-            ~/PawPawBuilds/builds
-            ~/PawPawBuilds/debs
-            ~/PawPawBuilds/downloads
-            ~/PawPawBuilds/targets
-          key: win32
-      - name: Restore debian packages cache
-        run: |
-          if [ -d ~/PawPawBuilds/debs ] && [ "$(ls ~/PawPawBuilds/debs | wc -l)" -ne 0 ]; then \
-            sudo cp ~/PawPawBuilds/debs/*.deb /var/cache/apt/archives/; \
-          fi
-      - name: Fix GitHub's mess
-        run: |
-          sudo rm -f /etc/apt/sources.list.d/microsoft-prod.list
-          sudo apt-get update -qq
-          sudo apt-get install -yqq --allow-downgrades libpcre2-8-0/focal libpcre2-16-0/focal libpcre2-32-0/focal libpcre2-posix2/focal
-      - name: Set up dependencies
-        run: |
-          sudo dpkg --add-architecture i386
-          sudo apt update
-          sudo apt-get install -qy build-essential ninja-build python3-pip mingw-w64 \
-            binutils-mingw-w64-i686 g++-mingw-w64-i686 wine-stable:i386 wine-binfmt
-          sudo pip install meson
-      - name: Cache debian packages
-        run: |
-          mkdir -p ~/PawPawBuilds/debs && \
-          sudo mv /var/cache/apt/archives/*.deb ~/PawPawBuilds/debs/
-      - name: Bootstrap win32 cross-compiled
-        shell: bash
-        run: |
-          if [ ! -d PawPaw ]; then
-            git clone https://github.com/DISTRHO/PawPaw.git
-            git -C PawPaw checkout ${PAWPAW_VERSION}
-          fi
-          ./PawPaw/bootstrap-plugins.sh win32 && ./PawPaw/.cleanup.sh win32
-      - name: Build noise-repellent
-        shell: bash
-        run: |
-          pushd PawPaw && source local.env win32 && popd
-          wineboot -u
-          meson build --buildtype release --prefix /tmp --libdir /tmp --cross-file $PWD/setup/win32.ini
-          meson compile -v -C build
-          meson install -C build --skip-subprojects
-          mv /tmp/lv2/nrepellent.lv2 ./nrepellent.lv2
-      - name: Set sha8
-        id: slug
-        run: echo "::set-output name=sha8::$(echo ${{ github.sha }} | cut -c1-8)"
-      - name: Pack build
-        shell: bash
-        run: |
-          zip -r noise-repellent-win32-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }} ./nrepellent.lv2
-      - name: Get release version number
-        if: startsWith(github.ref, 'refs/tags/')
-        id: get_version
-        uses: battila7/get-version-action@v2
-      - uses: actions/upload-artifact@v2
-        with:
-          name: noise-repellent-win32-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
-          path: noise-repellent-win32-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}.zip
-      - name: Rename zip if tag branch
-        shell: bash
-        if: startsWith(github.ref, 'refs/tags/')
-        run: |
-          mv noise-repellent-win32-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}.zip noise-repellent-win32-${{ steps.get_version.outputs.version }}.zip
-      - name: Upload Release
-        uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/')
-        with:
-          files: 
-            noise-repellent-win32-${{ steps.get_version.outputs.version }}.zip
+      
   win64:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
       - name: Set up cache
-        uses: actions/cache@v2
+        uses: actions/cache@v4
         with:
           path: |
             ~/PawPawBuilds/builds
             ~/PawPawBuilds/debs
             ~/PawPawBuilds/downloads
             ~/PawPawBuilds/targets
-          key: win64
-      - name: Restore debian packages cache
-        run: |
-          if [ -d ~/PawPawBuilds/debs ] && [ "$(ls ~/PawPawBuilds/debs | wc -l)" -ne 0 ]; then \
-            sudo cp ~/PawPawBuilds/debs/*.deb /var/cache/apt/archives/; \
-          fi
-      - name: Fix GitHub's mess
-        run: |
-          sudo rm -f /etc/apt/sources.list.d/microsoft-prod.list
-          sudo apt-get update -qq
-          sudo apt-get install -yqq --allow-downgrades libpcre2-8-0/focal libpcre2-16-0/focal libpcre2-32-0/focal libpcre2-posix2/focal
+          key: win64-${{ hashFiles('**/meson.build') }}
+          restore-keys: win64-
       - name: Set up dependencies
         run: |
           sudo apt update
           sudo apt-get install -qy build-essential ninja-build python3-pip mingw-w64 \
-            binutils-mingw-w64-x86-64 g++-mingw-w64-x86-64  wine-stable wine-binfmt
-          sudo pip install meson
-      - name: Cache debian packages
-        run: |
-          mkdir -p ~/PawPawBuilds/debs && \
-          sudo mv /var/cache/apt/archives/*.deb ~/PawPawBuilds/debs/
+            binutils-mingw-w64-x86-64 g++-mingw-w64-x86-64 wine-stable wine-binfmt gperf
+          sudo pip3 install meson
       - name: Bootstrap win64 cross-compiled
         shell: bash
         run: |
           if [ ! -d PawPaw ]; then
             git clone https://github.com/DISTRHO/PawPaw.git
+            git -C PawPaw checkout ${PAWPAW_VERSION}
           fi
           ./PawPaw/bootstrap-plugins.sh win64 && ./PawPaw/.cleanup.sh win64
       - name: Build noise-repellent
@@ -309,33 +154,18 @@ jobs:
         run: |
           pushd PawPaw && source local.env win64 && popd
           wineboot -u
-          meson build --buildtype release --prefix /tmp --libdir /tmp --cross-file $PWD/setup/win64.ini
+          meson setup build --buildtype release --prefix /tmp --libdir /tmp -Dlv2dir=/tmp/lv2 --cross-file $PWD/setup/win64.ini
           meson compile -v -C build
           meson install -C build --skip-subprojects
           mv /tmp/lv2/nrepellent.lv2 ./nrepellent.lv2
       - name: Set sha8
         id: slug
-        run: echo "::set-output name=sha8::$(echo ${{ github.sha }} | cut -c1-8)"
+        run: echo "sha8=$(echo ${{ github.sha }} | cut -c1-8)" >> $GITHUB_OUTPUT
       - name: Pack build
         shell: bash
         run: |
           zip -r noise-repellent-win64-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }} ./nrepellent.lv2
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v4
         with:
           name: noise-repellent-win64-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
           path: noise-repellent-win64-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}.zip
-      - name: Get release version number
-        if: startsWith(github.ref, 'refs/tags/')
-        id: get_version
-        uses: battila7/get-version-action@v2
-      - name: Rename zip if tag branch
-        shell: bash
-        if: startsWith(github.ref, 'refs/tags/')
-        run: |
-          mv noise-repellent-win64-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}.zip noise-repellent-win64-${{ steps.get_version.outputs.version }}.zip
-      - name: Upload Release
-        uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/')
-        with:
-          files: 
-            noise-repellent-win64-${{ steps.get_version.outputs.version }}.zip

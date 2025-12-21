@@ -37,8 +37,12 @@ build/
 # Valgrind dumps
 *.valgrind
 
-# Vscode files
+# IDE files
 .vscode/
+.agent/
+.cursor/
+.cache/
 
 # Downloaded wrap files
-subprojects/libspecbleach/
+/subprojects/libspecbleach
+/subprojects/.wraplock

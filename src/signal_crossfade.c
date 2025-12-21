@@ -34,23 +34,46 @@ struct SignalCrossfade {
   float tau;
   float wet_dry_target;
   float wet_dry;
+  float* delay_buffer;
+  uint32_t latency;
+  uint32_t rw_ptr;
 };
 
-SignalCrossfade *signal_crossfade_initialize(const uint32_t sample_rate) {
-  SignalCrossfade *self =
-      (SignalCrossfade *)calloc(1U, sizeof(SignalCrossfade));
+SignalCrossfade* signal_crossfade_initialize(const uint32_t sample_rate,
+                                             const uint32_t latency) {
+  SignalCrossfade* self = (SignalCrossfade*)calloc(1U, sizeof(SignalCrossfade));
+
+  if (!self) {
+    return NULL;
+  }
 
   self->tau =
       (1.F - expf(-128.F * M_PI * RELEASE_TIME_MS / (float)sample_rate));
   self->wet_dry = 0.F;
   self->wet_dry_target = 0.F;
+  self->latency = latency;
+
+  if (latency > 0) {
+    self->delay_buffer = (float*)calloc(latency, sizeof(float));
+    if (!self->delay_buffer) {
+      free(self);
+      return NULL;
+    }
+  }
 
   return self;
 }
 
-void signal_crossfade_free(SignalCrossfade *self) { free(self); }
+void signal_crossfade_free(SignalCrossfade* self) {
+  if (self) {
+    if (self->delay_buffer) {
+      free(self->delay_buffer);
+    }
+    free(self);
+  }
+}
 
-static void signal_crossfade_update_wetdry_target(SignalCrossfade *self,
+static void signal_crossfade_update_wetdry_target(SignalCrossfade* self,
                                                   const bool enable) {
   if (enable) {
     self->wet_dry_target = 1.F;
@@ -61,9 +84,9 @@ static void signal_crossfade_update_wetdry_target(SignalCrossfade *self,
   self->wet_dry += self->tau * (self->wet_dry_target - self->wet_dry);
 }
 
-bool signal_crossfade_run(SignalCrossfade *self,
-                          const uint32_t number_of_samples, const float *input,
-                          float *output, const bool enable) {
+bool signal_crossfade_run(SignalCrossfade* self,
+                          const uint32_t number_of_samples, const float* input,
+                          float* output, const bool enable) {
   if (!input || !output || number_of_samples <= 0U) {
     return false;
   }
@@ -71,7 +94,19 @@ bool signal_crossfade_run(SignalCrossfade *self,
   signal_crossfade_update_wetdry_target(self, enable);
 
   for (uint32_t k = 0U; k < number_of_samples; k++) {
-    output[k] = (1.F - self->wet_dry) * input[k] + output[k] * self->wet_dry;
+    float delayed_input = input[k];
+
+    if (self->delay_buffer) {
+      delayed_input = self->delay_buffer[self->rw_ptr];
+      self->delay_buffer[self->rw_ptr] = input[k];
+      self->rw_ptr++;
+      if (self->rw_ptr >= self->latency) {
+        self->rw_ptr = 0;
+      }
+    }
+
+    output[k] =
+        (1.F - self->wet_dry) * delayed_input + output[k] * self->wet_dry;
   }
 
   return true;
