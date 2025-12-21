@@ -10,7 +10,7 @@ on:
       - "*"
 
 env:
-  PAWPAW_VERSION: c37490457b3b9a8183d99145ab0cbf8921da03a8
+  PAWPAW_VERSION: cea7e2f2eea7b819d3cd075c1a82458bf9afce48
   DEBIAN_FRONTEND: noninteractive
   HOMEBREW_NO_AUTO_UPDATE: 1
 
@@ -145,6 +145,7 @@ jobs:
         run: |
           if [ ! -d PawPaw ]; then
             git clone https://github.com/DISTRHO/PawPaw.git
+            git -C PawPaw checkout ${PAWPAW_VERSION}
           fi
           ./PawPaw/bootstrap-plugins.sh win64 && ./PawPaw/.cleanup.sh win64
       - name: Build noise-repellent
