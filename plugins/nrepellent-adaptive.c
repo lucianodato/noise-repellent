@@ -31,6 +31,7 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
   "https://github.com/lucianodato/noise-repellent#adaptive"
 #define NOISEREPELLENT_ADAPTIVE_STEREO_URI                                     \
   "https://github.com/lucianodato/noise-repellent#adaptive-stereo"
+#define FRAME_SIZE 36
 
 typedef struct URIs {
   LV2_URID plugin;
@@ -45,15 +46,18 @@ static void map_uris(LV2_URID_Map* map, URIs* uris, const char* uri) {
 
 typedef enum PortIndex {
   NOISEREPELLENT_AMOUNT = 0,
-  NOISEREPELLENT_NOISE_OFFSET = 1,
-  NOISEREPELLENT_NOISE_SMOOTHING = 2,
-  NOISEREPELLENT_RESIDUAL_LISTEN = 3,
-  NOISEREPELLENT_ENABLE = 4,
-  NOISEREPELLENT_LATENCY = 5,
-  NOISEREPELLENT_INPUT_1 = 6,
-  NOISEREPELLENT_OUTPUT_1 = 7,
-  NOISEREPELLENT_INPUT_2 = 8,
-  NOISEREPELLENT_OUTPUT_2 = 9,
+  NOISEREPELLENT_NOISE_REDUCTION_TYPE = 1,
+  NOISEREPELLENT_NOISE_OFFSET = 2,
+  NOISEREPELLENT_POSTFILTER = 3,
+  NOISEREPELLENT_NOISE_SMOOTHING = 4,
+  NOISEREPELLENT_WHITENING = 5,
+  NOISEREPELLENT_RESIDUAL_LISTEN = 6,
+  NOISEREPELLENT_ENABLE = 7,
+  NOISEREPELLENT_LATENCY = 8,
+  NOISEREPELLENT_INPUT_1 = 9,
+  NOISEREPELLENT_OUTPUT_1 = 10,
+  NOISEREPELLENT_INPUT_2 = 11,
+  NOISEREPELLENT_OUTPUT_2 = 12,
 } PortIndex;
 
 typedef struct NoiseRepellentAdaptivePlugin {
@@ -76,9 +80,12 @@ typedef struct NoiseRepellentAdaptivePlugin {
 
   float* enable;
   float* residual_listen;
+  float* noise_scaling_type;
   float* reduction_amount;
   float* smoothing_factor;
+  float* whitening_factor;
   float* noise_rescale;
+  float* postfilter_threshold;
 
 } NoiseRepellentAdaptivePlugin;
 
@@ -178,11 +185,20 @@ static void connect_port(LV2_Handle instance, uint32_t port, void* data) {
     case NOISEREPELLENT_AMOUNT:
       self->reduction_amount = (float*)data;
       break;
+    case NOISEREPELLENT_NOISE_REDUCTION_TYPE:
+      self->noise_scaling_type = (float*)data;
+      break;
     case NOISEREPELLENT_NOISE_OFFSET:
       self->noise_rescale = (float*)data;
       break;
+    case NOISEREPELLENT_POSTFILTER:
+      self->postfilter_threshold = (float*)data;
+      break;
     case NOISEREPELLENT_NOISE_SMOOTHING:
       self->smoothing_factor = (float*)data;
+      break;
+    case NOISEREPELLENT_WHITENING:
+      self->whitening_factor = (float*)data;
       break;
     case NOISEREPELLENT_RESIDUAL_LISTEN:
       self->residual_listen = (float*)data;
@@ -237,7 +253,10 @@ static void run(LV2_Handle instance, uint32_t number_of_samples) {
       .residual_listen = (bool)*self->residual_listen,
       .reduction_amount = *self->reduction_amount,
       .smoothing_factor = *self->smoothing_factor,
-      .noise_rescale = *self->noise_rescale
+      .whitening_factor = *self->whitening_factor,
+      .noise_rescale = *self->noise_rescale,
+      .noise_scaling_type = (int)*self->noise_scaling_type,
+      .post_filter_threshold = *self->postfilter_threshold,
   };
   // clang-format on
 
