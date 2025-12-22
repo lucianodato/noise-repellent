@@ -33,16 +33,15 @@ lv2_dep = dependency('lv2', required: true)
 # Handle libspecbleach dependency
 use_system_libspecbleach = get_option('use_system_libspecbleach')
 if use_system_libspecbleach
-  # Try to use system libspecbleach
-  libspecbleach_dep = dependency('libspecbleach', required: true)
-else
-  # Force use of bundled libspecbleach to ensure API compatibility
-  message('Using bundled libspecbleach for guaranteed API compatibility (use -Duse_system_libspecbleach=true for system version)')
-  # Use a non-existent dependency name to force fallback to subproject
-  libspecbleach_dep = dependency('libspecbleach-bundled',
+  libspecbleach_dep = dependency('libspecbleach',
                                  fallback: ['libspecbleach', 'libspecbleach_dep'],
                                  default_options: ['default_library=static'],
                                  required: true)
+else
+  # Use bundled libspecbleach to ensure API compatibility
+  message('Using bundled libspecbleach for guaranteed API compatibility (use -Duse_system_libspecbleach=true for system version)')
+  libspecbleach_subproj = subproject('libspecbleach')
+  libspecbleach_dep = libspecbleach_subproj.get_variable('libspecbleach_dep')
 endif
 
 m_dep = cc.find_library('m', required: true)
