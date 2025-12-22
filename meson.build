@@ -29,10 +29,21 @@ noise_repellent_adaptive_src = 'plugins/nrepellent-adaptive.c'
 
 # Dependencies for noise repellent
 lv2_dep = dependency('lv2', required: true)
-libspecbleach_dep = dependency('libspecbleach',
-                               fallback: ['libspecbleach', 'libspecbleach_dep'],
-                               default_options: ['default_library=static'],
-                               required: true)
+
+# Handle libspecbleach dependency
+use_system_libspecbleach = get_option('use_system_libspecbleach')
+if use_system_libspecbleach
+  libspecbleach_dep = dependency('libspecbleach',
+                                 fallback: ['libspecbleach', 'libspecbleach_dep'],
+                                 default_options: ['default_library=static'],
+                                 required: true)
+else
+  # Use bundled libspecbleach to ensure API compatibility
+  message('Using bundled libspecbleach for guaranteed API compatibility (use -Duse_system_libspecbleach=true for system version)')
+  libspecbleach_subproj = subproject('libspecbleach')
+  libspecbleach_dep = libspecbleach_subproj.get_variable('libspecbleach_dep')
+endif
+
 m_dep = cc.find_library('m', required: true)
 all_dep = [lv2_dep, libspecbleach_dep, m_dep]
 
@@ -206,6 +217,7 @@ summary({
   'Warning Level': custom_warning_level,
   'Warnings as Errors': get_option('treat_warnings_as_errors'),
   'Sanitizers': get_option('enable_sanitizers'),
+  'Use System libspecbleach': get_option('use_system_libspecbleach'),
 
   'Install Directory': install_folder,
 }, section: 'Configuration')
