@@ -13,6 +13,12 @@ A suite of LV2 plugins for real-time spectral noise reduction, built on the [lib
 * **Soft bypass**: Cross-faded bypass to avoid clicks.
 * **State saving**: Noise profiles are saved with your host session.
 
+## Screenshots
+
+![Noise Repellent in Ardour](images/Noise-repellent-Ardour.png)
+![Noise Repellent in Reaper](images/Noise-repellent-Reaper.png)
+![Adaptive Noise Repellent in Reaper](images/Adaptive-Reaper.png)
+
 ## Installation
 
 ### From Binaries

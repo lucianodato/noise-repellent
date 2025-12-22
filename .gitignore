@@ -46,3 +46,6 @@ build/
 # Downloaded wrap files
 /subprojects/libspecbleach
 /subprojects/.wraplock
+
+# macOS files
+.DS_Store
