@@ -99,8 +99,8 @@ static void map_state(LV2_URID_Map* map, State* state, const char* uri) {
         map->map(map->handle,
                  NOISEREPELLENT_STEREO_URI "#noiseprofile2averagedblocksmean");
     state->property_averaged_blocks_2_median =
-        map->map(map->handle,
-                 NOISEREPELLENT_STEREO_URI "#noiseprofile2averagedblocksmedian");
+        map->map(map->handle, NOISEREPELLENT_STEREO_URI
+                 "#noiseprofile2averagedblocksmedian");
     state->property_averaged_blocks_2_max =
         map->map(map->handle,
                  NOISEREPELLENT_STEREO_URI "#noiseprofile2averagedblocksmax");
@@ -442,7 +442,8 @@ static void deactivate(LV2_Handle instance) {
   NoiseRepellentPlugin* self = (NoiseRepellentPlugin*)instance;
 
   self->activated = false;
-  // Keep reporting the same latency for consistency - soft bypass handles alignment
+  // Keep reporting the same latency for consistency - soft bypass handles
+  // alignment
   if (self->report_latency) {
     *self->report_latency = (float)specbleach_get_latency(self->lib_instance_1);
   }
@@ -492,9 +493,12 @@ static void run(LV2_Handle instance, uint32_t number_of_samples) {
   // Apply soft bypass based on bypass parameter and learning mode
   // If bypass is enabled, crossfade to dry
   // If bypass is disabled and learning is disabled, crossfade to wet
-  // If bypass is disabled and learning is enabled, crossfade to dry (pass through)
-  bool enable_processing = self->bypass ? ((int)*self->bypass == 0) :
-                         (self->learn_noise ? ((int)*self->learn_noise == 0) : true);
+  // If bypass is disabled and learning is enabled, crossfade to dry (pass
+  // through)
+  bool enable_processing =
+      self->bypass
+          ? ((int)*self->bypass == 0)
+          : (self->learn_noise ? ((int)*self->learn_noise == 0) : true);
 
   signal_crossfade_run(
       self->soft_bypass, number_of_samples,
@@ -526,8 +530,10 @@ static void run_stereo(LV2_Handle instance, uint32_t number_of_samples) {
                      self->output_2);
 
   // Apply soft bypass based on bypass parameter and learning mode
-  bool enable_processing = self->bypass ? ((int)*self->bypass == 0) :
-                         (self->learn_noise ? ((int)*self->learn_noise == 0) : true);
+  bool enable_processing =
+      self->bypass
+          ? ((int)*self->bypass == 0)
+          : (self->learn_noise ? ((int)*self->learn_noise == 0) : true);
 
   signal_crossfade_run(
       self->soft_bypass_2, number_of_samples,
@@ -671,8 +677,9 @@ static LV2_State_Status restore(LV2_Handle instance,
     memcpy(self->noise_profile_1, (float*)LV2_ATOM_BODY(saved_noise_profile),
            sizeof(float) * self->profile_size);
 
-    specbleach_load_noise_profile_for_mode(self->lib_instance_1, self->noise_profile_1,
-                                            fftsize, averagedblocks, mode);
+    specbleach_load_noise_profile_for_mode(self->lib_instance_1,
+                                           self->noise_profile_1, fftsize,
+                                           averagedblocks, mode);
   }
 
   // Restore all 3 profiles for channel 2 (stereo only)
@@ -709,8 +716,9 @@ static LV2_State_Status restore(LV2_Handle instance,
       memcpy(self->noise_profile_2, (float*)LV2_ATOM_BODY(saved_noise_profile),
              sizeof(float) * self->profile_size);
 
-      specbleach_load_noise_profile_for_mode(self->lib_instance_2, self->noise_profile_2,
-                                            fftsize, averagedblocks, mode);
+      specbleach_load_noise_profile_for_mode(self->lib_instance_2,
+                                             self->noise_profile_2, fftsize,
+                                             averagedblocks, mode);
     }
   }
 

@@ -313,7 +313,8 @@ static void deactivate(LV2_Handle instance) {
   NoiseRepellentAdaptivePlugin* self = (NoiseRepellentAdaptivePlugin*)instance;
 
   self->activated = false;
-  // Keep reporting the same latency for consistency - soft bypass handles alignment
+  // Keep reporting the same latency for consistency - soft bypass handles
+  // alignment
   if (self->report_latency) {
     *self->report_latency =
         (float)specbleach_adaptive_get_latency(self->lib_instance_1);

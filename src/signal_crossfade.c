@@ -102,7 +102,6 @@ void signal_crossfade_free(SignalCrossfade* self) {
   }
 }
 
-
 bool signal_crossfade_run(SignalCrossfade* self,
                           const uint32_t number_of_samples, const float* input,
                           float* output, const bool enable) {
@@ -115,7 +114,8 @@ bool signal_crossfade_run(SignalCrossfade* self,
   // Always apply latency compensation to ensure dry and wet signals are aligned
   for (uint32_t k = 0U; k < number_of_samples; k++) {
     float delayed_dry;
-    float current_wet = output[k];  // The processed output (already in output buffer)
+    float current_wet =
+        output[k]; // The processed output (already in output buffer)
 
     // During initial latency period, pass through to avoid startup artifacts
     if (self->samples_processed < self->latency) {
@@ -127,7 +127,7 @@ bool signal_crossfade_run(SignalCrossfade* self,
           self->rw_ptr = 0;
         }
       }
-      delayed_dry = input[k];  // Use current input as "delayed" during startup
+      delayed_dry = input[k]; // Use current input as "delayed" during startup
     } else {
       // After latency period, use properly delayed input
       if (self->delay_buffer) {
@@ -140,12 +140,13 @@ bool signal_crossfade_run(SignalCrossfade* self,
           self->rw_ptr = 0;
         }
       } else {
-        delayed_dry = input[k];  // No latency
+        delayed_dry = input[k]; // No latency
       }
     }
 
     // Crossfade between aligned delayed dry and delayed wet signals
-    output[k] = (1.F - self->wet_dry) * delayed_dry + self->wet_dry * current_wet;
+    output[k] =
+        (1.F - self->wet_dry) * delayed_dry + self->wet_dry * current_wet;
 
     self->samples_processed++;
   }
