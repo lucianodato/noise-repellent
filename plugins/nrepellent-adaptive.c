@@ -52,11 +52,12 @@ typedef enum PortIndex {
   NOISEREPELLENT_NOISE_SMOOTHING = 4,
   NOISEREPELLENT_WHITENING = 5,
   NOISEREPELLENT_RESIDUAL_LISTEN = 6,
-  NOISEREPELLENT_LATENCY = 7,
-  NOISEREPELLENT_INPUT_1 = 8,
-  NOISEREPELLENT_OUTPUT_1 = 9,
-  NOISEREPELLENT_INPUT_2 = 10,
-  NOISEREPELLENT_OUTPUT_2 = 11,
+  NOISEREPELLENT_BYPASS = 7,
+  NOISEREPELLENT_LATENCY = 8,
+  NOISEREPELLENT_INPUT_1 = 9,
+  NOISEREPELLENT_OUTPUT_1 = 10,
+  NOISEREPELLENT_INPUT_2 = 11,
+  NOISEREPELLENT_OUTPUT_2 = 12,
 } PortIndex;
 
 typedef struct NoiseRepellentAdaptivePlugin {
@@ -87,6 +88,9 @@ typedef struct NoiseRepellentAdaptivePlugin {
   float* whitening_factor;
   float* noise_rescale;
   float* postfilter_threshold;
+  float* bypass;
+
+  bool activated;
 
 } NoiseRepellentAdaptivePlugin;
 
@@ -128,6 +132,7 @@ static LV2_Handle instantiate(const LV2_Descriptor* descriptor,
                               const LV2_Feature* const* features) {
   NoiseRepellentAdaptivePlugin* self = (NoiseRepellentAdaptivePlugin*)calloc(
       1U, sizeof(NoiseRepellentAdaptivePlugin));
+  self->activated = false;
 
   // clang-format off
   const char *missing =
@@ -242,6 +247,9 @@ static void connect_port(LV2_Handle instance, uint32_t port, void* data) {
     case NOISEREPELLENT_RESIDUAL_LISTEN:
       self->residual_listen = (float*)data;
       break;
+    case NOISEREPELLENT_BYPASS:
+      self->bypass = (float*)data;
+      break;
     case NOISEREPELLENT_LATENCY:
       self->report_latency = (float*)data;
       break;
@@ -277,9 +285,19 @@ static void connect_port_stereo(LV2_Handle instance, uint32_t port,
 static void activate(LV2_Handle instance) {
   NoiseRepellentAdaptivePlugin* self = (NoiseRepellentAdaptivePlugin*)instance;
 
+  self->activated = true;
+  // Always report the correct processing latency when activated
   if (self->report_latency) {
     *self->report_latency =
         (float)specbleach_adaptive_get_latency(self->lib_instance_1);
+  }
+
+  // Reset soft bypass to dry state for clean reactivation
+  if (self->soft_bypass) {
+    signal_crossfade_reset(self->soft_bypass);
+  }
+  if (self->soft_bypass_2) {
+    signal_crossfade_reset(self->soft_bypass_2);
   }
 
   if (self->input_buf_1) {
@@ -288,6 +306,17 @@ static void activate(LV2_Handle instance) {
 
   if (self->input_buf_2) {
     memset(self->input_buf_2, 0.F, (size_t)self->sample_rate * sizeof(float));
+  }
+}
+
+static void deactivate(LV2_Handle instance) {
+  NoiseRepellentAdaptivePlugin* self = (NoiseRepellentAdaptivePlugin*)instance;
+
+  self->activated = false;
+  // Keep reporting the same latency for consistency - soft bypass handles alignment
+  if (self->report_latency) {
+    *self->report_latency =
+        (float)specbleach_adaptive_get_latency(self->lib_instance_1);
   }
 }
 
@@ -324,10 +353,13 @@ static void run(LV2_Handle instance, uint32_t number_of_samples) {
   specbleach_adaptive_process(self->lib_instance_1, number_of_samples,
                               self->input_1, self->output_1);
 
+  // Use bypass parameter to control processing
+  bool enable_processing = self->bypass ? ((int)*self->bypass == 0) : true;
+
   signal_crossfade_run(
       self->soft_bypass, number_of_samples,
       self->input_1 == self->output_1 ? self->input_buf_1 : self->input_1,
-      self->output_1, true);
+      self->output_1, enable_processing);
 }
 
 static void run_stereo(LV2_Handle instance, uint32_t number_of_samples) {
@@ -348,10 +380,13 @@ static void run_stereo(LV2_Handle instance, uint32_t number_of_samples) {
   specbleach_adaptive_process(self->lib_instance_2, number_of_samples,
                               self->input_2, self->output_2);
 
+  // Use bypass parameter to control processing
+  bool enable_processing = self->bypass ? ((int)*self->bypass == 0) : true;
+
   signal_crossfade_run(
       self->soft_bypass_2, number_of_samples,
       self->input_2 == self->output_2 ? self->input_buf_2 : self->input_2,
-      self->output_2, true);
+      self->output_2, enable_processing);
 }
 
 // clang-format off
@@ -361,7 +396,7 @@ static const LV2_Descriptor descriptor_adaptive = {
     connect_port,
     activate,
     run,
-    NULL,
+    deactivate,
     cleanup,
     NULL
 };
@@ -372,7 +407,7 @@ static const LV2_Descriptor descriptor_adaptive_stereo = {
     connect_port_stereo,
     activate,
     run_stereo,
-    NULL,
+    deactivate,
     cleanup,
     NULL
 };

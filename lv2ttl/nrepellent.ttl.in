@@ -217,10 +217,22 @@
     lv2:default 0 ;
     lv2:portProperty lv2:toggled, lv2:integer, pprop:trigger;
   ], [
+    a lv2:InputPort,
+      lv2:ControlPort ;
+    lv2:index 11 ;
+    lv2:symbol "bypass" ;
+    lv2:name "Bypass"@es ,
+      "Bypass"@fr ,
+      "Bypass" ;
+    lv2:minimum 0 ;
+    lv2:maximum 1 ;
+    lv2:default 0 ;
+    lv2:portProperty lv2:toggled, lv2:integer ;
+  ], [
     a lv2:OutputPort,
       lv2:ControlPort ;
     lv2:name "latency" ;
-    lv2:index 11 ;
+    lv2:index 12 ;
     lv2:symbol "latency" ;
     lv2:minimum 0 ;
     lv2:maximum 8192 ;
@@ -230,13 +242,13 @@
   ], [
     a lv2:AudioPort,
       lv2:InputPort ;
-    lv2:index 12 ;
+    lv2:index 13 ;
     lv2:symbol "input" ;
     lv2:name "Input" ;
   ], [
     a lv2:AudioPort,
       lv2:OutputPort ;
-    lv2:index 13 ;
+    lv2:index 14 ;
     lv2:symbol "output" ;
     lv2:name "Output" ;
   ];
