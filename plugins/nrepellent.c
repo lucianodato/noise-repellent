@@ -83,12 +83,15 @@ static void map_state(LV2_URID_Map* map, State* state, const char* uri) {
         map->map(map->handle, NOISEREPELLENT_STEREO_URI "#noiseprofilemax");
     state->property_noise_profile_size =
         map->map(map->handle, NOISEREPELLENT_STEREO_URI "#noiseprofilesize");
-    state->property_averaged_blocks_mean = map->map(
-        map->handle, NOISEREPELLENT_STEREO_URI "#noiseprofileaveragedblocksmean");
-    state->property_averaged_blocks_median = map->map(
-        map->handle, NOISEREPELLENT_STEREO_URI "#noiseprofileaveragedblocksmedian");
-    state->property_averaged_blocks_max = map->map(
-        map->handle, NOISEREPELLENT_STEREO_URI "#noiseprofileaveragedblocksmax");
+    state->property_averaged_blocks_mean =
+        map->map(map->handle,
+                 NOISEREPELLENT_STEREO_URI "#noiseprofileaveragedblocksmean");
+    state->property_averaged_blocks_median =
+        map->map(map->handle,
+                 NOISEREPELLENT_STEREO_URI "#noiseprofileaveragedblocksmedian");
+    state->property_averaged_blocks_max =
+        map->map(map->handle,
+                 NOISEREPELLENT_STEREO_URI "#noiseprofileaveragedblocksmax");
 
   } else {
     state->property_noise_profile_1_mean =
@@ -99,12 +102,12 @@ static void map_state(LV2_URID_Map* map, State* state, const char* uri) {
         map->map(map->handle, NOISEREPELLENT_URI "#noiseprofilemax");
     state->property_noise_profile_size =
         map->map(map->handle, NOISEREPELLENT_URI "#noiseprofilesize");
-    state->property_averaged_blocks_mean =
-        map->map(map->handle, NOISEREPELLENT_URI "#noiseprofileaveragedblocksmean");
-    state->property_averaged_blocks_median =
-        map->map(map->handle, NOISEREPELLENT_URI "#noiseprofileaveragedblocksmedian");
-    state->property_averaged_blocks_max =
-        map->map(map->handle, NOISEREPELLENT_URI "#noiseprofileaveragedblocksmax");
+    state->property_averaged_blocks_mean = map->map(
+        map->handle, NOISEREPELLENT_URI "#noiseprofileaveragedblocksmean");
+    state->property_averaged_blocks_median = map->map(
+        map->handle, NOISEREPELLENT_URI "#noiseprofileaveragedblocksmedian");
+    state->property_averaged_blocks_max = map->map(
+        map->handle, NOISEREPELLENT_URI "#noiseprofileaveragedblocksmax");
   }
 }
 
@@ -511,9 +514,11 @@ static LV2_State_Status save(LV2_Handle instance,
 
   // Save all 3 profiles for channel 1
   for (int mode = 1; mode <= 3; mode++) {
-    if (specbleach_noise_profile_available_for_mode(self->lib_instance_1, mode)) {
+    if (specbleach_noise_profile_available_for_mode(self->lib_instance_1,
+                                                    mode)) {
       uint32_t averaged_blocks =
-          specbleach_get_noise_profile_blocks_averaged_for_mode(self->lib_instance_1, mode);
+          specbleach_get_noise_profile_blocks_averaged_for_mode(
+              self->lib_instance_1, mode);
 
       LV2_URID blocks_property;
       LV2_URID profile_property;
@@ -545,9 +550,11 @@ static LV2_State_Status save(LV2_Handle instance,
   // Save all 3 profiles for channel 2 (stereo only)
   if (strstr(self->plugin_uri, NOISEREPELLENT_STEREO_URI)) {
     for (int mode = 1; mode <= 3; mode++) {
-      if (specbleach_noise_profile_available_for_mode(self->lib_instance_2, mode)) {
+      if (specbleach_noise_profile_available_for_mode(self->lib_instance_2,
+                                                      mode)) {
         uint32_t averaged_blocks =
-            specbleach_get_noise_profile_blocks_averaged_for_mode(self->lib_instance_2, mode);
+            specbleach_get_noise_profile_blocks_averaged_for_mode(
+                self->lib_instance_2, mode);
 
         LV2_URID profile_property;
 
@@ -559,9 +566,10 @@ static LV2_State_Status save(LV2_Handle instance,
           profile_property = self->state.property_noise_profile_2_max;
         }
 
-        memcpy(noise_profile_get_elements(self->noise_profile_state_2),
-               specbleach_get_noise_profile_for_mode(self->lib_instance_2, mode),
-               sizeof(float) * self->profile_size);
+        memcpy(
+            noise_profile_get_elements(self->noise_profile_state_2),
+            specbleach_get_noise_profile_for_mode(self->lib_instance_2, mode),
+            sizeof(float) * self->profile_size);
 
         store(handle, profile_property, (void*)self->noise_profile_state_2,
               noise_profile_get_size(), self->uris.atom_Vector,
@@ -613,8 +621,8 @@ static LV2_State_Status restore(LV2_Handle instance,
     }
     const uint32_t averagedblocks = *saved_averagedblocks;
 
-    const void* saved_noise_profile = retrieve(
-        handle, profile_property, &size, &type, &valflags);
+    const void* saved_noise_profile =
+        retrieve(handle, profile_property, &size, &type, &valflags);
     if (!saved_noise_profile || size != noise_profile_get_size() ||
         type != self->uris.atom_Vector) {
       continue; // Skip if this profile mode wasn't saved
@@ -640,8 +648,8 @@ static LV2_State_Status restore(LV2_Handle instance,
         profile_property = self->state.property_noise_profile_2_max;
       }
 
-      const void* saved_noise_profile = retrieve(
-          handle, profile_property, &size, &type, &valflags);
+      const void* saved_noise_profile =
+          retrieve(handle, profile_property, &size, &type, &valflags);
       if (!saved_noise_profile || size != noise_profile_get_size() ||
           type != self->uris.atom_Vector) {
         continue; // Skip if this profile mode wasn't saved
@@ -651,10 +659,13 @@ static LV2_State_Status restore(LV2_Handle instance,
              sizeof(float) * self->profile_size);
 
       // For stereo, we use the same averaged blocks as mono for simplicity
-      // In a real implementation, you'd want to save/load per-channel averaged blocks
+      // In a real implementation, you'd want to save/load per-channel averaged
+      // blocks
       const uint32_t* saved_averagedblocks = (const uint32_t*)retrieve(
-          handle, self->state.property_averaged_blocks_mean, &size, &type, &valflags);
-      uint32_t averagedblocks = saved_averagedblocks ? *saved_averagedblocks : 0;
+          handle, self->state.property_averaged_blocks_mean, &size, &type,
+          &valflags);
+      uint32_t averagedblocks =
+          saved_averagedblocks ? *saved_averagedblocks : 0;
 
       specbleach_load_noise_profile(self->lib_instance_2, self->noise_profile_2,
                                     fftsize, averagedblocks);
