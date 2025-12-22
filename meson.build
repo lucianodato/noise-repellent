@@ -40,8 +40,10 @@ if use_system_libspecbleach
 else
   # Use bundled libspecbleach to ensure API compatibility
   message('Using bundled libspecbleach for guaranteed API compatibility (use -Duse_system_libspecbleach=true for system version)')
-  libspecbleach_subproj = subproject('libspecbleach')
-  libspecbleach_dep = libspecbleach_subproj.get_variable('libspecbleach_dep')
+  # Use dependency with fallback but ensure system version is not found
+  libspecbleach_dep = dependency('libspecbleach-bundled-force',
+                                 fallback: ['libspecbleach', 'libspecbleach_dep'],
+                                 required: true)
 endif
 
 m_dep = cc.find_library('m', required: true)
