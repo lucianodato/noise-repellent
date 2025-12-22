@@ -41,7 +41,7 @@ jobs:
       - name: Build noise-repellent
         shell: bash
         run: |
-          meson setup build --buildtype release --prefix /tmp --libdir /tmp
+          meson setup build --buildtype release --prefix /tmp --libdir /tmp -Duse_system_libspecbleach=false
           meson compile -v -C build
           meson install -C build --skip-subprojects
           mv /tmp/lv2/nrepellent.lv2 ./nrepellent.lv2
@@ -103,7 +103,7 @@ jobs:
         shell: bash
         run: |
           pushd PawPaw && source local.env macos-universal && popd
-          meson setup build --buildtype release --prefix /tmp --libdir /tmp -Dlv2dir=/tmp/lv2
+          meson setup build --buildtype release --prefix /tmp --libdir /tmp -Dlv2dir=/tmp/lv2 -Duse_system_libspecbleach=false
           meson compile -v -C build
           meson install -C build --skip-subprojects
           mv /tmp/lv2/nrepellent.lv2 ./nrepellent.lv2
@@ -154,7 +154,7 @@ jobs:
         run: |
           pushd PawPaw && source local.env win64 && popd
           wineboot -u
-          meson setup build --buildtype release --prefix /tmp --libdir /tmp -Dlv2dir=/tmp/lv2 --cross-file $PWD/setup/win64.ini
+          meson setup build --buildtype release --prefix /tmp --libdir /tmp -Dlv2dir=/tmp/lv2 --cross-file $PWD/setup/win64.ini -Duse_system_libspecbleach=false
           meson compile -v -C build
           meson install -C build --skip-subprojects
           mv /tmp/lv2/nrepellent.lv2 ./nrepellent.lv2
