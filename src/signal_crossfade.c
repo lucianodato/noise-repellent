@@ -37,6 +37,7 @@ struct SignalCrossfade {
   float* delay_buffer;
   uint32_t latency;
   uint32_t rw_ptr;
+  uint32_t samples_processed;
 };
 
 SignalCrossfade* signal_crossfade_initialize(const uint32_t sample_rate,
@@ -52,6 +53,7 @@ SignalCrossfade* signal_crossfade_initialize(const uint32_t sample_rate,
   self->wet_dry = 0.F;
   self->wet_dry_target = 0.F;
   self->latency = latency;
+  self->samples_processed = 0;
 
   if (latency > 0) {
     self->delay_buffer = (float*)calloc(latency, sizeof(float));
@@ -94,19 +96,34 @@ bool signal_crossfade_run(SignalCrossfade* self,
   signal_crossfade_update_wetdry_target(self, enable);
 
   for (uint32_t k = 0U; k < number_of_samples; k++) {
-    float delayed_input = input[k];
-
-    if (self->delay_buffer) {
-      delayed_input = self->delay_buffer[self->rw_ptr];
-      self->delay_buffer[self->rw_ptr] = input[k];
-      self->rw_ptr++;
-      if (self->rw_ptr >= self->latency) {
-        self->rw_ptr = 0;
+    // During initial latency period, pass through input unchanged
+    if (self->samples_processed < self->latency) {
+      output[k] = input[k];
+      // Still fill the delay buffer for future use
+      if (self->delay_buffer) {
+        self->delay_buffer[self->rw_ptr] = input[k];
+        self->rw_ptr++;
+        if (self->rw_ptr >= self->latency) {
+          self->rw_ptr = 0;
+        }
       }
+    } else {
+      float delayed_input = input[k];
+
+      if (self->delay_buffer) {
+        delayed_input = self->delay_buffer[self->rw_ptr];
+        self->delay_buffer[self->rw_ptr] = input[k];
+        self->rw_ptr++;
+        if (self->rw_ptr >= self->latency) {
+          self->rw_ptr = 0;
+        }
+      }
+
+      output[k] =
+          (1.F - self->wet_dry) * delayed_input + output[k] * self->wet_dry;
     }
 
-    output[k] =
-        (1.F - self->wet_dry) * delayed_input + output[k] * self->wet_dry;
+    self->samples_processed++;
   }
 
   return true;
