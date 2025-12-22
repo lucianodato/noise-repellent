@@ -52,12 +52,11 @@ typedef enum PortIndex {
   NOISEREPELLENT_NOISE_SMOOTHING = 4,
   NOISEREPELLENT_WHITENING = 5,
   NOISEREPELLENT_RESIDUAL_LISTEN = 6,
-  NOISEREPELLENT_ENABLE = 7,
-  NOISEREPELLENT_LATENCY = 8,
-  NOISEREPELLENT_INPUT_1 = 9,
-  NOISEREPELLENT_OUTPUT_1 = 10,
-  NOISEREPELLENT_INPUT_2 = 11,
-  NOISEREPELLENT_OUTPUT_2 = 12,
+  NOISEREPELLENT_LATENCY = 7,
+  NOISEREPELLENT_INPUT_1 = 8,
+  NOISEREPELLENT_OUTPUT_1 = 9,
+  NOISEREPELLENT_INPUT_2 = 10,
+  NOISEREPELLENT_OUTPUT_2 = 11,
 } PortIndex;
 
 typedef struct NoiseRepellentAdaptivePlugin {
@@ -81,7 +80,6 @@ typedef struct NoiseRepellentAdaptivePlugin {
   SignalCrossfade* soft_bypass;
   SignalCrossfade* soft_bypass_2;
 
-  float* enable;
   float* residual_listen;
   float* noise_scaling_type;
   float* reduction_amount;
@@ -244,9 +242,6 @@ static void connect_port(LV2_Handle instance, uint32_t port, void* data) {
     case NOISEREPELLENT_RESIDUAL_LISTEN:
       self->residual_listen = (float*)data;
       break;
-    case NOISEREPELLENT_ENABLE:
-      self->enable = (float*)data;
-      break;
     case NOISEREPELLENT_LATENCY:
       self->report_latency = (float*)data;
       break;
@@ -282,8 +277,10 @@ static void connect_port_stereo(LV2_Handle instance, uint32_t port,
 static void activate(LV2_Handle instance) {
   NoiseRepellentAdaptivePlugin* self = (NoiseRepellentAdaptivePlugin*)instance;
 
-  *self->report_latency =
-      (float)specbleach_adaptive_get_latency(self->lib_instance_1);
+  if (self->report_latency) {
+    *self->report_latency =
+        (float)specbleach_adaptive_get_latency(self->lib_instance_1);
+  }
 
   if (self->input_buf_1) {
     memset(self->input_buf_1, 0.F, (size_t)self->sample_rate * sizeof(float));
@@ -297,6 +294,11 @@ static void activate(LV2_Handle instance) {
 static void run(LV2_Handle instance, uint32_t number_of_samples) {
   NoiseRepellentAdaptivePlugin* self = (NoiseRepellentAdaptivePlugin*)instance;
 
+  // Check for valid audio ports
+  if (!self->input_1 || !self->output_1) {
+    return;
+  }
+
   // If the host gave us in-place buffers, we need to keep a copy of the input
   if (self->input_1 == self->output_1) {
     memcpy(self->input_buf_1, self->input_1,
@@ -307,13 +309,13 @@ static void run(LV2_Handle instance, uint32_t number_of_samples) {
 
   // clang-format off
   self->parameters = (SpectralBleachParameters){
-      .residual_listen = (bool)*self->residual_listen,
-      .reduction_amount = *self->reduction_amount,
-      .smoothing_factor = *self->smoothing_factor,
-      .whitening_factor = *self->whitening_factor,
-      .noise_rescale = *self->noise_rescale,
-      .noise_scaling_type = (int)*self->noise_scaling_type,
-      .post_filter_threshold = *self->postfilter_threshold,
+      .residual_listen = self->residual_listen ? (bool)*self->residual_listen : false,
+      .reduction_amount = self->reduction_amount ? *self->reduction_amount : 10.0f,
+      .smoothing_factor = self->smoothing_factor ? *self->smoothing_factor : 0.0f,
+      .whitening_factor = self->whitening_factor ? *self->whitening_factor : 0.0f,
+      .noise_rescale = self->noise_rescale ? *self->noise_rescale : 2.0f,
+      .noise_scaling_type = self->noise_scaling_type ? (int)*self->noise_scaling_type : 2,
+      .post_filter_threshold = self->postfilter_threshold ? *self->postfilter_threshold : -10.0f,
   };
   // clang-format on
 
@@ -325,7 +327,7 @@ static void run(LV2_Handle instance, uint32_t number_of_samples) {
   signal_crossfade_run(
       self->soft_bypass, number_of_samples,
       self->input_1 == self->output_1 ? self->input_buf_1 : self->input_1,
-      self->output_1, (bool)*self->enable);
+      self->output_1, true);
 }
 
 static void run_stereo(LV2_Handle instance, uint32_t number_of_samples) {
@@ -349,7 +351,7 @@ static void run_stereo(LV2_Handle instance, uint32_t number_of_samples) {
   signal_crossfade_run(
       self->soft_bypass_2, number_of_samples,
       self->input_2 == self->output_2 ? self->input_buf_2 : self->input_2,
-      self->output_2, (bool)*self->enable);
+      self->output_2, true);
 }
 
 // clang-format off
