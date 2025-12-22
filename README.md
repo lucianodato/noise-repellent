@@ -55,8 +55,12 @@ meson install -C build
 
 You can configure the build options using `-Doption=value`:
 
-- `custom_warning_level`: 0-3 (default: 2).
-- `enable_sanitizers`: Enable address/undefined sanitizers (default: false).
+- `custom_warning_level`: 0-3 (default: 2). Controls compiler warning verbosity.
+- `treat_warnings_as_errors`: Treat compiler warnings as errors (default: false).
+- `enable_sanitizers`: Enable sanitizers for debug builds (default: false).
+- `sanitize_address`: Enable address sanitizer (only if enable_sanitizers is true) (default: true).
+- `sanitize_undefined`: Enable undefined behavior sanitizer (only if enable_sanitizers is true) (default: true).
+- `lv2dir`: Install directory for LV2 bundles (absolute path or relative to prefix) (default: '').
 - `use_system_libspecbleach`: Use system-installed libspecbleach instead of bundled version (default: false). Only enable if you have libspecbleach with compatible API. The bundled version ensures API compatibility and is recommended for most users.
 
 Example:
