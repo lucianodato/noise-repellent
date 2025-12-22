@@ -89,7 +89,7 @@ jobs:
           restore-keys: macos-universal-
       - name: Set up dependencies
         run: |
-          brew install autoconf automake cmake coreutils gawk git gnu-sed jq make meson ninja pkg-config libtool
+          brew install autoconf automake coreutils gawk git gnu-sed make meson libtool
       - name: Bootstrap macOS universal
         shell: bash
         run: |
