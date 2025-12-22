@@ -57,6 +57,7 @@ You can configure the build options using `-Doption=value`:
 
 - `custom_warning_level`: 0-3 (default: 2).
 - `enable_sanitizers`: Enable address/undefined sanitizers (default: false).
+- `use_system_libspecbleach`: Use system-installed libspecbleach instead of bundled version (default: false). Only enable if you have libspecbleach with compatible API. The bundled version ensures API compatibility and is recommended for most users.
 
 Example:
 ```bash
