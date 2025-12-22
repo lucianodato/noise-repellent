@@ -192,7 +192,7 @@ nrepel_ttl_adaptive_stereo = configure_file(
 )
 
 # Code formatting target
-run_target('format',
+run_target('format-main',
   command: [
     'sh', '-c',
     'find "@SOURCE_ROOT@" -name "*.[ch]" | grep -v "/build/" | grep -v "/subprojects/" | xargs clang-format -i && echo "Code formatting complete!"'
