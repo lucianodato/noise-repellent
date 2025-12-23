@@ -33,16 +33,15 @@ lv2_dep = dependency('lv2', required: true)
 # Handle libspecbleach dependency
 use_system_libspecbleach = get_option('use_system_libspecbleach')
 if use_system_libspecbleach
+  # Force use of bundled libspecbleach (ignore system version)
+  message('Forcing use of bundled libspecbleach')
+  libspecbleach_subproj = subproject('libspecbleach')
+  libspecbleach_dep = libspecbleach_subproj.get_variable('libspecbleach_dep')
+else
+  # Use original behavior: try system first, fallback to bundled
   libspecbleach_dep = dependency('libspecbleach',
                                  fallback: ['libspecbleach', 'libspecbleach_dep'],
                                  default_options: ['default_library=static'],
-                                 required: true)
-else
-  # Use bundled libspecbleach to ensure API compatibility
-  message('Using bundled libspecbleach for guaranteed API compatibility (use -Duse_system_libspecbleach=true for system version)')
-  # Use dependency with fallback but ensure system version is not found
-  libspecbleach_dep = dependency('libspecbleach-bundled-force',
-                                 fallback: ['libspecbleach', 'libspecbleach_dep'],
                                  required: true)
 endif
 
@@ -219,7 +218,7 @@ summary({
   'Warning Level': custom_warning_level,
   'Warnings as Errors': get_option('treat_warnings_as_errors'),
   'Sanitizers': get_option('enable_sanitizers'),
-  'Use System libspecbleach': get_option('use_system_libspecbleach'),
+    'Force Bundled libspecbleach': get_option('use_system_libspecbleach'),
 
   'Install Directory': install_folder,
 }, section: 'Configuration')
