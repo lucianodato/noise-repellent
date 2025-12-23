@@ -85,8 +85,8 @@ jobs:
             ~/PawPawBuilds/builds
             ~/PawPawBuilds/downloads
             ~/PawPawBuilds/targets
-          key: macos-universal-v2-${{ hashFiles('**/meson.build') }}
-          restore-keys: macos-universal-v2-
+          key: macos-universal-${{ hashFiles('**/meson.build') }}
+          restore-keys: macos-universal-
       - name: Set up dependencies
         run: |
           brew install autoconf automake coreutils gawk git gnu-sed make meson libtool
@@ -103,11 +103,6 @@ jobs:
         shell: bash
         run: |
           pushd PawPaw && source local.env macos-universal && popd
-          # Ensure consistent environment for subproject builds
-          export CC="${CC:-cc}"
-          export CXX="${CXX:-c++}"
-          export CFLAGS="${CFLAGS:-}"
-          export LDFLAGS="${LDFLAGS:-}"
           meson setup build --buildtype release --prefix /tmp --libdir /tmp -Duse_system_libspecbleach=false -Dlv2dir=/tmp/lv2
           meson compile -v -C build
           meson install -C build --skip-subprojects
