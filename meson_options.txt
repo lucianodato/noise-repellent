@@ -25,14 +25,12 @@ option('sanitize_undefined',
        value: true,
        description: 'Enable undefined behavior sanitizer (only if enable_sanitizers is true)')
 
-
-
 option('lv2dir',
        type: 'string',
        value: '',
        description: 'Install directory for LV2 bundles (absolute path or relative to prefix)')
 
-option('use_system_libspecbleach',
+option('force_bundled_libspecbleach',
        type: 'boolean',
        value: false,
-       description: 'Use system-installed libspecbleach instead of bundled version (only works with libspecbleach >= 0.2.0 with compatible API)')
+       description: 'Force use of bundled libspecbleach instead of system version (useful for ensuring API compatibility)')

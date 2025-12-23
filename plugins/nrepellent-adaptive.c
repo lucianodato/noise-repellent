@@ -346,6 +346,7 @@ static void run(LV2_Handle instance, uint32_t number_of_samples) {
       .noise_rescale = self->noise_rescale ? *self->noise_rescale : 2.0f,
       .noise_scaling_type = self->noise_scaling_type ? (int)*self->noise_scaling_type : 2,
       .post_filter_threshold = self->postfilter_threshold ? *self->postfilter_threshold : -10.0f,
+      .noise_estimation_method = SPP_MMSE_METHOD,  // Always use the better SPP-MMSE method
   };
   // clang-format on
 
