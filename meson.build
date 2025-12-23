@@ -31,8 +31,8 @@ noise_repellent_adaptive_src = 'plugins/nrepellent-adaptive.c'
 lv2_dep = dependency('lv2', required: true)
 
 # Handle libspecbleach dependency
-use_system_libspecbleach = get_option('use_system_libspecbleach')
-if use_system_libspecbleach
+force_bundled_libspecbleach = get_option('force_bundled_libspecbleach')
+if force_bundled_libspecbleach
   # Force use of bundled libspecbleach (ignore system version)
   message('Forcing use of bundled libspecbleach')
   libspecbleach_subproj = subproject('libspecbleach')
@@ -218,7 +218,7 @@ summary({
   'Warning Level': custom_warning_level,
   'Warnings as Errors': get_option('treat_warnings_as_errors'),
   'Sanitizers': get_option('enable_sanitizers'),
-    'Force Bundled libspecbleach': get_option('use_system_libspecbleach'),
+    'Force Bundled libspecbleach': get_option('force_bundled_libspecbleach'),
 
   'Install Directory': install_folder,
 }, section: 'Configuration')

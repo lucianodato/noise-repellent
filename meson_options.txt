@@ -30,7 +30,7 @@ option('lv2dir',
        value: '',
        description: 'Install directory for LV2 bundles (absolute path or relative to prefix)')
 
-option('use_system_libspecbleach',
+option('force_bundled_libspecbleach',
        type: 'boolean',
        value: false,
        description: 'Force use of bundled libspecbleach instead of system version (useful for ensuring API compatibility)')
