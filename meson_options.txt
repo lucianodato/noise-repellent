@@ -34,3 +34,8 @@ option('force_bundled_libspecbleach',
        type: 'boolean',
        value: false,
        description: 'Force use of bundled libspecbleach instead of system version (useful for ensuring API compatibility)')
+
+option('libspecbleach_libdir',
+       type: 'string',
+       value: '',
+       description: 'Directory where libspecbleach is installed (used for RPATH when using system libspecbleach). Leave empty to auto-detect (pkg-config libdir -> Meson libdir).')
