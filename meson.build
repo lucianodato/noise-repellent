@@ -32,17 +32,36 @@ lv2_dep = dependency('lv2', required: true)
 
 # Handle libspecbleach dependency
 force_bundled_libspecbleach = get_option('force_bundled_libspecbleach')
+libspecbleach_custom_libdir = get_option('libspecbleach_libdir')
+
 if force_bundled_libspecbleach
   # Force use of bundled libspecbleach (ignore system version)
   message('Forcing use of bundled libspecbleach')
   libspecbleach_subproj = subproject('libspecbleach')
   libspecbleach_dep = libspecbleach_subproj.get_variable('libspecbleach_dep')
+  # For bundled libspecbleach, use relative RPATH
+  plugin_rpath = '$ORIGIN'
 else
   # Use original behavior: try system first, fallback to bundled
   libspecbleach_dep = dependency('libspecbleach',
                                  fallback: ['libspecbleach', 'libspecbleach_dep'],
                                  default_options: ['default_library=static'],
                                  required: true)
+  # Prefer pkg-config-reported libdir when available to match distro layouts.
+  libspecbleach_pc = dependency('libspecbleach', method: 'pkg-config', required: false)
+  libspecbleach_pc_libdir = ''
+  if libspecbleach_pc.found()
+    libspecbleach_pc_libdir = libspecbleach_pc.get_pkgconfig_variable('libdir', default: '')
+  endif
+
+  # RPATH priority: user override > pkg-config libdir > Meson libdir
+  if libspecbleach_custom_libdir != ''
+    plugin_rpath = libspecbleach_custom_libdir + ':$ORIGIN'
+  elif libspecbleach_pc_libdir != ''
+    plugin_rpath = libspecbleach_pc_libdir + ':$ORIGIN'
+  else
+    plugin_rpath = get_option('libdir') + ':$ORIGIN'
+  endif
 endif
 
 m_dep = cc.find_library('m', required: true)
@@ -128,7 +147,8 @@ library('nrepellent',
         name_prefix: '',
         dependencies: all_dep,
         install: true,
-        install_dir: install_folder)
+        install_dir: install_folder,
+        install_rpath: plugin_rpath)
 
 library('nrepellent-adaptive',
         common_src,
@@ -137,7 +157,8 @@ library('nrepellent-adaptive',
         name_prefix: '',
         dependencies: all_dep,
         install: true,
-        install_dir: install_folder)
+        install_dir: install_folder,
+        install_rpath: plugin_rpath)
 
 # Getting version from project configuration or from git tags
 version_array = meson.project_version().split('.')
@@ -218,7 +239,8 @@ summary({
   'Warning Level': custom_warning_level,
   'Warnings as Errors': get_option('treat_warnings_as_errors'),
   'Sanitizers': get_option('enable_sanitizers'),
-    'Force Bundled libspecbleach': get_option('force_bundled_libspecbleach'),
+  'Force Bundled libspecbleach': get_option('force_bundled_libspecbleach'),
+  'libspecbleach libdir': get_option('libspecbleach_libdir'),
 
   'Install Directory': install_folder,
 }, section: 'Configuration')
