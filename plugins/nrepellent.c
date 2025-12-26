@@ -132,15 +132,14 @@ typedef enum PortIndex {
   NOISEREPELLENT_POSTFILTER = 5,
   NOISEREPELLENT_SMOOTHING = 6,
   NOISEREPELLENT_WHITENING = 7,
-  NOISEREPELLENT_TRANSIENT_PROTECTION = 8,
-  NOISEREPELLENT_RESIDUAL_LISTEN = 9,
-  NOISEREPELLENT_RESET_NOISE_PROFILE = 10,
-  NOISEREPELLENT_BYPASS = 11,
-  NOISEREPELLENT_LATENCY = 12,
-  NOISEREPELLENT_INPUT_1 = 13,
-  NOISEREPELLENT_OUTPUT_1 = 14,
-  NOISEREPELLENT_INPUT_2 = 15,
-  NOISEREPELLENT_OUTPUT_2 = 16,
+  NOISEREPELLENT_RESIDUAL_LISTEN = 8,
+  NOISEREPELLENT_RESET_NOISE_PROFILE = 9,
+  NOISEREPELLENT_BYPASS = 10,
+  NOISEREPELLENT_LATENCY = 11,
+  NOISEREPELLENT_INPUT_1 = 12,
+  NOISEREPELLENT_OUTPUT_1 = 13,
+  NOISEREPELLENT_INPUT_2 = 14,
+  NOISEREPELLENT_OUTPUT_2 = 15,
 } PortIndex;
 
 typedef struct NoiseRepellentPlugin {
@@ -173,7 +172,6 @@ typedef struct NoiseRepellentPlugin {
   float* learn_noise;
   float* mode;
   float* noise_scaling_type;
-  float* transient_protection;
   float* residual_listen;
   float* reduction_amount;
   float* smoothing_factor;
@@ -365,9 +363,6 @@ static void connect_port(LV2_Handle instance, uint32_t port, void* data) {
     case NOISEREPELLENT_POSTFILTER:
       self->postfilter_threshold = (float*)data;
       break;
-    case NOISEREPELLENT_TRANSIENT_PROTECTION:
-      self->transient_protection = (float*)data;
-      break;
     case NOISEREPELLENT_MODE:
       self->mode = (float*)data;
       break;
@@ -471,7 +466,6 @@ static void run(LV2_Handle instance, uint32_t number_of_samples) {
       .noise_reduction_mode = self->mode ? (int)*self->mode : 1,
       .residual_listen = self->residual_listen ? (bool)*self->residual_listen : false,
       .noise_scaling_type = self->noise_scaling_type ? (int)*self->noise_scaling_type : 2,
-      .transient_protection = self->transient_protection ? (bool)*self->transient_protection : false,
       .reduction_amount = self->reduction_amount ? *self->reduction_amount : 10.0f,
       .noise_rescale = self->noise_rescale ? *self->noise_rescale : 2.0f,
       .smoothing_factor = self->smoothing_factor ? *self->smoothing_factor : 0.0f,
