@@ -118,6 +118,21 @@ jobs:
         with:
           name: noise-repellent-macOS-universal-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
           path: noise-repellent-macOS-universal-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}.zip
+      - name: Get release version number
+        if: startsWith(github.ref, 'refs/tags/')
+        id: get_version
+        uses: battila7/get-version-action@v2
+      - name: Rename zip if tag branch
+        shell: bash
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          mv noise-repellent-macOS-universal-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}.zip noise-repellent-macOS-universal-${{ steps.get_version.outputs.version }}.zip
+      - name: Upload Release
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: 
+            noise-repellent-macOS-universal-${{ steps.get_version.outputs.version }}.zip
       
   win64:
     runs-on: ubuntu-22.04
@@ -169,3 +184,18 @@ jobs:
         with:
           name: noise-repellent-win64-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
           path: noise-repellent-win64-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}.zip
+      - name: Get release version number
+        if: startsWith(github.ref, 'refs/tags/')
+        id: get_version
+        uses: battila7/get-version-action@v2
+      - name: Rename zip if tag branch
+        shell: bash
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          mv noise-repellent-win64-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}.zip noise-repellent-win64-${{ steps.get_version.outputs.version }}.zip
+      - name: Upload Release
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: 
+            noise-repellent-win64-${{ steps.get_version.outputs.version }}.zip
