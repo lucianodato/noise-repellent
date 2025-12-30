@@ -17,7 +17,8 @@ A suite of LV2 plugins for real-time spectral noise reduction, built on the [lib
 
 ![Noise Repellent in Ardour](images/Noise-repellent-Ardour.png)
 ![Noise Repellent in Reaper](images/Noise-repellent-Reaper.png)
-![Adaptive Noise Repellent in Reaper](images/Adaptive-Reaper.png)
+![Adaptive Noise Repellent in Ardour](images/Noise-repellent-adaptive-Ardour.png)
+![Adaptive Noise Repellent in Reaper](images/Noise-repellent-adaptive-Reaper.png)
 
 ## Installation
 
