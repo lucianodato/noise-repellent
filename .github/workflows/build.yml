@@ -110,6 +110,8 @@ jobs:
           meson compile -v -C build
           meson install -C build --skip-subprojects
           mv /tmp/lv2/nrepellent.lv2 ./nrepellent.lv2
+          # Ad-hoc sign binaries (required for Apple Silicon and helpful for Gatekeeper)
+          find ./nrepellent.lv2 -name "*.dylib" -o -name "*.so" | xargs codesign -s - --force
       - name: Set sha8
         id: slug
         run: echo "sha8=$(echo ${{ github.sha }} | cut -c1-8)" >> $GITHUB_OUTPUT
@@ -117,7 +119,8 @@ jobs:
         shell: bash
         run: |
           chmod -R 755 ./nrepellent.lv2
-          zip -r noise-repellent-macOS-universal-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}.zip ./nrepellent.lv2
+          # Use ditto on macOS to preserve metadata and extended attributes better than zip
+          ditto -c -k --sequesterRsrc --keepParent ./nrepellent.lv2 noise-repellent-macOS-universal-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}.zip
           mkdir -p staging
           cp -r nrepellent.lv2 staging/
       - uses: actions/upload-artifact@v4

@@ -28,6 +28,18 @@ Binaries for Linux, macOS, and Windows are provided in the [GitHub Releases](htt
 - **macOS**: `~/Library/Audio/Plug-Ins/LV2/` or `/Library/Audio/Plug-Ins/LV2/`
 - **Windows**: `%COMMONPROGRAMFILES%\LV2\`
 
+> [!IMPORTANT]
+> **macOS Users**: Due to Gatekeeper security, you might need to remove the "quarantine" attribute after copying the plugin manually. If the plugin fails to load in your DAW, run one of the following commands in your terminal:
+>
+> **For User folder:**
+> ```bash
+> xattr -rd com.apple.quarantine ~/Library/Audio/Plug-Ins/LV2/nrepellent.lv2
+> ```
+> **For System folder:**
+> ```bash
+> sudo xattr -rd com.apple.quarantine /Library/Audio/Plug-Ins/LV2/nrepellent.lv2
+> ```
+
 ### From Source
 
 **Requirements:**
