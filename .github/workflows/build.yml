@@ -51,11 +51,14 @@ jobs:
       - name: Pack build
         shell: bash
         run: |
-          zip -r noise-repellent-linux64-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }} ./nrepellent.lv2
+          chmod -R 755 ./nrepellent.lv2
+          zip -r noise-repellent-linux64-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}.zip ./nrepellent.lv2
+          mkdir -p staging
+          cp -r nrepellent.lv2 staging/
       - uses: actions/upload-artifact@v4
         with:
           name: noise-repellent-linux64-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
-          path: noise-repellent-linux64-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}.zip
+          path: staging/
       - name: Get release version number
         if: startsWith(github.ref, 'refs/tags/')
         id: get_version
@@ -113,11 +116,14 @@ jobs:
       - name: Pack build
         shell: bash
         run: |
-          zip -r noise-repellent-macOS-universal-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }} ./nrepellent.lv2
+          chmod -R 755 ./nrepellent.lv2
+          zip -r noise-repellent-macOS-universal-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}.zip ./nrepellent.lv2
+          mkdir -p staging
+          cp -r nrepellent.lv2 staging/
       - uses: actions/upload-artifact@v4
         with:
           name: noise-repellent-macOS-universal-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
-          path: noise-repellent-macOS-universal-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}.zip
+          path: staging/
       - name: Get release version number
         if: startsWith(github.ref, 'refs/tags/')
         id: get_version
@@ -179,11 +185,14 @@ jobs:
       - name: Pack build
         shell: bash
         run: |
-          zip -r noise-repellent-win64-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }} ./nrepellent.lv2
+          chmod -R 755 ./nrepellent.lv2
+          zip -r noise-repellent-win64-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}.zip ./nrepellent.lv2
+          mkdir -p staging
+          cp -r nrepellent.lv2 staging/
       - uses: actions/upload-artifact@v4
         with:
           name: noise-repellent-win64-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
-          path: noise-repellent-win64-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}.zip
+          path: staging/
       - name: Get release version number
         if: startsWith(github.ref, 'refs/tags/')
         id: get_version
