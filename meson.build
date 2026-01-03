@@ -33,34 +33,43 @@ lv2_dep = dependency('lv2', required: true)
 # Handle libspecbleach dependency
 force_bundled_libspecbleach = get_option('force_bundled_libspecbleach')
 libspecbleach_custom_libdir = get_option('libspecbleach_libdir')
+static_libspecbleach = get_option('static_libspecbleach')
 
 if force_bundled_libspecbleach
   # Force use of bundled libspecbleach (ignore system version)
   message('Forcing use of bundled libspecbleach')
-  libspecbleach_subproj = subproject('libspecbleach')
+  libspecbleach_subproj = subproject('libspecbleach', default_options: ['default_library=' + (static_libspecbleach ? 'static' : 'shared')])
   libspecbleach_dep = libspecbleach_subproj.get_variable('libspecbleach_dep')
-  # For bundled libspecbleach, use relative RPATH
   plugin_rpath = '$ORIGIN'
 else
   # Use original behavior: try system first, fallback to bundled
   libspecbleach_dep = dependency('libspecbleach',
                                  fallback: ['libspecbleach', 'libspecbleach_dep'],
-                                 default_options: ['default_library=static'],
+                                 default_options: ['default_library=' + (static_libspecbleach ? 'static' : 'shared')],
+                                 static: static_libspecbleach,
                                  required: true)
-  # Prefer pkg-config-reported libdir when available to match distro layouts.
-  libspecbleach_pc = dependency('libspecbleach', method: 'pkg-config', required: false)
-  libspecbleach_pc_libdir = ''
-  if libspecbleach_pc.found()
-    libspecbleach_pc_libdir = libspecbleach_pc.get_pkgconfig_variable('libdir', default: '')
-  endif
+  
+  # Identify if we are using the subproject or a system library
+  is_subproject = libspecbleach_dep.type_name() == 'internal'
 
   # RPATH priority: user override > pkg-config libdir > Meson libdir
   if libspecbleach_custom_libdir != ''
     plugin_rpath = libspecbleach_custom_libdir + ':$ORIGIN'
-  elif libspecbleach_pc_libdir != ''
-    plugin_rpath = libspecbleach_pc_libdir + ':$ORIGIN'
+  elif is_subproject or static_libspecbleach
+    plugin_rpath = '$ORIGIN'
   else
-    plugin_rpath = get_option('libdir') + ':$ORIGIN'
+    # Try to get libdir from pkg-config if available
+    libspecbleach_pc = dependency('libspecbleach', method: 'pkg-config', required: false, static: static_libspecbleach)
+    libspecbleach_pc_libdir = ''
+    if libspecbleach_pc.found()
+      libspecbleach_pc_libdir = libspecbleach_pc.get_pkgconfig_variable('libdir', default: '')
+    endif
+
+    if libspecbleach_pc_libdir != ''
+      plugin_rpath = libspecbleach_pc_libdir + ':$ORIGIN'
+    else
+      plugin_rpath = get_option('libdir') + ':$ORIGIN'
+    endif
   endif
 endif
 
@@ -139,8 +148,8 @@ else  # unix like (linux, bsd)
   extension = '.so'
 endif
 
-# Build of the shared object
-library('nrepellent',
+# Build of the shared modules (LV2 plugins)
+shared_module('nrepellent',
         common_src,
         noise_repellent_src,
         c_args: lib_c_args,
@@ -150,7 +159,7 @@ library('nrepellent',
         install_dir: install_folder,
         install_rpath: plugin_rpath)
 
-library('nrepellent-adaptive',
+shared_module('nrepellent-adaptive',
         common_src,
         noise_repellent_adaptive_src,
         c_args: lib_c_args,
@@ -240,7 +249,6 @@ summary({
   'Warnings as Errors': get_option('treat_warnings_as_errors'),
   'Sanitizers': get_option('enable_sanitizers'),
   'Force Bundled libspecbleach': get_option('force_bundled_libspecbleach'),
+  'Static libspecbleach': get_option('static_libspecbleach'),
   'libspecbleach libdir': get_option('libspecbleach_libdir'),
-
-  'Install Directory': install_folder,
 }, section: 'Configuration')
