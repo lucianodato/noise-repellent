@@ -38,14 +38,20 @@ static_libspecbleach = get_option('static_libspecbleach')
 if force_bundled_libspecbleach
   # Force use of bundled libspecbleach (ignore system version)
   message('Forcing use of bundled libspecbleach')
-  libspecbleach_subproj = subproject('libspecbleach', default_options: ['default_library=' + (static_libspecbleach ? 'static' : 'shared')])
+  libspecbleach_subproj = subproject('libspecbleach', default_options: [
+    'default_library=' + (static_libspecbleach ? 'static' : 'shared'),
+    'static_deps=' + (static_libspecbleach ? 'true' : 'false')
+  ])
   libspecbleach_dep = libspecbleach_subproj.get_variable('libspecbleach_dep')
   plugin_rpath = '$ORIGIN'
 else
   # Use original behavior: try system first, fallback to bundled
   libspecbleach_dep = dependency('libspecbleach',
                                  fallback: ['libspecbleach', 'libspecbleach_dep'],
-                                 default_options: ['default_library=' + (static_libspecbleach ? 'static' : 'shared')],
+                                 default_options: [
+                                   'default_library=' + (static_libspecbleach ? 'static' : 'shared'),
+                                   'static_deps=' + (static_libspecbleach ? 'true' : 'false')
+                                 ],
                                  static: static_libspecbleach,
                                  required: true)
   

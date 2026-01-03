@@ -28,6 +28,18 @@ Binaries for Linux, macOS, and Windows are provided in the [GitHub Releases](htt
 - **macOS**: `~/Library/Audio/Plug-Ins/LV2/` or `/Library/Audio/Plug-Ins/LV2/`
 - **Windows**: `%COMMONPROGRAMFILES%\LV2\`
 
+> [!IMPORTANT]
+> **macOS Users**: Due to Gatekeeper security, you might need to remove the "quarantine" attribute after copying the plugin manually. If the plugin fails to load in your DAW, run one of the following commands in your terminal:
+>
+> **For User folder:**
+> ```bash
+> xattr -rd com.apple.quarantine ~/Library/Audio/Plug-Ins/LV2/nrepellent.lv2
+> ```
+> **For System folder:**
+> ```bash
+> sudo xattr -rd com.apple.quarantine /Library/Audio/Plug-Ins/LV2/nrepellent.lv2
+> ```
+
 ### From Source
 
 **Requirements:**
@@ -63,11 +75,13 @@ You can configure the build options using `-Doption=value`:
 - `sanitize_undefined`: Enable undefined behavior sanitizer (only if enable_sanitizers is true) (default: true).
 - `lv2dir`: Install directory for LV2 bundles (absolute path or relative to prefix) (default: '').
 - `force_bundled_libspecbleach`: Force use of bundled libspecbleach instead of system version (default: false). Enable this to ensure API compatibility when building from source.
+- `static_libspecbleach`: Link libspecbleach and its internal dependencies (like FFTW) statically into the plugins (default: true). This creates self-contained binaries that don't depend on external shared libraries. Set to `false` if you are a packager and prefer to use a shared system library.
 - `libspecbleach_libdir`: Directory where libspecbleach is installed (used for RPATH when using system libspecbleach). Leave empty for automatic detection (pkg-config libdir, then Meson libdir). Useful when libspecbleach is installed to a non-standard location.
 
-Example:
+Example for a self-contained static build:
 ```bash
-meson setup build -Dbuildtype=debug
+meson setup build --buildtype=release -Dstatic_libspecbleach=true -Dforce_bundled_libspecbleach=true
+meson compile -C build
 ```
 
 ## Usage
