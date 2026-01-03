@@ -75,7 +75,7 @@ You can configure the build options using `-Doption=value`:
 - `sanitize_undefined`: Enable undefined behavior sanitizer (only if enable_sanitizers is true) (default: true).
 - `lv2dir`: Install directory for LV2 bundles (absolute path or relative to prefix) (default: '').
 - `force_bundled_libspecbleach`: Force use of bundled libspecbleach instead of system version (default: false). Enable this to ensure API compatibility when building from source.
-- `static_libspecbleach`: Link libspecbleach statically into the plugins (default: true). This creates self-contained binaries that don't depend on an external `libspecbleach` shared library. Set to `false` if you are a packager and prefer to use a shared system library.
+- `static_libspecbleach`: Link libspecbleach and its internal dependencies (like FFTW) statically into the plugins (default: true). This creates self-contained binaries that don't depend on external shared libraries. Set to `false` if you are a packager and prefer to use a shared system library.
 - `libspecbleach_libdir`: Directory where libspecbleach is installed (used for RPATH when using system libspecbleach). Leave empty for automatic detection (pkg-config libdir, then Meson libdir). Useful when libspecbleach is installed to a non-standard location.
 
 Example for a self-contained static build:
