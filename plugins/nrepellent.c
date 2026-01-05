@@ -162,7 +162,7 @@ typedef struct NoiseRepellentPlugin {
   SignalCrossfade* soft_bypass_2;
   SpectralBleachHandle lib_instance_1;
   SpectralBleachHandle lib_instance_2;
-  SpectralBleachParameters parameters;
+  SpectralBleachDenoiserParameters parameters;
   NoiseProfileState* noise_profile_state_1;
   NoiseProfileState* noise_profile_state_2;
   float* noise_profile_1;
@@ -461,7 +461,7 @@ static void run(LV2_Handle instance, uint32_t number_of_samples) {
   }
 
   // clang-format off
-  self->parameters = (SpectralBleachParameters){
+  self->parameters = (SpectralBleachDenoiserParameters){
       .learn_noise = self->learn_noise ? (int)*self->learn_noise : 0,
       .noise_reduction_mode = self->mode ? (int)*self->mode : 1,
       .residual_listen = self->residual_listen ? (bool)*self->residual_listen : false,

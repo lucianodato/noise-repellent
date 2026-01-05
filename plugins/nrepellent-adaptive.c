@@ -77,7 +77,7 @@ typedef struct NoiseRepellentAdaptivePlugin {
 
   SpectralBleachHandle lib_instance_1;
   SpectralBleachHandle lib_instance_2;
-  SpectralBleachParameters parameters;
+  SpectralBleachAdaptiveParameters parameters;
   SignalCrossfade* soft_bypass;
   SignalCrossfade* soft_bypass_2;
 
@@ -338,7 +338,7 @@ static void run(LV2_Handle instance, uint32_t number_of_samples) {
   }
 
   // clang-format off
-  self->parameters = (SpectralBleachParameters){
+  self->parameters = (SpectralBleachAdaptiveParameters){
       .residual_listen = self->residual_listen ? (bool)*self->residual_listen : false,
       .reduction_amount = self->reduction_amount ? *self->reduction_amount : 10.0f,
       .smoothing_factor = self->smoothing_factor ? *self->smoothing_factor : 0.0f,
