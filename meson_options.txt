@@ -42,5 +42,5 @@ option('libspecbleach_libdir',
 
 option('static_libspecbleach',
        type: 'boolean',
-       value: true,
+       value: false,
        description: 'Link libspecbleach statically into the plugins')
