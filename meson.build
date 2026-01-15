@@ -12,9 +12,7 @@ cc = meson.get_compiler('c')
 # Install folder
 lv2_directory = get_option('lv2dir')
 if lv2_directory == ''
-  if current_os == 'darwin'
-    lv2_directory = '/Library/Audio/Plug-Ins/LV2'
-  elif current_os == 'windows'
+  if current_os == 'windows'
     lv2_directory = join_paths(get_option('prefix'), 'bin', 'lv2')
   else
     lv2_directory = join_paths(get_option('libdir'), 'lv2')
