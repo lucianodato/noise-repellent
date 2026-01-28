@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [0.3.0] - 2026-01-28
 
 ### Added
 - Modern build system using Meson and Ninja.
@@ -17,6 +17,7 @@ All notable changes to this project will be documented in this file.
 - Updated compiler flags to strict C17 standard usage.
 
 ### Fixed
+- **Critical**: Fixed audio alignment/latency issue in 2D denoiser (caused by NLM look-ahead mismatch).
 - Fixed strict prototype warnings in C headers.
 - Fixed stereo state restoration logic (Thanks @orivej).
 - Fixed bypass issue for hosts using in-place buffers (e.g., Ardour) (Thanks @jmaibaum).
@@ -26,4 +27,4 @@ All notable changes to this project will be documented in this file.
 - New control parameters from development branch:
     - **Noise Scaling Type**: Choose between different reduction algorithms.
     - **Post-filter Threshold**: Fine-tune the reduction threshold.
-    - **Residual Whitening**: Added to the standard plugin (previously only in adaptive).
+    - **Residual Whitening**: Added to 2D denoiser (replacing Over-subtraction), matching standard plugin behavior.
