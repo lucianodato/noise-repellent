@@ -129,7 +129,7 @@ typedef enum PortIndex {
   NOISEREPELLENT_2D_MODE = 1,
   NOISEREPELLENT_2D_AMOUNT = 2,
   NOISEREPELLENT_2D_NLM_SMOOTHING = 3,
-  NOISEREPELLENT_2D_NOISE_OFFSET = 4,
+  NOISEREPELLENT_2D_WHITENING = 4,
   NOISEREPELLENT_2D_RESIDUAL_LISTEN = 5,
   NOISEREPELLENT_2D_BYPASS = 6,
   NOISEREPELLENT_2D_RESET_NOISE_PROFILE = 7,
@@ -172,7 +172,7 @@ typedef struct NoiseRepellent2DPlugin {
   float* residual_listen;
   float* reduction_amount;
   float* nlm_smoothing;
-  float* noise_rescale;
+  float* whitening;
   float* reset_noise_profile;
   float* bypass;
 
@@ -344,8 +344,8 @@ static void connect_port(LV2_Handle instance, uint32_t port, void* data) {
     case NOISEREPELLENT_2D_NLM_SMOOTHING:
       self->nlm_smoothing = (float*)data;
       break;
-    case NOISEREPELLENT_2D_NOISE_OFFSET:
-      self->noise_rescale = (float*)data;
+    case NOISEREPELLENT_2D_WHITENING:
+      self->whitening = (float*)data;
       break;
     case NOISEREPELLENT_2D_RESIDUAL_LISTEN:
       self->residual_listen = (float*)data;
@@ -460,7 +460,7 @@ static void run(LV2_Handle instance, uint32_t number_of_samples) {
       .residual_listen = self->residual_listen ? (bool)*self->residual_listen : false,
       .reduction_amount = self->reduction_amount ? *self->reduction_amount : 10.0f,
       .smoothing_factor = self->nlm_smoothing ? *self->nlm_smoothing : 1.5f,
-      .noise_rescale = self->noise_rescale ? *self->noise_rescale : 0.0f,
+      .whitening_factor = self->whitening ? *self->whitening : 0.0f,
   };
   // clang-format on
 
