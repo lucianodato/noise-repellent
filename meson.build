@@ -24,7 +24,7 @@ install_folder = join_paths(lv2_directory, meson.project_name())
 common_src = ['src/signal_crossfade.c']
 noise_repellent_src = ['plugins/nrepellent.c', 'src/noise_profile_state.c']
 noise_repellent_adaptive_src = 'plugins/nrepellent-adaptive.c'
-noise_repellent_2d_src = 'plugins/nrepellent-2d.c'
+noise_repellent_2d_src = ['plugins/nrepellent-2d.c', 'src/noise_profile_state.c']
 
 # Dependencies for noise repellent
 lv2_dep = dependency('lv2', required: true)
