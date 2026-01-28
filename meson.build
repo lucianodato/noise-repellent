@@ -24,6 +24,7 @@ install_folder = join_paths(lv2_directory, meson.project_name())
 common_src = ['src/signal_crossfade.c']
 noise_repellent_src = ['plugins/nrepellent.c', 'src/noise_profile_state.c']
 noise_repellent_adaptive_src = 'plugins/nrepellent-adaptive.c'
+noise_repellent_2d_src = 'plugins/nrepellent-2d.c'
 
 # Dependencies for noise repellent
 lv2_dep = dependency('lv2', required: true)
@@ -173,6 +174,16 @@ shared_module('nrepellent-adaptive',
         install_dir: install_folder,
         install_rpath: plugin_rpath)
 
+shared_module('nrepellent-2d',
+        common_src,
+        noise_repellent_2d_src,
+        c_args: lib_c_args,
+        name_prefix: '',
+        dependencies: all_dep,
+        install: true,
+        install_dir: install_folder,
+        install_rpath: plugin_rpath)
+
 # Getting version from project configuration or from git tags
 version_array = meson.project_version().split('.')
 
@@ -236,6 +247,25 @@ nrepel_ttl_adaptive_stereo = configure_file(
   install: true,
   install_dir: install_folder
 )
+
+# Configure nrepellent-2d.ttl
+nrepel_ttl_2d = configure_file(
+  input: join_paths('lv2ttl', 'nrepellent-2d.ttl.in'),
+  output: 'nrepellent-2d.ttl',
+  configuration: data_conf,
+  install: true,
+  install_dir: install_folder
+)
+
+# Configure nrepellent-2d#stereo.ttl
+nrepel_ttl_2d_stereo = configure_file(
+  input: join_paths('lv2ttl', 'nrepellent-2d#stereo.ttl.in'),
+  output: 'nrepellent-2d#stereo.ttl',
+  configuration: data_conf,
+  install: true,
+  install_dir: install_folder
+)
+
 
 # Code formatting target
 run_target('format-main',
