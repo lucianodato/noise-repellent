@@ -1,5 +1,5 @@
 project('nrepellent.lv2', 'c',
-        version: '0.2.5',
+        version: '0.3.0',
         default_options: ['default_library=shared', 'c_std=c17', 'warning_level=2'])
 
 # Note: Meson 0.60.0 or newer is recommended
