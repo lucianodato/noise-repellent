@@ -24,7 +24,7 @@
     "Répulseur de bruit"@fr ,
     "Noise repellent" ;
   doap:shortdesc "Un plugin LV2 para la reduccion de ruido"@es ,
-               "Un greffon LV2 pour la réduction du bruit à large bande"@fr ,
+               "Un greffon LV2 pour la reducción du bruit à large bande"@fr ,
                "An LV2 plugin for broadband noise reduction" ;
   lv2:project <https://github.com/lucianodato/noise-repellent-stereo#new> ;
   lv2:optionalFeature lv2:isLive, lv2:hardRTCapable ;
@@ -76,10 +76,22 @@
     lv2:maximum 3 ;
     lv2:default 1 ;
     lv2:portProperty lv2:integer ;
-  ], [    
+  ], [
     a lv2:ControlPort,
       lv2:InputPort ;
     lv2:index 2 ;
+    lv2:symbol "adaptive_noise" ;
+    lv2:name "Ruido adaptativo"@es ,
+      "Bruit adaptatif"@fr ,
+      "Adaptive noise" ;
+    lv2:minimum 0 ;
+    lv2:maximum 1 ;
+    lv2:default 0 ;
+    lv2:portProperty lv2:toggled, lv2:integer ;
+  ], [    
+    a lv2:ControlPort,
+      lv2:InputPort ;
+    lv2:index 3 ;
     lv2:symbol "reduction" ;
     lv2:name "Cantidad de reduccion"@es ,
       "Quantité de réduction"@fr ,
@@ -95,7 +107,7 @@
   ], [
     a lv2:ControlPort,
       lv2:InputPort ;
-    lv2:index 3 ;
+    lv2:index 4 ;
     lv2:symbol "noise_scaling_type" ;
     lv2:name "Tipo de Reduccion"@es ,
       "Type of reduction"@fr , 
@@ -125,7 +137,7 @@
   ], [
     a lv2:ControlPort,
       lv2:InputPort ;
-    lv2:index 4 ;
+    lv2:index 5 ;
     lv2:symbol "offset" ;
     lv2:name "Fuerza de reduccion"@es ,
       "Force de réduction"@fr ,
@@ -138,7 +150,7 @@
   ], [
     a lv2:ControlPort,
       lv2:InputPort ;
-    lv2:index 5 ;
+    lv2:index 6 ;
     lv2:symbol "postfilter" ;
     lv2:name "Umbral del post-filtro"@es ,
       "Post-filter threshold"@fr ,
@@ -150,7 +162,7 @@
   ], [    
     a lv2:ControlPort,
       lv2:InputPort ;
-    lv2:index 6 ;
+    lv2:index 7 ;
     lv2:symbol "smoothing" ;
     lv2:name "Suavizado"@es ,
       "Lissage"@fr ,
@@ -162,7 +174,7 @@
   ], [
     a lv2:ControlPort,
       lv2:InputPort ;
-    lv2:index 7 ;
+    lv2:index 8 ;
     lv2:symbol "whitening" ;
     lv2:name "Blanqueo de residuo"@es ,
       "Blanchissement du bruit"@fr ,
@@ -174,7 +186,7 @@
   ], [    
     a lv2:InputPort,
     lv2:ControlPort ;
-    lv2:index 8 ;
+    lv2:index 9 ;
     lv2:symbol "Residual_listen" ;
     lv2:name "Escuchar Residuo"@es ,
       "Écoute résiduelle"@fr ,
@@ -186,7 +198,7 @@
   ], [
     a lv2:InputPort,
     lv2:ControlPort ;
-    lv2:index 9 ;
+    lv2:index 10 ;
     lv2:symbol "reset_noise_profile" ;
     lv2:name "Reiniciar perfil de ruido"@es ,
       "Réinitialiser le profil de bruit"@fr ,
@@ -198,7 +210,7 @@
   ], [
     a lv2:InputPort,
       lv2:ControlPort ;
-    lv2:index 10 ;
+    lv2:index 11 ;
     lv2:symbol "bypass" ;
     lv2:name "Bypass"@es ,
       "Bypass"@fr ,
@@ -211,7 +223,7 @@
     a lv2:OutputPort,
       lv2:ControlPort ;
     lv2:name "latency" ;
-    lv2:index 11 ;
+    lv2:index 12 ;
     lv2:symbol "latency" ;
     lv2:minimum 0 ;
     lv2:maximum 8192 ;
@@ -221,29 +233,33 @@
   ], [
     a lv2:AudioPort,
       lv2:InputPort ;
-    lv2:index 12 ;
+    lv2:index 13 ;
     lv2:symbol "input_1" ;
-    lv2:name "Input" ;
+    lv2:name "Input L" ;
+    lv2:designation pg:left ;
   ], [
     a lv2:AudioPort,
       lv2:OutputPort ;
-    lv2:index 13 ;
+    lv2:index 14 ;
     lv2:symbol "output_1" ;
-    lv2:name "Output" ;
+    lv2:name "Output L" ;
+    lv2:designation pg:left ;
   ], [
     a lv2:AudioPort,
       lv2:InputPort ;
-    lv2:index 14 ;
+    lv2:index 15 ;
     lv2:symbol "input_2" ;
-    lv2:name "Input" ;
+    lv2:name "Input R" ;
+    lv2:designation pg:right ;
   ], [
     a lv2:AudioPort,
       lv2:OutputPort ;
-    lv2:index 15 ;
+    lv2:index 16 ;
     lv2:symbol "output_2" ;
-    lv2:name "Output" ;
+    lv2:name "Output R" ;
+    lv2:designation pg:right ;
   ];
   rdfs:comment "Un plugin LV2 para la reduccion de ruido estereo"@es,
-               "Un greffon LV2 pour la réduction du bruit à large bande"@fr,
+               "Un greffon LV2 pour la reducción du bruit à large bande"@fr,
                "An LV2 plugin for stereo broadband noise reduction" ;
 .

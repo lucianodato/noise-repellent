@@ -127,17 +127,18 @@ static void map_state(LV2_URID_Map* map, State* state, const char* uri) {
 typedef enum PortIndex {
   NOISEREPELLENT_2D_NOISE_LEARN = 0,
   NOISEREPELLENT_2D_MODE = 1,
-  NOISEREPELLENT_2D_AMOUNT = 2,
-  NOISEREPELLENT_2D_NLM_SMOOTHING = 3,
-  NOISEREPELLENT_2D_WHITENING = 4,
-  NOISEREPELLENT_2D_RESIDUAL_LISTEN = 5,
-  NOISEREPELLENT_2D_BYPASS = 6,
-  NOISEREPELLENT_2D_RESET_NOISE_PROFILE = 7,
-  NOISEREPELLENT_2D_LATENCY = 8,
-  NOISEREPELLENT_2D_INPUT_1 = 9,
-  NOISEREPELLENT_2D_OUTPUT_1 = 10,
-  NOISEREPELLENT_2D_INPUT_2 = 11,
-  NOISEREPELLENT_2D_OUTPUT_2 = 12,
+  NOISEREPELLENT_2D_ADAPTIVE_NOISE = 2,
+  NOISEREPELLENT_2D_AMOUNT = 3,
+  NOISEREPELLENT_2D_NLM_SMOOTHING = 4,
+  NOISEREPELLENT_2D_WHITENING = 5,
+  NOISEREPELLENT_2D_RESIDUAL_LISTEN = 6,
+  NOISEREPELLENT_2D_BYPASS = 7,
+  NOISEREPELLENT_2D_RESET_NOISE_PROFILE = 8,
+  NOISEREPELLENT_2D_LATENCY = 9,
+  NOISEREPELLENT_2D_INPUT_1 = 10,
+  NOISEREPELLENT_2D_OUTPUT_1 = 11,
+  NOISEREPELLENT_2D_INPUT_2 = 12,
+  NOISEREPELLENT_2D_OUTPUT_2 = 13,
 } PortIndex;
 
 typedef struct NoiseRepellent2DPlugin {
@@ -175,6 +176,7 @@ typedef struct NoiseRepellent2DPlugin {
   float* whitening;
   float* reset_noise_profile;
   float* bypass;
+  float* adaptive_noise;
 
   bool activated;
   float prev_reset_state;
@@ -353,6 +355,9 @@ static void connect_port(LV2_Handle instance, uint32_t port, void* data) {
     case NOISEREPELLENT_2D_BYPASS:
       self->bypass = (float*)data;
       break;
+    case NOISEREPELLENT_2D_ADAPTIVE_NOISE:
+      self->adaptive_noise = (float*)data;
+      break;
     case NOISEREPELLENT_2D_RESET_NOISE_PROFILE:
       self->reset_noise_profile = (float*)data;
       break;
@@ -461,6 +466,8 @@ static void run(LV2_Handle instance, uint32_t number_of_samples) {
       .reduction_amount = self->reduction_amount ? *self->reduction_amount : 10.0f,
       .smoothing_factor = self->nlm_smoothing ? *self->nlm_smoothing : 1.5f,
       .whitening_factor = self->whitening ? *self->whitening : 0.0f,
+      .adaptive_noise = self->adaptive_noise ? (int)*self->adaptive_noise : 0,
+      .noise_estimation_method = 1, // Always use SPP-MMSE
   };
   // clang-format on
 

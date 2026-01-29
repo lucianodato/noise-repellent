@@ -23,7 +23,7 @@ install_folder = join_paths(lv2_directory, meson.project_name())
 # Sources to compile
 common_src = ['src/signal_crossfade.c']
 noise_repellent_src = ['plugins/nrepellent.c', 'src/noise_profile_state.c']
-noise_repellent_adaptive_src = 'plugins/nrepellent-adaptive.c'
+
 noise_repellent_2d_src = ['plugins/nrepellent-2d.c', 'src/noise_profile_state.c']
 
 # Dependencies for noise repellent
@@ -34,49 +34,51 @@ force_bundled_libspecbleach = get_option('force_bundled_libspecbleach')
 libspecbleach_custom_libdir = get_option('libspecbleach_libdir')
 static_libspecbleach = get_option('static_libspecbleach')
 
-if force_bundled_libspecbleach
-  # Force use of bundled libspecbleach (ignore system version)
-  message('Forcing use of bundled libspecbleach')
-  libspecbleach_subproj = subproject('libspecbleach', default_options: [
-    'default_library=' + (static_libspecbleach ? 'static' : 'shared'),
-    'static_deps=' + (static_libspecbleach ? 'true' : 'false')
-  ])
-  libspecbleach_dep = libspecbleach_subproj.get_variable('libspecbleach_dep')
-  plugin_rpath = '$ORIGIN'
-else
-  # Use original behavior: try system first, fallback to bundled
-  libspecbleach_dep = dependency('libspecbleach',
-                                 fallback: ['libspecbleach', 'libspecbleach_dep'],
-                                 default_options: [
-                                   'default_library=' + (static_libspecbleach ? 'static' : 'shared'),
-                                   'static_deps=' + (static_libspecbleach ? 'true' : 'false')
-                                 ],
-                                 static: static_libspecbleach,
-                                 required: true)
+  rpath_origin = (current_os == 'darwin' ? '@loader_path' : '$ORIGIN')
   
-  # Identify if we are using the subproject or a system library
-  is_subproject = libspecbleach_dep.type_name() == 'internal'
-
-  # RPATH priority: user override > pkg-config libdir > Meson libdir
-  if libspecbleach_custom_libdir != ''
-    plugin_rpath = libspecbleach_custom_libdir + ':$ORIGIN'
-  elif is_subproject or static_libspecbleach
-    plugin_rpath = '$ORIGIN'
+  if force_bundled_libspecbleach
+    # Force use of bundled libspecbleach (ignore system version)
+    message('Forcing use of bundled libspecbleach')
+    libspecbleach_subproj = subproject('libspecbleach', default_options: [
+      'default_library=' + (static_libspecbleach ? 'static' : 'shared'),
+      'static_deps=' + (static_libspecbleach ? 'true' : 'false')
+    ])
+    libspecbleach_dep = libspecbleach_subproj.get_variable('libspecbleach_dep')
+    plugin_rpath = rpath_origin
   else
-    # Try to get libdir from pkg-config if available
-    libspecbleach_pc = dependency('libspecbleach', method: 'pkg-config', required: false, static: static_libspecbleach)
-    libspecbleach_pc_libdir = ''
-    if libspecbleach_pc.found()
-      libspecbleach_pc_libdir = libspecbleach_pc.get_pkgconfig_variable('libdir', default: '')
-    endif
-
-    if libspecbleach_pc_libdir != ''
-      plugin_rpath = libspecbleach_pc_libdir + ':$ORIGIN'
+    # Use original behavior: try system first, fallback to bundled
+    libspecbleach_dep = dependency('libspecbleach',
+                                   fallback: ['libspecbleach', 'libspecbleach_dep'],
+                                   default_options: [
+                                     'default_library=' + (static_libspecbleach ? 'static' : 'shared'),
+                                     'static_deps=' + (static_libspecbleach ? 'true' : 'false')
+                                   ],
+                                   static: static_libspecbleach,
+                                   required: true)
+    
+    # Identify if we are using the subproject or a system library
+    is_subproject = libspecbleach_dep.type_name() == 'internal'
+  
+    # RPATH priority: user override > pkg-config libdir > Meson libdir
+    if libspecbleach_custom_libdir != ''
+      plugin_rpath = libspecbleach_custom_libdir + ':' + rpath_origin
+    elif is_subproject or static_libspecbleach
+      plugin_rpath = rpath_origin
     else
-      plugin_rpath = get_option('libdir') + ':$ORIGIN'
+      # Try to get libdir from pkg-config if available
+      libspecbleach_pc = dependency('libspecbleach', method: 'pkg-config', required: false, static: static_libspecbleach)
+      libspecbleach_pc_libdir = ''
+      if libspecbleach_pc.found()
+        libspecbleach_pc_libdir = libspecbleach_pc.get_pkgconfig_variable('libdir', default: '')
+      endif
+  
+      if libspecbleach_pc_libdir != ''
+        plugin_rpath = libspecbleach_pc_libdir + ':' + rpath_origin
+      else
+        plugin_rpath = get_option('libdir') + ':' + rpath_origin
+      endif
     endif
   endif
-endif
 
 m_dep = cc.find_library('m', required: true)
 all_dep = [lv2_dep, libspecbleach_dep, m_dep]
@@ -164,15 +166,7 @@ shared_module('nrepellent',
         install_dir: install_folder,
         install_rpath: plugin_rpath)
 
-shared_module('nrepellent-adaptive',
-        common_src,
-        noise_repellent_adaptive_src,
-        c_args: lib_c_args,
-        name_prefix: '',
-        dependencies: all_dep,
-        install: true,
-        install_dir: install_folder,
-        install_rpath: plugin_rpath)
+
 
 shared_module('nrepellent-2d',
         common_src,
@@ -230,23 +224,7 @@ nrepel_ttl_stereo = configure_file(
   install_dir: install_folder
 )
 
-# Configure nrepellent-adaptive.ttl
-nrepel_ttl_adaptive = configure_file(
-  input: join_paths('lv2ttl', 'nrepellent-adaptive.ttl.in'),
-  output: 'nrepellent-adaptive.ttl',
-  configuration: data_conf,
-  install: true,
-  install_dir: install_folder
-)
 
-# Configure nrepellent-adaptive#stereo.ttl
-nrepel_ttl_adaptive_stereo = configure_file(
-  input: join_paths('lv2ttl', 'nrepellent-adaptive#stereo.ttl.in'),
-  output: 'nrepellent-adaptive#stereo.ttl',
-  configuration: data_conf,
-  install: true,
-  install_dir: install_folder
-)
 
 # Configure nrepellent-2d.ttl
 nrepel_ttl_2d = configure_file(

@@ -11,16 +11,6 @@
   lv2:binary <nrepellent@LIB_EXT@> ;
   rdfs:seeAlso <nrepellent#stereo.ttl> .
 
-<https://github.com/lucianodato/noise-repellent#adaptive>
-  a lv2:Plugin;
-  lv2:binary <nrepellent-adaptive@LIB_EXT@> ;
-  rdfs:seeAlso <nrepellent-adaptive.ttl> .
-  
-<https://github.com/lucianodato/noise-repellent#adaptive-stereo>
-  a lv2:Plugin;
-  lv2:binary <nrepellent-adaptive@LIB_EXT@> ;
-  rdfs:seeAlso <nrepellent-adaptive#stereo.ttl> .
-
 <https://github.com/lucianodato/noise-repellent#2d>
   a lv2:Plugin;
   lv2:binary <nrepellent-2d@LIB_EXT@> ;
