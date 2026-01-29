@@ -86,7 +86,7 @@
       "Reduction amount" ;
     lv2:minimum 0.0 ;
     lv2:maximum 40.0 ;
-    lv2:default 10.0 ;
+    lv2:default 15.0 ;
     lv2:designation lv2:threshold ;
     units:unit units:db ;
   ], [
@@ -99,7 +99,7 @@
       "NLM Smoothing" ;
     lv2:minimum 0.1 ;
     lv2:maximum 10.0 ;
-    lv2:default 1.5 ;
+    lv2:default 5.0 ;
     rdfs:comment "Controls the h parameter for 2D Non-Local Means filtering. Higher values = more smoothing." ;
   ], [
     a lv2:ControlPort,

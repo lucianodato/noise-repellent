@@ -40,5 +40,6 @@ Location: `meson.build`
 2.  Add `nrepellent-<name>.ttl` configuration step.
 
 ## 4. Verification
-1.  **Build**: `meson compile -C build`.
+1.  **Build**: `meson setup build --buildtype=release` then `meson compile -C build`.
+    *   **CRITICAL**: Always use Release mode (`-O3`) for verification. Debug builds will cause xruns with heavy DSP.
 2.  **Verify**: Ensure no link errors with `libspecbleach`.

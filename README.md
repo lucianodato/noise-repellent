@@ -78,6 +78,9 @@ You can configure the build options using `-Doption=value`:
 - `static_libspecbleach`: Link libspecbleach and its internal dependencies (like FFTW) statically into the plugins (default: true). This creates self-contained binaries that don't depend on external shared libraries. Set to `false` if you are a packager and prefer to use a shared system library.
 - `libspecbleach_libdir`: Directory where libspecbleach is installed (used for RPATH when using system libspecbleach). Leave empty for automatic detection (pkg-config libdir, then Meson libdir). Useful when libspecbleach is installed to a non-standard location.
 
+> [!IMPORTANT]
+> **Critical Performance Note for Packagers**: The "2D Denoising" (NLM) mode uses advanced spectral processing that requires aggressive compiler optimization. You **MUST** build this project with `--buildtype=release` (which enables `-O3`). Debug or default builds (often `-g -O0`) will cause significant CPU spikes and choppy audio (xruns) on this setting.
+
 Example for a self-contained static build:
 ```bash
 meson setup build --buildtype=release -Dstatic_libspecbleach=true -Dforce_bundled_libspecbleach=true
