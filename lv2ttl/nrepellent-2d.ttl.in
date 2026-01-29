@@ -1,0 +1,179 @@
+@prefix doap: <http://usefulinc.com/ns/doap#> .
+@prefix foaf: <http://xmlns.com/foaf/0.1/> .
+@prefix lv2: <http://lv2plug.in/ns/lv2core#> .
+@prefix param: <http://lv2plug.in/ns/ext/parameters#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix pg: <http://lv2plug.in/ns/ext/port-groups#> .
+@prefix pprop: <http://lv2plug.in/ns/ext/port-props#> .
+@prefix units: <http://lv2plug.in/ns/extensions/units#> .
+@prefix state: <http://lv2plug.in/ns/ext/state#> .
+@prefix urid: <http://lv2plug.in/ns/ext/urid#> .
+
+<https://github.com/lucianodato#me>
+  a foaf:Person ;
+  foaf:name "Luciano Dato" ;
+  foaf:homepage <https://github.com/lucianodato> ;
+  foaf:mbox <mailto:lucianodato@gmail.com> .
+
+<https://github.com/lucianodato/noise-repellent#2d>
+  a lv2:Plugin, lv2:SpectralPlugin, lv2:UtilityPlugin, doap:Project ;
+  doap:maintainer <https://github.com/lucianodato#me> ;
+  doap:name "Repelente de ruido 2D"@es ,
+    "Répulseur de bruit 2D"@fr ,
+    "Noise repellent 2D" ;
+  doap:license <https://opensource.org/licenses/LGPL-3.0> ;
+  doap:shortdesc "Un plugin LV2 para la reduccion de ruido usando NLM 2D"@es ,
+    "Un greffon LV2 pour la réduction du bruit avec NLM 2D"@fr ,
+    "An LV2 plugin for noise reduction using 2D Non-Local Means" ;
+  lv2:project <https://github.com/lucianodato/noise-repellent#2d> ;
+  lv2:optionalFeature lv2:isLive, lv2:hardRTCapable, state:threadSafeRestore ;
+  lv2:requiredFeature urid:map ;
+  lv2:extensionData state:interface ;
+
+  lv2:minorVersion @MINOR_VERSION@ ;
+  lv2:microVersion @MICRO_VERSION@ ;
+
+  lv2:port [
+    a lv2:InputPort,
+      lv2:ControlPort ;
+    lv2:index 0 ;
+    lv2:symbol "learn" ;
+    lv2:name "Aprender ruido"@es ,
+      "Apprendre le bruit"@fr ,
+      "Learn noise" ;
+    lv2:minimum 0 ;
+    lv2:maximum 1 ;
+    lv2:default 0 ;
+    lv2:portProperty lv2:toggled, lv2:integer ;
+  ], [
+    a lv2:ControlPort,
+      lv2:InputPort ;
+    lv2:index 1 ;
+    lv2:symbol "mode" ;
+    lv2:name "Modo de reduccion"@es ,
+      "Mode de réduction"@fr , 
+      "Reduction mode" ;
+    lv2:scalePoint [
+            rdfs:label "Average",
+             "Média"@fr,
+             "Promedio"@es;
+            rdf:value 1
+    ] ;
+    lv2:scalePoint [
+            rdfs:label "Median",
+             "Médiane"@fr,
+             "Mediana"@es;
+            rdf:value 2
+    ] ;
+    lv2:scalePoint [
+            rdfs:label "Maximum",
+             "Maximum"@fr,
+             "Máximo"@es ;
+            rdf:value 3
+    ] ; 
+    lv2:minimum 1 ;
+    lv2:maximum 3 ;
+    lv2:default 1 ;
+    lv2:portProperty lv2:integer ;
+  ], [
+    a lv2:ControlPort,
+      lv2:InputPort ;
+    lv2:index 2 ;
+    lv2:symbol "reduction" ;
+    lv2:name "Cantidad de reduccion"@es ,
+      "Quantité de réduction"@fr ,
+      "Reduction amount" ;
+    lv2:minimum 0.0 ;
+    lv2:maximum 40.0 ;
+    lv2:default 15.0 ;
+    lv2:designation lv2:threshold ;
+    units:unit units:db ;
+  ], [
+    a lv2:ControlPort,
+      lv2:InputPort ;
+    lv2:index 3 ;
+    lv2:symbol "nlm_smoothing" ;
+    lv2:name "Suavizado NLM"@es ,
+      "Lissage NLM"@fr ,
+      "NLM Smoothing" ;
+    lv2:minimum 0.1 ;
+    lv2:maximum 10.0 ;
+    lv2:default 5.0 ;
+    rdfs:comment "Controls the h parameter for 2D Non-Local Means filtering. Higher values = more smoothing." ;
+  ], [
+    a lv2:ControlPort,
+      lv2:InputPort ;
+    lv2:index 4 ;
+    lv2:symbol "whitening" ;
+    lv2:name "Blanqueo de residuo"@es ,
+      "Blanchissement du bruit"@fr ,
+      "Residual whitening" ;
+    lv2:minimum 0.0 ;
+    lv2:maximum 100.0 ;
+    lv2:default 0.0 ;
+    units:unit units:pc ;
+  ], [
+    a lv2:InputPort,
+    lv2:ControlPort ;
+    lv2:index 5 ;
+    lv2:symbol "Residual_listen" ;
+    lv2:name "Escuchar Residuo"@es ,
+      "Écoute résiduelle"@fr ,
+      "Residual listen" ;
+    lv2:minimum 0 ;
+    lv2:maximum 1 ;
+    lv2:default 0 ;
+    lv2:portProperty lv2:toggled, lv2:integer ;
+  ], [
+    a lv2:InputPort,
+      lv2:ControlPort ;
+    lv2:index 6 ;
+    lv2:symbol "bypass" ;
+    lv2:name "Bypass"@es ,
+      "Bypass"@fr ,
+      "Bypass" ;
+    lv2:minimum 0 ;
+    lv2:maximum 1 ;
+    lv2:default 0 ;
+    lv2:portProperty lv2:toggled, lv2:integer ;
+  ], [
+    a lv2:InputPort,
+      lv2:ControlPort ;
+    lv2:index 7 ;
+    lv2:symbol "reset" ;
+    lv2:name "Reiniciar perfil"@es ,
+      "Réinitialiser le profil"@fr ,
+      "Reset profile" ;
+    lv2:minimum 0 ;
+    lv2:maximum 1 ;
+    lv2:default 0 ;
+    lv2:portProperty lv2:toggled, lv2:integer ;
+  ], [
+    a lv2:OutputPort,
+      lv2:ControlPort ;
+    lv2:name "latency" ;
+    lv2:index 8 ;
+    lv2:symbol "latency" ;
+    lv2:minimum 0 ;
+    lv2:maximum 8192 ;
+    lv2:designation lv2:latency ;
+    lv2:portProperty lv2:integer ;
+    units:unit units:frame ;
+  ], [
+    a lv2:AudioPort,
+      lv2:InputPort ;
+    lv2:index 9 ;
+    lv2:symbol "input" ;
+    lv2:name "Input" ;
+  ], [
+    a lv2:AudioPort,
+      lv2:OutputPort ;
+    lv2:index 10 ;
+    lv2:symbol "output" ;
+    lv2:name "Output" ;
+  ];
+  rdfs:comment "Un plugin LV2 para la reduccion de ruido usando filtrado NLM 2D"@es,
+               "Un greffon LV2 pour la réduction du bruit avec filtrage NLM 2D"@fr,
+               "An LV2 plugin for broadband noise reduction using 2D Non-Local Means filtering" ;
+.

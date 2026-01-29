@@ -39,7 +39,6 @@ build/
 
 # IDE files
 .vscode/
-.agent/
 .cursor/
 .cache/
 
