@@ -491,11 +491,7 @@ static void run(LV2_Handle instance, uint32_t number_of_samples) {
   specbleach_process(self->lib_instance_1, number_of_samples, self->input_1,
                      self->output_1);
 
-  // Apply soft bypass based on bypass parameter and learning mode
-  // If bypass is enabled, crossfade to dry
-  // If bypass is disabled and learning is disabled, crossfade to wet
-  // If bypass is disabled and learning is enabled, crossfade to dry (pass
-  // through)
+  // Apply soft bypass (wet/dry crossfade)
   bool enable_processing = self->bypass ? ((int)*self->bypass == 0) : true;
 
   signal_crossfade_run(
@@ -563,7 +559,7 @@ static LV2_State_Status save(LV2_Handle instance,
       } else if (mode == 2) {
         blocks_property = self->state.property_averaged_blocks_median;
         profile_property = self->state.property_noise_profile_1_median;
-      } else { // mode == 3
+      } else {
         blocks_property = self->state.property_averaged_blocks_max;
         profile_property = self->state.property_noise_profile_1_max;
       }
@@ -599,7 +595,7 @@ static LV2_State_Status save(LV2_Handle instance,
         } else if (mode == 2) {
           blocks_property = self->state.property_averaged_blocks_2_median;
           profile_property = self->state.property_noise_profile_2_median;
-        } else { // mode == 3
+        } else {
           blocks_property = self->state.property_averaged_blocks_2_max;
           profile_property = self->state.property_noise_profile_2_max;
         }
@@ -650,7 +646,7 @@ static LV2_State_Status restore(LV2_Handle instance,
     } else if (mode == 2) {
       blocks_property = self->state.property_averaged_blocks_median;
       profile_property = self->state.property_noise_profile_1_median;
-    } else { // mode == 3
+    } else {
       blocks_property = self->state.property_averaged_blocks_max;
       profile_property = self->state.property_noise_profile_1_max;
     }
@@ -658,7 +654,7 @@ static LV2_State_Status restore(LV2_Handle instance,
     const uint32_t* saved_averagedblocks = (const uint32_t*)retrieve(
         handle, blocks_property, &size, &type, &valflags);
     if (saved_averagedblocks == NULL || type != self->uris.atom_Int) {
-      continue; // Skip if this profile mode wasn't saved
+      continue;
     }
     const uint32_t averagedblocks = *saved_averagedblocks;
 
@@ -666,7 +662,7 @@ static LV2_State_Status restore(LV2_Handle instance,
         retrieve(handle, profile_property, &size, &type, &valflags);
     if (!saved_noise_profile || size != noise_profile_get_size() ||
         type != self->uris.atom_Vector) {
-      continue; // Skip if this profile mode wasn't saved
+      continue;
     }
 
     memcpy(self->noise_profile_1, (float*)LV2_ATOM_BODY(saved_noise_profile),
@@ -689,7 +685,7 @@ static LV2_State_Status restore(LV2_Handle instance,
       } else if (mode == 2) {
         blocks_property = self->state.property_averaged_blocks_2_median;
         profile_property = self->state.property_noise_profile_2_median;
-      } else { // mode == 3
+      } else {
         blocks_property = self->state.property_averaged_blocks_2_max;
         profile_property = self->state.property_noise_profile_2_max;
       }

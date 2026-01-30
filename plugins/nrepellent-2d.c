@@ -492,7 +492,6 @@ static void run_stereo(LV2_Handle instance, uint32_t number_of_samples) {
     return;
   }
 
-  // Copy input for in-place processing
   if (self->input_2 == self->output_2) {
     memcpy(self->input_buf_2, self->input_2,
            sizeof(float) * (number_of_samples <= self->sample_rate
@@ -539,7 +538,7 @@ static LV2_State_Status save(LV2_Handle instance,
       } else if (mode == 2) {
         blocks_property = self->state.property_averaged_blocks_median;
         profile_property = self->state.property_noise_profile_1_median;
-      } else { // mode == 3
+      } else {
         blocks_property = self->state.property_averaged_blocks_max;
         profile_property = self->state.property_noise_profile_1_max;
       }
@@ -576,7 +575,7 @@ static LV2_State_Status save(LV2_Handle instance,
         } else if (mode == 2) {
           blocks_property = self->state.property_averaged_blocks_2_median;
           profile_property = self->state.property_noise_profile_2_median;
-        } else { // mode == 3
+        } else {
           blocks_property = self->state.property_averaged_blocks_2_max;
           profile_property = self->state.property_noise_profile_2_max;
         }
@@ -627,7 +626,7 @@ static LV2_State_Status restore(LV2_Handle instance,
     } else if (mode == 2) {
       blocks_property = self->state.property_averaged_blocks_median;
       profile_property = self->state.property_noise_profile_1_median;
-    } else { // mode == 3
+    } else {
       blocks_property = self->state.property_averaged_blocks_max;
       profile_property = self->state.property_noise_profile_1_max;
     }
@@ -635,7 +634,7 @@ static LV2_State_Status restore(LV2_Handle instance,
     const uint32_t* saved_averagedblocks = (const uint32_t*)retrieve(
         handle, blocks_property, &size, &type, &valflags);
     if (saved_averagedblocks == NULL || type != self->uris.atom_Int) {
-      continue; // Skip if this profile mode wasn't saved
+      continue;
     }
     const uint32_t averagedblocks = *saved_averagedblocks;
 
@@ -666,7 +665,7 @@ static LV2_State_Status restore(LV2_Handle instance,
       } else if (mode == 2) {
         blocks_property = self->state.property_averaged_blocks_2_median;
         profile_property = self->state.property_noise_profile_2_median;
-      } else { // mode == 3
+      } else {
         blocks_property = self->state.property_averaged_blocks_2_max;
         profile_property = self->state.property_noise_profile_2_max;
       }
