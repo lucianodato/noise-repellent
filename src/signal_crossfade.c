@@ -119,7 +119,6 @@ bool signal_crossfade_run(SignalCrossfade* self,
 
     // During initial latency period, pass through to avoid startup artifacts
     if (self->samples_processed < self->latency) {
-      // Still fill the delay buffer for future use
       if (self->delay_buffer) {
         self->delay_buffer[self->rw_ptr] = input[k];
         self->rw_ptr++;
@@ -127,24 +126,20 @@ bool signal_crossfade_run(SignalCrossfade* self,
           self->rw_ptr = 0;
         }
       }
-      delayed_dry = input[k]; // Use current input as "delayed" during startup
+      delayed_dry = input[k];
     } else {
-      // After latency period, use properly delayed input
       if (self->delay_buffer) {
-        // Get the delayed input from the buffer
         delayed_dry = self->delay_buffer[self->rw_ptr];
-        // Store current input for future delay
         self->delay_buffer[self->rw_ptr] = input[k];
         self->rw_ptr++;
         if (self->rw_ptr >= self->latency) {
           self->rw_ptr = 0;
         }
       } else {
-        delayed_dry = input[k]; // No latency
+        delayed_dry = input[k];
       }
     }
 
-    // Crossfade between aligned delayed dry and delayed wet signals
     output[k] =
         (1.F - self->wet_dry) * delayed_dry + self->wet_dry * current_wet;
 

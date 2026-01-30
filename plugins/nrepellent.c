@@ -126,20 +126,21 @@ static void map_state(LV2_URID_Map* map, State* state, const char* uri) {
 typedef enum PortIndex {
   NOISEREPELLENT_NOISE_LEARN = 0,
   NOISEREPELLENT_MODE = 1,
-  NOISEREPELLENT_AMOUNT = 2,
-  NOISEREPELLENT_NOISE_REDUCTION_TYPE = 3,
-  NOISEREPELLENT_NOISE_OFFSET = 4,
-  NOISEREPELLENT_POSTFILTER = 5,
-  NOISEREPELLENT_SMOOTHING = 6,
-  NOISEREPELLENT_WHITENING = 7,
-  NOISEREPELLENT_RESIDUAL_LISTEN = 8,
-  NOISEREPELLENT_RESET_NOISE_PROFILE = 9,
-  NOISEREPELLENT_BYPASS = 10,
-  NOISEREPELLENT_LATENCY = 11,
-  NOISEREPELLENT_INPUT_1 = 12,
-  NOISEREPELLENT_OUTPUT_1 = 13,
-  NOISEREPELLENT_INPUT_2 = 14,
-  NOISEREPELLENT_OUTPUT_2 = 15,
+  NOISEREPELLENT_ADAPTIVE_NOISE = 2,
+  NOISEREPELLENT_AMOUNT = 3,
+  NOISEREPELLENT_NOISE_REDUCTION_TYPE = 4,
+  NOISEREPELLENT_NOISE_OFFSET = 5,
+  NOISEREPELLENT_POSTFILTER = 6,
+  NOISEREPELLENT_SMOOTHING = 7,
+  NOISEREPELLENT_WHITENING = 8,
+  NOISEREPELLENT_RESIDUAL_LISTEN = 9,
+  NOISEREPELLENT_RESET_NOISE_PROFILE = 10,
+  NOISEREPELLENT_BYPASS = 11,
+  NOISEREPELLENT_LATENCY = 12,
+  NOISEREPELLENT_INPUT_1 = 13,
+  NOISEREPELLENT_OUTPUT_1 = 14,
+  NOISEREPELLENT_INPUT_2 = 15,
+  NOISEREPELLENT_OUTPUT_2 = 16,
 } PortIndex;
 
 typedef struct NoiseRepellentPlugin {
@@ -180,6 +181,7 @@ typedef struct NoiseRepellentPlugin {
   float* noise_rescale;
   float* reset_noise_profile;
   float* bypass;
+  float* adaptive_noise;
 
   bool activated;
 
@@ -372,6 +374,9 @@ static void connect_port(LV2_Handle instance, uint32_t port, void* data) {
     case NOISEREPELLENT_BYPASS:
       self->bypass = (float*)data;
       break;
+    case NOISEREPELLENT_ADAPTIVE_NOISE:
+      self->adaptive_noise = (float*)data;
+      break;
     case NOISEREPELLENT_RESIDUAL_LISTEN:
       self->residual_listen = (float*)data;
       break;
@@ -471,6 +476,8 @@ static void run(LV2_Handle instance, uint32_t number_of_samples) {
       .smoothing_factor = self->smoothing_factor ? *self->smoothing_factor : 0.0f,
       .whitening_factor = self->whitening_factor ? *self->whitening_factor : 0.0f,
       .post_filter_threshold = self->postfilter_threshold ? *self->postfilter_threshold : -10.0f,
+      .adaptive_noise = self->adaptive_noise ? (int)*self->adaptive_noise : 0,
+      .noise_estimation_method = 1, // Always use SPP-MMSE
   };
   // clang-format on
 
@@ -484,15 +491,8 @@ static void run(LV2_Handle instance, uint32_t number_of_samples) {
   specbleach_process(self->lib_instance_1, number_of_samples, self->input_1,
                      self->output_1);
 
-  // Apply soft bypass based on bypass parameter and learning mode
-  // If bypass is enabled, crossfade to dry
-  // If bypass is disabled and learning is disabled, crossfade to wet
-  // If bypass is disabled and learning is enabled, crossfade to dry (pass
-  // through)
-  bool enable_processing =
-      self->bypass
-          ? ((int)*self->bypass == 0)
-          : (self->learn_noise ? ((int)*self->learn_noise == 0) : true);
+  // Apply soft bypass (wet/dry crossfade)
+  bool enable_processing = self->bypass ? ((int)*self->bypass == 0) : true;
 
   signal_crossfade_run(
       self->soft_bypass, number_of_samples,
@@ -524,10 +524,7 @@ static void run_stereo(LV2_Handle instance, uint32_t number_of_samples) {
                      self->output_2);
 
   // Apply soft bypass based on bypass parameter and learning mode
-  bool enable_processing =
-      self->bypass
-          ? ((int)*self->bypass == 0)
-          : (self->learn_noise ? ((int)*self->learn_noise == 0) : true);
+  bool enable_processing = self->bypass ? ((int)*self->bypass == 0) : true;
 
   signal_crossfade_run(
       self->soft_bypass_2, number_of_samples,
@@ -562,7 +559,7 @@ static LV2_State_Status save(LV2_Handle instance,
       } else if (mode == 2) {
         blocks_property = self->state.property_averaged_blocks_median;
         profile_property = self->state.property_noise_profile_1_median;
-      } else { // mode == 3
+      } else {
         blocks_property = self->state.property_averaged_blocks_max;
         profile_property = self->state.property_noise_profile_1_max;
       }
@@ -598,7 +595,7 @@ static LV2_State_Status save(LV2_Handle instance,
         } else if (mode == 2) {
           blocks_property = self->state.property_averaged_blocks_2_median;
           profile_property = self->state.property_noise_profile_2_median;
-        } else { // mode == 3
+        } else {
           blocks_property = self->state.property_averaged_blocks_2_max;
           profile_property = self->state.property_noise_profile_2_max;
         }
@@ -649,7 +646,7 @@ static LV2_State_Status restore(LV2_Handle instance,
     } else if (mode == 2) {
       blocks_property = self->state.property_averaged_blocks_median;
       profile_property = self->state.property_noise_profile_1_median;
-    } else { // mode == 3
+    } else {
       blocks_property = self->state.property_averaged_blocks_max;
       profile_property = self->state.property_noise_profile_1_max;
     }
@@ -657,7 +654,7 @@ static LV2_State_Status restore(LV2_Handle instance,
     const uint32_t* saved_averagedblocks = (const uint32_t*)retrieve(
         handle, blocks_property, &size, &type, &valflags);
     if (saved_averagedblocks == NULL || type != self->uris.atom_Int) {
-      continue; // Skip if this profile mode wasn't saved
+      continue;
     }
     const uint32_t averagedblocks = *saved_averagedblocks;
 
@@ -665,7 +662,7 @@ static LV2_State_Status restore(LV2_Handle instance,
         retrieve(handle, profile_property, &size, &type, &valflags);
     if (!saved_noise_profile || size != noise_profile_get_size() ||
         type != self->uris.atom_Vector) {
-      continue; // Skip if this profile mode wasn't saved
+      continue;
     }
 
     memcpy(self->noise_profile_1, (float*)LV2_ATOM_BODY(saved_noise_profile),
@@ -688,7 +685,7 @@ static LV2_State_Status restore(LV2_Handle instance,
       } else if (mode == 2) {
         blocks_property = self->state.property_averaged_blocks_2_median;
         profile_property = self->state.property_noise_profile_2_median;
-      } else { // mode == 3
+      } else {
         blocks_property = self->state.property_averaged_blocks_2_max;
         profile_property = self->state.property_noise_profile_2_max;
       }
