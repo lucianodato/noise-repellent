@@ -24,7 +24,7 @@
     "Noise repellent 2D Stereo" ;
   doap:license <https://opensource.org/licenses/LGPL-3.0> ;
   doap:shortdesc "Un plugin LV2 stereo para la reduccion de ruido usando NLM 2D"@es ,
-    "Un greffon LV2 stéréo pour la reducción du bruit avec NLM 2D"@fr ,
+    "Un greffon LV2 stéréo pour la réduction du bruit avec NLM 2D"@fr ,
     "A stereo LV2 plugin for noise reduction using 2D Non-Local Means" ;
   lv2:project <https://github.com/lucianodato/noise-repellent#2d-stereo> ;
   lv2:optionalFeature lv2:isLive, lv2:hardRTCapable, state:threadSafeRestore ;
@@ -52,7 +52,7 @@
     lv2:index 1 ;
     lv2:symbol "mode" ;
     lv2:name "Modo de reduccion"@es ,
-      "Mode de reducción"@fr , 
+      "Mode de réduction"@fr , 
       "Reduction mode" ;
     lv2:scalePoint [
             rdfs:label "Average",
@@ -94,7 +94,7 @@
     lv2:index 3 ;
     lv2:symbol "reduction" ;
     lv2:name "Cantidad de reduccion"@es ,
-      "Quantité de reducción"@fr ,
+      "Quantité de réduction"@fr ,
       "Reduction amount" ;
     lv2:minimum 0.0 ;
     lv2:maximum 40.0 ;
@@ -202,6 +202,6 @@
     lv2:designation pg:right ;
   ];
   rdfs:comment "Un plugin LV2 stereo para la reduccion de ruido usando filtrado NLM 2D"@es,
-               "Un greffon LV2 stéréo pour la reducción du bruit avec filtrage NLM 2D"@fr,
+               "Un greffon LV2 stéréo pour la réduction du bruit avec filtrage NLM 2D"@fr,
                "A stereo LV2 plugin for broadband noise reduction using 2D Non-Local Means filtering" ;
 .

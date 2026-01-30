@@ -24,7 +24,7 @@
     "Répulseur de bruit"@fr ,
     "Noise repellent" ;
   doap:shortdesc "Un plugin LV2 para la reduccion de ruido"@es ,
-               "Un greffon LV2 pour la reducción du bruit à large bande"@fr ,
+               "Un greffon LV2 pour la réduction du bruit à large bande"@fr ,
                "An LV2 plugin for broadband noise reduction" ;
   lv2:project <https://github.com/lucianodato/noise-repellent-stereo#new> ;
   lv2:optionalFeature lv2:isLive, lv2:hardRTCapable ;
@@ -110,7 +110,7 @@
     lv2:index 4 ;
     lv2:symbol "noise_scaling_type" ;
     lv2:name "Tipo de Reduccion"@es ,
-      "Type of reduction"@fr , 
+      "Type de réduction"@fr , 
       "Type of reduction" ;
     lv2:scalePoint [
             rdfs:label "S/R A-Posteriori"@es,
@@ -126,7 +126,7 @@
     ] ;
     lv2:scalePoint [
             rdfs:label "Umbrales de enmascaramiento"@es,
-             "Masking Thresholds"@fr,
+             "Seuils de masquage"@fr,
              "Masking Thresholds" ;
             rdf:value 2
     ] ; 
@@ -153,7 +153,7 @@
     lv2:index 6 ;
     lv2:symbol "postfilter" ;
     lv2:name "Umbral del post-filtro"@es ,
-      "Post-filter threshold"@fr ,
+      "Seuil de post-filtre"@fr ,
       "Post-filter threshold" ;
     lv2:minimum -10.0 ;
     lv2:maximum 10.0 ;
@@ -260,6 +260,6 @@
     lv2:designation pg:right ;
   ];
   rdfs:comment "Un plugin LV2 para la reduccion de ruido estereo"@es,
-               "Un greffon LV2 pour la reducción du bruit à large bande"@fr,
+               "Un greffon LV2 pour la réduction du bruit à large bande"@fr,
                "An LV2 plugin for stereo broadband noise reduction" ;
 .
