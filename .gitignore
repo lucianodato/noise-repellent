@@ -41,6 +41,7 @@ build/
 .vscode/
 .cursor/
 .cache/
+.agent/
 
 # Downloaded wrap files
 /subprojects/libspecbleach
