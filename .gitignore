@@ -32,7 +32,7 @@
 *.dSYM/
 
 # Builds
-build/
+build*/
 
 # Valgrind dumps
 *.valgrind
