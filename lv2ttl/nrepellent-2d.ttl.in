@@ -42,6 +42,7 @@
     lv2:name "Aprender ruido"@es ,
       "Apprendre le bruit"@fr ,
       "Learn noise" ;
+    rdfs:comment "Captures a snapshot of the current noise to create a static profile. Effective when a noise-only segment is available." ;
     lv2:minimum 0 ;
     lv2:maximum 1 ;
     lv2:default 0 ;
@@ -51,27 +52,31 @@
       lv2:InputPort ;
     lv2:index 1 ;
     lv2:symbol "mode" ;
-    lv2:name "Modo de reduccion"@es ,
-      "Mode de réduction"@fr , 
+    lv2:name "Modo de reducción"@es ,
+      "Mode de réduction"@fr ,
       "Reduction mode" ;
+    rdfs:comment "Statistical method used for noise reduction." ;
     lv2:scalePoint [
-            rdfs:label "Average",
-             "Média"@fr,
-             "Promedio"@es;
-            rdf:value 1
+            rdfs:label "Promedio (Equilibrado)"@es,
+              "Moyenne (Équilibré)"@fr,
+              "Average (Balanced)" ;
+            rdf:value 1 ;
+            rdfs:comment "Balanced reduction based on spectral averaging." ;
     ] ;
     lv2:scalePoint [
-            rdfs:label "Median",
-             "Médiane"@fr,
-             "Mediana"@es;
-            rdf:value 2
+            rdfs:label "Mediana (Impulsivo)"@es,
+             "Médiane (Impulsif)"@fr,
+             "Median (Impulsive)" ;
+            rdf:value 2 ;
+            rdfs:comment "Effective against impulsive noise and clicks." ;
     ] ;
     lv2:scalePoint [
-            rdfs:label "Maximum",
-             "Maximum"@fr,
-             "Máximo"@es ;
-            rdf:value 3
-    ] ; 
+            rdfs:label "Máximo (Agresivo)"@es,
+             "Maximum (Agressif)"@fr,
+             "Maximum (Aggressive)" ;
+            rdf:value 3 ;
+            rdfs:comment "Aggressive reduction targeting noise peaks." ;
+    ] ;
     lv2:minimum 1 ;
     lv2:maximum 3 ;
     lv2:default 1 ;
@@ -84,6 +89,7 @@
     lv2:name "Ruido adaptativo"@es ,
       "Bruit adaptatif"@fr ,
       "Adaptive noise" ;
+    rdfs:comment "Automatically tracks noise changes in real-time. Can be used alone or to refine a captured profile." ;
     lv2:minimum 0 ;
     lv2:maximum 1 ;
     lv2:default 0 ;
@@ -92,6 +98,40 @@
     a lv2:ControlPort,
       lv2:InputPort ;
     lv2:index 3 ;
+    lv2:symbol "adaptive_method" ;
+    lv2:name "Metodo adaptativo"@es ,
+      "Méthode adaptative"@fr ,
+      "Adaptive method" ;
+    lv2:scalePoint [
+            rdfs:label "SPP-MMSE (Speech)",
+              "SPP-MMSE (Voz)"@es,
+              "SPP-MMSE (Voix)"@fr;
+            rdf:value 0;
+            rdfs:comment "Best for speech/voice and podcasts. Very fast adaptation to changing noise. Can be aggressive with music due to speech-optimized detection."
+    ] ;
+    lv2:scalePoint [
+            rdfs:label "Brandt (Music)",
+              "Brandt (Música)"@es,
+              "Brandt (Musique)"@fr;
+            rdf:value 1;
+            rdfs:comment "Best for music with hiss/broadband noise (vinyl, tape). Not suitable for tonal/harmonic noise (hum, buzz)."
+    ] ;
+    lv2:scalePoint [
+            rdfs:label "Min. Statistics (General)",
+              "Min. Statistics (General)"@es,
+              "Min. Statistics (Général)"@fr;
+            rdf:value 2;
+            rdfs:comment "Robust and stable for music and general use. Works with any noise type. Slower adaptation than SPP-MMSE but more reliable."
+    ] ;
+    lv2:minimum 0 ;
+    lv2:maximum 2 ;
+    lv2:default 2 ;
+    lv2:portProperty lv2:integer ;
+    rdfs:comment "Selects the adaptive noise estimation algorithm. SPP-MMSE: very fast, best for speech/podcasts but can be aggressive with music. Brandt: robust for music with hiss/broadband noise (vinyl, tape) but NOT tonal noise (hum, buzz). Min. Statistics (Martin): stable and reliable for music and general use, works with any noise type." ;
+  ], [
+    a lv2:ControlPort,
+      lv2:InputPort ;
+    lv2:index 4 ;
     lv2:symbol "reduction" ;
     lv2:name "Cantidad de reduccion"@es ,
       "Quantité de réduction"@fr ,
@@ -104,7 +144,7 @@
   ], [
     a lv2:ControlPort,
       lv2:InputPort ;
-    lv2:index 4 ;
+    lv2:index 5 ;
     lv2:symbol "nlm_smoothing" ;
     lv2:name "Suavizado NLM"@es ,
       "Lissage NLM"@fr ,
@@ -116,7 +156,7 @@
   ], [
     a lv2:ControlPort,
       lv2:InputPort ;
-    lv2:index 5 ;
+    lv2:index 6 ;
     lv2:symbol "whitening" ;
     lv2:name "Blanqueo de residuo"@es ,
       "Blanchissement du bruit"@fr ,
@@ -128,7 +168,7 @@
   ], [
     a lv2:InputPort,
     lv2:ControlPort ;
-    lv2:index 6 ;
+    lv2:index 7 ;
     lv2:symbol "Residual_listen" ;
     lv2:name "Escuchar Residuo"@es ,
       "Écoute résiduelle"@fr ,
@@ -140,7 +180,7 @@
   ], [
     a lv2:InputPort,
       lv2:ControlPort ;
-    lv2:index 7 ;
+    lv2:index 8 ;
     lv2:symbol "bypass" ;
     lv2:name "Bypass"@es ,
       "Bypass"@fr ,
@@ -152,10 +192,10 @@
   ], [
     a lv2:InputPort,
       lv2:ControlPort ;
-    lv2:index 8 ;
+    lv2:index 9 ;
     lv2:symbol "reset" ;
     lv2:name "Reiniciar perfil"@es ,
-      "Réinitialiser le profil"@fr ,
+      "Réinitialiser le perfil"@fr ,
       "Reset profile" ;
     lv2:minimum 0 ;
     lv2:maximum 1 ;
@@ -165,7 +205,7 @@
     a lv2:OutputPort,
       lv2:ControlPort ;
     lv2:name "latency" ;
-    lv2:index 9 ;
+    lv2:index 10 ;
     lv2:symbol "latency" ;
     lv2:minimum 0 ;
     lv2:maximum 8192 ;
@@ -175,13 +215,13 @@
   ], [
     a lv2:AudioPort,
       lv2:InputPort ;
-    lv2:index 10 ;
+    lv2:index 11 ;
     lv2:symbol "input" ;
     lv2:name "Input" ;
   ], [
     a lv2:AudioPort,
       lv2:OutputPort ;
-    lv2:index 11 ;
+    lv2:index 12 ;
     lv2:symbol "output" ;
     lv2:name "Output" ;
   ];
