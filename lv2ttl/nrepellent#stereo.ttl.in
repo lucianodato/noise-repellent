@@ -107,7 +107,7 @@
               "SPP-MMSE (Voz)"@es,
               "SPP-MMSE (Voix)"@fr;
             rdf:value 0;
-            rdfs:comment "Best for speech/voice. Fast tracking of changing noise." 
+            rdfs:comment "Best for speech/voice and podcasts. Very fast adaptation to changing noise. Can be aggressive with music due to speech-optimized detection."
     ] ;
     lv2:scalePoint [
             rdfs:label "Brandt (Music)",
@@ -121,13 +121,13 @@
               "Min. Statistics (General)"@es,
               "Min. Statistics (Général)"@fr;
             rdf:value 2;
-            rdfs:comment "General purpose. Balanced tracking for most broadband noise."
+            rdfs:comment "Robust and stable for music and general use. Works with any noise type. Slower adaptation than SPP-MMSE but more reliable."
     ] ;
     lv2:minimum 0 ;
     lv2:maximum 2 ;
     lv2:default 2 ;
     lv2:portProperty lv2:integer ;
-    rdfs:comment "Selects the adaptive noise estimation algorithm. SPP-MMSE is fast for speech. Brandt is robust for music with hiss/broadband noise (vinyl, tape) but NOT tonal noise (hum, buzz). Min. Statistics (Martin) is balanced for general use." ;
+    rdfs:comment "Selects the adaptive noise estimation algorithm. SPP-MMSE: very fast, best for speech/podcasts but can be aggressive with music. Brandt: robust for music with hiss/broadband noise (vinyl, tape) but NOT tonal noise (hum, buzz). Min. Statistics (Martin): stable and reliable for music and general use, works with any noise type." ;
   ], [    
     a lv2:ControlPort,
       lv2:InputPort ;
