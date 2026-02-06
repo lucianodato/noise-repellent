@@ -131,17 +131,16 @@ typedef enum PortIndex {
   NOISEREPELLENT_AMOUNT = 4,
   NOISEREPELLENT_NOISE_REDUCTION_TYPE = 5,
   NOISEREPELLENT_NOISE_OFFSET = 6,
-  NOISEREPELLENT_POSTFILTER = 7,
-  NOISEREPELLENT_SMOOTHING = 8,
-  NOISEREPELLENT_WHITENING = 9,
-  NOISEREPELLENT_RESIDUAL_LISTEN = 10,
-  NOISEREPELLENT_RESET_NOISE_PROFILE = 11,
-  NOISEREPELLENT_BYPASS = 12,
-  NOISEREPELLENT_LATENCY = 13,
-  NOISEREPELLENT_INPUT_1 = 14,
-  NOISEREPELLENT_OUTPUT_1 = 15,
-  NOISEREPELLENT_INPUT_2 = 16,
-  NOISEREPELLENT_OUTPUT_2 = 17,
+  NOISEREPELLENT_SMOOTHING = 7,
+  NOISEREPELLENT_WHITENING = 8,
+  NOISEREPELLENT_RESIDUAL_LISTEN = 9,
+  NOISEREPELLENT_RESET_NOISE_PROFILE = 10,
+  NOISEREPELLENT_BYPASS = 11,
+  NOISEREPELLENT_LATENCY = 12,
+  NOISEREPELLENT_INPUT_1 = 13,
+  NOISEREPELLENT_OUTPUT_1 = 14,
+  NOISEREPELLENT_INPUT_2 = 15,
+  NOISEREPELLENT_OUTPUT_2 = 16,
 } PortIndex;
 
 typedef struct NoiseRepellentPlugin {
@@ -178,7 +177,6 @@ typedef struct NoiseRepellentPlugin {
   float* reduction_amount;
   float* smoothing_factor;
   float* whitening_factor;
-  float* postfilter_threshold;
   float* noise_rescale;
   float* reset_noise_profile;
   float* bypass;
@@ -364,9 +362,6 @@ static void connect_port(LV2_Handle instance, uint32_t port, void* data) {
     case NOISEREPELLENT_WHITENING:
       self->whitening_factor = (float*)data;
       break;
-    case NOISEREPELLENT_POSTFILTER:
-      self->postfilter_threshold = (float*)data;
-      break;
     case NOISEREPELLENT_MODE:
       self->mode = (float*)data;
       break;
@@ -480,7 +475,6 @@ static void run(LV2_Handle instance, uint32_t number_of_samples) {
       .noise_rescale = self->noise_rescale ? *self->noise_rescale : 2.0f,
       .smoothing_factor = self->smoothing_factor ? *self->smoothing_factor : 0.0f,
       .whitening_factor = self->whitening_factor ? *self->whitening_factor : 0.0f,
-      .post_filter_threshold = self->postfilter_threshold ? *self->postfilter_threshold : -10.0f,
       .adaptive_noise = self->adaptive_noise ? (int)*self->adaptive_noise : 0,
       .noise_estimation_method = self->adaptive_method ? (int)*self->adaptive_method : 0,
   };

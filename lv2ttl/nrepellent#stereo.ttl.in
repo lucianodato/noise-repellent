@@ -152,23 +152,27 @@
     lv2:name "Tipo de Reduccion"@es ,
       "Type de réduction"@fr , 
       "Type of reduction" ;
+    rdfs:comment "Scaling method used to determine the noise reduction aggression based on signal detection." ;
     lv2:scalePoint [
             rdfs:label "S/R A-Posteriori"@es,
              "A-Posteriori SNR"@fr,
              "A-Posteriori SNR";
-            rdf:value 0
+            rdf:value 0 ;
+            rdfs:comment "Standard spectral subtraction. Highly effective but can introduce 'musical noise' (chirping) at high settings. Best for steady, broadband noise."
     ] ;
     lv2:scalePoint [
             rdfs:label "S/R A-Posteriori usando bandas criticas"@es,
              "A-Posteriori SNR with Critical Bands"@fr,
              "A-Posteriori SNR with Critical Bands";
-            rdf:value 1
+            rdf:value 1 ;
+            rdfs:comment "Groups frequencies into psychoacoustic bands. Smoother and more natural than standard SNR, significantly reducing chirping artifacts. Great for music."
     ] ;
     lv2:scalePoint [
             rdfs:label "Umbrales de enmascaramiento"@es,
              "Seuils de masquage"@fr,
              "Masking Thresholds" ;
-            rdf:value 2
+            rdf:value 2 ;
+            rdfs:comment "Only removes noise that isn't hidden by the music/voice. The most transparent and natural mode, preserves delicate transients. Ideal for speech and high-fidelity audio."
     ] ; 
     lv2:minimum 0 ;
     lv2:maximum 2 ;
@@ -182,6 +186,7 @@
     lv2:name "Fuerza de reduccion"@es ,
       "Force de réduction"@fr ,
       "Reduction strength" ;
+    rdfs:comment "Controls the subtraction aggression. At 0 dB (1.0x), the plugin performs neutral (1:1) noise subtraction in noisy regions, transitioning to transparency in clean regions. This is the 'Natural' baseline setting for all modes." ;
     lv2:minimum 0.0 ;
     lv2:maximum 24.0 ;
     lv2:default 2.0 ;
@@ -189,20 +194,8 @@
     units:unit units:db ;
   ], [
     a lv2:ControlPort,
-      lv2:InputPort ;
+    lv2:InputPort ;
     lv2:index 7 ;
-    lv2:symbol "postfilter" ;
-    lv2:name "Umbral del post-filtro"@es ,
-      "Seuil de post-filtre"@fr ,
-      "Post-filter threshold" ;
-    lv2:minimum -10.0 ;
-    lv2:maximum 10.0 ;
-    lv2:default -10.0 ;
-    units:unit units:db ;
-  ], [    
-    a lv2:ControlPort,
-      lv2:InputPort ;
-    lv2:index 8 ;
     lv2:symbol "smoothing" ;
     lv2:name "Suavizado"@es ,
       "Lissage"@fr ,
@@ -213,8 +206,8 @@
     units:unit units:pc ;
   ], [
     a lv2:ControlPort,
-      lv2:InputPort ;
-    lv2:index 9 ;
+    lv2:InputPort ;
+    lv2:index 8 ;
     lv2:symbol "whitening" ;
     lv2:name "Blanqueo de residuo"@es ,
       "Blanchissement du bruit"@fr ,
@@ -223,10 +216,10 @@
     lv2:maximum 100.0 ;
     lv2:default 0.0 ;
     units:unit units:pc ;
-  ], [    
+  ], [
     a lv2:InputPort,
     lv2:ControlPort ;
-    lv2:index 10 ;
+    lv2:index 9 ;
     lv2:symbol "Residual_listen" ;
     lv2:name "Escuchar Residuo"@es ,
       "Écoute résiduelle"@fr ,
@@ -238,7 +231,7 @@
   ], [
     a lv2:InputPort,
     lv2:ControlPort ;
-    lv2:index 11 ;
+    lv2:index 10 ;
     lv2:symbol "reset_noise_profile" ;
     lv2:name "Reiniciar perfil de ruido"@es ,
       "Réinitialiser le profil de bruit"@fr ,
@@ -250,7 +243,7 @@
   ], [
     a lv2:InputPort,
       lv2:ControlPort ;
-    lv2:index 12 ;
+    lv2:index 11 ;
     lv2:symbol "bypass" ;
     lv2:name "Bypass"@es ,
       "Bypass"@fr ,
@@ -263,7 +256,7 @@
     a lv2:OutputPort,
       lv2:ControlPort ;
     lv2:name "latency" ;
-    lv2:index 13 ;
+    lv2:index 12 ;
     lv2:symbol "latency" ;
     lv2:minimum 0 ;
     lv2:maximum 8192 ;
@@ -273,28 +266,28 @@
   ], [
     a lv2:AudioPort,
       lv2:InputPort ;
-    lv2:index 14 ;
+    lv2:index 13 ;
     lv2:symbol "input_1" ;
     lv2:name "Input L" ;
     lv2:designation pg:left ;
   ], [
     a lv2:AudioPort,
       lv2:OutputPort ;
-    lv2:index 15 ;
+    lv2:index 14 ;
     lv2:symbol "output_1" ;
     lv2:name "Output L" ;
     lv2:designation pg:left ;
   ], [
     a lv2:AudioPort,
       lv2:InputPort ;
-    lv2:index 16 ;
+    lv2:index 15 ;
     lv2:symbol "input_2" ;
     lv2:name "Input R" ;
     lv2:designation pg:right ;
   ], [
     a lv2:AudioPort,
       lv2:OutputPort ;
-    lv2:index 17 ;
+    lv2:index 16 ;
     lv2:symbol "output_2" ;
     lv2:name "Output R" ;
     lv2:designation pg:right ;

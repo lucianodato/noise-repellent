@@ -130,16 +130,18 @@ typedef enum PortIndex {
   NOISEREPELLENT_2D_ADAPTIVE_NOISE = 2,
   NOISEREPELLENT_2D_ADAPTIVE_METHOD = 3,
   NOISEREPELLENT_2D_AMOUNT = 4,
-  NOISEREPELLENT_2D_NLM_SMOOTHING = 5,
-  NOISEREPELLENT_2D_WHITENING = 6,
-  NOISEREPELLENT_2D_RESIDUAL_LISTEN = 7,
-  NOISEREPELLENT_2D_BYPASS = 8,
-  NOISEREPELLENT_2D_RESET_NOISE_PROFILE = 9,
-  NOISEREPELLENT_2D_LATENCY = 10,
-  NOISEREPELLENT_2D_INPUT_1 = 11,
-  NOISEREPELLENT_2D_OUTPUT_1 = 12,
-  NOISEREPELLENT_2D_INPUT_2 = 13,
-  NOISEREPELLENT_2D_OUTPUT_2 = 14,
+  NOISEREPELLENT_2D_SCALING_TYPE = 5,
+  NOISEREPELLENT_2D_OFFSET = 6,
+  NOISEREPELLENT_2D_NLM_SMOOTHING = 7,
+  NOISEREPELLENT_2D_WHITENING = 8,
+  NOISEREPELLENT_2D_RESIDUAL_LISTEN = 9,
+  NOISEREPELLENT_2D_BYPASS = 10,
+  NOISEREPELLENT_2D_RESET_NOISE_PROFILE = 11,
+  NOISEREPELLENT_2D_LATENCY = 12,
+  NOISEREPELLENT_2D_INPUT_1 = 13,
+  NOISEREPELLENT_2D_OUTPUT_1 = 14,
+  NOISEREPELLENT_2D_INPUT_2 = 15,
+  NOISEREPELLENT_2D_OUTPUT_2 = 16,
 } PortIndex;
 
 typedef struct NoiseRepellent2DPlugin {
@@ -179,6 +181,8 @@ typedef struct NoiseRepellent2DPlugin {
   float* bypass;
   float* adaptive_noise;
   float* adaptive_method;
+  float* noise_scaling_type;
+  float* reduction_strength;
 
   bool activated;
   float prev_reset_state;
@@ -345,6 +349,12 @@ static void connect_port(LV2_Handle instance, uint32_t port, void* data) {
     case NOISEREPELLENT_2D_AMOUNT:
       self->reduction_amount = (float*)data;
       break;
+    case NOISEREPELLENT_2D_SCALING_TYPE:
+      self->noise_scaling_type = (float*)data;
+      break;
+    case NOISEREPELLENT_2D_OFFSET:
+      self->reduction_strength = (float*)data;
+      break;
     case NOISEREPELLENT_2D_NLM_SMOOTHING:
       self->nlm_smoothing = (float*)data;
       break;
@@ -473,6 +483,8 @@ static void run(LV2_Handle instance, uint32_t number_of_samples) {
       .whitening_factor = self->whitening ? *self->whitening : 0.0f,
       .adaptive_noise = self->adaptive_noise ? (int)*self->adaptive_noise : 0,
       .noise_estimation_method = self->adaptive_method ? (int)*self->adaptive_method : 2,
+      .noise_scaling_type = self->noise_scaling_type ? (int)*self->noise_scaling_type : 2,
+      .reduction_strength = self->reduction_strength ? *self->reduction_strength : 2.0f,
   };
   // clang-format on
 
