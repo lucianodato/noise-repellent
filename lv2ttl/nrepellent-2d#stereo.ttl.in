@@ -133,9 +133,9 @@
       lv2:InputPort ;
     lv2:index 4 ;
     lv2:symbol "reduction" ;
-    lv2:name "Cantidad de reduccion"@es ,
-      "Quantité de réduction"@fr ,
-      "Reduction amount" ;
+    lv2:name "Reducción"@es ,
+      "Réduction"@fr ,
+      "Reduction" ;
     lv2:minimum 0.0 ;
     lv2:maximum 40.0 ;
     lv2:default 15.0 ;
@@ -145,62 +145,27 @@
     a lv2:ControlPort,
       lv2:InputPort ;
     lv2:index 5 ;
-    lv2:symbol "noise_scaling_type" ;
-    lv2:name "Tipo de Reduccion"@es,
-      "Type de reducción"@fr, 
-      "Type of reduction" ;
-    rdfs:comment "Scaling method used to determine the noise reduction aggression based on signal detection." ;
-    lv2:scalePoint [
-            rdfs:label "S/R A-Posteriori"@es,
-             "A-Posteriori SNR"@fr,
-             "A-Posteriori SNR";
-            rdf:value 0 ;
-            rdfs:comment "Standard spectral subtraction. Highly effective but can introduce 'musical noise' (chirping) at high settings. Best for steady, broadband noise."
-    ] ;
-    lv2:scalePoint [
-            rdfs:label "S/R A-Posteriori usando bandas criticas"@es,
-             "A-Posteriori SNR with Critical Bands"@fr,
-             "A-Posteriori SNR with Critical Bands";
-            rdf:value 1 ;
-            rdfs:comment "Groups frequencies into psychoacoustic bands. Smoother and more natural than standard SNR, significantly reducing chirping artifacts. Great for music."
-    ] ;
-    lv2:scalePoint [
-            rdfs:label "Umbrales de enmascaramiento"@es,
-             "Seuils de masquage"@fr,
-             "Masking Thresholds" ;
-            rdf:value 2 ;
-            rdfs:comment "Only removes noise that isn't hidden by the music/voice. The most transparent and natural mode, preserves delicate transients. Ideal for speech and high-fidelity audio."
-    ] ; 
-    lv2:minimum 0 ;
-    lv2:maximum 2 ;
-    lv2:default 2 ;
-    lv2:portProperty lv2:integer ;
-  ], [
-    a lv2:ControlPort,
-      lv2:InputPort ;
-    lv2:index 6 ;
-    lv2:symbol "offset" ;
-    lv2:name "Fuerza de reduccion"@es ,
-      "Force de réduction"@fr ,
-      "Reduction strength" ;
-    rdfs:comment "Controls the subtraction aggression. At 0 dB (1.0x), the plugin performs neutral (1:1) noise subtraction in noisy regions, transitioning to transparency in clean regions. This is the 'Natural' baseline setting for all modes." ;
+    lv2:symbol "masking_transparency" ;
+    lv2:name "Transparencia de enmascaramiento"@es ,
+      "Transparence du masquage"@fr ,
+      "Masking transparency" ;
+    rdfs:comment "Balances transient preservation vs. noise floor silence. 0%: Maximum reduction, 50%: Natural sweet spot (recommended), 100%: Pure transparency." ;
     lv2:minimum 0.0 ;
-    lv2:maximum 24.0 ;
-    lv2:default 2.0 ;
-    lv2:designation lv2:gain ;
-    units:unit units:db ;
+    lv2:maximum 100.0 ;
+    lv2:default 50.0 ;
+    units:unit units:pc ;
   ], [
     a lv2:ControlPort,
       lv2:InputPort ;
     lv2:index 7 ;
     lv2:symbol "nlm_smoothing" ;
-    lv2:name "Suavizado NLM"@es ,
-      "Lissage NLM"@fr ,
-      "NLM Smoothing" ;
+    lv2:name "Suavizado"@es ,
+      "Lissage"@fr ,
+      "Smoothing" ;
     lv2:minimum 0.1 ;
     lv2:maximum 10.0 ;
     lv2:default 5.0 ;
-    rdfs:comment "Controls the h parameter for 2D Non-Local Means filtering. Higher values = more smoothing." ;
+    rdfs:comment "Controls structural similarity matching (transient preservation). Higher values = more smoothing of the noise floor." ;
   ], [
     a lv2:ControlPort,
       lv2:InputPort ;

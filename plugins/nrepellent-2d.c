@@ -27,6 +27,7 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include "lv2/state/state.h"
 #include "lv2/urid/urid.h"
 #include "specbleach_2d_denoiser.h"
+#include <math.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
@@ -130,8 +131,7 @@ typedef enum PortIndex {
   NOISEREPELLENT_2D_ADAPTIVE_NOISE = 2,
   NOISEREPELLENT_2D_ADAPTIVE_METHOD = 3,
   NOISEREPELLENT_2D_AMOUNT = 4,
-  NOISEREPELLENT_2D_SCALING_TYPE = 5,
-  NOISEREPELLENT_2D_OFFSET = 6,
+  NOISEREPELLENT_2D_MASKING_TRANSPARENCY = 5,
   NOISEREPELLENT_2D_NLM_SMOOTHING = 7,
   NOISEREPELLENT_2D_WHITENING = 8,
   NOISEREPELLENT_2D_RESIDUAL_LISTEN = 9,
@@ -181,8 +181,7 @@ typedef struct NoiseRepellent2DPlugin {
   float* bypass;
   float* adaptive_noise;
   float* adaptive_method;
-  float* noise_scaling_type;
-  float* reduction_strength;
+  float* masking_transparency;
 
   bool activated;
   float prev_reset_state;
@@ -349,11 +348,8 @@ static void connect_port(LV2_Handle instance, uint32_t port, void* data) {
     case NOISEREPELLENT_2D_AMOUNT:
       self->reduction_amount = (float*)data;
       break;
-    case NOISEREPELLENT_2D_SCALING_TYPE:
-      self->noise_scaling_type = (float*)data;
-      break;
-    case NOISEREPELLENT_2D_OFFSET:
-      self->reduction_strength = (float*)data;
+    case NOISEREPELLENT_2D_MASKING_TRANSPARENCY:
+      self->masking_transparency = (float*)data;
       break;
     case NOISEREPELLENT_2D_NLM_SMOOTHING:
       self->nlm_smoothing = (float*)data;
@@ -483,8 +479,8 @@ static void run(LV2_Handle instance, uint32_t number_of_samples) {
       .whitening_factor = self->whitening ? *self->whitening : 0.0f,
       .adaptive_noise = self->adaptive_noise ? (int)*self->adaptive_noise : 0,
       .noise_estimation_method = self->adaptive_method ? (int)*self->adaptive_method : 2,
-      .noise_scaling_type = self->noise_scaling_type ? (int)*self->noise_scaling_type : 2,
-      .reduction_strength = self->reduction_strength ? *self->reduction_strength : 2.0f,
+      .nlm_masking_protection = 1.0f - powf(1.0f - (*self->masking_transparency / 100.0f), 3.0f),
+      .masking_elasticity = 0.2f * (1.0f - (*self->masking_transparency / 100.0f)),
   };
   // clang-format on
 
