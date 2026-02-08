@@ -53,12 +53,16 @@ typedef struct State {
   LV2_URID property_noise_profile_2_median;
   LV2_URID property_noise_profile_2_max;
   LV2_URID property_noise_profile_size;
-  LV2_URID property_averaged_blocks_mean;
-  LV2_URID property_averaged_blocks_median;
-  LV2_URID property_averaged_blocks_max;
-  LV2_URID property_averaged_blocks_2_mean;
-  LV2_URID property_averaged_blocks_2_median;
-  LV2_URID property_averaged_blocks_2_max;
+  LV2_URID property_block_count_mean;
+  LV2_URID property_block_count_median;
+  LV2_URID property_block_count_max;
+  LV2_URID property_block_count_2_mean;
+  LV2_URID property_block_count_2_median;
+  LV2_URID property_block_count_2_max;
+  LV2_URID property_noise_profile_1_min;
+  LV2_URID property_noise_profile_2_min;
+  LV2_URID property_block_count_min;
+  LV2_URID property_block_count_2_min;
 } State;
 
 static void map_uris(LV2_URID_Map* map, URIs* uris, const char* uri) {
@@ -87,24 +91,27 @@ static void map_state(LV2_URID_Map* map, State* state, const char* uri) {
         map->map(map->handle, NOISEREPELLENT_STEREO_URI "#noiseprofile2max");
     state->property_noise_profile_size =
         map->map(map->handle, NOISEREPELLENT_STEREO_URI "#noiseprofilesize");
-    state->property_averaged_blocks_mean =
+    state->property_block_count_mean = map->map(
+        map->handle, NOISEREPELLENT_STEREO_URI "#noiseprofileblockcountmean");
+    state->property_block_count_median = map->map(
+        map->handle, NOISEREPELLENT_STEREO_URI "#noiseprofileblockcountmedian");
+    state->property_block_count_max = map->map(
+        map->handle, NOISEREPELLENT_STEREO_URI "#noiseprofileblockcountmax");
+    state->property_block_count_2_mean = map->map(
+        map->handle, NOISEREPELLENT_STEREO_URI "#noiseprofile2blockcountmean");
+    state->property_block_count_2_median =
         map->map(map->handle,
-                 NOISEREPELLENT_STEREO_URI "#noiseprofileaveragedblocksmean");
-    state->property_averaged_blocks_median =
-        map->map(map->handle,
-                 NOISEREPELLENT_STEREO_URI "#noiseprofileaveragedblocksmedian");
-    state->property_averaged_blocks_max =
-        map->map(map->handle,
-                 NOISEREPELLENT_STEREO_URI "#noiseprofileaveragedblocksmax");
-    state->property_averaged_blocks_2_mean =
-        map->map(map->handle,
-                 NOISEREPELLENT_STEREO_URI "#noiseprofile2averagedblocksmean");
-    state->property_averaged_blocks_2_median =
-        map->map(map->handle, NOISEREPELLENT_STEREO_URI
-                 "#noiseprofile2averagedblocksmedian");
-    state->property_averaged_blocks_2_max =
-        map->map(map->handle,
-                 NOISEREPELLENT_STEREO_URI "#noiseprofile2averagedblocksmax");
+                 NOISEREPELLENT_STEREO_URI "#noiseprofile2blockcountmedian");
+    state->property_block_count_2_max = map->map(
+        map->handle, NOISEREPELLENT_STEREO_URI "#noiseprofile2blockcountmax");
+    state->property_noise_profile_1_min =
+        map->map(map->handle, NOISEREPELLENT_STEREO_URI "#noiseprofilemin");
+    state->property_noise_profile_2_min =
+        map->map(map->handle, NOISEREPELLENT_STEREO_URI "#noiseprofile2min");
+    state->property_block_count_min = map->map(
+        map->handle, NOISEREPELLENT_STEREO_URI "#noiseprofileblockcountmin");
+    state->property_block_count_2_min = map->map(
+        map->handle, NOISEREPELLENT_STEREO_URI "#noiseprofile2blockcountmin");
 
   } else {
     state->property_noise_profile_1_mean =
@@ -115,33 +122,38 @@ static void map_state(LV2_URID_Map* map, State* state, const char* uri) {
         map->map(map->handle, NOISEREPELLENT_URI "#noiseprofilemax");
     state->property_noise_profile_size =
         map->map(map->handle, NOISEREPELLENT_URI "#noiseprofilesize");
-    state->property_averaged_blocks_mean = map->map(
-        map->handle, NOISEREPELLENT_URI "#noiseprofileaveragedblocksmean");
-    state->property_averaged_blocks_median = map->map(
-        map->handle, NOISEREPELLENT_URI "#noiseprofileaveragedblocksmedian");
-    state->property_averaged_blocks_max = map->map(
-        map->handle, NOISEREPELLENT_URI "#noiseprofileaveragedblocksmax");
+    state->property_block_count_mean =
+        map->map(map->handle, NOISEREPELLENT_URI "#noiseprofileblockcountmean");
+    state->property_block_count_median = map->map(
+        map->handle, NOISEREPELLENT_URI "#noiseprofileblockcountmedian");
+    state->property_block_count_max =
+        map->map(map->handle, NOISEREPELLENT_URI "#noiseprofileblockcountmax");
+    state->property_noise_profile_1_min =
+        map->map(map->handle, NOISEREPELLENT_URI "#noiseprofilemin");
+    state->property_block_count_min =
+        map->map(map->handle, NOISEREPELLENT_URI "#noiseprofileblockcountmin");
   }
 }
 
 typedef enum PortIndex {
   NOISEREPELLENT_NOISE_LEARN = 0,
-  NOISEREPELLENT_MODE = 1,
+  NOISEREPELLENT_AGGRESSIVENESS = 1,
   NOISEREPELLENT_RESET_NOISE_PROFILE = 2,
   NOISEREPELLENT_ADAPTIVE_NOISE = 3,
   NOISEREPELLENT_ADAPTIVE_METHOD = 4,
   NOISEREPELLENT_AMOUNT = 5,
-  NOISEREPELLENT_SUPPRESSION = 6,
-  NOISEREPELLENT_SMOOTHING = 7,
-  NOISEREPELLENT_MASKING_TRANSPARENCY = 8,
-  NOISEREPELLENT_WHITENING = 9,
-  NOISEREPELLENT_RESIDUAL_LISTEN = 10,
-  NOISEREPELLENT_BYPASS = 11,
-  NOISEREPELLENT_LATENCY = 12,
-  NOISEREPELLENT_INPUT_1 = 13,
-  NOISEREPELLENT_OUTPUT_1 = 14,
-  NOISEREPELLENT_INPUT_2 = 15,
-  NOISEREPELLENT_OUTPUT_2 = 16,
+  NOISEREPELLENT_TONAL_REDUCTION = 6,
+  NOISEREPELLENT_SUPPRESSION = 7,
+  NOISEREPELLENT_SMOOTHING = 8,
+  NOISEREPELLENT_MASKING_TRANSPARENCY = 9,
+  NOISEREPELLENT_WHITENING = 10,
+  NOISEREPELLENT_RESIDUAL_LISTEN = 11,
+  NOISEREPELLENT_BYPASS = 12,
+  NOISEREPELLENT_LATENCY = 13,
+  NOISEREPELLENT_INPUT_1 = 14,
+  NOISEREPELLENT_OUTPUT_1 = 15,
+  NOISEREPELLENT_INPUT_2 = 16,
+  NOISEREPELLENT_OUTPUT_2 = 17,
 } PortIndex;
 
 typedef struct NoiseRepellentPlugin {
@@ -172,17 +184,19 @@ typedef struct NoiseRepellentPlugin {
   uint32_t profile_size;
 
   float* learn_noise;
-  float* mode;
   float* residual_listen;
   float* reduction_amount;
   float* smoothing_factor;
-  float* whitening_factor;
+  float* whitening;
   float* masking_transparency;
   float* suppression_strength;
   float* reset_noise_profile;
   float* bypass;
   float* adaptive_noise;
   float* adaptive_method;
+  float* steering_response;
+  float* tonal_reduction;
+  float* aggressiveness;
 
   bool activated;
 
@@ -358,13 +372,10 @@ static void connect_port(LV2_Handle instance, uint32_t port, void* data) {
       self->smoothing_factor = (float*)data;
       break;
     case NOISEREPELLENT_WHITENING:
-      self->whitening_factor = (float*)data;
+      self->whitening = (float*)data;
       break;
     case NOISEREPELLENT_SUPPRESSION:
       self->suppression_strength = (float*)data;
-      break;
-    case NOISEREPELLENT_MODE:
-      self->mode = (float*)data;
       break;
     case NOISEREPELLENT_RESET_NOISE_PROFILE:
       self->reset_noise_profile = (float*)data;
@@ -380,6 +391,12 @@ static void connect_port(LV2_Handle instance, uint32_t port, void* data) {
       break;
     case NOISEREPELLENT_RESIDUAL_LISTEN:
       self->residual_listen = (float*)data;
+      break;
+    case NOISEREPELLENT_AGGRESSIVENESS:
+      self->aggressiveness = (float*)data;
+      break;
+    case NOISEREPELLENT_TONAL_REDUCTION:
+      self->tonal_reduction = (float*)data;
       break;
     case NOISEREPELLENT_LATENCY:
       self->report_latency = (float*)data;
@@ -469,16 +486,17 @@ static void run(LV2_Handle instance, uint32_t number_of_samples) {
   // clang-format off
   self->parameters = (SpectralBleachDenoiserParameters){
       .learn_noise = self->learn_noise ? (int)*self->learn_noise : 0,
-      .noise_reduction_mode = self->mode ? (int)*self->mode : 1,
       .residual_listen = self->residual_listen ? (bool)*self->residual_listen : false,
       .reduction_amount = self->reduction_amount ? *self->reduction_amount : 10.0f,
       .smoothing_factor = self->smoothing_factor ? *self->smoothing_factor : 0.0f,
-      .whitening_factor = self->whitening_factor ? *self->whitening_factor : 0.0f,
+      .whitening_factor = self->whitening ? *self->whitening : 0.0f,
       .adaptive_noise = self->adaptive_noise ? (int)*self->adaptive_noise : 0,
       .noise_estimation_method = self->adaptive_method ? (int)*self->adaptive_method : 0,
       .masking_depth = self->masking_transparency ? (1.0f - powf(1.0f - (*self->masking_transparency / 100.0f), 3.0f)) : 0.5f,
       .masking_elasticity = self->masking_transparency ? (0.2f * (1.0f - (*self->masking_transparency / 100.0f))) : 0.1f,
       .suppression_strength = self->suppression_strength ? *self->suppression_strength : 20.0f,
+      .tonal_reduction = self->tonal_reduction ? *self->tonal_reduction : 0.0f,
+      .aggressiveness = self->aggressiveness ? *self->aggressiveness / 100.0f : 0.0f,
   };
   // clang-format on
 
@@ -543,29 +561,31 @@ static LV2_State_Status save(LV2_Handle instance,
         sizeof(uint32_t), self->uris.atom_Int,
         LV2_STATE_IS_POD | LV2_STATE_IS_PORTABLE);
 
-  // Save all 3 profiles for channel 1
-  for (int mode = 1; mode <= 3; mode++) {
+  // Save all 4 profiles for channel 1
+  for (int mode = 1; mode <= 4; mode++) {
     if (specbleach_noise_profile_available_for_mode(self->lib_instance_1,
                                                     mode)) {
-      uint32_t averaged_blocks =
-          specbleach_get_noise_profile_blocks_averaged_for_mode(
-              self->lib_instance_1, mode);
+      uint32_t block_count = specbleach_get_noise_profile_block_count_for_mode(
+          self->lib_instance_1, mode);
 
       LV2_URID blocks_property;
       LV2_URID profile_property;
 
       if (mode == 1) {
-        blocks_property = self->state.property_averaged_blocks_mean;
+        blocks_property = self->state.property_block_count_mean;
         profile_property = self->state.property_noise_profile_1_mean;
       } else if (mode == 2) {
-        blocks_property = self->state.property_averaged_blocks_median;
+        blocks_property = self->state.property_block_count_median;
         profile_property = self->state.property_noise_profile_1_median;
+      } else if (mode == 4) {
+        blocks_property = self->state.property_block_count_min;
+        profile_property = self->state.property_noise_profile_1_min;
       } else {
-        blocks_property = self->state.property_averaged_blocks_max;
+        blocks_property = self->state.property_block_count_max;
         profile_property = self->state.property_noise_profile_1_max;
       }
 
-      store(handle, blocks_property, &averaged_blocks, sizeof(uint32_t),
+      store(handle, blocks_property, &block_count, sizeof(uint32_t),
             self->uris.atom_Int, LV2_STATE_IS_POD | LV2_STATE_IS_PORTABLE);
 
       memcpy(noise_profile_get_elements(self->noise_profile_state_1),
@@ -578,30 +598,33 @@ static LV2_State_Status save(LV2_Handle instance,
     }
   }
 
-  // Save all 3 profiles for channel 2 (stereo only)
+  // Save all 4 profiles for channel 2 (stereo only)
   if (strstr(self->plugin_uri, NOISEREPELLENT_STEREO_URI)) {
-    for (int mode = 1; mode <= 3; mode++) {
+    for (int mode = 1; mode <= 4; mode++) {
       if (specbleach_noise_profile_available_for_mode(self->lib_instance_2,
                                                       mode)) {
-        uint32_t averaged_blocks =
-            specbleach_get_noise_profile_blocks_averaged_for_mode(
+        uint32_t block_count =
+            specbleach_get_noise_profile_block_count_for_mode(
                 self->lib_instance_2, mode);
 
         LV2_URID blocks_property;
         LV2_URID profile_property;
 
         if (mode == 1) {
-          blocks_property = self->state.property_averaged_blocks_2_mean;
+          blocks_property = self->state.property_block_count_2_mean;
           profile_property = self->state.property_noise_profile_2_mean;
         } else if (mode == 2) {
-          blocks_property = self->state.property_averaged_blocks_2_median;
+          blocks_property = self->state.property_block_count_2_median;
           profile_property = self->state.property_noise_profile_2_median;
+        } else if (mode == 4) {
+          blocks_property = self->state.property_block_count_2_min;
+          profile_property = self->state.property_noise_profile_2_min;
         } else {
-          blocks_property = self->state.property_averaged_blocks_2_max;
+          blocks_property = self->state.property_block_count_2_max;
           profile_property = self->state.property_noise_profile_2_max;
         }
 
-        store(handle, blocks_property, &averaged_blocks, sizeof(uint32_t),
+        store(handle, blocks_property, &block_count, sizeof(uint32_t),
               self->uris.atom_Int, LV2_STATE_IS_POD | LV2_STATE_IS_PORTABLE);
 
         memcpy(
@@ -636,28 +659,31 @@ static LV2_State_Status restore(LV2_Handle instance,
   }
   const uint32_t fftsize = *saved_fftsize;
 
-  // Restore all 3 profiles for channel 1
-  for (int mode = 1; mode <= 3; mode++) {
+  // Restore all 4 profiles for channel 1
+  for (int mode = 1; mode <= 4; mode++) {
     LV2_URID blocks_property;
     LV2_URID profile_property;
 
     if (mode == 1) {
-      blocks_property = self->state.property_averaged_blocks_mean;
+      blocks_property = self->state.property_block_count_mean;
       profile_property = self->state.property_noise_profile_1_mean;
     } else if (mode == 2) {
-      blocks_property = self->state.property_averaged_blocks_median;
+      blocks_property = self->state.property_block_count_median;
       profile_property = self->state.property_noise_profile_1_median;
+    } else if (mode == 4) {
+      blocks_property = self->state.property_block_count_min;
+      profile_property = self->state.property_noise_profile_1_min;
     } else {
-      blocks_property = self->state.property_averaged_blocks_max;
+      blocks_property = self->state.property_block_count_max;
       profile_property = self->state.property_noise_profile_1_max;
     }
 
-    const uint32_t* saved_averagedblocks = (const uint32_t*)retrieve(
+    const uint32_t* saved_block_count = (const uint32_t*)retrieve(
         handle, blocks_property, &size, &type, &valflags);
-    if (saved_averagedblocks == NULL || type != self->uris.atom_Int) {
+    if (saved_block_count == NULL || type != self->uris.atom_Int) {
       continue;
     }
-    const uint32_t averagedblocks = *saved_averagedblocks;
+    const uint32_t block_count = *saved_block_count;
 
     const void* saved_noise_profile =
         retrieve(handle, profile_property, &size, &type, &valflags);
@@ -671,32 +697,35 @@ static LV2_State_Status restore(LV2_Handle instance,
 
     specbleach_load_noise_profile_for_mode(self->lib_instance_1,
                                            self->noise_profile_1, fftsize,
-                                           averagedblocks, mode);
+                                           block_count, mode);
   }
 
-  // Restore all 3 profiles for channel 2 (stereo only)
+  // Restore all 4 profiles for channel 2 (stereo only)
   if (strstr(self->plugin_uri, NOISEREPELLENT_STEREO_URI)) {
-    for (int mode = 1; mode <= 3; mode++) {
+    for (int mode = 1; mode <= 4; mode++) {
       LV2_URID blocks_property;
       LV2_URID profile_property;
 
       if (mode == 1) {
-        blocks_property = self->state.property_averaged_blocks_2_mean;
+        blocks_property = self->state.property_block_count_2_mean;
         profile_property = self->state.property_noise_profile_2_mean;
       } else if (mode == 2) {
-        blocks_property = self->state.property_averaged_blocks_2_median;
+        blocks_property = self->state.property_block_count_2_median;
         profile_property = self->state.property_noise_profile_2_median;
+      } else if (mode == 4) {
+        blocks_property = self->state.property_block_count_2_min;
+        profile_property = self->state.property_noise_profile_2_min;
       } else {
-        blocks_property = self->state.property_averaged_blocks_2_max;
+        blocks_property = self->state.property_block_count_2_max;
         profile_property = self->state.property_noise_profile_2_max;
       }
 
-      const uint32_t* saved_averagedblocks = (const uint32_t*)retrieve(
+      const uint32_t* saved_block_count = (const uint32_t*)retrieve(
           handle, blocks_property, &size, &type, &valflags);
-      if (saved_averagedblocks == NULL || type != self->uris.atom_Int) {
+      if (saved_block_count == NULL || type != self->uris.atom_Int) {
         continue; // Skip if this profile mode wasn't saved
       }
-      const uint32_t averagedblocks = *saved_averagedblocks;
+      const uint32_t block_count = *saved_block_count;
 
       const void* saved_noise_profile =
           retrieve(handle, profile_property, &size, &type, &valflags);
@@ -710,7 +739,7 @@ static LV2_State_Status restore(LV2_Handle instance,
 
       specbleach_load_noise_profile_for_mode(self->lib_instance_2,
                                              self->noise_profile_2, fftsize,
-                                             averagedblocks, mode);
+                                             block_count, mode);
     }
   }
 
