@@ -127,20 +127,21 @@ static void map_state(LV2_URID_Map* map, State* state, const char* uri) {
 typedef enum PortIndex {
   NOISEREPELLENT_NOISE_LEARN = 0,
   NOISEREPELLENT_MODE = 1,
-  NOISEREPELLENT_ADAPTIVE_NOISE = 2,
-  NOISEREPELLENT_ADAPTIVE_METHOD = 3,
-  NOISEREPELLENT_AMOUNT = 4,
-  NOISEREPELLENT_MASKING_TRANSPARENCY = 5,
-  NOISEREPELLENT_SMOOTHING = 6,
-  NOISEREPELLENT_WHITENING = 7,
-  NOISEREPELLENT_RESIDUAL_LISTEN = 8,
-  NOISEREPELLENT_RESET_NOISE_PROFILE = 9,
-  NOISEREPELLENT_BYPASS = 10,
-  NOISEREPELLENT_LATENCY = 11,
-  NOISEREPELLENT_INPUT_1 = 12,
-  NOISEREPELLENT_OUTPUT_1 = 13,
-  NOISEREPELLENT_INPUT_2 = 14,
-  NOISEREPELLENT_OUTPUT_2 = 15,
+  NOISEREPELLENT_RESET_NOISE_PROFILE = 2,
+  NOISEREPELLENT_ADAPTIVE_NOISE = 3,
+  NOISEREPELLENT_ADAPTIVE_METHOD = 4,
+  NOISEREPELLENT_AMOUNT = 5,
+  NOISEREPELLENT_SUPPRESSION = 6,
+  NOISEREPELLENT_SMOOTHING = 7,
+  NOISEREPELLENT_MASKING_TRANSPARENCY = 8,
+  NOISEREPELLENT_WHITENING = 9,
+  NOISEREPELLENT_RESIDUAL_LISTEN = 10,
+  NOISEREPELLENT_BYPASS = 11,
+  NOISEREPELLENT_LATENCY = 12,
+  NOISEREPELLENT_INPUT_1 = 13,
+  NOISEREPELLENT_OUTPUT_1 = 14,
+  NOISEREPELLENT_INPUT_2 = 15,
+  NOISEREPELLENT_OUTPUT_2 = 16,
 } PortIndex;
 
 typedef struct NoiseRepellentPlugin {
@@ -177,6 +178,7 @@ typedef struct NoiseRepellentPlugin {
   float* smoothing_factor;
   float* whitening_factor;
   float* masking_transparency;
+  float* suppression_strength;
   float* reset_noise_profile;
   float* bypass;
   float* adaptive_noise;
@@ -358,6 +360,9 @@ static void connect_port(LV2_Handle instance, uint32_t port, void* data) {
     case NOISEREPELLENT_WHITENING:
       self->whitening_factor = (float*)data;
       break;
+    case NOISEREPELLENT_SUPPRESSION:
+      self->suppression_strength = (float*)data;
+      break;
     case NOISEREPELLENT_MODE:
       self->mode = (float*)data;
       break;
@@ -473,6 +478,7 @@ static void run(LV2_Handle instance, uint32_t number_of_samples) {
       .noise_estimation_method = self->adaptive_method ? (int)*self->adaptive_method : 0,
       .masking_depth = self->masking_transparency ? (1.0f - powf(1.0f - (*self->masking_transparency / 100.0f), 3.0f)) : 0.5f,
       .masking_elasticity = self->masking_transparency ? (0.2f * (1.0f - (*self->masking_transparency / 100.0f))) : 0.1f,
+      .suppression_strength = self->suppression_strength ? *self->suppression_strength : 20.0f,
   };
   // clang-format on
 
