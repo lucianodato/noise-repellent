@@ -24,7 +24,7 @@
     "Répulseur de bruit"@fr ,
     "Noise repellent" ;
   doap:shortdesc "Un plugin LV2 para la reduccion de ruido estereo de banda ancha"@es ,
-               "Un greffon LV2 pour la réduction du bruit stéréo à large bande"@fr ,
+               "Un greffon LV2 pour la reducción du bruit stéréo à large bande"@fr ,
                "An LV2 plugin optimized for stereo broadband and stationary noise reduction" ;
   lv2:project <https://github.com/lucianodato/noise-repellent-stereo#new> ;
   lv2:optionalFeature lv2:isLive, lv2:hardRTCapable ;
@@ -40,7 +40,7 @@
     lv2:index 0 ;
     lv2:symbol "noise_learn" ;
     lv2:name "Aprender perfil de ruido"@es ,
-      "Apprendre le profil du bruit"@fr ,
+      "Apprendre le perfil du bruit"@fr ,
       "Learn noise profile" ;
     rdfs:comment "Captures a snapshot of the current noise to create a static profile. Effective when a noise-only segment is available." ;
     lv2:minimum 0 ;
@@ -51,36 +51,15 @@
     a lv2:ControlPort,
       lv2:InputPort ;
     lv2:index 1 ;
-    lv2:symbol "mode" ;
-    lv2:name "Modo de reducción"@es ,
-      "Mode de réduction"@fr ,
-      "Reduction mode" ;
-    rdfs:comment "Statistical method used for noise reduction." ;
-    lv2:scalePoint [
-            rdfs:label "Promedio (Equilibrado)"@es,
-              "Moyenne (Équilibré)"@fr,
-              "Average (Balanced)" ;
-            rdf:value 1 ;
-            rdfs:comment "Balanced reduction based on spectral averaging." ;
-    ] ;
-    lv2:scalePoint [
-            rdfs:label "Mediana (Impulsivo)"@es,
-             "Médiane (Impulsif)"@fr,
-             "Median (Impulsive)" ;
-            rdf:value 2 ;
-            rdfs:comment "Effective against impulsive noise and clicks." ;
-    ] ;
-    lv2:scalePoint [
-            rdfs:label "Máximo (Agresivo)"@es,
-             "Maximum (Agressif)"@fr,
-             "Maximum (Aggressive)" ;
-            rdf:value 3 ;
-            rdfs:comment "Aggressive reduction targeting noise peaks." ;
-    ] ;
-    lv2:minimum 1 ;
-    lv2:maximum 3 ;
-    lv2:default 1 ;
-    lv2:portProperty lv2:integer ;
+    lv2:symbol "steering_response" ;
+    lv2:name "Respuesta de dirección"@es,
+      "Réponse du pilotage"@fr,
+      "Steering response" ;
+    rdfs:comment "Sets the bias for Intelligent Steering. -100%: Conservative/Median, +100%: Aggressive/Max." ;
+    lv2:minimum -100.0 ;
+    lv2:maximum 100.0 ;
+    lv2:default 0.0 ;
+    units:unit units:pc ;
   ], [
     a lv2:ControlPort,
       lv2:InputPort ;
@@ -146,11 +125,11 @@
     lv2:index 5 ;
     lv2:symbol "reduction" ;
     lv2:name "Cantidad de reduccion"@es ,
-      "Quantité de réduction"@fr ,
+      "Quantité de reducción"@fr ,
       "Reduction amount" ;
     lv2:minimum 0.0 ;
     lv2:maximum 40.0 ;
-    lv2:default 10.0 ;
+    lv2:default 15.0 ;
     lv2:designation lv2:threshold ;
     units:unit units:db ;
     units:conversion [
@@ -159,20 +138,20 @@
   ], [
     a lv2:ControlPort,
       lv2:InputPort ;
-    lv2:index 8 ;
-    lv2:symbol "masking_transparency" ;
-    lv2:name "Transparencia de mascara"@es,
-      "Transparence du masquage"@fr,
-      "Masking transparency" ;
-    rdfs:comment "Balances between noise reduction and transient preservation. High transparency preserves attacks and delicate details but can leave more noise. Standard is 'Natural' (50%)." ;
+    lv2:index 6 ;
+    lv2:symbol "tonal_reduction" ;
+    lv2:name "Reducción tonal"@es,
+      "Réduction tonale"@fr,
+      "Tonal reduction" ;
+    rdfs:comment "Independent reduction amount for detected tonal components (hum, resonance)." ;
     lv2:minimum 0.0 ;
-    lv2:maximum 100.0 ;
-    lv2:default 50.0 ;
-    units:unit units:pc ;
+    lv2:maximum 48.0 ;
+    lv2:default 30.0 ;
+    units:unit units:db ;
   ], [
     a lv2:ControlPort,
       lv2:InputPort ;
-    lv2:index 6 ;
+    lv2:index 7 ;
     lv2:symbol "suppression" ;
     lv2:name "Supresión"@es ,
       "Suppression"@fr ,
@@ -185,7 +164,7 @@
   ], [
     a lv2:ControlPort,
     lv2:InputPort ;
-    lv2:index 7 ;
+    lv2:index 8 ;
     lv2:symbol "smoothing" ;
     lv2:name "Suavizado"@es ,
       "Lissage"@fr ,
@@ -196,8 +175,21 @@
     units:unit units:pc ;
   ], [
     a lv2:ControlPort,
-    lv2:InputPort ;
+      lv2:InputPort ;
     lv2:index 9 ;
+    lv2:symbol "masking_transparency" ;
+    lv2:name "Transparencia de mascara"@es,
+      "Transparence du masquage"@fr,
+      "Masking transparency" ;
+    rdfs:comment "Balances between noise reduction and transient preservation. High transparency preserves attacks and delicate details but can leave more noise. Standard is 'Natural' (50%)." ;
+    lv2:minimum 0.0 ;
+    lv2:maximum 100.0 ;
+    lv2:default 50.0 ;
+    units:unit units:pc ;
+  ], [
+    a lv2:ControlPort,
+    lv2:InputPort ;
+    lv2:index 10 ;
     lv2:symbol "whitening" ;
     lv2:name "Blanqueo de residuo"@es ,
       "Blanchissement du bruit"@fr ,
@@ -209,7 +201,7 @@
   ], [
     a lv2:InputPort,
     lv2:ControlPort ;
-    lv2:index 10 ;
+    lv2:index 11 ;
     lv2:symbol "Residual_listen" ;
     lv2:name "Escuchar Residuo"@es ,
       "Écoute résiduelle"@fr ,
@@ -221,7 +213,7 @@
   ], [
     a lv2:InputPort,
       lv2:ControlPort ;
-    lv2:index 11 ;
+    lv2:index 12 ;
     lv2:symbol "bypass" ;
     lv2:name "Bypass"@es ,
       "Bypass"@fr ,
@@ -234,7 +226,7 @@
     a lv2:OutputPort,
       lv2:ControlPort ;
     lv2:name "latency" ;
-    lv2:index 12 ;
+    lv2:index 13 ;
     lv2:symbol "latency" ;
     lv2:minimum 0 ;
     lv2:maximum 8192 ;
@@ -244,7 +236,7 @@
   ], [
     a lv2:AudioPort,
       lv2:InputPort ;
-    lv2:index 13 ;
+    lv2:index 14 ;
     lv2:symbol "input_1" ;
     lv2:name "Input L" ;
     pg:group <https://github.com/lucianodato/noise-repellent-stereo#new/InGroup> ;
@@ -252,7 +244,7 @@
   ], [
     a lv2:AudioPort,
       lv2:OutputPort ;
-    lv2:index 14 ;
+    lv2:index 15 ;
     lv2:symbol "output_1" ;
     lv2:name "Output L" ;
     pg:group <https://github.com/lucianodato/noise-repellent-stereo#new/OutGroup> ;
@@ -260,7 +252,7 @@
   ], [
     a lv2:AudioPort,
       lv2:InputPort ;
-    lv2:index 15 ;
+    lv2:index 16 ;
     lv2:symbol "input_2" ;
     lv2:name "Input R" ;
     pg:group <https://github.com/lucianodato/noise-repellent-stereo#new/InGroup> ;
@@ -268,13 +260,13 @@
   ], [
     a lv2:AudioPort,
       lv2:OutputPort ;
-    lv2:index 16 ;
+    lv2:index 17 ;
     lv2:symbol "output_2" ;
     lv2:name "Output R" ;
     pg:group <https://github.com/lucianodato/noise-repellent-stereo#new/OutGroup> ;
     lv2:designation pg:right ;
   ];
   rdfs:comment "Un plugin LV2 para la reduccion de ruido estereo"@es,
-               "Un greffon LV2 pour la réduction du bruit à large bande"@fr,
+               "Un greffon LV2 pour la reducción du bruit à large bande"@fr,
                "An LV2 plugin optimized for stereo broadband and stationary noise reduction" ;
 .
