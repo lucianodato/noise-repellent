@@ -28,6 +28,7 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include "lv2/state/state.h"
 #include "lv2/urid/urid.h"
 #include "specbleach_denoiser.h"
+#include <math.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -126,22 +127,21 @@ static void map_state(LV2_URID_Map* map, State* state, const char* uri) {
 typedef enum PortIndex {
   NOISEREPELLENT_NOISE_LEARN = 0,
   NOISEREPELLENT_MODE = 1,
-  NOISEREPELLENT_ADAPTIVE_NOISE = 2,
-  NOISEREPELLENT_ADAPTIVE_METHOD = 3,
-  NOISEREPELLENT_AMOUNT = 4,
-  NOISEREPELLENT_NOISE_REDUCTION_TYPE = 5,
-  NOISEREPELLENT_NOISE_OFFSET = 6,
-  NOISEREPELLENT_POSTFILTER = 7,
-  NOISEREPELLENT_SMOOTHING = 8,
+  NOISEREPELLENT_RESET_NOISE_PROFILE = 2,
+  NOISEREPELLENT_ADAPTIVE_NOISE = 3,
+  NOISEREPELLENT_ADAPTIVE_METHOD = 4,
+  NOISEREPELLENT_AMOUNT = 5,
+  NOISEREPELLENT_SUPPRESSION = 6,
+  NOISEREPELLENT_SMOOTHING = 7,
+  NOISEREPELLENT_MASKING_TRANSPARENCY = 8,
   NOISEREPELLENT_WHITENING = 9,
   NOISEREPELLENT_RESIDUAL_LISTEN = 10,
-  NOISEREPELLENT_RESET_NOISE_PROFILE = 11,
-  NOISEREPELLENT_BYPASS = 12,
-  NOISEREPELLENT_LATENCY = 13,
-  NOISEREPELLENT_INPUT_1 = 14,
-  NOISEREPELLENT_OUTPUT_1 = 15,
-  NOISEREPELLENT_INPUT_2 = 16,
-  NOISEREPELLENT_OUTPUT_2 = 17,
+  NOISEREPELLENT_BYPASS = 11,
+  NOISEREPELLENT_LATENCY = 12,
+  NOISEREPELLENT_INPUT_1 = 13,
+  NOISEREPELLENT_OUTPUT_1 = 14,
+  NOISEREPELLENT_INPUT_2 = 15,
+  NOISEREPELLENT_OUTPUT_2 = 16,
 } PortIndex;
 
 typedef struct NoiseRepellentPlugin {
@@ -173,13 +173,12 @@ typedef struct NoiseRepellentPlugin {
 
   float* learn_noise;
   float* mode;
-  float* noise_scaling_type;
   float* residual_listen;
   float* reduction_amount;
   float* smoothing_factor;
   float* whitening_factor;
-  float* postfilter_threshold;
-  float* noise_rescale;
+  float* masking_transparency;
+  float* suppression_strength;
   float* reset_noise_profile;
   float* bypass;
   float* adaptive_noise;
@@ -352,11 +351,8 @@ static void connect_port(LV2_Handle instance, uint32_t port, void* data) {
     case NOISEREPELLENT_AMOUNT:
       self->reduction_amount = (float*)data;
       break;
-    case NOISEREPELLENT_NOISE_REDUCTION_TYPE:
-      self->noise_scaling_type = (float*)data;
-      break;
-    case NOISEREPELLENT_NOISE_OFFSET:
-      self->noise_rescale = (float*)data;
+    case NOISEREPELLENT_MASKING_TRANSPARENCY:
+      self->masking_transparency = (float*)data;
       break;
     case NOISEREPELLENT_SMOOTHING:
       self->smoothing_factor = (float*)data;
@@ -364,8 +360,8 @@ static void connect_port(LV2_Handle instance, uint32_t port, void* data) {
     case NOISEREPELLENT_WHITENING:
       self->whitening_factor = (float*)data;
       break;
-    case NOISEREPELLENT_POSTFILTER:
-      self->postfilter_threshold = (float*)data;
+    case NOISEREPELLENT_SUPPRESSION:
+      self->suppression_strength = (float*)data;
       break;
     case NOISEREPELLENT_MODE:
       self->mode = (float*)data;
@@ -475,14 +471,14 @@ static void run(LV2_Handle instance, uint32_t number_of_samples) {
       .learn_noise = self->learn_noise ? (int)*self->learn_noise : 0,
       .noise_reduction_mode = self->mode ? (int)*self->mode : 1,
       .residual_listen = self->residual_listen ? (bool)*self->residual_listen : false,
-      .noise_scaling_type = self->noise_scaling_type ? (int)*self->noise_scaling_type : 2,
       .reduction_amount = self->reduction_amount ? *self->reduction_amount : 10.0f,
-      .noise_rescale = self->noise_rescale ? *self->noise_rescale : 2.0f,
       .smoothing_factor = self->smoothing_factor ? *self->smoothing_factor : 0.0f,
       .whitening_factor = self->whitening_factor ? *self->whitening_factor : 0.0f,
-      .post_filter_threshold = self->postfilter_threshold ? *self->postfilter_threshold : -10.0f,
       .adaptive_noise = self->adaptive_noise ? (int)*self->adaptive_noise : 0,
       .noise_estimation_method = self->adaptive_method ? (int)*self->adaptive_method : 0,
+      .masking_depth = self->masking_transparency ? (1.0f - powf(1.0f - (*self->masking_transparency / 100.0f), 3.0f)) : 0.5f,
+      .masking_elasticity = self->masking_transparency ? (0.2f * (1.0f - (*self->masking_transparency / 100.0f))) : 0.1f,
+      .suppression_strength = self->suppression_strength ? *self->suppression_strength : 20.0f,
   };
   // clang-format on
 

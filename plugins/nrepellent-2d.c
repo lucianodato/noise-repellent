@@ -27,6 +27,7 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include "lv2/state/state.h"
 #include "lv2/urid/urid.h"
 #include "specbleach_2d_denoiser.h"
+#include <math.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
@@ -127,19 +128,21 @@ static void map_state(LV2_URID_Map* map, State* state, const char* uri) {
 typedef enum PortIndex {
   NOISEREPELLENT_2D_NOISE_LEARN = 0,
   NOISEREPELLENT_2D_MODE = 1,
-  NOISEREPELLENT_2D_ADAPTIVE_NOISE = 2,
-  NOISEREPELLENT_2D_ADAPTIVE_METHOD = 3,
-  NOISEREPELLENT_2D_AMOUNT = 4,
-  NOISEREPELLENT_2D_NLM_SMOOTHING = 5,
-  NOISEREPELLENT_2D_WHITENING = 6,
-  NOISEREPELLENT_2D_RESIDUAL_LISTEN = 7,
-  NOISEREPELLENT_2D_BYPASS = 8,
-  NOISEREPELLENT_2D_RESET_NOISE_PROFILE = 9,
-  NOISEREPELLENT_2D_LATENCY = 10,
-  NOISEREPELLENT_2D_INPUT_1 = 11,
-  NOISEREPELLENT_2D_OUTPUT_1 = 12,
-  NOISEREPELLENT_2D_INPUT_2 = 13,
-  NOISEREPELLENT_2D_OUTPUT_2 = 14,
+  NOISEREPELLENT_2D_RESET_NOISE_PROFILE = 2,
+  NOISEREPELLENT_2D_ADAPTIVE_NOISE = 3,
+  NOISEREPELLENT_2D_ADAPTIVE_METHOD = 4,
+  NOISEREPELLENT_2D_AMOUNT = 5,
+  NOISEREPELLENT_2D_SUPPRESSION = 6,
+  NOISEREPELLENT_2D_NLM_SMOOTHING = 7,
+  NOISEREPELLENT_2D_MASKING_TRANSPARENCY = 8,
+  NOISEREPELLENT_2D_WHITENING = 9,
+  NOISEREPELLENT_2D_RESIDUAL_LISTEN = 10,
+  NOISEREPELLENT_2D_BYPASS = 11,
+  NOISEREPELLENT_2D_LATENCY = 12,
+  NOISEREPELLENT_2D_INPUT_1 = 13,
+  NOISEREPELLENT_2D_OUTPUT_1 = 14,
+  NOISEREPELLENT_2D_INPUT_2 = 15,
+  NOISEREPELLENT_2D_OUTPUT_2 = 16,
 } PortIndex;
 
 typedef struct NoiseRepellent2DPlugin {
@@ -179,6 +182,8 @@ typedef struct NoiseRepellent2DPlugin {
   float* bypass;
   float* adaptive_noise;
   float* adaptive_method;
+  float* masking_transparency;
+  float* suppression_strength;
 
   bool activated;
   float prev_reset_state;
@@ -345,6 +350,12 @@ static void connect_port(LV2_Handle instance, uint32_t port, void* data) {
     case NOISEREPELLENT_2D_AMOUNT:
       self->reduction_amount = (float*)data;
       break;
+    case NOISEREPELLENT_2D_MASKING_TRANSPARENCY:
+      self->masking_transparency = (float*)data;
+      break;
+    case NOISEREPELLENT_2D_SUPPRESSION:
+      self->suppression_strength = (float*)data;
+      break;
     case NOISEREPELLENT_2D_NLM_SMOOTHING:
       self->nlm_smoothing = (float*)data;
       break;
@@ -473,6 +484,9 @@ static void run(LV2_Handle instance, uint32_t number_of_samples) {
       .whitening_factor = self->whitening ? *self->whitening : 0.0f,
       .adaptive_noise = self->adaptive_noise ? (int)*self->adaptive_noise : 0,
       .noise_estimation_method = self->adaptive_method ? (int)*self->adaptive_method : 2,
+      .nlm_masking_protection = 1.0f - powf(1.0f - (*self->masking_transparency / 100.0f), 3.0f),
+      .masking_elasticity = 0.2f * (1.0f - (*self->masking_transparency / 100.0f)),
+      .suppression_strength = self->suppression_strength ? *self->suppression_strength : 20.0F,
   };
   // clang-format on
 
