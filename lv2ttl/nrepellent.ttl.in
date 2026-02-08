@@ -244,6 +244,6 @@
     lv2:name "Output" ;
   ];
   rdfs:comment "Un plugin LV2 para la reduccion de ruido de banda ancha"@es,
-               "Un greffon LV2 pour la reducción du bruit à large bande"@fr,
+               "Un greffon LV2 pour la réduction du bruit à large bande"@fr,
                "An LV2 plugin optimized for broadband and stationary noise reduction" ;
 .
