@@ -35,7 +35,7 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #define NOISEREPELLENT_URI "https://github.com/lucianodato/noise-repellent#new"
 #define NOISEREPELLENT_STEREO_URI                                              \
   "https://github.com/lucianodato/noise-repellent-stereo#new"
-#define FRAME_SIZE 46
+#define FRAME_SIZE 50
 
 typedef struct URIs {
   LV2_URID atom_Int;
