@@ -6,19 +6,42 @@ A suite of LV2 plugins for real-time spectral noise reduction, built on the [lib
 
 ## Features
 
-* **Manual capture noise reduction**: Typical noise reduction where you capture a noise profile.
-* **Adaptive noise reduction**: Automatic noise suppression, optimized for voice (low latency).
-* **Adjustable parameters**: Reduction amount, smoothing, whitening, and transient protection.
-* **Residual listening**: Hear exactly what is being removed.
-* **Soft bypass**: Cross-faded bypass to avoid clicks.
-* **State saving**: Noise profiles are saved with your host session.
+### Advanced Denoising Algorithms
+* **2D Non-Local Means (NLM)**: Uses spectral-temporal pattern matching to suppress musical noise while preserving high-frequency detail and textures.
+* **Manual Profiling**: Classic noise reduction using a user-captured noise profile from a silent section.
+* **Adaptive Estimation**: Real-time noise floor tracking with multiple algorithms.
+    * **Hybrid Operation**: Works on top of manual profiles to refine captured snapshots in real-time.
+    * **SPP-MMSE**: Robust, unbiased estimation for complex noise environments (best for voice).
+    * **Brandt (Trimmed Mean)**: Efficient estimation for steady-state broadband noise.
+    * **Martin Minimum Statistics**: Reliable tracking for slowly varying noise.
+
+
+### Precision Controls
+* **Tonal separation**: Independent reduction of harmonic content and tonal noise (hum, resonance).
+* **Intelligent Steering**: Adjustable aggressiveness to balance between different noise profile statistics (Mean, Median, Max).
+* **Adaptive Whitening**: Reshapes the residual noise floor to prevent coloring and artifacts.
+* **Masking Transparency (Veto)**: Protects transients and delicate details by balancing reduction against signal energy.
+* **Adjustable Smoothing**: Fine-tune the balance between artifact suppression and transient clarity.
+    * **Standard Denoising**: Uses temporal smoothing for stable noise reduction.
+    * **2D Denoising**: Uses NLM smoothing for pattern-based artifact removal.
+
+### Workflow & Integration
+* **Residual Listening**: Hear exactly what is being filtered out to fine-tune your settings.
+* **Soft Bypass**: Seamless, click-free A/B testing with cross-faded bypass.
+* **Full State Saving**: Noise profiles and all parameters are saved with the host session.
+
+
+### Compatibility
+* **Available as LV2 Plugins**: Optimized for Linux, macOS, and Windows.
+* **Stereo Support**: Ready for modern stereo production workflows.
+
 
 ## Screenshots
 
 ![Noise Repellent in Ardour](images/Noise-repellent-Ardour.png)
 ![Noise Repellent in Reaper](images/Noise-repellent-Reaper.png)
-![Adaptive Noise Repellent in Ardour](images/Noise-repellent-adaptive-Ardour.png)
-![Adaptive Noise Repellent in Reaper](images/Noise-repellent-adaptive-Reaper.png)
+![2D Noise Repellent in Ardour](images/2d-Noise-repellent-Ardour.png)
+![2D Noise Repellent in Reaper](images/2d-Noise-repellent-Reaper.png)
 
 ## Installation
 
