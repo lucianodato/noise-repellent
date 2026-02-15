@@ -181,7 +181,7 @@
     rdfs:comment "Balances transient preservation vs. noise floor silence. 0%: Maximum reduction, 50%: Natural sweet spot (recommended), 100%: Pure transparency." ;
     lv2:minimum 0.0 ;
     lv2:maximum 100.0 ;
-    lv2:default 0.0 ;
+    lv2:default 100.0 ;
     units:unit units:pc ;
   ], [
     a lv2:ControlPort,

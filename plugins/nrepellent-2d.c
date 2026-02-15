@@ -505,7 +505,6 @@ static void run(LV2_Handle instance, uint32_t number_of_samples) {
       .adaptive_noise = self->adaptive_noise ? (int)*self->adaptive_noise : 0,
       .noise_estimation_method = self->adaptive_method ? (int)*self->adaptive_method : 2,
       .nlm_masking_protection = self->masking_transparency ? (1.0f - powf(1.0f - (*self->masking_transparency / 100.0f), 3.0f)) : 0.5f,
-      .masking_elasticity = self->masking_transparency ? (0.2f * (1.0f - (*self->masking_transparency / 100.0f))) : 0.1f,
       .suppression_strength = self->suppression_strength ? *self->suppression_strength : 20.0F,
       .aggressiveness = self->aggressiveness ? *self->aggressiveness / 100.0f : 0.0f,
       .tonal_reduction = self->tonal_reduction ? *self->tonal_reduction : 0.0f,
