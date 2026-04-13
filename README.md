@@ -70,6 +70,7 @@ Binaries for Linux, macOS, and Windows are provided in the [GitHub Releases](htt
 - C Compiler (GCC/Clang)
 - LV2 development headers
 - `pkg-config`
+- OpenMP (optional, but highly recommended for 2D Denoising)
 
 **Build:**
 
@@ -102,7 +103,13 @@ You can configure the build options using `-Doption=value`:
 - `libspecbleach_libdir`: Directory where libspecbleach is installed (used for RPATH when using system libspecbleach). Leave empty for automatic detection (pkg-config libdir, then Meson libdir). Useful when libspecbleach is installed to a non-standard location.
 
 > [!IMPORTANT]
-> **Critical Performance Note for Packagers**: The "2D Denoising" (NLM) mode uses advanced spectral processing that requires aggressive compiler optimization. You **MUST** build this project with `--buildtype=release` (which enables `-O3`). Debug or default builds (often `-g -O0`) will cause significant CPU spikes and choppy audio (xruns) on this setting.
+> **Critical Performance Note for Packagers**: The "2D Denoising" (NLM) mode uses advanced spectral processing that requires aggressive compiler optimization and **multi-threaded execution via OpenMP**. 
+> 
+> You **MUST** build this project with `--buildtype=release` (which enables `-O3`). Debug or default builds will cause significant CPU spikes and audio dropouts (xruns) on this setting.
+>
+> **Note on DSP Usage**: In some DAWs (like Ardour), the parallelized NLM processing might cause the DSP load meter to show high peaks. 
+>
+> By default, the plugin uses **4 threads** for NLM processing. If you have many cores and want to reduce these peaks, you can limit the thread count used by the plugin by setting the environment variable `OMP_NUM_THREADS` (e.g., `export OMP_NUM_THREADS=2`).
 
 Example for a self-contained static build:
 ```bash
