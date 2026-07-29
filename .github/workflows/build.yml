@@ -1,211 +1,147 @@
-name: build
+name: Build & Release JUCE Plugin
+
 on:
   push:
-    tags:
-    - "v*.*.*"
+    branches: [ "main", "master", "feature/*" ]
+    tags: [ "v*.*.*" ]
   pull_request:
-    branches:
-      - "*"
-
-env:
-  PAWPAW_VERSION: cea7e2f2eea7b819d3cd075c1a82458bf9afce48
-  DEBIAN_FRONTEND: noninteractive
-  HOMEBREW_NO_AUTO_UPDATE: 1
-  PAWPAW_SKIP_GLIB: 1 # Also skips fluidsynth
+    branches: [ "main", "master" ]
 
 jobs:
-  lint:
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install clang-format
-        run: sudo apt-get install -y clang-format
-      - name: Check Formatting
-        run: |
-          ./subprojects/libspecbleach/scripts/check_format.sh || true # If script doesn't exist yet, we'll use inline
-          find . -name "*.[ch]" | grep -v "/build/" | grep -v "/subprojects/" | xargs clang-format --dry-run -Werror
-
-  linux64:
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-      - name: Set up dependencies
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -qq python3-pip lv2-dev libfftw3-dev ninja-build
-          sudo pip3 install meson --break-system-packages
-      - name: Build noise-repellent
-        shell: bash
-        run: |
-          meson setup build --buildtype release --prefix /tmp --libdir /tmp -Dstatic_libspecbleach=true -Dforce_bundled_libspecbleach=true
-          meson compile -v -C build
-          meson install -C build --skip-subprojects
-          mv /tmp/lv2/nrepellent.lv2 ./nrepellent.lv2
-      - name: Set sha8
-        id: slug
-        run: echo "sha8=$(echo ${{ github.sha }} | cut -c1-8)" >> $GITHUB_OUTPUT
-      - name: Pack build
-        shell: bash
-        run: |
-          chmod -R 755 ./nrepellent.lv2
-          zip -r noise-repellent-linux64-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}.zip ./nrepellent.lv2
-          mkdir -p staging
-          cp -r nrepellent.lv2 staging/
-      - uses: actions/upload-artifact@v4
-        with:
-          name: noise-repellent-linux64-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
-          path: staging/
-      - name: Get release version number
-        if: startsWith(github.ref, 'refs/tags/')
-        id: get_version
-        uses: battila7/get-version-action@v2
-      - name: Rename zip if tag branch
-        shell: bash
-        if: startsWith(github.ref, 'refs/tags/')
-        run: |
-          mv noise-repellent-linux64-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}.zip noise-repellent-linux64-${{ steps.get_version.outputs.version }}.zip
-      - name: Upload Release
-        uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/')
-        with:
-          files: 
-            noise-repellent-linux64-${{ steps.get_version.outputs.version }}.zip
-
-  macos-universal:
+  build-macos:
+    name: macOS (Universal arm64 + x86_64)
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-      - name: Set up cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/PawPawBuilds/builds
-            ~/PawPawBuilds/downloads
-            ~/PawPawBuilds/targets
-          key: macos-universal-${{ hashFiles('**/meson.build') }}
-          restore-keys: macos-universal-
-      - name: Set up dependencies
+
+      - name: Install Dependencies
         run: |
-          brew install autoconf automake coreutils gawk git gnu-sed make meson libtool
-      - name: Bootstrap macOS universal
-        shell: bash
+          brew install cmake fftw libomp
+
+      - name: Build libspecbleach
         run: |
-          if [ ! -d PawPaw ]; then
-            git clone https://github.com/DISTRHO/PawPaw.git
-            git -C PawPaw checkout ${PAWPAW_VERSION}
-          fi
-          # Note: We might need adjustments for newer macOS environment, but keeping script calls
-          ./PawPaw/bootstrap-plugins.sh macos-universal && ./PawPaw/.cleanup.sh macos-universal
-      - name: Build noise-repellent
-        shell: bash
+          brew install meson ninja
+          meson setup subprojects/libspecbleach/build --buildtype=release -Ddefault_library=both -Db_coverage=false
+          meson compile -C subprojects/libspecbleach/build
+
+      - name: Configure CMake
         run: |
-          pushd PawPaw && source local.env macos-universal && popd
-          meson setup build --buildtype release --prefix /tmp --libdir /tmp -Dlv2dir=/tmp/lv2 -Dstatic_libspecbleach=true -Dforce_bundled_libspecbleach=true
-          meson compile -v -C build
-          meson install -C build --skip-subprojects
-          mv /tmp/lv2/nrepellent.lv2 ./nrepellent.lv2
-          # Ad-hoc sign binaries (required for Apple Silicon and helpful for Gatekeeper)
-          find ./nrepellent.lv2 -name "*.dylib" -o -name "*.so" | xargs codesign -s - --force
-      - name: Set sha8
-        id: slug
-        run: echo "sha8=$(echo ${{ github.sha }} | cut -c1-8)" >> $GITHUB_OUTPUT
-      - name: Pack build
-        shell: bash
+          cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
+
+      - name: Build Targets
         run: |
-          chmod -R 755 ./nrepellent.lv2
-          # Use ditto on macOS to preserve metadata and extended attributes better than zip
-          ditto -c -k --sequesterRsrc --keepParent ./nrepellent.lv2 noise-repellent-macOS-universal-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}.zip
+          cmake --build build --config Release -j4
+
+      - name: Package Artifacts
+        run: |
           mkdir -p staging
-          cp -r nrepellent.lv2 staging/
+          cp -R build/NoiseRepellent_artefacts/Release/VST3/Noise\ Repellent.vst3 staging/
+          cp -R build/NoiseRepellent_artefacts/Release/AU/Noise\ Repellent.component staging/
+          cp -R build/NoiseRepellent_artefacts/Release/Standalone/Noise\ Repellent.app staging/
+          cd staging && zip -r ../noise-repellent-macOS-universal.zip .
+
       - uses: actions/upload-artifact@v4
         with:
-          name: noise-repellent-macOS-universal-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
+          name: noise-repellent-macOS-universal
           path: staging/
-      - name: Get release version number
-        if: startsWith(github.ref, 'refs/tags/')
-        id: get_version
-        uses: battila7/get-version-action@v2
-      - name: Rename zip if tag branch
-        shell: bash
-        if: startsWith(github.ref, 'refs/tags/')
-        run: |
-          mv noise-repellent-macOS-universal-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}.zip noise-repellent-macOS-universal-${{ steps.get_version.outputs.version }}.zip
-      - name: Upload Release
-        uses: softprops/action-gh-release@v1
+
+      - name: Upload GitHub Release
+        uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: 
-            noise-repellent-macOS-universal-${{ steps.get_version.outputs.version }}.zip
-      
-  win64:
-    runs-on: ubuntu-22.04
+          files: noise-repellent-macOS-universal.zip
+
+  build-linux:
+    name: Linux (x86_64)
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-      - name: Set up cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/PawPawBuilds/builds
-            ~/PawPawBuilds/debs
-            ~/PawPawBuilds/downloads
-            ~/PawPawBuilds/targets
-          key: win64-${{ hashFiles('**/meson.build') }}
-          restore-keys: win64-
-      - name: Set up dependencies
+
+      - name: Install Dependencies
         run: |
-          sudo apt update
-          sudo apt-get install -qy build-essential ninja-build python3-pip mingw-w64 \
-            binutils-mingw-w64-x86-64 g++-mingw-w64-x86-64 wine-stable wine-binfmt gperf
-          sudo pip3 install meson
-      - name: Bootstrap win64 cross-compiled
-        shell: bash
+          sudo apt-get update -qq
+          sudo apt-get install -qq -y \
+            cmake ninja-build meson libfftw3-dev libomp-dev \
+            libasound2-dev libjack-jackd2-dev libgl1-mesa-dev \
+            libx11-dev libxcomposite-dev libxcursor-dev libxext-dev \
+            libxinerama-dev libxrandr-dev libfreetype6-dev libfontconfig1-dev
+
+      - name: Build libspecbleach
         run: |
-          if [ ! -d PawPaw ]; then
-            git clone https://github.com/DISTRHO/PawPaw.git
-            git -C PawPaw checkout ${PAWPAW_VERSION}
-          fi
-          ./PawPaw/bootstrap-plugins.sh win64 && ./PawPaw/.cleanup.sh win64
-      - name: Build noise-repellent
-        shell: bash
+          meson setup subprojects/libspecbleach/build --buildtype=release -Ddefault_library=both -Db_coverage=false
+          meson compile -C subprojects/libspecbleach/build
+
+      - name: Configure CMake
         run: |
-          pushd PawPaw && source local.env win64 && popd
-          wineboot -u
-          meson setup build --buildtype release --prefix /tmp --libdir /tmp -Dlv2dir=/tmp/lv2 --cross-file $PWD/setup/win64.ini -Dstatic_libspecbleach=true -Dforce_bundled_libspecbleach=true
-          meson compile -v -C build
-          meson install -C build --skip-subprojects
-          mv /tmp/lv2/nrepellent.lv2 ./nrepellent.lv2
-      - name: Set sha8
-        id: slug
-        run: echo "sha8=$(echo ${{ github.sha }} | cut -c1-8)" >> $GITHUB_OUTPUT
-      - name: Pack build
-        shell: bash
+          cmake -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build Targets
         run: |
-          chmod -R 755 ./nrepellent.lv2
-          zip -r noise-repellent-win64-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}.zip ./nrepellent.lv2
+          cmake --build build --config Release -j4
+
+      - name: Package Artifacts
+        run: |
           mkdir -p staging
-          cp -r nrepellent.lv2 staging/
+          cp -R build/NoiseRepellent_artefacts/Release/VST3/Noise\ Repellent.vst3 staging/ || true
+          cp -R build/NoiseRepellent_artefacts/Release/LV2/Noise\ Repellent.lv2 staging/ || true
+          cp -R build/NoiseRepellent_artefacts/Release/Standalone/Noise\ Repellent staging/ || true
+          cd staging && zip -r ../noise-repellent-linux64.zip .
+
       - uses: actions/upload-artifact@v4
         with:
-          name: noise-repellent-win64-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}
+          name: noise-repellent-linux64
           path: staging/
-      - name: Get release version number
-        if: startsWith(github.ref, 'refs/tags/')
-        id: get_version
-        uses: battila7/get-version-action@v2
-      - name: Rename zip if tag branch
-        shell: bash
-        if: startsWith(github.ref, 'refs/tags/')
-        run: |
-          mv noise-repellent-win64-${{ github.event.pull_request.number || steps.slug.outputs.sha8 }}.zip noise-repellent-win64-${{ steps.get_version.outputs.version }}.zip
-      - name: Upload Release
-        uses: softprops/action-gh-release@v1
+
+      - name: Upload GitHub Release
+        uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: 
-            noise-repellent-win64-${{ steps.get_version.outputs.version }}.zip
+          files: noise-repellent-linux64.zip
+
+  build-windows:
+    name: Windows (x64)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Python & Meson
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Build Tools
+        run: |
+          pip install meson ninja
+
+      - name: Configure CMake
+        run: |
+          cmake -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build Targets
+        run: |
+          cmake --build build --config Release -j4
+
+      - name: Package Artifacts
+        shell: bash
+        run: |
+          mkdir -p staging
+          cp -R build/NoiseRepellent_artefacts/Release/VST3/Noise\ Repellent.vst3 staging/ || true
+          cp -R build/NoiseRepellent_artefacts/Release/Standalone/Noise\ Repellent.exe staging/ || true
+          cd staging && 7z a ../noise-repellent-win64.zip .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: noise-repellent-win64
+          path: staging/
+
+      - name: Upload GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: noise-repellent-win64.zip
