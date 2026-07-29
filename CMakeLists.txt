@@ -35,8 +35,6 @@ juce_add_plugin(NoiseRepellent
 # Include directories
 target_include_directories(NoiseRepellent PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/Source
-    ${CMAKE_CURRENT_SOURCE_DIR}/src
-    ${CMAKE_CURRENT_SOURCE_DIR}/subprojects/libspecbleach/include
     ${CMAKE_CURRENT_SOURCE_DIR}/../libspecbleach/include
 )
 
@@ -50,10 +48,8 @@ target_sources(NoiseRepellent PRIVATE
     Source/GUI/LookAndFeel.h
     Source/GUI/SpectralVisualizer.cpp
     Source/GUI/SpectralVisualizer.h
-    src/signal_crossfade.c
-    src/signal_crossfade.h
-    src/noise_profile_state.c
-    src/noise_profile_state.h
+    Source/DSP/signal_crossfade.c
+    Source/DSP/signal_crossfade.h
 )
 
 # Compile definitions

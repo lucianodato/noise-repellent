@@ -16,7 +16,7 @@ version 3 of the License, or (at your option) any later version.
 extern "C" {
 #include "specbleach_denoiser.h"
 #include "specbleach_2d_denoiser.h"
-#include "signal_crossfade.h"
+#include "DSP/signal_crossfade.h"
 }
 
 class NoiseRepellentAudioProcessor : public juce::AudioProcessor
