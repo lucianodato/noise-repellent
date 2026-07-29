@@ -1,0 +1,17 @@
+# CodeRabbit Configuration File
+version: "2"
+language: "en-US"
+reviews:
+  profile: "chill"
+  auto_review:
+    enabled: false
+    drafts: false
+  auto_approve: true
+  path_instructions:
+    - path: "plugins/**/*"
+      instructions: |
+        Pay attention to LV2 real-time plugin safety:
+        - Strict hardRTCapable compliance (no blocking operations in run()).
+        - Ensure manifest files (.ttl.in) match any parameter or port changes in C code.
+chat:
+  auto_reply: true
