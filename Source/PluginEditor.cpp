@@ -33,7 +33,14 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(NoiseRepe
     addAndMakeVisible(btnMode2D);
     btnMode1D.setRadioGroupId(101);
     btnMode2D.setRadioGroupId(101);
-    btnMode2D.setToggleState(true, juce::dontSendNotification);
+    btnMode1D.setClickingTogglesState(true);
+    btnMode2D.setClickingTogglesState(true);
+
+    int currentAlgo = static_cast<int>(audioProcessor.getAPVTS().getRawParameterValue("algorithm_mode")->load());
+    if (currentAlgo == 0)
+        btnMode1D.setToggleState(true, juce::dontSendNotification);
+    else
+        btnMode2D.setToggleState(true, juce::dontSendNotification);
 
     btnMode1D.onClick = [this]() {
         audioProcessor.getAPVTS().getParameter("algorithm_mode")->setValueNotifyingHost(0.0f);
@@ -43,10 +50,11 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(NoiseRepe
     };
 
     // Header Action Toggles
+    isAdvancedVisible = audioProcessor.getAPVTS().getRawParameterValue("show_advanced")->load() > 0.5f;
+    btnAdvancedToggle.setClickingTogglesState(true);
     addAndMakeVisible(btnAdvancedToggle);
     btnAdvancedToggle.onClick = [this]() {
-        isAdvancedVisible = !isAdvancedVisible;
-        audioProcessor.getAPVTS().getParameter("show_advanced")->setValueNotifyingHost(isAdvancedVisible ? 1.0f : 0.0f);
+        isAdvancedVisible = btnAdvancedToggle.getToggleState();
         updateLayout();
     };
 
