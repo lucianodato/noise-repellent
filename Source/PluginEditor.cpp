@@ -67,8 +67,14 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(NoiseRepe
     groupProfile.setColour(juce::GroupComponent::outlineColourId, NoiseRepellentLookAndFeel::kColorPanelBorder);
     groupProfile.setColour(juce::GroupComponent::textColourId, NoiseRepellentLookAndFeel::kColorNoiseProfile);
 
+    btnLearn.setClickingTogglesState(true);
     addAndMakeVisible(btnLearn);
     btnLearn.setColour(juce::TextButton::buttonColourId, NoiseRepellentLookAndFeel::kColorNoiseProfile);
+    btnLearn.setColour(juce::TextButton::buttonOnColourId, NoiseRepellentLookAndFeel::kColorNoiseProfile.brighter(0.25f));
+    btnLearn.onClick = [this]() {
+        bool isLearning = btnLearn.getToggleState();
+        btnLearn.setButtonText(isLearning ? "LEARNING..." : "LEARN NOISE");
+    };
 
     addAndMakeVisible(btnResetProfile);
     btnResetProfile.onClick = [this]() {
@@ -107,7 +113,7 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(NoiseRepe
 
     // Collapsible Module 3: Advanced Controls
     addAndMakeVisible(groupAdvanced);
-    groupAdvanced.setText("⚙️ ADVANCED CONTROLS");
+    groupAdvanced.setText("ADVANCED CONTROLS");
     groupAdvanced.setColour(juce::GroupComponent::outlineColourId, NoiseRepellentLookAndFeel::kColorPanelBorder);
     groupAdvanced.setColour(juce::GroupComponent::textColourId, NoiseRepellentLookAndFeel::kColorFineTuning);
 
@@ -195,54 +201,60 @@ void NoiseRepellentAudioProcessorEditor::resized()
     auto headerArea = area.removeFromTop(36);
     brandLabel.setBounds(headerArea.removeFromLeft(180));
 
-    btnBypass.setBounds(headerArea.removeFromRight(34));
+    btnBypass.setBounds(headerArea.removeFromRight(65));
     headerArea.removeFromRight(6);
-    btnDelta.setBounds(headerArea.removeFromRight(34));
+    btnDelta.setBounds(headerArea.removeFromRight(55));
     headerArea.removeFromRight(10);
     btnAdvancedToggle.setBounds(headerArea.removeFromRight(145));
 
-    btnMode1D.setBounds(headerArea.removeFromLeft(90));
+    btnMode1D.setBounds(headerArea.removeFromLeft(95));
     headerArea.removeFromLeft(4);
-    btnMode2D.setBounds(headerArea.removeFromLeft(130));
+    btnMode2D.setBounds(headerArea.removeFromLeft(135));
 
     area.removeFromTop(8);
 
     // Bottom Collapsible Advanced Panel
     if (isAdvancedVisible)
     {
-        auto advArea = area.removeFromBottom(140);
+        auto advArea = area.removeFromBottom(150);
         groupAdvanced.setBounds(advArea);
 
-        auto advInner = advArea.reduced(10);
+        auto advInner = advArea.reduced(12);
         advInner.removeFromTop(12);
 
         auto leftAdv = advInner.removeFromLeft(240);
-        lblMethod.setBounds(leftAdv.removeFromTop(14));
-        comboMethod.setBounds(leftAdv.removeFromTop(24));
+        lblMethod.setBounds(leftAdv.removeFromTop(18));
+        leftAdv.removeFromTop(4);
+        comboMethod.setBounds(leftAdv.removeFromTop(26));
         leftAdv.removeFromTop(8);
-        lblAggressiveness.setBounds(leftAdv.removeFromTop(14));
-        sliderAggressiveness.setBounds(leftAdv.removeFromTop(24));
+        lblAggressiveness.setBounds(leftAdv.removeFromTop(18));
+        leftAdv.removeFromTop(4);
+        sliderAggressiveness.setBounds(leftAdv.removeFromTop(26));
 
-        advInner.removeFromLeft(12);
+        advInner.removeFromLeft(14);
 
-        int sliderW = (advInner.getWidth() - 36) / 4;
+        int sliderW = (advInner.getWidth() - 42) / 4;
 
         auto s1 = advInner.removeFromLeft(sliderW);
-        lblSmoothing.setBounds(s1.removeFromTop(14));
+        lblSmoothing.setBounds(s1.removeFromTop(18));
+        s1.removeFromTop(4);
         sliderSmoothing.setBounds(s1);
 
-        advInner.removeFromLeft(12);
+        advInner.removeFromLeft(14);
         auto s2 = advInner.removeFromLeft(sliderW);
-        lblMasking.setBounds(s2.removeFromTop(14));
+        lblMasking.setBounds(s2.removeFromTop(18));
+        s2.removeFromTop(4);
         sliderMasking.setBounds(s2);
 
-        advInner.removeFromLeft(12);
+        advInner.removeFromLeft(14);
         auto s3 = advInner.removeFromLeft(sliderW);
-        lblWhitening.setBounds(s3.removeFromTop(14));
+        lblWhitening.setBounds(s3.removeFromTop(18));
+        s3.removeFromTop(4);
         sliderWhitening.setBounds(s3);
 
-        advInner.removeFromLeft(12);
-        lblSuppression.setBounds(advInner.removeFromTop(14));
+        advInner.removeFromLeft(14);
+        lblSuppression.setBounds(advInner.removeFromTop(18));
+        advInner.removeFromTop(4);
         sliderSuppression.setBounds(advInner);
 
         area.removeFromBottom(8);

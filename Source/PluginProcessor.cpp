@@ -214,21 +214,28 @@ void NoiseRepellentAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer
         // Fetch actual noise floor profile from libspecbleach engine if available
         float* actualNoiseProfile = nullptr;
         uint32_t profileSize = 0;
+        bool profileAvailable = false;
+
         if (algoMode == 0 && specbleach1D && specbleach_noise_profile_available_for_mode(specbleach1D, 0)) {
             actualNoiseProfile = specbleach_get_noise_profile_for_mode(specbleach1D, 0);
             profileSize = specbleach_get_noise_profile_size(specbleach1D);
+            profileAvailable = (actualNoiseProfile != nullptr && profileSize > 0);
         } else if (algoMode == 1 && specbleach2D && specbleach_2d_noise_profile_available_for_mode(specbleach2D, 0)) {
             actualNoiseProfile = specbleach_2d_get_noise_profile_for_mode(specbleach2D, 0);
             profileSize = specbleach_2d_get_noise_profile_size(specbleach2D);
+            profileAvailable = (actualNoiseProfile != nullptr && profileSize > 0);
         }
+
+        frame.hasNoiseProfile = profileAvailable;
+        frame.tonalPeaksHz.clear();
 
         for (size_t i = 0; i < kFftSize; ++i) {
             float normX = static_cast<float>(i) / static_cast<float>(kFftSize);
             float inMag = std::abs(inputData[i % numSamples]) * 2.5f + 0.02f;
             float outMag = std::abs(outputData[i % numSamples]) * 2.5f + 0.01f;
 
-            float noiseFloorVal = 0.35f + 0.15f * std::sin(normX * 12.0f);
-            if (actualNoiseProfile && profileSize > 0) {
+            float noiseFloorVal = 0.0f;
+            if (profileAvailable && actualNoiseProfile) {
                 size_t pIdx = static_cast<size_t>(normX * profileSize) % profileSize;
                 noiseFloorVal = std::min(1.0f, actualNoiseProfile[pIdx] * 0.1f);
             }
@@ -238,7 +245,6 @@ void NoiseRepellentAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer
             frame.outputMagnitude[i] = outMag;
         }
 
-        frame.tonalPeaksHz = { 60.0f, 120.0f, 1000.0f, 2400.0f };
         spectralFifo.finishedWrite(1);
     }
 }

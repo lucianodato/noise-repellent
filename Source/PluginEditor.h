@@ -33,9 +33,9 @@ private:
     juce::Label brandLabel;
     juce::TextButton btnMode1D{ "1D Spectral" };
     juce::TextButton btnMode2D{ "2D NLM Patch HQ" };
-    juce::TextButton btnAdvancedToggle{ "⚙️ Advanced Controls" };
-    juce::ToggleButton btnDelta{ "Δ" };
-    juce::ToggleButton btnBypass{ "⏻" };
+    juce::TextButton btnAdvancedToggle{ "Advanced Controls" };
+    juce::ToggleButton btnDelta{ "Delta" };
+    juce::ToggleButton btnBypass{ "Bypass" };
 
     // Module 1: Noise Profile (Beginner)
     juce::GroupComponent groupProfile{ "groupProfile", "NOISE PROFILE" };
@@ -45,14 +45,14 @@ private:
 
     // Module 2: Denoising & Spectrum
     juce::GroupComponent groupDenoising{ "groupDenoising", "DENOISING PROCESSING" };
-    juce::ToggleButton btnLink{ "🔗 Linked" };
+    juce::ToggleButton btnLink{ "Linked" };
     juce::Slider sliderMasterRed{ juce::Slider::LinearVertical, juce::Slider::TextBoxBelow };
     juce::Slider sliderTonalRed{ juce::Slider::LinearVertical, juce::Slider::TextBoxBelow };
     juce::Slider sliderBroadbandSupp{ juce::Slider::LinearVertical, juce::Slider::TextBoxBelow };
     SpectralVisualizerComponent spectralVisualizer;
 
     // Module 3: Advanced Controls Panel (Collapsible)
-    juce::GroupComponent groupAdvanced{ "groupAdvanced", "⚙️ ADVANCED CONTROLS" };
+    juce::GroupComponent groupAdvanced{ "groupAdvanced", "ADVANCED CONTROLS" };
     juce::ComboBox comboMethod;
     juce::Slider sliderAggressiveness{ juce::Slider::LinearHorizontal, juce::Slider::TextBoxRight };
     juce::Slider sliderSmoothing{ juce::Slider::LinearHorizontal, juce::Slider::TextBoxRight };

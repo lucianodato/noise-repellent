@@ -60,6 +60,7 @@ public:
         std::array<float, kFftSize> noiseFloor;
         std::array<float, kFftSize> outputMagnitude;
         std::vector<float> tonalPeaksHz;
+        bool hasNoiseProfile = false;
     };
 
     bool getNextSpectralFrame(SpectralFrame& frame);

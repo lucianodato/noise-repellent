@@ -71,37 +71,43 @@ void SpectralVisualizerComponent::paint(juce::Graphics& g)
         g.setColour(juce::Colour(0xff181c26));
     }
 
-    // 1. Tonal Peak Markers (Muted Violet)
-    for (float peakHz : currentFrame.tonalPeaksHz)
+    // 1. Tonal Peak Markers (Muted Violet) - Only draw if detected
+    if (!currentFrame.tonalPeaksHz.empty())
     {
-        float x = (std::log10(peakHz / 20.0f) / std::log10(20000.0f / 20.0f)) * w;
+        for (float peakHz : currentFrame.tonalPeaksHz)
+        {
+            float x = (std::log10(peakHz / 20.0f) / std::log10(20000.0f / 20.0f)) * w;
 
-        juce::Line<float> line(x, 0.0f, x, h);
-        float dashLengths[] = { 3.0f, 3.0f };
-        g.setColour(NoiseRepellentLookAndFeel::kColorTonalPeaks);
-        g.drawDashedLine(line, dashLengths, 2, 1.5f);
+            juce::Line<float> line(x, 0.0f, x, h);
+            float dashLengths[] = { 3.0f, 3.0f };
+            g.setColour(NoiseRepellentLookAndFeel::kColorTonalPeaks);
+            g.drawDashedLine(line, dashLengths, 2, 1.5f);
 
-        g.fillRoundedRectangle(x - 16.0f, 8.0f, 32.0f, 14.0f, 3.0f);
-        g.setColour(juce::Colours::white);
-        g.setFont(9.0f);
-        juce::String tag = peakHz >= 1000.0f ? juce::String(peakHz / 1000.0f, 1) + "kHz" : juce::String(static_cast<int>(peakHz)) + "Hz";
-        g.drawText(tag, static_cast<int>(x) - 16, 8, 32, 14, juce::Justification::centred);
+            g.fillRoundedRectangle(x - 16.0f, 8.0f, 32.0f, 14.0f, 3.0f);
+            g.setColour(juce::Colours::white);
+            g.setFont(9.0f);
+            juce::String tag = peakHz >= 1000.0f ? juce::String(peakHz / 1000.0f, 1) + "kHz" : juce::String(static_cast<int>(peakHz)) + "Hz";
+            g.drawText(tag, static_cast<int>(x) - 16, 8, 32, 14, juce::Justification::centred);
+        }
     }
 
-    // 2. Noise Floor Profile Curve (Solid Warm Amber)
-    juce::Path noisePath;
-    for (size_t i = 0; i < NoiseRepellentAudioProcessor::kFftSize; ++i)
+    // 2. Noise Floor Profile Curve (Solid Warm Amber) - Only draw if noise has been captured
+    if (currentFrame.hasNoiseProfile)
     {
-        float normX = static_cast<float>(i) / static_cast<float>(NoiseRepellentAudioProcessor::kFftSize);
-        float x = normX * w;
-        float level = currentFrame.noiseFloor[i];
-        float y = h * (1.0f - level);
+        juce::Path noisePath;
+        for (size_t i = 0; i < NoiseRepellentAudioProcessor::kFftSize; ++i)
+        {
+            float normX = static_cast<float>(i) / static_cast<float>(NoiseRepellentAudioProcessor::kFftSize);
+            float x = normX * w;
+            float level = currentFrame.noiseFloor[i];
+            float y = h * (1.0f - level);
 
-        if (i == 0) noisePath.startNewSubPath(x, y);
-        else noisePath.lineTo(x, y);
+            if (i == 0) noisePath.startNewSubPath(x, y);
+            else noisePath.lineTo(x, y);
+        }
+        g.setColour(NoiseRepellentLookAndFeel::kColorNoiseProfile);
+        g.strokePath(noisePath, juce::PathStrokeType(2.0f));
     }
-    g.setColour(NoiseRepellentLookAndFeel::kColorNoiseProfile);
-    g.strokePath(noisePath, juce::PathStrokeType(2.0f));
 
     // 3. Input Signal Curve (Soft Muted Slate)
     juce::Path inputPath;
