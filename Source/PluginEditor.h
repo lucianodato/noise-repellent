@@ -38,17 +38,12 @@ private:
     juce::ToggleButton btnDelta{ "Delta" };
     juce::ToggleButton btnBypass{ "Bypass" };
 
-    // Module 1: Noise Profile & Engine Status
-    juce::GroupComponent groupProfile{ "groupProfile", "NOISE PROFILE" };
-    juce::TextButton btnLearn{ "LEARN NOISE" };
-    juce::TextButton btnResetProfile{ "Reset Profile" };
-    juce::ToggleButton btnAdaptiveNoise{ "Adaptive Denoising" };
+    // Module 1: Compact Noise Profile
+    juce::GroupComponent groupProfile{ "groupProfile", "PROFILE" };
+    juce::TextButton btnLearn{ "LEARN" };
+    juce::TextButton btnResetProfile{ "RESET" };
+    juce::ToggleButton btnAdaptiveNoise{ "ADAPTIVE" };
     juce::Label lblProfileStatus;
-    juce::Label lblProfileInfo;
-
-    juce::GroupComponent groupEngineStats{ "groupEngineStats", "DSP ENGINE METRICS" };
-    juce::Label lblEngineLatency;
-    juce::Label lblEngineSampleRate;
 
     // Module 2: Denoising & Spectrum
     juce::GroupComponent groupDenoising{ "groupDenoising", "DENOISING PROCESSING" };

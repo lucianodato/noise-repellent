@@ -66,30 +66,11 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(NoiseRepe
 
     addAndMakeVisible(btnAdaptiveNoise);
 
-    // Profile Status Info Card
+    // Profile Status Label
     addAndMakeVisible(lblProfileStatus);
     lblProfileStatus.setFont(juce::FontOptions(11.0f, juce::Font::bold));
     lblProfileStatus.setColour(juce::Label::textColourId, NoiseRepellentLookAndFeel::kColorNoiseProfile);
-    lblProfileStatus.setText("STATUS: NO PROFILE", juce::dontSendNotification);
-
-    addAndMakeVisible(lblProfileInfo);
-    lblProfileInfo.setFont(juce::FontOptions(10.0f));
-    lblProfileInfo.setColour(juce::Label::textColourId, juce::Colour(0xff94a3b8));
-    lblProfileInfo.setText("Click 'LEARN NOISE' to capture stationary noise", juce::dontSendNotification);
-
-    // DSP Metrics Card
-    addAndMakeVisible(groupEngineStats);
-    groupEngineStats.setText("DSP METRICS");
-    groupEngineStats.setColour(juce::GroupComponent::outlineColourId, NoiseRepellentLookAndFeel::kColorPanelBorder);
-    groupEngineStats.setColour(juce::GroupComponent::textColourId, NoiseRepellentLookAndFeel::kColorFineTuning);
-
-    addAndMakeVisible(lblEngineLatency);
-    lblEngineLatency.setFont(juce::FontOptions(10.0f));
-    lblEngineLatency.setColour(juce::Label::textColourId, juce::Colour(0xffcbd5e1));
-
-    addAndMakeVisible(lblEngineSampleRate);
-    lblEngineSampleRate.setFont(juce::FontOptions(10.0f));
-    lblEngineSampleRate.setColour(juce::Label::textColourId, juce::Colour(0xffcbd5e1));
+    lblProfileStatus.setText("STATIONARY MODE", juce::dontSendNotification);
 
     // Beginner Module 2: Denoising & Resizable Canvas
     addAndMakeVisible(groupDenoising);
@@ -214,22 +195,12 @@ void NoiseRepellentAudioProcessorEditor::updateProfileStatus()
     bool isAdaptive = btnAdaptiveNoise.getToggleState();
 
     if (isAdaptive) {
-        lblProfileStatus.setText("STATUS: ADAPTIVE ESTIMATION", juce::dontSendNotification);
+        lblProfileStatus.setText("ADAPTIVE MODE", juce::dontSendNotification);
         lblProfileStatus.setColour(juce::Label::textColourId, NoiseRepellentLookAndFeel::kColorDenoising);
-        lblProfileInfo.setText("Noise floor estimated continuously from input", juce::dontSendNotification);
     } else {
-        lblProfileStatus.setText("STATUS: STATIONARY PROFILE", juce::dontSendNotification);
+        lblProfileStatus.setText("STATIONARY MODE", juce::dontSendNotification);
         lblProfileStatus.setColour(juce::Label::textColourId, NoiseRepellentLookAndFeel::kColorNoiseProfile);
-        lblProfileInfo.setText("Using stationary noise profile snapshot", juce::dontSendNotification);
     }
-
-    int latency = audioProcessor.getLatencySamples();
-    double sr = audioProcessor.getSampleRate();
-    if (sr <= 0.0) sr = 44100.0;
-    double ms = (static_cast<double>(latency) / sr) * 1000.0;
-
-    lblEngineLatency.setText("Latency: " + juce::String(latency) + " samples (" + juce::String(ms, 1) + " ms)", juce::dontSendNotification);
-    lblEngineSampleRate.setText("Sample Rate: " + juce::String(sr / 1000.0, 1) + " kHz", juce::dontSendNotification);
 }
 
 void NoiseRepellentAudioProcessorEditor::timerCallback()
@@ -308,38 +279,23 @@ void NoiseRepellentAudioProcessorEditor::resized()
         area.removeFromBottom(8);
     }
 
-    // Beginner Main Grid (Profile + Engine Stats + Denoising Canvas)
-    auto leftCol = area.removeFromLeft(220);
-
-    // 1. Compact Noise Profile Box (Height 175px)
-    auto profileArea = leftCol.removeFromTop(175);
+    // Main Grid: Compact 140px Profile Sidebar + Full Width Denoising & FFT Canvas
+    auto profileArea = area.removeFromLeft(140);
     groupProfile.setBounds(profileArea);
 
-    auto profileInner = profileArea.reduced(10);
-    profileInner.removeFromTop(14);
+    auto profileInner = profileArea.reduced(8);
+    profileInner.removeFromTop(16);
 
-    btnLearn.setBounds(profileInner.removeFromTop(30));
-    profileInner.removeFromTop(6);
-    btnResetProfile.setBounds(profileInner.removeFromTop(26));
-    profileInner.removeFromTop(6);
-    btnAdaptiveNoise.setBounds(profileInner.removeFromTop(22));
+    btnLearn.setBounds(profileInner.removeFromTop(32));
     profileInner.removeFromTop(8);
+    btnResetProfile.setBounds(profileInner.removeFromTop(28));
+    profileInner.removeFromTop(8);
+    btnAdaptiveNoise.setBounds(profileInner.removeFromTop(24));
+    profileInner.removeFromTop(12);
 
-    lblProfileStatus.setBounds(profileInner.removeFromTop(16));
-    profileInner.removeFromTop(2);
-    lblProfileInfo.setBounds(profileInner.removeFromTop(32));
+    lblProfileStatus.setBounds(profileInner.removeFromTop(20));
 
-    leftCol.removeFromTop(8);
-
-    // 2. Engine Stats Box (Fills remaining left column space)
-    groupEngineStats.setBounds(leftCol);
-    auto statsInner = leftCol.reduced(10);
-    statsInner.removeFromTop(16);
-    lblEngineLatency.setBounds(statsInner.removeFromTop(20));
-    statsInner.removeFromTop(4);
-    lblEngineSampleRate.setBounds(statsInner.removeFromTop(20));
-
-    area.removeFromLeft(12);
+    area.removeFromLeft(10);
     groupDenoising.setBounds(area);
 
     auto denoiseInner = area.reduced(10);
@@ -363,6 +319,6 @@ void NoiseRepellentAudioProcessorEditor::resized()
 
     denoiseInner.removeFromLeft(10);
 
-    // Dynamic Expanding FFT Canvas takes ALL remaining space
+    // Dynamic Expanding FFT Canvas takes ALL remaining full space
     spectralVisualizer.setBounds(denoiseInner);
 }
