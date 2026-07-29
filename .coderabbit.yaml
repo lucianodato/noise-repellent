@@ -6,6 +6,7 @@ reviews:
   auto_review:
     enabled: false
     drafts: false
+  review_status: false
   auto_approve: true
   path_instructions:
     - path: "plugins/**/*"
