@@ -16,7 +16,8 @@ version 3 of the License, or (at your option) any later version.
 #include "GUI/LookAndFeel.h"
 #include "GUI/SpectralVisualizer.h"
 
-class NoiseRepellentAudioProcessorEditor : public juce::AudioProcessorEditor
+class NoiseRepellentAudioProcessorEditor : public juce::AudioProcessorEditor,
+                                    public juce::Timer
 {
 public:
     explicit NoiseRepellentAudioProcessorEditor(NoiseRepellentAudioProcessor&);
@@ -24,6 +25,7 @@ public:
 
     void paint(juce::Graphics&) override;
     void resized() override;
+    void timerCallback() override;
 
 private:
     NoiseRepellentAudioProcessor& audioProcessor;
@@ -31,8 +33,7 @@ private:
 
     // Header Controls
     juce::Label brandLabel;
-    juce::TextButton btnMode1D{ "1D Spectral" };
-    juce::TextButton btnMode2D{ "2D NLM Patch HQ" };
+    juce::ComboBox comboAlgoMode;
     juce::TextButton btnAdvancedToggle{ "Advanced Controls" };
     juce::ToggleButton btnDelta{ "Delta" };
     juce::ToggleButton btnBypass{ "Bypass" };
@@ -41,7 +42,9 @@ private:
     juce::GroupComponent groupProfile{ "groupProfile", "NOISE PROFILE" };
     juce::TextButton btnLearn{ "LEARN NOISE" };
     juce::TextButton btnResetProfile{ "Reset Profile" };
-    juce::ToggleButton btnAdaptiveNoise{ "Adaptive Noise" };
+    juce::ToggleButton btnAdaptiveNoise{ "Adaptive Denoising" };
+    juce::Label lblProfileStatus;
+    juce::Label lblProfileInfo;
 
     // Module 2: Denoising & Spectrum
     juce::GroupComponent groupDenoising{ "groupDenoising", "DENOISING PROCESSING" };
@@ -54,11 +57,11 @@ private:
     // Module 3: Advanced Controls Panel (Collapsible)
     juce::GroupComponent groupAdvanced{ "groupAdvanced", "ADVANCED CONTROLS" };
     juce::ComboBox comboMethod;
-    juce::Slider sliderAggressiveness{ juce::Slider::LinearHorizontal, juce::Slider::TextBoxRight };
-    juce::Slider sliderSmoothing{ juce::Slider::LinearHorizontal, juce::Slider::TextBoxRight };
-    juce::Slider sliderMasking{ juce::Slider::LinearHorizontal, juce::Slider::TextBoxRight };
-    juce::Slider sliderWhitening{ juce::Slider::LinearHorizontal, juce::Slider::TextBoxRight };
-    juce::Slider sliderSuppression{ juce::Slider::LinearHorizontal, juce::Slider::TextBoxRight };
+    juce::Slider sliderAggressiveness{ juce::Slider::LinearHorizontal, juce::Slider::NoTextBox };
+    juce::Slider sliderSmoothing{ juce::Slider::LinearHorizontal, juce::Slider::NoTextBox };
+    juce::Slider sliderMasking{ juce::Slider::LinearHorizontal, juce::Slider::NoTextBox };
+    juce::Slider sliderWhitening{ juce::Slider::LinearHorizontal, juce::Slider::NoTextBox };
+    juce::Slider sliderSuppression{ juce::Slider::LinearHorizontal, juce::Slider::NoTextBox };
 
     juce::Label lblMethod{ "lblMethod", "ESTIMATION METHOD" };
     juce::Label lblAggressiveness{ "lblAggressiveness", "AGGRESSIVENESS" };
@@ -72,6 +75,7 @@ private:
     using SliderAttachment = juce::AudioProcessorValueTreeState::SliderAttachment;
     using ComboBoxAttachment = juce::AudioProcessorValueTreeState::ComboBoxAttachment;
 
+    std::unique_ptr<ComboBoxAttachment> attachAlgoMode;
     std::unique_ptr<ButtonAttachment> attachLearn;
     std::unique_ptr<ButtonAttachment> attachAdaptive;
     std::unique_ptr<ButtonAttachment> attachLink;
@@ -93,6 +97,8 @@ private:
     bool isAdvancedVisible = true;
 
     void updateLayout();
+    void updateSliderLabels();
+    void updateProfileStatus();
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(NoiseRepellentAudioProcessorEditor)
 };

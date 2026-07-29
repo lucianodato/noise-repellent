@@ -28,26 +28,9 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(NoiseRepe
     brandLabel.setColour(juce::Label::textColourId, juce::Colours::white);
     addAndMakeVisible(brandLabel);
 
-    // Mode Buttons
-    addAndMakeVisible(btnMode1D);
-    addAndMakeVisible(btnMode2D);
-    btnMode1D.setRadioGroupId(101);
-    btnMode2D.setRadioGroupId(101);
-    btnMode1D.setClickingTogglesState(true);
-    btnMode2D.setClickingTogglesState(true);
-
-    int currentAlgo = static_cast<int>(audioProcessor.getAPVTS().getRawParameterValue("algorithm_mode")->load());
-    if (currentAlgo == 0)
-        btnMode1D.setToggleState(true, juce::dontSendNotification);
-    else
-        btnMode2D.setToggleState(true, juce::dontSendNotification);
-
-    btnMode1D.onClick = [this]() {
-        audioProcessor.getAPVTS().getParameter("algorithm_mode")->setValueNotifyingHost(0.0f);
-    };
-    btnMode2D.onClick = [this]() {
-        audioProcessor.getAPVTS().getParameter("algorithm_mode")->setValueNotifyingHost(1.0f);
-    };
+    // Algorithm Mode Dropdown (with Quality indicators)
+    comboAlgoMode.addItemList({ "⚡ 1D Spectral (Fast)", "✨ 2D NLM Patch (High Quality)" }, 1);
+    addAndMakeVisible(comboAlgoMode);
 
     // Header Action Toggles
     isAdvancedVisible = audioProcessor.getAPVTS().getRawParameterValue("show_advanced")->load() > 0.5f;
@@ -82,6 +65,17 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(NoiseRepe
     };
 
     addAndMakeVisible(btnAdaptiveNoise);
+
+    // Profile Status Info Card (Utilizing vertical space)
+    addAndMakeVisible(lblProfileStatus);
+    lblProfileStatus.setFont(juce::FontOptions(11.0f, juce::Font::bold));
+    lblProfileStatus.setColour(juce::Label::textColourId, NoiseRepellentLookAndFeel::kColorNoiseProfile);
+    lblProfileStatus.setText("STATUS: NO PROFILE", juce::dontSendNotification);
+
+    addAndMakeVisible(lblProfileInfo);
+    lblProfileInfo.setFont(juce::FontOptions(10.0f));
+    lblProfileInfo.setColour(juce::Label::textColourId, juce::Colour(0xff94a3b8));
+    lblProfileInfo.setText("Click 'LEARN NOISE' to capture stationary noise", juce::dontSendNotification);
 
     // Beginner Module 2: Denoising & Resizable Canvas
     addAndMakeVisible(groupDenoising);
@@ -143,6 +137,7 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(NoiseRepe
     // Parameter APVTS Attachments
     auto& apvts = audioProcessor.getAPVTS();
 
+    attachAlgoMode = std::make_unique<ComboBoxAttachment>(apvts, "algorithm_mode", comboAlgoMode);
     attachLearn = std::make_unique<ButtonAttachment>(apvts, "learn_noise", btnLearn);
     attachAdaptive = std::make_unique<ButtonAttachment>(apvts, "adaptive_noise", btnAdaptiveNoise);
     attachLink = std::make_unique<ButtonAttachment>(apvts, "link_reduction", btnLink);
@@ -162,10 +157,13 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(NoiseRepe
     attachSuppression = std::make_unique<SliderAttachment>(apvts, "suppression_strength", sliderSuppression);
 
     updateLayout();
+    updateSliderLabels();
+    startTimerHz(30);
 }
 
 NoiseRepellentAudioProcessorEditor::~NoiseRepellentAudioProcessorEditor()
 {
+    stopTimer();
     setLookAndFeel(nullptr);
 }
 
@@ -188,6 +186,36 @@ void NoiseRepellentAudioProcessorEditor::updateLayout()
     resized();
 }
 
+void NoiseRepellentAudioProcessorEditor::updateSliderLabels()
+{
+    lblAggressiveness.setText("AGGRESSIVENESS: " + juce::String(sliderAggressiveness.getValue(), 1), juce::dontSendNotification);
+    lblSmoothing.setText("SMOOTHING: " + juce::String(static_cast<int>(sliderSmoothing.getValue())) + "%", juce::dontSendNotification);
+    lblMasking.setText("MASKING PROTECT: " + juce::String(static_cast<int>(sliderMasking.getValue())) + "%", juce::dontSendNotification);
+    lblWhitening.setText("WHITENING: " + juce::String(static_cast<int>(sliderWhitening.getValue())) + "%", juce::dontSendNotification);
+    lblSuppression.setText("BROADBAND SUPP.: " + juce::String(static_cast<int>(sliderSuppression.getValue())) + "%", juce::dontSendNotification);
+}
+
+void NoiseRepellentAudioProcessorEditor::updateProfileStatus()
+{
+    bool isAdaptive = btnAdaptiveNoise.getToggleState();
+
+    if (isAdaptive) {
+        lblProfileStatus.setText("STATUS: ADAPTIVE ESTIMATION", juce::dontSendNotification);
+        lblProfileStatus.setColour(juce::Label::textColourId, NoiseRepellentLookAndFeel::kColorDenoising);
+        lblProfileInfo.setText("Noise floor estimated continuously from audio input", juce::dontSendNotification);
+    } else {
+        lblProfileStatus.setText("STATUS: STATIONARY PROFILE", juce::dontSendNotification);
+        lblProfileStatus.setColour(juce::Label::textColourId, NoiseRepellentLookAndFeel::kColorNoiseProfile);
+        lblProfileInfo.setText("Using stationary noise profile snapshot", juce::dontSendNotification);
+    }
+}
+
+void NoiseRepellentAudioProcessorEditor::timerCallback()
+{
+    updateSliderLabels();
+    updateProfileStatus();
+}
+
 void NoiseRepellentAudioProcessorEditor::paint(juce::Graphics& g)
 {
     g.fillAll(juce::Colour(0xff12141a));
@@ -199,7 +227,7 @@ void NoiseRepellentAudioProcessorEditor::resized()
 
     // Header (Fixed 36px)
     auto headerArea = area.removeFromTop(36);
-    brandLabel.setBounds(headerArea.removeFromLeft(180));
+    brandLabel.setBounds(headerArea.removeFromLeft(170));
 
     btnBypass.setBounds(headerArea.removeFromRight(65));
     headerArea.removeFromRight(6);
@@ -207,9 +235,7 @@ void NoiseRepellentAudioProcessorEditor::resized()
     headerArea.removeFromRight(10);
     btnAdvancedToggle.setBounds(headerArea.removeFromRight(145));
 
-    btnMode1D.setBounds(headerArea.removeFromLeft(95));
-    headerArea.removeFromLeft(4);
-    btnMode2D.setBounds(headerArea.removeFromLeft(135));
+    comboAlgoMode.setBounds(headerArea.removeFromLeft(220));
 
     area.removeFromTop(8);
 
@@ -264,14 +290,19 @@ void NoiseRepellentAudioProcessorEditor::resized()
     auto profileArea = area.removeFromLeft(220);
     groupProfile.setBounds(profileArea);
 
-    auto profileInner = profileArea.reduced(10);
+    auto profileInner = profileArea.reduced(12);
     profileInner.removeFromTop(16);
 
-    btnLearn.setBounds(profileInner.removeFromTop(40));
+    btnLearn.setBounds(profileInner.removeFromTop(36));
     profileInner.removeFromTop(8);
-    btnResetProfile.setBounds(profileInner.removeFromTop(32));
+    btnResetProfile.setBounds(profileInner.removeFromTop(30));
     profileInner.removeFromTop(8);
-    btnAdaptiveNoise.setBounds(profileInner.removeFromTop(36));
+    btnAdaptiveNoise.setBounds(profileInner.removeFromTop(28));
+    profileInner.removeFromTop(14);
+
+    lblProfileStatus.setBounds(profileInner.removeFromTop(18));
+    profileInner.removeFromTop(2);
+    lblProfileInfo.setBounds(profileInner.removeFromTop(40));
 
     area.removeFromLeft(12);
     groupDenoising.setBounds(area);
