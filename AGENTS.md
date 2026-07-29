@@ -27,3 +27,5 @@ This file contains foundational mandates and architectural context for Gemini CL
 - **Mapping**: Note the non-linear mapping for `masking_depth` in `run()`:
   `self->parameters.masking_depth = 1.0f - powf(1.0f - (*self->masking_transparency / 100.0f), 3.0f);`
 - **Latency**: Latency is reported to the host in `activate()` and through a dedicated output control port.
+
+
