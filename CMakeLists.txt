@@ -61,19 +61,18 @@ target_compile_definitions(NoiseRepellent PRIVATE
     JUCE_WEB_BROWSER=0
     JUCE_USE_CURL=0
     JUCE_VST3_CAN_REPLACE_VST2=0
-    JUCE_DISPLAY_SPLASH_SCREEN=0
 )
 
-find_library(FFTW3F_LIB fftw3f REQUIRED)
-find_library(MATH_LIB m)
-find_library(OMP_LIB omp HINTS /opt/homebrew/opt/libomp/lib /usr/local/lib)
+# Add libspecbleach static library dependency via CMake
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../libspecbleach/CMakeLists.txt")
+    add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/../libspecbleach" "${CMAKE_CURRENT_BINARY_DIR}/libspecbleach_build")
+elseif(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/subprojects/libspecbleach/CMakeLists.txt")
+    add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/subprojects/libspecbleach" "${CMAKE_CURRENT_BINARY_DIR}/libspecbleach_build")
+endif()
 
 # Link JUCE Modules and DSP Dependencies
 target_link_libraries(NoiseRepellent PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/../libspecbleach/build/src/libspecbleach.a
-    ${FFTW3F_LIB}
-    ${MATH_LIB}
-    ${OMP_LIB}
+    libspecbleach
     juce::juce_audio_utils
     juce::juce_audio_processors
     juce::juce_gui_extra
