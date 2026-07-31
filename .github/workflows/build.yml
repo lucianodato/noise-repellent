@@ -60,7 +60,7 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -qq -y \
-            cmake ninja-build libfftw3-dev libomp-dev \
+            cmake libfftw3-dev libomp-dev \
             libasound2-dev libjack-jackd2-dev libgl1-mesa-dev \
             libx11-dev libxcomposite-dev libxcursor-dev libxext-dev \
             libxinerama-dev libxrandr-dev libfreetype6-dev libfontconfig1-dev
