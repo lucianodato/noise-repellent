@@ -35,7 +35,6 @@ juce_add_plugin(NoiseRepellent
 # Include directories
 target_include_directories(NoiseRepellent PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/Source
-    ${CMAKE_CURRENT_SOURCE_DIR}/../libspecbleach/include
 )
 
 # Source files
@@ -58,10 +57,20 @@ target_compile_definitions(NoiseRepellent PRIVATE
 )
 
 # Add libspecbleach static library dependency via CMake
+set(ENABLE_TESTS OFF CACHE BOOL "" FORCE)
+set(ENABLE_EXAMPLES OFF CACHE BOOL "" FORCE)
+
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../libspecbleach/CMakeLists.txt")
     add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/../libspecbleach" "${CMAKE_CURRENT_BINARY_DIR}/libspecbleach_build")
 elseif(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/subprojects/libspecbleach/CMakeLists.txt")
     add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/subprojects/libspecbleach" "${CMAKE_CURRENT_BINARY_DIR}/libspecbleach_build")
+else()
+    FetchContent_Declare(
+        libspecbleach
+        GIT_REPOSITORY https://github.com/lucianodato/libspecbleach.git
+        GIT_TAG        feature/cmake-and-tonal-mask
+    )
+    FetchContent_MakeAvailable(libspecbleach)
 endif()
 
 # Link JUCE Modules and DSP Dependencies
