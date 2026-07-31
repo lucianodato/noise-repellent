@@ -28,7 +28,7 @@ juce_add_plugin(NoiseRepellent
     COPY_PLUGIN_AFTER_BUILD FALSE
     PLUGIN_MANUFACTURER_CODE LdNR
     PLUGIN_CODE Nrep
-    FORMATS VST3 AU LV2 Standalone
+    FORMATS VST3 AU LV2
     PRODUCT_NAME "Noise Repellent"
 )
 
@@ -48,8 +48,6 @@ target_sources(NoiseRepellent PRIVATE
     Source/GUI/LookAndFeel.h
     Source/GUI/SpectralVisualizer.cpp
     Source/GUI/SpectralVisualizer.h
-    Source/DSP/signal_crossfade.c
-    Source/DSP/signal_crossfade.h
 )
 
 # Compile definitions
@@ -71,6 +69,7 @@ target_link_libraries(NoiseRepellent PRIVATE
     libspecbleach
     juce::juce_audio_utils
     juce::juce_audio_processors
+    juce::juce_dsp
     juce::juce_gui_extra
     juce::juce_gui_basics
     juce::juce_graphics

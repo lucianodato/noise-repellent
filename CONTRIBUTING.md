@@ -1,6 +1,6 @@
 # Contributing to Noise Repellent
 
-We love your input! We want to make contributing to this project as easy and transparent as possible, whether it's:
+We welcome your contributions! We want to make contributing to this project as easy and transparent as possible, whether it's:
 
 - Reporting a bug
 - Discussing the current state of the code
@@ -9,39 +9,38 @@ We love your input! We want to make contributing to this project as easy and tra
 
 ## Development Workflow
 
-We use **Meson** and **Ninja** for building.
+We use **CMake** and **JUCE** for building.
 
-1.  **Clone the repo and subprojects:**
-    ```bash
-    git clone --recursive https://github.com/lucianodato/noise-repellent.git
-    cd noise-repellent
-    ```
+1. **Clone the repo:**
+   ```bash
+   git clone https://github.com/lucianodato/noise-repellent.git
+   cd noise-repellent
+   ```
 
-2.  **Setup build:**
-    ```bash
-    meson setup build --buildtype=debug -Denable_sanitizers=true
-    ```
+2. **Setup build:**
+   ```bash
+   cmake -B build -DCMAKE_BUILD_TYPE=Debug
+   ```
 
-3.  **Compile and Test:**
-    ```bash
-    meson compile -C build
-    ```
+3. **Compile:**
+   ```bash
+   cmake --build build --config Debug -j4
+   ```
 
-4.  **Format Code:**
-    We use `clang-format`. Please format your code before submitting:
-    ```bash
-    ninja -C build format
-    ```
+4. **Format Code:**
+   We use `clang-format` according to the project's `.clang-format` rules. Please format modified files before submitting:
+   ```bash
+   clang-format -i Source/PluginProcessor.cpp Source/PluginProcessor.h
+   ```
 
 ## Pull Requests
 
-1.  Fork the repo and create your branch from `master`.
-2.  If you've added code that should be tested, add tests.
-3.  If you've changed APIs, update the documentation.
-4.  Ensure the test suite passes.
-5.  Make sure your code lints.
-6.  Issue that pull request!
+1. Fork the repo and create your branch from `master` or `main`.
+2. Ensure existing functionality builds cleanly across target plugin formats.
+3. If you've added features or modified UI components, verify behavior in test DAWs (e.g. Reaper, Ardour).
+4. Make sure your code complies with our coding guidelines.
+5. Open a pull request!
 
 ## License
 
-By contributing, you agree that your contributions will be licensed under its LGPL-3.0 License.
+By contributing, you agree that your contributions will be licensed under the GNU General Public License v3.0 (GPL-3.0-or-later).

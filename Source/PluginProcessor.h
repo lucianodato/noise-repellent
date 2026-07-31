@@ -3,20 +3,29 @@ noise-repellent -- Noise Reduction JUCE Plugin
 
 Copyright 2026 Luciano Dato <lucianodato@gmail.com>
 
-This program is free software; you can redistribute it and/or
-modify it under the terms of the GNU Lesser General Public
-License as published by the Free Software Foundation; either
-version 3 of the License, or (at your option) any later version.
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
 #pragma once
 
 #include <juce_audio_processors/juce_audio_processors.h>
+#include <juce_dsp/juce_dsp.h>
+#include <vector>
 
 extern "C" {
 #include "specbleach_denoiser.h"
 #include "specbleach_2d_denoiser.h"
-#include "DSP/signal_crossfade.h"
 }
 
 class NoiseRepellentAudioProcessor : public juce::AudioProcessor
@@ -31,6 +40,7 @@ public:
     bool isBusesLayoutSupported(const BusesLayout& layouts) const override;
 
     void processBlock(juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
+    void processBlockBypassed(juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
 
     juce::AudioProcessorEditor* createEditor() override;
     bool hasEditor() const override { return true; }
@@ -53,36 +63,58 @@ public:
 
     juce::AudioProcessorValueTreeState& getAPVTS() { return parameters; }
 
-    // Ring buffer structure for FFT GUI visualization
-    static constexpr size_t kFftSize = 512;
+    // FFT visualization constants
+    static constexpr int kFftOrder = 12;                    // 2^12 = 4096 point FFT
+    static constexpr size_t kFftSize = 1 << kFftOrder;      // 4096
+    static constexpr size_t kFftBins = kFftSize / 2;        // 2048 unique frequency bins
+
+    // Spectral frame shared with GUI via lock-free ring buffer
     struct SpectralFrame {
-        std::array<float, kFftSize> inputMagnitude;
-        std::array<float, kFftSize> noiseFloor;
-        std::array<float, kFftSize> outputMagnitude;
-        std::vector<float> tonalPeaksHz;
+        std::array<float, kFftBins> inputMagnitudeDB{};     // dB spectrum of input
+        std::array<float, kFftBins> noiseFloorDB{};         // dB spectrum of noise profile
+        std::array<float, kFftBins> outputMagnitudeDB{};    // dB spectrum of output
+        std::vector<float> tonalPeaksHz{};                  // Detected tonal peak frequencies in Hz
         bool hasNoiseProfile = false;
+        bool isLinked = true;
     };
 
     bool getNextSpectralFrame(SpectralFrame& frame);
 
     void resetNoiseProfile();
 
+    double getSampleRate() const { return currentSampleRate; }
+
 private:
+    void ensureEnginesInitialized(double sampleRate);
+
     juce::AudioProcessorValueTreeState parameters;
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
 
-    // DSP Engines
-    SpectralBleachHandle specbleach1D = nullptr;
-    SpectralBleachHandle specbleach2D = nullptr;
+    // DSP Engines — one instance per channel for correct stereo processing
+    SpectralBleachHandle specbleach1D_L = nullptr;
+    SpectralBleachHandle specbleach1D_R = nullptr;
+    SpectralBleachHandle specbleach2D_L = nullptr;
+    SpectralBleachHandle specbleach2D_R = nullptr;
 
-    SignalCrossfade* softBypassL = nullptr;
-    SignalCrossfade* softBypassR = nullptr;
+    juce::dsp::DryWetMixer<float> dryWetMixer;
 
     double currentSampleRate = 44100.0;
+    int currentAlgoMode = 1; // Track for dynamic latency updates
+
+    // FFT analysis for visualization
+    juce::dsp::FFT fftAnalyzer{ kFftOrder };
+    juce::dsp::WindowingFunction<float> fftWindow{ kFftSize, juce::dsp::WindowingFunction<float>::hann };
+    std::array<float, kFftSize * 2> fftInputWork{};   // real+imag interleaved for input FFT
+    std::array<float, kFftSize * 2> fftOutputWork{};   // real+imag interleaved for output FFT
 
     // Lock-free SPSC Ring Buffer for GUI visualization
     juce::AbstractFifo spectralFifo{ 16 };
     std::vector<SpectralFrame> spectralBuffer{ 16 };
+
+    // Accumulation buffer for FFT (collects samples across processBlock calls)
+    std::array<float, kFftSize> fftAccumInput{};
+    std::array<float, kFftSize> fftAccumOutput{};
+    size_t fftAccumCount = 0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(NoiseRepellentAudioProcessor)
 };

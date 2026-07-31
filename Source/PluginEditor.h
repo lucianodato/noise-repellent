@@ -3,10 +3,18 @@ noise-repellent -- Noise Reduction JUCE Plugin
 
 Copyright 2026 Luciano Dato <lucianodato@gmail.com>
 
-This program is free software; you can redistribute it and/or
-modify it under the terms of the GNU Lesser General Public
-License as published by the Free Software Foundation; either
-version 3 of the License, or (at your option) any later version.
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
 #pragma once
@@ -33,24 +41,27 @@ private:
 
     // Header Controls
     juce::Label brandLabel;
+    juce::Label lblAlgoHeader{ "lblAlgoHeader", "PROCESSING ENGINE" };
     juce::ComboBox comboAlgoMode;
-    juce::TextButton btnAdvancedToggle{ "Advanced Controls" };
+    juce::TextButton btnAdvancedToggle{ juce::CharPointer_UTF8("\xe2\x9a\x99  Advanced Controls") };
     juce::ToggleButton btnDelta{ "Delta" };
     juce::ToggleButton btnBypass{ "Bypass" };
 
     // Module 1: Compact Noise Profile
     juce::GroupComponent groupProfile{ "groupProfile", "PROFILE" };
-    juce::TextButton btnLearn{ "LEARN" };
-    juce::TextButton btnResetProfile{ "RESET" };
-    juce::ToggleButton btnAdaptiveNoise{ "ADAPTIVE" };
+    juce::TextButton btnLearn{ "Learn Noise" };
+    juce::TextButton btnResetProfile{ "Reset" };
+    juce::ToggleButton btnAdaptiveNoise{ "Adaptive Noise" };
     juce::Label lblProfileStatus;
 
     // Module 2: Denoising & Spectrum
     juce::GroupComponent groupDenoising{ "groupDenoising", "DENOISING PROCESSING" };
+    juce::Label lblReductionHeader{ "lblReductionHeader", "REDUCTION" };
     juce::ToggleButton btnLink{ "Linked" };
+    juce::Label lblMasterRed{ "lblMasterRed", "REDUCTION" };
+    juce::Label lblTonalRed{ "lblTonalRed", "TONAL" };
     juce::Slider sliderMasterRed{ juce::Slider::LinearVertical, juce::Slider::TextBoxBelow };
     juce::Slider sliderTonalRed{ juce::Slider::LinearVertical, juce::Slider::TextBoxBelow };
-    juce::Slider sliderBroadbandSupp{ juce::Slider::LinearVertical, juce::Slider::TextBoxBelow };
     SpectralVisualizerComponent spectralVisualizer;
 
     // Module 3: Advanced Controls Panel (Collapsible)
@@ -67,7 +78,7 @@ private:
     juce::Label lblSmoothing{ "lblSmoothing", "SMOOTHING" };
     juce::Label lblMasking{ "lblMasking", "MASKING PROTECT" };
     juce::Label lblWhitening{ "lblWhitening", "WHITENING" };
-    juce::Label lblSuppression{ "lblSuppression", "BROADBAND SUPP." };
+    juce::Label lblSuppression{ "lblSuppression", "SUPPRESSION" };
 
     // Parameter Attachments
     using ButtonAttachment = juce::AudioProcessorValueTreeState::ButtonAttachment;
@@ -86,7 +97,6 @@ private:
 
     std::unique_ptr<SliderAttachment> attachMasterRed;
     std::unique_ptr<SliderAttachment> attachTonalRed;
-    std::unique_ptr<SliderAttachment> attachBroadbandSupp;
     std::unique_ptr<SliderAttachment> attachAggressiveness;
     std::unique_ptr<SliderAttachment> attachSmoothing;
     std::unique_ptr<SliderAttachment> attachMasking;

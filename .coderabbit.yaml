@@ -8,10 +8,11 @@ reviews:
     drafts: false
   auto_approve: true
   path_instructions:
-    - path: "plugins/**/*"
+    - path: "Source/**/*"
       instructions: |
-        Pay attention to LV2 real-time plugin safety:
-        - Strict hardRTCapable compliance (no blocking operations in run()).
-        - Ensure manifest files (.ttl.in) match any parameter or port changes in C code.
+        Pay attention to JUCE real-time audio safety and parameter architecture:
+        - Strict real-time safety compliance in processBlock() (no allocations, no locks, no I/O).
+        - Ensure APVTS parameter IDs match layout definitions in PluginProcessor.cpp.
+        - Verify juce::dsp::DryWetMixer latency alignment and thread-safe lock-free SPSC FIFO operations.
 chat:
   auto_reply: true
