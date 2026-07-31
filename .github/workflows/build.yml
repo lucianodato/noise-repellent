@@ -23,7 +23,7 @@ jobs:
 
       - name: Configure CMake
         run: |
-          cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
+          cmake -B build -DCMAKE_BUILD_TYPE=Release
 
       - name: Build Targets
         run: |
