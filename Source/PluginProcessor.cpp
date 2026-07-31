@@ -527,7 +527,7 @@ void NoiseRepellentAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer
                 }
 
                 // ── Noise profile from libspecbleach (stationary or live adaptive) ──
-                float* actualNoiseProfile = nullptr;
+                const float* actualNoiseProfile = nullptr;
                 uint32_t profileSize = 0;
                 bool profileAvailable = false;
 
