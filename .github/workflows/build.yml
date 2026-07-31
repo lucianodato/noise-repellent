@@ -102,6 +102,7 @@ jobs:
       - name: Install Dependencies
         run: |
           vcpkg install fftw3:x64-windows
+          echo "C:\vcpkg\installed\x64-windows\bin" >> $env:GITHUB_PATH
 
       - name: Configure CMake
         run: |
