@@ -1,5 +1,4 @@
 # CodeRabbit Configuration File
-version: "2"
 language: "en-US"
 reviews:
   profile: "chill"
