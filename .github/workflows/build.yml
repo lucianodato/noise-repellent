@@ -2,10 +2,11 @@ name: Build & Release JUCE Plugin
 
 on:
   push:
-    branches: [ "main", "master", "feature/*" ]
-    tags: [ "v*.*.*" ]
+    tags:
+    - "v*.*.*"
   pull_request:
-    branches: [ "main", "master" ]
+    branches:
+      - "*"
 
 jobs:
   build-macos:
