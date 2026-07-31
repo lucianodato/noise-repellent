@@ -174,6 +174,83 @@ void NoiseRepellentAudioProcessor::ensureEnginesInitialized(double sampleRate)
         if (specbleach2D_R)
             specbleach_2d_load_noise_profile_for_mode(specbleach2D_R, item.data.data(), item.size, item.blockCount, item.mode);
     }
+
+    // Synchronize loaded profiles between engines
+    syncNoiseProfiles(0);
+    syncNoiseProfiles(1);
+}
+
+void NoiseRepellentAudioProcessor::syncNoiseProfiles(int sourceAlgoMode)
+{
+    auto syncHandle = [](auto getProfileFn, auto getSizeFn, auto getBlockCountFn, auto isAvailableFn,
+                         auto loadFn, auto targetHandle, auto sourceHandle) {
+        if (!sourceHandle || !targetHandle) return;
+
+        uint32_t sz = getSizeFn(sourceHandle);
+        if (sz == 0) return;
+
+        // Find a fallback profile (first available mode in source handle)
+        float* fallbackP = nullptr;
+        uint32_t fallbackBc = 0;
+
+        for (int m = 1; m <= 4; ++m) {
+            if (isAvailableFn(sourceHandle, m)) {
+                fallbackP = getProfileFn(sourceHandle, m);
+                fallbackBc = getBlockCountFn(sourceHandle, m);
+                break;
+            }
+        }
+
+        if (!fallbackP) return; // No profile learned in source handle yet
+
+        // Load available mode profiles or use fallback so no target mode is left empty
+        for (int mode = 1; mode <= 4; ++mode) {
+            if (isAvailableFn(sourceHandle, mode)) {
+                float* p = getProfileFn(sourceHandle, mode);
+                uint32_t bc = getBlockCountFn(sourceHandle, mode);
+                if (p) {
+                    loadFn(targetHandle, p, sz, bc, mode);
+                }
+            } else {
+                loadFn(targetHandle, fallbackP, sz, fallbackBc, mode);
+            }
+        }
+    };
+
+    if (sourceAlgoMode == 0)
+    {
+        // Sync 1D -> 2D
+        syncHandle(specbleach_get_noise_profile_for_mode,
+                   specbleach_get_noise_profile_size,
+                   specbleach_get_noise_profile_block_count_for_mode,
+                   specbleach_noise_profile_available_for_mode,
+                   specbleach_2d_load_noise_profile_for_mode,
+                   specbleach2D_L, specbleach1D_L);
+
+        syncHandle(specbleach_get_noise_profile_for_mode,
+                   specbleach_get_noise_profile_size,
+                   specbleach_get_noise_profile_block_count_for_mode,
+                   specbleach_noise_profile_available_for_mode,
+                   specbleach_2d_load_noise_profile_for_mode,
+                   specbleach2D_R, specbleach1D_R);
+    }
+    else if (sourceAlgoMode == 1)
+    {
+        // Sync 2D -> 1D
+        syncHandle(specbleach_2d_get_noise_profile_for_mode,
+                   specbleach_2d_get_noise_profile_size,
+                   specbleach_2d_get_noise_profile_block_count_for_mode,
+                   specbleach_2d_noise_profile_available_for_mode,
+                   specbleach_load_noise_profile_for_mode,
+                   specbleach1D_L, specbleach2D_L);
+
+        syncHandle(specbleach_2d_get_noise_profile_for_mode,
+                   specbleach_2d_get_noise_profile_size,
+                   specbleach_2d_get_noise_profile_block_count_for_mode,
+                   specbleach_2d_noise_profile_available_for_mode,
+                   specbleach_load_noise_profile_for_mode,
+                   specbleach1D_R, specbleach2D_R);
+    }
 }
 
 void NoiseRepellentAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
@@ -198,6 +275,11 @@ void NoiseRepellentAudioProcessor::prepareToPlay(double sampleRate, int samplesP
     dryWetMixer.prepare(spec);
     dryWetMixer.setMixingRule(juce::dsp::DryWetMixingRule::linear);
     dryWetMixer.setWetLatency(static_cast<float>(latency));
+
+    // Prepare buffer and state for engine crossfading
+    crossfadeBuffer.setSize(getTotalNumOutputChannels(), samplesPerBlock, false, false, true);
+    crossfadeProgress = 1.0f;
+    targetAlgoMode = currentAlgoMode;
 
     // Reset FFT accumulation
     fftAccumInput.fill(0.0f);
@@ -250,9 +332,24 @@ void NoiseRepellentAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer
 
     const bool residualListen = parameters.getRawParameterValue("residual_listen")->load() > 0.5f;
 
-    // Update latency dynamically when algorithm mode changes
+    // Sync profiles if manual noise learning was just turned off
+    if (wasLearning && !learnNoise) {
+        syncNoiseProfiles(currentAlgoMode);
+    }
+    wasLearning = learnNoise;
+
+    // Update latency dynamically, sync profiles, and start smooth crossfade when algorithm mode changes
     if (algoMode != currentAlgoMode) {
+        syncNoiseProfiles(currentAlgoMode);
+        targetAlgoMode = algoMode;
         currentAlgoMode = algoMode;
+
+        // Initiate 30 ms smooth crossfade transition to prevent clicks/pops
+        int crossfadeSamples = static_cast<int>(currentSampleRate * 0.030);
+        if (crossfadeSamples < 1) crossfadeSamples = 1;
+        crossfadeProgress = 0.0f;
+        crossfadeStep = 1.0f / static_cast<float>(crossfadeSamples);
+
         uint32_t latency = 0;
         if (algoMode == 0 && specbleach1D_L) {
             latency = specbleach_get_latency(specbleach1D_L);
@@ -272,27 +369,93 @@ void NoiseRepellentAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer
     juce::dsp::AudioBlock<float> audioBlock(buffer);
     dryWetMixer.pushDrySamples(audioBlock);
 
-    if (algoMode == 0)
-    {
-        SpectralBleachDenoiserParameters p;
-        p.learn_noise = learnNoise ? 1 : 0;
-        p.residual_listen = residualListen;
-        p.reduction_amount = masterRed;
-        p.smoothing_factor = smoothing;
-        p.whitening_factor = whitening;
-        p.adaptive_noise = adaptiveNoise ? 1 : 0;
-        p.noise_estimation_method = adaptiveMethod;
-        p.masking_depth = masking;
-        p.suppression_strength = suppression;
-        p.aggressiveness = aggressiveness;
-        p.tonal_reduction = tonalRed;
+    // Prepare parameters for DSP engines
+    SpectralBleachDenoiserParameters p;
+    p.learn_noise = learnNoise ? 1 : 0;
+    p.residual_listen = residualListen;
+    p.reduction_amount = masterRed;
+    p.smoothing_factor = smoothing;
+    p.whitening_factor = whitening;
+    p.adaptive_noise = adaptiveNoise ? 1 : 0;
+    p.noise_estimation_method = adaptiveMethod;
+    p.masking_depth = masking;
+    p.suppression_strength = suppression;
+    p.aggressiveness = aggressiveness;
+    p.tonal_reduction = tonalRed;
 
+    SpectralBleach2DDenoiserParameters p2;
+    p2.learn_noise = learnNoise ? 1 : 0;
+    p2.residual_listen = residualListen;
+    p2.reduction_amount = masterRed;
+    p2.smoothing_factor = nlmSmoothing;
+    p2.whitening_factor = whitening;
+    p2.adaptive_noise = adaptiveNoise ? 1 : 0;
+    p2.noise_estimation_method = adaptiveMethod;
+    p2.nlm_masking_protection = masking;
+    p2.suppression_strength = suppression;
+    p2.aggressiveness = aggressiveness;
+    p2.tonal_reduction = tonalRed;
+
+    if (crossfadeProgress < 1.0f)
+    {
+        // Smooth crossfade mode: run both engines and blend sample-by-sample
+        if (crossfadeBuffer.getNumChannels() < numChannels || crossfadeBuffer.getNumSamples() < numSamples)
+            crossfadeBuffer.setSize(numChannels, numSamples, false, false, true);
+
+        for (int ch = 0; ch < numChannels; ++ch)
+            std::copy_n(buffer.getReadPointer(ch), numSamples, crossfadeBuffer.getWritePointer(ch));
+
+        // Process 1D on buffer
         if (specbleach1D_L) {
             specbleach_load_parameters(specbleach1D_L, p);
             float* ch0 = buffer.getWritePointer(0);
             specbleach_process(specbleach1D_L, static_cast<uint32_t>(numSamples), ch0, ch0);
         }
+        if (numChannels >= 2 && specbleach1D_R) {
+            specbleach_load_parameters(specbleach1D_R, p);
+            float* ch1 = buffer.getWritePointer(1);
+            specbleach_process(specbleach1D_R, static_cast<uint32_t>(numSamples), ch1, ch1);
+        }
 
+        // Process 2D on crossfadeBuffer
+        if (specbleach2D_L) {
+            specbleach_2d_load_parameters(specbleach2D_L, p2);
+            float* ch0 = crossfadeBuffer.getWritePointer(0);
+            specbleach_2d_process(specbleach2D_L, static_cast<uint32_t>(numSamples), ch0, ch0);
+        }
+        if (numChannels >= 2 && specbleach2D_R) {
+            specbleach_2d_load_parameters(specbleach2D_R, p2);
+            float* ch1 = crossfadeBuffer.getWritePointer(1);
+            specbleach_2d_process(specbleach2D_R, static_cast<uint32_t>(numSamples), ch1, ch1);
+        }
+
+        // Equal-power crossfade blend into buffer
+        for (int ch = 0; ch < numChannels; ++ch) {
+            float* out1D = buffer.getWritePointer(ch);
+            const float* out2D = crossfadeBuffer.getReadPointer(ch);
+
+            float currentP = crossfadeProgress;
+            for (int s = 0; s < numSamples; ++s) {
+                float pVal = std::min(1.0f, currentP);
+                float rad = pVal * juce::MathConstants<float>::halfPi;
+                float w1D = (targetAlgoMode == 1) ? std::cos(rad) : std::sin(rad);
+                float w2D = (targetAlgoMode == 1) ? std::sin(rad) : std::cos(rad);
+
+                out1D[s] = w1D * out1D[s] + w2D * out2D[s];
+                currentP += crossfadeStep;
+            }
+        }
+        crossfadeProgress += numSamples * crossfadeStep;
+        if (crossfadeProgress > 1.0f) crossfadeProgress = 1.0f;
+    }
+    else if (algoMode == 0)
+    {
+        // Steady-state 1D mode
+        if (specbleach1D_L) {
+            specbleach_load_parameters(specbleach1D_L, p);
+            float* ch0 = buffer.getWritePointer(0);
+            specbleach_process(specbleach1D_L, static_cast<uint32_t>(numSamples), ch0, ch0);
+        }
         if (numChannels >= 2 && specbleach1D_R) {
             specbleach_load_parameters(specbleach1D_R, p);
             float* ch1 = buffer.getWritePointer(1);
@@ -301,25 +464,12 @@ void NoiseRepellentAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer
     }
     else if (algoMode == 1)
     {
-        SpectralBleach2DDenoiserParameters p2;
-        p2.learn_noise = learnNoise ? 1 : 0;
-        p2.residual_listen = residualListen;
-        p2.reduction_amount = masterRed;
-        p2.smoothing_factor = nlmSmoothing;
-        p2.whitening_factor = whitening;
-        p2.adaptive_noise = adaptiveNoise ? 1 : 0;
-        p2.noise_estimation_method = adaptiveMethod;
-        p2.nlm_masking_protection = masking;
-        p2.suppression_strength = suppression;
-        p2.aggressiveness = aggressiveness;
-        p2.tonal_reduction = tonalRed;
-
+        // Steady-state 2D mode
         if (specbleach2D_L) {
             specbleach_2d_load_parameters(specbleach2D_L, p2);
             float* ch0 = buffer.getWritePointer(0);
             specbleach_2d_process(specbleach2D_L, static_cast<uint32_t>(numSamples), ch0, ch0);
         }
-
         if (numChannels >= 2 && specbleach2D_R) {
             specbleach_2d_load_parameters(specbleach2D_R, p2);
             float* ch1 = buffer.getWritePointer(1);
@@ -403,9 +553,6 @@ void NoiseRepellentAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer
                     // In 2D mode, noise_profile_size is SB_PROCESSOR_CORE_FULL_FFT_SPECTRUM (e.g. 3008 bins).
                     // The real unique spectrum from DC (0 Hz) to Nyquist (Fs/2) is the first (profileSize / 2) + 1 bins.
                     size_t realProfileBins = profileSize;
-                    if (algoMode == 1 || profileSize > 2000) {
-                        realProfileBins = (profileSize / 2) + 1;
-                    }
 
                     const float maxProfileIdx = static_cast<float>(realProfileBins - 1);
                     const float maxFftIdx = static_cast<float>(kFftBins - 1);
@@ -490,6 +637,34 @@ void NoiseRepellentAudioProcessor::resetNoiseProfile()
     if (specbleach1D_R) specbleach_reset_noise_profile(specbleach1D_R);
     if (specbleach2D_L) specbleach_2d_reset_noise_profile(specbleach2D_L);
     if (specbleach2D_R) specbleach_2d_reset_noise_profile(specbleach2D_R);
+}
+
+bool NoiseRepellentAudioProcessor::hasNoiseProfile() const
+{
+    auto* paramAlgo = parameters.getRawParameterValue("algorithm_mode");
+    if (!paramAlgo)
+        return false;
+
+    int algoMode = static_cast<int>(paramAlgo->load());
+
+    if (algoMode == 0 && specbleach1D_L)
+    {
+        for (int mode = 1; mode <= 4; ++mode)
+        {
+            if (specbleach_noise_profile_available_for_mode(specbleach1D_L, mode))
+                return true;
+        }
+    }
+    else if (algoMode == 1 && specbleach2D_L)
+    {
+        for (int mode = 1; mode <= 4; ++mode)
+        {
+            if (specbleach_2d_noise_profile_available_for_mode(specbleach2D_L, mode))
+                return true;
+        }
+    }
+
+    return false;
 }
 
 juce::AudioProcessorEditor* NoiseRepellentAudioProcessor::createEditor()
@@ -585,6 +760,10 @@ void NoiseRepellentAudioProcessor::setStateInformation(const void* data, int siz
                     }
                 }
             }
+
+            // Sync loaded profiles to ensure both engines are fully populated
+            syncNoiseProfiles(0);
+            syncNoiseProfiles(1);
         }
     }
 }

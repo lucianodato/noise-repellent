@@ -81,11 +81,13 @@ public:
     bool getNextSpectralFrame(SpectralFrame& frame);
 
     void resetNoiseProfile();
+    bool hasNoiseProfile() const;
 
     double getSampleRate() const { return currentSampleRate; }
 
 private:
     void ensureEnginesInitialized(double sampleRate);
+    void syncNoiseProfiles(int sourceAlgoMode);
 
     juce::AudioProcessorValueTreeState parameters;
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
@@ -100,6 +102,13 @@ private:
 
     double currentSampleRate = 44100.0;
     int currentAlgoMode = 1; // Track for dynamic latency updates
+    bool wasLearning = false; // Track learn mode state transition to sync profiles
+
+    // Crossfading between 1D and 2D engines to prevent clicks/pops during mode changes
+    juce::AudioBuffer<float> crossfadeBuffer;
+    int targetAlgoMode = 1;
+    float crossfadeProgress = 1.0f;
+    float crossfadeStep = 0.0f;
 
     // FFT analysis for visualization
     juce::dsp::FFT fftAnalyzer{ kFftOrder };

@@ -79,13 +79,14 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(NoiseRepe
     btnLearn.setColour(juce::TextButton::buttonColourId, juce::Colour(0xffc0392b));   // Prominent Studio Crimson Red CTA
     btnLearn.setColour(juce::TextButton::buttonOnColourId, juce::Colour(0xffe74c3c)); // Active Learning Red
     btnLearn.onClick = [this]() {
-        bool isLearning = btnLearn.getToggleState();
-        btnLearn.setButtonText(isLearning ? "Learning..." : "Learn Noise");
+        updateProfileStatus();
     };
 
     addAndMakeVisible(btnResetProfile);
     btnResetProfile.onClick = [this]() {
         audioProcessor.resetNoiseProfile();
+        btnLearn.setToggleState(false, juce::dontSendNotification);
+        updateProfileStatus();
     };
 
     addAndMakeVisible(btnAdaptiveNoise);
@@ -257,6 +258,30 @@ void NoiseRepellentAudioProcessorEditor::updateProfileStatus()
 {
     bool isBypassed = btnBypass.getToggleState();
     bool isAdaptive = btnAdaptiveNoise.getToggleState();
+    bool isLearning = btnLearn.getToggleState();
+    bool hasProfile = audioProcessor.hasNoiseProfile();
+
+    if (isLearning)
+    {
+        btnLearn.setButtonText("Learning...");
+        btnLearn.setColour(juce::TextButton::buttonColourId, juce::Colour(0xffe74c3c));   // Active Learning Red
+        btnLearn.setColour(juce::TextButton::buttonOnColourId, juce::Colour(0xffe74c3c));
+    }
+    else if (hasProfile)
+    {
+        // Profile is active: match golden amber yellow profile curve & set text to "Re-Learn"
+        btnLearn.setButtonText("Re-Learn");
+        btnLearn.setColour(juce::TextButton::buttonColourId, NoiseRepellentLookAndFeel::kColorNoiseProfile);
+        btnLearn.setColour(juce::TextButton::buttonOnColourId, NoiseRepellentLookAndFeel::kColorNoiseProfile);
+    }
+    else
+    {
+        // No profile: prominent red CTA "Learn Noise"
+        btnLearn.setButtonText("Learn Noise");
+        btnLearn.setColour(juce::TextButton::buttonColourId, juce::Colour(0xffc0392b));   // Prominent Crimson Red CTA
+        btnLearn.setColour(juce::TextButton::buttonOnColourId, juce::Colour(0xffe74c3c)); // Active Learning Red
+    }
+    btnLearn.repaint();
 
     // When bypassed, disable everything except the Bypass button itself
     bool pluginActive = !isBypassed;

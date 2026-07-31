@@ -35,6 +35,10 @@ A multi-format audio plugin (VST3, AU, LV2) for real-time spectral noise reducti
 * **Platforms**: Optimized for Linux, macOS, and Windows.
 * **Stereo Support**: Full multi-channel processing ready for modern stereo production workflows.
 
+## Screenshots
+![Advanced Controls](<Images/Screenshot 1.png>)
+![Basic Controls](<Images/Screenshot 2.png>)
+
 ## Installation
 
 ### From Binaries

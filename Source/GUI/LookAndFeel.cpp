@@ -142,13 +142,15 @@ void NoiseRepellentLookAndFeel::drawButtonText(juce::Graphics& g, juce::TextButt
     g.setFont(font);
 
     bool isOn = button.getToggleState();
-    juce::Colour customBg = button.findColour(juce::TextButton::buttonColourId, false);
+    juce::Colour activeBg = button.findColour(isOn ? juce::TextButton::buttonOnColourId : juce::TextButton::buttonColourId, false);
 
     juce::Colour textColour;
-    if (customBg.isOpaque() && customBg != juce::Colour(0xff3f4757)) {
+    if (activeBg == juce::Colour(0xffc0392b) || activeBg == juce::Colour(0xffe74c3c)) {
         textColour = juce::Colours::white;
+    } else if (activeBg == kColorNoiseProfile || isOn) {
+        textColour = juce::Colour(0xff101216);
     } else {
-        textColour = isOn ? juce::Colour(0xff101216) : juce::Colour(0xffe6e8ed);
+        textColour = juce::Colour(0xffe6e8ed);
     }
 
     if (!button.isEnabled())
