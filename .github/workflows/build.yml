@@ -19,14 +19,14 @@ jobs:
 
       - name: Install FFTW3 Statically via vcpkg
         run: |
-          # Install vcpkg FFTW static for both architectures
-          $VCPKG_INSTALLATION_ROOT/vcpkg install fftw3:arm64-osx fftw3:x64-osx
+          $VCPKG_INSTALLATION_ROOT/vcpkg install fftw3:x64-osx-universal
 
       - name: Configure CMake
         run: |
           cmake -B build \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" \
+            -DVCPKG_TARGET_TRIPLET=x64-osx-universal \
             "-DCMAKE_TOOLCHAIN_FILE=$VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
 
       - name: Build Targets
