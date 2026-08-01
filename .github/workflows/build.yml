@@ -43,12 +43,12 @@ jobs:
         run: |
           mkdir -p staging
           
-          # Copy base bundles from arm64 build
+          # Copy base structures from arm64 build
           cp -R build-arm64/NoiseRepellent_artefacts/Release/VST3/Noise\ Repellent.vst3 staging/
           cp -R build-arm64/NoiseRepellent_artefacts/Release/AU/Noise\ Repellent.component staging/
           cp -R build-arm64/NoiseRepellent_artefacts/Release/LV2/Noise\ Repellent.lv2 staging/ || true
 
-          # Fuse arm64 and x86_64 binaries using lipo
+          # Fuse arm64 and x86_64 binaries
           lipo -create \
             "build-arm64/NoiseRepellent_artefacts/Release/VST3/Noise Repellent.vst3/Contents/MacOS/Noise Repellent" \
             "build-x86_64/NoiseRepellent_artefacts/Release/VST3/Noise Repellent.vst3/Contents/MacOS/Noise Repellent" \
@@ -66,27 +66,39 @@ jobs:
               -output "staging/Noise Repellent.lv2/libNoise Repellent.dylib" || true
           fi
 
-          # Compress final artifacts
-          cd staging && zip -r ../noise-repellent-macOS-universal.zip .
-
       - name: Ad-hoc Code Sign Plugins
         run: |
           codesign --force --deep --sign - staging/Noise\ Repellent.vst3
           codesign --force --deep --sign - staging/Noise\ Repellent.component
           codesign --force --deep --sign - staging/Noise\ Repellent.lv2 || true
 
+      - name: Build macOS PKG Installer
+        run: |
+          mkdir -p pkg_root/Library/Audio/Plug-Ins/Components
+          mkdir -p pkg_root/Library/Audio/Plug-Ins/VST3
+          mkdir -p pkg_root/Library/Audio/Plug-Ins/LV2
+
+          cp -R "staging/Noise Repellent.component" pkg_root/Library/Audio/Plug-Ins/Components/
+          cp -R "staging/Noise Repellent.vst3" pkg_root/Library/Audio/Plug-Ins/VST3/
+          cp -R "staging/Noise Repellent.lv2" pkg_root/Library/Audio/Plug-Ins/LV2/
+
+          pkgbuild --root pkg_root \
+                   --scripts Installers/macos/scripts \
+                   --identifier com.lucianodato.NoiseRepellent \
+                   --version 3.0.0 \
+                   --install-location / \
+                   NoiseRepellent-macOS-Universal.pkg
+
       - uses: actions/upload-artifact@v4
         with:
-          name: noise-repellent-macOS-universal
-          path: staging/
+          name: noise-repellent-macOS-installer
+          path: NoiseRepellent-macOS-Universal.pkg
 
       - name: Upload GitHub Release
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: noise-repellent-macOS-universal.zip
-
-
+          files: NoiseRepellent-macOS-Universal.pkg
 
   build-linux:
     name: Linux (x86_64)
@@ -120,23 +132,82 @@ jobs:
         run: |
           cmake --build build --config Release -j4
 
-      - name: Package Artifacts
+      - name: Package Staging Artifacts
         run: |
           mkdir -p staging
           cp -R build/NoiseRepellent_artefacts/Release/VST3/Noise\ Repellent.vst3 staging/ || true
           cp -R build/NoiseRepellent_artefacts/Release/LV2/Noise\ Repellent.lv2 staging/ || true
-          cd staging && zip -r ../noise-repellent-linux64.zip .
+
+      - name: Build Debian Package
+        run: |
+          mkdir -p deb_root/DEBIAN
+          mkdir -p deb_root/usr/lib/vst3
+          mkdir -p deb_root/usr/lib/lv2
+
+          cat << 'EOF' > deb_root/DEBIAN/control
+          Package: noise-repellent
+          Version: 3.0.0
+          Architecture: amd64
+          Maintainer: Luciano Dato <lucianodato@net>
+          Description: Noise Repellent Audio Processing Plugin
+          EOF
+
+          cp -R "staging/Noise Repellent.vst3" deb_root/usr/lib/vst3/
+          cp -R "staging/Noise Repellent.lv2" deb_root/usr/lib/lv2/
+
+          dpkg-deb --build deb_root noise-repellent_3.0.0_amd64.deb
+
+      - name: Create Universal Tarball with Installer Script
+        run: |
+          # Generate install.sh script inside staging
+          cat << 'EOF' > staging/install.sh
+          #!/bin/bash
+          set -e
+
+          VST3_DIR="$HOME/.vst3"
+          LV2_DIR="$HOME/.lv2"
+
+          echo "Installing Noise Repellent..."
+          mkdir -p "$VST3_DIR" "$LV2_DIR"
+
+          if [ -d "Noise Repellent.vst3" ]; then
+            cp -r "Noise Repellent.vst3" "$VST3_DIR/"
+            echo " -> Installed VST3 to $VST3_DIR/Noise Repellent.vst3"
+          fi
+
+          if [ -d "Noise Repellent.lv2" ]; then
+            cp -r "Noise Repellent.lv2" "$LV2_DIR/"
+            echo " -> Installed LV2 to $LV2_DIR/Noise Repellent.lv2"
+          fi
+
+          echo "Installation complete!"
+          EOF
+
+          chmod +x staging/install.sh
+
+          # Create .tar.gz archive
+          cd staging && tar -czvf ../noise-repellent-linux-x86_64.tar.gz .
+
+      # 3. Upload Artifacts
+      - uses: actions/upload-artifact@v4
+        with:
+          name: noise-repellent-linux-deb
+          path: noise-repellent_3.0.0_amd64.deb
 
       - uses: actions/upload-artifact@v4
         with:
-          name: noise-repellent-linux64
-          path: staging/
+          name: noise-repellent-linux-tarball
+          path: noise-repellent-linux-x86_64.tar.gz
 
+      # 4. Attach Both Packages to GitHub Release
       - name: Upload GitHub Release
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: noise-repellent-linux64.zip
+          files: |
+            noise-repellent_3.0.0_amd64.deb
+            noise-repellent-linux-x86_64.tar.gz
+
 
   build-windows:
     name: Windows (x64)
@@ -158,18 +229,24 @@ jobs:
         run: |
           cmake --build build --config Release -j4
 
-      - name: Package Artifacts
+      - name: Package Staging Artifacts
         shell: bash
         run: |
           mkdir -p staging
           cp -R build/NoiseRepellent_artefacts/Release/VST3/Noise\ Repellent.vst3 staging/ || true
           cp -R build/NoiseRepellent_artefacts/Release/LV2/Noise\ Repellent.lv2 staging/ || true
-          cd staging && 7z a ../noise-repellent-win64.zip .
 
-      - uses: actions/upload-artifact@v4
+      - name: Build Inno Setup Installer
+        uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
         with:
-          name: noise-repellent-win64
-          path: staging/
+          path: Installers/windows/installer.iss
+          options: /O+
+
+      - name: Upload Installer Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: noise-repellent-win64-installer
+          path: Output/NoiseRepellent-Win64-Installer.exe
 
       - name: Upload GitHub Release
         uses: softprops/action-gh-release@v2
