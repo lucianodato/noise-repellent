@@ -84,17 +84,16 @@ target_compile_definitions(NoiseRepellent PRIVATE
 set(ENABLE_TESTS OFF CACHE BOOL "" FORCE)
 set(ENABLE_EXAMPLES OFF CACHE BOOL "" FORCE)
 
-# --- Static Universal FFTW3 ---
+# --- Static Universal FFTW3 for macOS ---
 if(APPLE)
     include(FetchContent)
     set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
-    set(ENABLE_FLOAT ON CACHE BOOL "" FORCE)     # Generates fftw3f required for audio DSP
-    set(ENABLE_THREADS ON CACHE BOOL "" FORCE)   # Multithreading support
+    set(ENABLE_FLOAT ON CACHE BOOL "" FORCE)     # Required for single-precision fftw3f
+    set(ENABLE_THREADS ON CACHE BOOL "" FORCE)   # Enables thread support
 
     FetchContent_Declare(
         fftw3
-        GIT_REPOSITORY https://github.com/FFTW/fftw3.git
-        GIT_TAG        v3.3.10
+        URL https://www.fftw.org/fftw-3.3.10.tar.gz
     )
     FetchContent_MakeAvailable(fftw3)
 endif()
