@@ -111,6 +111,27 @@ if(APPLE)
     )
 endif()
 
+set(ENABLE_TESTS OFF CACHE BOOL "" FORCE)
+set(ENABLE_EXAMPLES OFF CACHE BOOL "" FORCE)
+
+if(APPLE)
+    set(ENABLE_AVX OFF CACHE BOOL "" FORCE)
+    set(USE_AVX OFF CACHE BOOL "" FORCE)
+endif()
+
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../libspecbleach/CMakeLists.txt")
+    add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/../libspecbleach" "${CMAKE_CURRENT_BINARY_DIR}/libspecbleach_build")
+elseif(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/subprojects/libspecbleach/CMakeLists.txt")
+    add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/subprojects/libspecbleach" "${CMAKE_CURRENT_BINARY_DIR}/libspecbleach_build")
+else()
+    FetchContent_Declare(
+        libspecbleach
+        GIT_REPOSITORY https://github.com/lucianodato/libspecbleach.git
+        GIT_TAG        v0.3.0
+    )
+    FetchContent_MakeAvailable(libspecbleach)
+endif()
+
 
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../libspecbleach/CMakeLists.txt")
     add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/../libspecbleach" "${CMAKE_CURRENT_BINARY_DIR}/libspecbleach_build")
