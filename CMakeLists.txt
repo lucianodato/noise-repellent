@@ -68,7 +68,7 @@ else()
     FetchContent_Declare(
         libspecbleach
         GIT_REPOSITORY https://github.com/lucianodato/libspecbleach.git
-        GIT_TAG        feature/cmake-and-tonal-mask
+        GIT_TAG        v0.3.0
     )
     FetchContent_MakeAvailable(libspecbleach)
 endif()
