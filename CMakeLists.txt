@@ -132,18 +132,21 @@ else()
     FetchContent_MakeAvailable(libspecbleach)
 endif()
 
+# Fix libspecbleach AVX symbol issue on macOS x86_64 cross-compilation
+if(APPLE)
+    # Get the location where libspecbleach source lives
+    FetchContent_GetProperties(libspecbleach SOURCE_DIR SPECBLEACH_SRC)
 
-if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../libspecbleach/CMakeLists.txt")
-    add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/../libspecbleach" "${CMAKE_CURRENT_BINARY_DIR}/libspecbleach_build")
-elseif(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/subprojects/libspecbleach/CMakeLists.txt")
-    add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/subprojects/libspecbleach" "${CMAKE_CURRENT_BINARY_DIR}/libspecbleach_build")
-else()
-    FetchContent_Declare(
-        libspecbleach
-        GIT_REPOSITORY https://github.com/lucianodato/libspecbleach.git
-        GIT_TAG        v0.3.0
-    )
-    FetchContent_MakeAvailable(libspecbleach)
+    # Force compilation of nlm_filter_avx.c if building for x86_64
+    if("x86_64" IN_LIST CMAKE_OSX_ARCHITECTURES OR CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
+        target_sources(NoiseRepellent PRIVATE
+            "${SPECBLEACH_SRC}/src/shared/denoiser_logic/processing/nlm_filter_avx.c"
+        )
+        set_source_files_properties(
+            "${SPECBLEACH_SRC}/src/shared/denoiser_logic/processing/nlm_filter_avx.c"
+            PROPERTIES COMPILE_FLAGS "-mavx -mavx2"
+        )
+    endif()
 endif()
 
 # Link JUCE Modules and DSP Dependencies
