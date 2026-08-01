@@ -61,11 +61,11 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Install System UI Dependencies
+      - name: Install System UI Dependencies & Build Tools
         run: |
           sudo apt-get update -qq
           sudo apt-get install -qq -y \
-            cmake \
+            build-essential cmake ninja-build \
             libasound2-dev libjack-jackd2-dev libgl1-mesa-dev \
             libx11-dev libxcomposite-dev libxcursor-dev libxext-dev \
             libxinerama-dev libxrandr-dev libfreetype6-dev libfontconfig1-dev
@@ -76,10 +76,10 @@ jobs:
 
       - name: Configure CMake
         run: |
-          cmake -B build \
+          cmake -B build -G "Ninja" \
             -DCMAKE_BUILD_TYPE=Release \
             -DVCPKG_TARGET_TRIPLET=x64-linux \
-            "-DCMAKE_TOOLCHAIN_FILE=$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
+            "-DCMAKE_TOOLCHAIN_FILE=$VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
 
       - name: Build Targets
         run: |

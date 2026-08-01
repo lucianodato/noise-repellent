@@ -100,9 +100,15 @@ if(APPLE)
     )
     FetchContent_MakeAvailable(fftw3)
 
-    # --- ADD THIS: Satisfy libspecbleach's find_library check ---
+    # --- ADD THESE LINES TO FIX 'fftw3.h not found' & LINKING ---
     set(FFTW3F_LIB fftw3f CACHE STRING "Path to fftw3f library" FORCE)
     set(FFTW3_LIB fftw3f CACHE STRING "Path to fftw3 library" FORCE)
+
+    # Make fftw3.h available to subprojects (like libspecbleach)
+    include_directories(
+        ${fftw3_SOURCE_DIR}/api
+        ${fftw3_BINARY_DIR}
+    )
 endif()
 
 
