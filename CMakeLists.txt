@@ -30,7 +30,7 @@ FetchContent_MakeAvailable(JUCE)
 juce_add_plugin(NoiseRepellent
     COMPANY_NAME "Luciano Dato"
     BUNDLE_ID "com.lucianodato.NoiseRepellent"
-    LV2URI "http://lucianodato.net/plugins/nrepellent"
+    LV2URI "https://github.com/lucianodato/noise-repellent"
     IS_SYNTH FALSE
     NEEDS_MIDI_INPUT FALSE
     NEEDS_MIDI_OUTPUT FALSE
@@ -49,6 +49,20 @@ if(UNIX AND NOT APPLE)
         -static-libgcc 
         -static-libstdc++
     )
+
+    # --- Static FreeType for Linux (Fixes symbol lookup issues in DAWs like Ardour) ---
+    set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+    set(FT_DISABLE_ZLIB ON CACHE BOOL "" FORCE)
+    set(FT_DISABLE_PNG ON CACHE BOOL "" FORCE)
+    set(FT_DISABLE_HARFBUZZ ON CACHE BOOL "" FORCE)
+    set(FT_DISABLE_BROTLI ON CACHE BOOL "" FORCE)
+
+    FetchContent_Declare(
+        freetype
+        GIT_REPOSITORY https://gitlab.freedesktop.org/freetype/freetype.git
+        GIT_TAG        VER-2-12-1
+    )
+    FetchContent_MakeAvailable(freetype)
 endif()
 
 if(APPLE)
@@ -80,13 +94,12 @@ target_compile_definitions(NoiseRepellent PRIVATE
     JUCE_VST3_CAN_REPLACE_VST2=0
 )
 
-# Add libspecbleach static library dependency via CMake
+# Global options for subprojects
 set(ENABLE_TESTS OFF CACHE BOOL "" FORCE)
 set(ENABLE_EXAMPLES OFF CACHE BOOL "" FORCE)
 
-# --- Static Universal FFTW3 for macOS ---
-if(APPLE)
-    include(FetchContent)
+# --- Static Universal FFTW3 for Linux and macOS ---
+if(UNIX)
     set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
     set(ENABLE_FLOAT ON CACHE BOOL "" FORCE)     # Required for single-precision fftw3f
     set(ENABLE_THREADS ON CACHE BOOL "" FORCE)   # Enables thread support
@@ -100,7 +113,6 @@ if(APPLE)
     )
     FetchContent_MakeAvailable(fftw3)
 
-    # --- ADD THESE LINES TO FIX 'fftw3.h not found' & LINKING ---
     set(FFTW3F_LIB fftw3f CACHE STRING "Path to fftw3f library" FORCE)
     set(FFTW3_LIB fftw3f CACHE STRING "Path to fftw3 library" FORCE)
 
@@ -111,38 +123,38 @@ if(APPLE)
     )
 endif()
 
-set(ENABLE_TESTS OFF CACHE BOOL "" FORCE)
-set(ENABLE_EXAMPLES OFF CACHE BOOL "" FORCE)
-
 if(APPLE)
     set(ENABLE_AVX OFF CACHE BOOL "" FORCE)
     set(USE_AVX OFF CACHE BOOL "" FORCE)
 endif()
 
+# --- Libspecbleach Source Resolution ---
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../libspecbleach/CMakeLists.txt")
-    add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/../libspecbleach" "${CMAKE_CURRENT_BINARY_DIR}/libspecbleach_build")
+    message(STATUS "Using local libspecbleach from ../libspecbleach")
+    set(SPECBLEACH_SRC "${CMAKE_CURRENT_SOURCE_DIR}/../libspecbleach")
+    add_subdirectory("${SPECBLEACH_SRC}" "${CMAKE_CURRENT_BINARY_DIR}/libspecbleach_build")
 elseif(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/subprojects/libspecbleach/CMakeLists.txt")
-    add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/subprojects/libspecbleach" "${CMAKE_CURRENT_BINARY_DIR}/libspecbleach_build")
+    message(STATUS "Using local libspecbleach from subprojects/")
+    set(SPECBLEACH_SRC "${CMAKE_CURRENT_SOURCE_DIR}/subprojects/libspecbleach")
+    add_subdirectory("${SPECBLEACH_SRC}" "${CMAKE_CURRENT_BINARY_DIR}/libspecbleach_build")
 else()
+    message(STATUS "Fetching libspecbleach v0.3.0 remotely...")
     FetchContent_Declare(
         libspecbleach
         GIT_REPOSITORY https://github.com/lucianodato/libspecbleach.git
         GIT_TAG        v0.3.0
     )
     FetchContent_MakeAvailable(libspecbleach)
+    FetchContent_GetProperties(libspecbleach SOURCE_DIR SPECBLEACH_SRC)
 endif()
+
+# Explicitly add libspecbleach headers directory
+target_include_directories(NoiseRepellent PRIVATE
+    "${SPECBLEACH_SRC}/src"
+)
 
 # Fix libspecbleach AVX symbol issue on macOS x86_64 cross-compilation
 if(APPLE)
-    # Get the location where libspecbleach source lives
-    FetchContent_GetProperties(libspecbleach SOURCE_DIR SPECBLEACH_SRC)
-
-    # Allow NoiseRepellent to resolve internal libspecbleach headers
-    target_include_directories(NoiseRepellent PRIVATE
-        "${SPECBLEACH_SRC}/src"
-    )
-
-    # Force compilation of nlm_filter_avx.c if building for x86_64
     if("x86_64" IN_LIST CMAKE_OSX_ARCHITECTURES OR CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
         target_sources(NoiseRepellent PRIVATE
             "${SPECBLEACH_SRC}/src/shared/denoiser_logic/processing/nlm_filter_avx.c"
@@ -154,6 +166,12 @@ if(APPLE)
     endif()
 endif()
 
+# Hide internal symbols to avoid host DAW symbol collisions
+set_target_properties(NoiseRepellent PROPERTIES
+    C_VISIBILITY_PRESET hidden
+    CXX_VISIBILITY_PRESET hidden
+    VISIBILITY_INLINES_HIDDEN YES
+)
 
 # Link JUCE Modules and DSP Dependencies
 target_link_libraries(NoiseRepellent PRIVATE
@@ -166,3 +184,7 @@ target_link_libraries(NoiseRepellent PRIVATE
     juce::juce_graphics
     juce::juce_core
 )
+
+if(UNIX AND NOT APPLE)
+    target_link_libraries(NoiseRepellent PRIVATE freetype)
+endif()
