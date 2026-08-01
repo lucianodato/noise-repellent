@@ -137,6 +137,11 @@ if(APPLE)
     # Get the location where libspecbleach source lives
     FetchContent_GetProperties(libspecbleach SOURCE_DIR SPECBLEACH_SRC)
 
+    # Allow NoiseRepellent to resolve internal libspecbleach headers
+    target_include_directories(NoiseRepellent PRIVATE
+        "${SPECBLEACH_SRC}/src"
+    )
+
     # Force compilation of nlm_filter_avx.c if building for x86_64
     if("x86_64" IN_LIST CMAKE_OSX_ARCHITECTURES OR CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
         target_sources(NoiseRepellent PRIVATE
@@ -148,6 +153,7 @@ if(APPLE)
         )
     endif()
 endif()
+
 
 # Link JUCE Modules and DSP Dependencies
 target_link_libraries(NoiseRepellent PRIVATE
