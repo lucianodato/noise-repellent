@@ -33,6 +33,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_OSX_ARCHITECTURES="x86_64" \
             -DCMAKE_SYSTEM_PROCESSOR=x86_64
+            -DENABLE_AVX=ON
 
       - name: Build Target (x86_64)
         run: |
