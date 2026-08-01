@@ -91,7 +91,6 @@ if(APPLE)
     set(ENABLE_FLOAT ON CACHE BOOL "" FORCE)     # Required for single-precision fftw3f
     set(ENABLE_THREADS ON CACHE BOOL "" FORCE)   # Enables thread support
 
-    # Workaround for FFTW 3.3.10 legacy cmake_minimum_required version
     set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
 
     FetchContent_Declare(
@@ -100,6 +99,10 @@ if(APPLE)
         DOWNLOAD_EXTRACT_TIMESTAMP TRUE
     )
     FetchContent_MakeAvailable(fftw3)
+
+    # --- ADD THIS: Satisfy libspecbleach's find_library check ---
+    set(FFTW3F_LIB fftw3f CACHE STRING "Path to fftw3f library" FORCE)
+    set(FFTW3_LIB fftw3f CACHE STRING "Path to fftw3 library" FORCE)
 endif()
 
 
