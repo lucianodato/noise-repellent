@@ -32,9 +32,7 @@ jobs:
           cmake -B build-x86_64 \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_OSX_ARCHITECTURES="x86_64" \
-            -DCMAKE_C_FLAGS="-mavx -mavx2" \
-            -DCMAKE_CXX_FLAGS="-mavx -mavx2"
-
+            -DCMAKE_SYSTEM_PROCESSOR=x86_64
 
       - name: Build Target (x86_64)
         run: |
