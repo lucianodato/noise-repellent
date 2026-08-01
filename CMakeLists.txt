@@ -43,6 +43,19 @@ juce_add_plugin(NoiseRepellent
     PRODUCT_NAME "Noise Repellent"
 )
 
+if(UNIX AND NOT APPLE)
+    # Statically link GCC and C++ standard runtimes into the plugin library
+    target_link_options(NoiseRepellent PRIVATE 
+        -static-libgcc 
+        -static-libstdc++
+    )
+endif()
+
+if(APPLE)
+    # Target modern C++ runtime provided by macOS (10.13+)
+    set(CMAKE_OSX_DEPLOYMENT_TARGET "10.13" CACHE STRING "Minimum macOS version")
+endif()
+
 # Include directories
 target_include_directories(NoiseRepellent PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/Source
@@ -66,14 +79,6 @@ target_compile_definitions(NoiseRepellent PRIVATE
     JUCE_USE_CURL=0
     JUCE_VST3_CAN_REPLACE_VST2=0
 )
-
-if(UNIX AND NOT APPLE)
-    # Statically link GCC and C++ standard runtimes into the plugin library
-    target_link_options(NoiseRepellent PRIVATE 
-        -static-libgcc 
-        -static-libstdc++
-    )
-endif()
 
 # Add libspecbleach static library dependency via CMake
 set(ENABLE_TESTS OFF CACHE BOOL "" FORCE)
