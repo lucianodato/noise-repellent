@@ -55,7 +55,7 @@ jobs:
 
   build-linux:
     name: Linux (x86_64)
-    runs-on: ubuntu-20.04 # Use 20.04 or 22.04 for maximum GLIBC compatibility across user distros
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
