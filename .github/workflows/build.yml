@@ -248,7 +248,7 @@ jobs:
         uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
         with:
           path: Installers/windows/installer.iss
-          options: /O+
+          options: /O"Output"
 
       - name: Upload Installer Artifact
         uses: actions/upload-artifact@v4
@@ -260,4 +260,4 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: noise-repellent-win64.zip
+          files: Output/NoiseRepellent-Win64-Installer.exe
