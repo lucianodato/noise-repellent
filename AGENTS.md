@@ -1,31 +1,35 @@
 # noise-repellent Agent Context
 
-This file contains foundational mandates and architectural context for Gemini CLI when working on `noise-repellent`.
+This file contains foundational mandates and architectural context for AI agents working on `noise-repellent`.
 
 ## Foundational Mandates
 
-1. **RT-Safety**: This is an LV2 plugin (`hardRTCapable`). Absolutely no blocking calls in `run()`.
-2. **Bypass Fidelity**: All bypass transitions must use `SignalCrossfade` to prevent pops/clicks and maintain latency alignment.
-3. **Manifest Sync**: Any change to plugin parameters in `plugins/nrepellent.c` or `plugins/nrepellent-2d.c` (PortIndex, connection logic) MUST be reflected in `lv2ttl/nrepellent.ttl.in`, `lv2ttl/nrepellent-2d.ttl.in`, `lv2ttl/nrepellent#stereo.ttl.in`, and `lv2ttl/nrepellent-2d#stereo.ttl.in`.
-   - **Parameter Cleanup**: Note that `steering_response` has been renamed to `aggressiveness`.
-4. **State Persistence**: Ensure all noise profile modes (Mean, Median, Max, Min) and their respective block counts are correctly saved/restored in the LV2 state extension.
+1. **RT-Safety**: `processBlock()` executes in the real-time audio thread. Strictly NO dynamic allocations (`malloc`, `new`), NO blocking primitives (locks, mutexes, condition variables), and NO file/console I/O.
+2. **Bypass Fidelity**: All bypass transitions must use native `juce::dsp::DryWetMixer<float>` to prevent pops/clicks and maintain latency alignment (`setWetLatency`) with host delay compensation.
+3. **APVTS & Parameter Management**: Parameter changes must go through `juce::AudioProcessorValueTreeState`. Parameter IDs defined in `PluginProcessor` layout must match key strings used in state serialization and GUI attachments.
+4. **License**: Code in `Source/` is licensed under GPL-3.0-or-later. Include standard license headers on all new source files.
 
 ## Project Structure & Workflow
 
-- **LV2 Wrappers**: `plugins/nrepellent.c` (1D) and `plugins/nrepellent-2d.c` (2D).
-- **TTL Templates**: `.ttl.in` files located in `lv2ttl/` are used to generate the final manifest. Do not edit `.ttl` files in the build directory.
-- **Subprojects**: `libspecbleach` is managed via Meson subprojects. To update the core library, modify `subprojects/libspecbleach.wrap` or configure options like `force_bundled_libspecbleach`.
-- **Install & Test**: To compile and install the plugin in release mode (linking against the local `libspecbleach`), run:
-  ```bash
-  meson setup build_release --reconfigure --buildtype=release -Dlv2dir=$HOME/Library/Audio/Plug-Ins/LV2 -Dforce_bundled_libspecbleach=true -Dprefix=/tmp/nrepellent_install_prefix
-  meson compile -C build_release
-  meson install -C build_release
-  ```
+- **Plugin Core**: `Source/PluginProcessor.h` & `Source/PluginProcessor.cpp` manage audio processing, APVTS parameters, libspecbleach handles (`specbleach1D`, `specbleach2D`), `juce::dsp::DryWetMixer`, and FFT visualization fifo.
+- **GUI Engine**: `Source/PluginEditor.h` & `Source/PluginEditor.cpp` assemble the layout.
+- **GUI Components**: `Source/GUI/LookAndFeel.h` / `.cpp` for visual styling and `Source/GUI/SpectralVisualizer.h` / `.cpp` for FFT visualization.
+- **Build & Dependencies**: Uses CMake 3.22+. JUCE 8 is fetched via `FetchContent`. `libspecbleach` is linked as a static library via `add_subdirectory`.
+
+## Build Commands
+
+```bash
+# Debug build
+cmake -B build -DCMAKE_BUILD_TYPE=Debug
+cmake --build build --config Debug -j4
+
+# Release build
+cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --config Release -j4
+```
 
 ## Integration Details
 
-- **Mapping**: Note the non-linear mapping for `masking_depth` in `run()`:
-  `self->parameters.masking_depth = 1.0f - powf(1.0f - (*self->masking_transparency / 100.0f), 3.0f);`
-- **Latency**: Latency is reported to the host in `activate()` and through a dedicated output control port.
-
-
+- **Bypass**: Soft bypass is handled via native `juce::dsp::DryWetMixer<float>`, configured with `setWetLatency(latency)` for dry delay compensation and `setWetMixProportion()` for smooth crossfading. `processBlockBypassed()` is also implemented.
+- **FFT Visualization**: Input and output channels feed into `juce::dsp::FFT` order 12 (4096 points) and push magnitude spectra to an SPSC lock-free `juce::AbstractFifo` for smooth rendering in `SpectralVisualizer`.
+- **Latency**: Plugin latency is updated dynamically based on algorithm mode (1D STFT vs 2D NLM) via `setLatencySamples()`.

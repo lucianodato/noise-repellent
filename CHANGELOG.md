@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.0.0] - 2026-07-31
+
+### Changed
+- **Major Architecture Migration**: Migrated plugin framework from legacy LV2 C implementation to modern C++ framework using JUCE 8.
+- **Multi-Format Support**: Now builds natively as VST3, AU, and LV2 audio plugins for macOS, Linux, and Windows.
+- **Build System**: Migrated build system from Meson/Ninja to CMake 3.22+.
+- **License Update**: License updated to GNU General Public License v3.0 (GPL-3.0-or-later) to comply with JUCE open-source licensing.
+- **Modern DSP Wrapper**: Refactored internal DSP wrappers (e.g., `SignalCrossfade`) from C struct helpers to modern C++ classes under the `noise_repellent` namespace.
+
+### Added
+- **Interactive Spectral Visualizer**: Custom JUCE GUI component featuring real-time FFT spectrum display (input, noise floor profile, and output) with overlay markers for detected tonal peaks.
+- **APVTS State Persistence**: Complete parameter and noise profile binary state persistence using JUCE AudioProcessorValueTreeState.
+
 ## [0.3.0] - 2026-01-28
 
 ### Added

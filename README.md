@@ -1,8 +1,9 @@
 # Noise Repellent
 
-A suite of LV2 plugins for real-time spectral noise reduction, built on the [libspecbleach](https://github.com/lucianodato/libspecbleach) library.
+A multi-format audio plugin (VST3, AU, LV2) for real-time spectral noise reduction, built with [JUCE](https://juce.com/) and powered by the [libspecbleach](https://github.com/lucianodato/libspecbleach) DSP engine.
 
 [![CI Build](https://github.com/lucianodato/noise-repellent/actions/workflows/build.yml/badge.svg)](https://github.com/lucianodato/noise-repellent/actions/workflows/build.yml)
+![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/lucianodato/noise-repellent?utm_source=oss&utm_medium=github&utm_campaign=lucianodato%2Fnoise-repellent&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)
 
 ## Features
 
@@ -15,7 +16,6 @@ A suite of LV2 plugins for real-time spectral noise reduction, built on the [lib
     * **Brandt (Trimmed Mean)**: Efficient estimation for steady-state broadband noise.
     * **Martin Minimum Statistics**: Reliable tracking for slowly varying noise.
 
-
 ### Precision Controls
 * **Tonal separation**: Independent reduction of harmonic content and tonal noise (hum, resonance).
 * **Intelligent Steering**: Adjustable aggressiveness to balance between different noise profile statistics (Mean, Median, Max).
@@ -26,51 +26,51 @@ A suite of LV2 plugins for real-time spectral noise reduction, built on the [lib
     * **2D Denoising**: Uses NLM smoothing for pattern-based artifact removal.
 
 ### Workflow & Integration
+* **Interactive Spectral Visualizer**: Real-time FFT visualization of input, noise floor profile, and processed output spectrums with detected tonal peak markers.
 * **Residual Listening**: Hear exactly what is being filtered out to fine-tune your settings.
-* **Soft Bypass**: Seamless, click-free A/B testing with cross-faded bypass.
-* **Full State Saving**: Noise profiles and all parameters are saved with the host session.
+* **Soft Bypass**: Seamless, click-free A/B testing with cross-faded bypass and latency compensation.
+* **Full State Saving**: Noise profiles and all APVTS parameters are saved with the host session.
 
-
-### Compatibility
-* **Available as LV2 Plugins**: Optimized for Linux, macOS, and Windows.
-* **Stereo Support**: Ready for modern stereo production workflows.
-
+### Multi-Format Compatibility
+* **Formats**: VST3, AU, and LV2.
+* **Platforms**: Optimized for Linux, macOS, and Windows.
+* **Stereo Support**: Full multi-channel processing ready for modern stereo production workflows.
 
 ## Screenshots
-
-![Noise Repellent in Ardour](images/Noise-repellent-Ardour.png)
-![Noise Repellent in Reaper](images/Noise-repellent-Reaper.png)
-![2D Noise Repellent in Ardour](images/2d-Noise-repellent-Ardour.png)
-![2D Noise Repellent in Reaper](images/2d-Noise-repellent-Reaper.png)
+![Advanced Controls](<Images/Screenshot 1.png>)
+![Basic Controls](<Images/Screenshot 2.png>)
 
 ## Installation
 
 ### From Binaries
-Binaries for Linux, macOS, and Windows are provided in the [GitHub Releases](https://github.com/lucianodato/noise-repellent/releases) page. Extract the folder to your LV2 plugins directory:
-- **Linux**: `~/.lv2/` or `/usr/lib/lv2/`
-- **macOS**: `~/Library/Audio/Plug-Ins/LV2/` or `/Library/Audio/Plug-Ins/LV2/`
-- **Windows**: `%COMMONPROGRAMFILES%\LV2\`
+Binaries for Linux, macOS, and Windows are provided on the [GitHub Releases](https://github.com/lucianodato/noise-repellent/releases) page. Extract the plugin bundle to your DAW plugin directory:
+
+- **VST3**:
+  - **Linux**: `~/.vst3/` or `/usr/lib/vst3/`
+  - **macOS**: `~/Library/Audio/Plug-Ins/VST3/` or `/Library/Audio/Plug-Ins/VST3/`
+  - **Windows**: `%COMMONPROGRAMFILES%\VST3\`
+- **AU (macOS)**:
+  - `~/Library/Audio/Plug-Ins/Components/` or `/Library/Audio/Plug-Ins/Components/`
+- **LV2**:
+  - **Linux**: `~/.lv2/` or `/usr/lib/lv2/`
+  - **macOS**: `~/Library/Audio/Plug-Ins/LV2/` or `/Library/Audio/Plug-Ins/LV2/`
+  - **Windows**: `%COMMONPROGRAMFILES%\LV2\`
 
 > [!IMPORTANT]
-> **macOS Users**: Due to Gatekeeper security, you might need to remove the "quarantine" attribute after copying the plugin manually. If the plugin fails to load in your DAW, run one of the following commands in your terminal:
->
-> **For User folder:**
+> **macOS Users**: Due to macOS Gatekeeper security, you might need to remove the quarantine attribute after extracting binary releases manually:
 > ```bash
-> xattr -rd com.apple.quarantine ~/Library/Audio/Plug-Ins/LV2/nrepellent.lv2
-> ```
-> **For System folder:**
-> ```bash
-> sudo xattr -rd com.apple.quarantine /Library/Audio/Plug-Ins/LV2/nrepellent.lv2
+> xattr -rd com.apple.quarantine ~/Library/Audio/Plug-Ins/VST3/Noise\ Repellent.vst3
+> xattr -rd com.apple.quarantine ~/Library/Audio/Plug-Ins/Components/Noise\ Repellent.component
 > ```
 
 ### From Source
 
 **Requirements:**
-- Meson build system >= 0.60.0 & Ninja
-- C Compiler (GCC/Clang)
-- LV2 development headers
-- `pkg-config`
-- OpenMP (optional, but highly recommended for 2D Denoising)
+- CMake >= 3.22
+- C/C++17 Compiler (GCC, Clang, or MSVC)
+- System FFTW3 library (`libfftw3-dev` / `fftw`)
+- OpenMP (`libomp-dev` / `libomp`) for 2D NLM multi-threading
+- Linux GUI dependencies (if building on Linux): `libasound2-dev`, `libjack-jackd2-dev`, `libgl1-mesa-dev`, `libx11-dev`, `libfreetype6-dev`
 
 **Build:**
 
@@ -79,43 +79,16 @@ git clone https://github.com/lucianodato/noise-repellent.git
 cd noise-repellent
 
 # Configure build
-meson setup build --buildtype=release
+cmake -B build -DCMAKE_BUILD_TYPE=Release
 
-# Compile
-meson compile -C build
-
-# Install (sudo may be required)
-meson install -C build
+# Compile all formats
+cmake --build build --config Release -j4
 ```
 
-**Build Options:**
-
-You can configure the build options using `-Doption=value`:
-
-- `custom_warning_level`: 0-3 (default: 2). Controls compiler warning verbosity.
-- `treat_warnings_as_errors`: Treat compiler warnings as errors (default: false).
-- `enable_sanitizers`: Enable sanitizers for debug builds (default: false).
-- `sanitize_address`: Enable address sanitizer (only if enable_sanitizers is true) (default: true).
-- `sanitize_undefined`: Enable undefined behavior sanitizer (only if enable_sanitizers is true) (default: true).
-- `lv2dir`: Install directory for LV2 bundles (absolute path or relative to prefix) (default: '').
-- `force_bundled_libspecbleach`: Force use of bundled libspecbleach instead of system version (default: false). Enable this to ensure API compatibility when building from source.
-- `static_libspecbleach`: Link libspecbleach and its internal dependencies (like FFTW) statically into the plugins (default: true). This creates self-contained binaries that don't depend on external shared libraries. Set to `false` if you are a packager and prefer to use a shared system library.
-- `libspecbleach_libdir`: Directory where libspecbleach is installed (used for RPATH when using system libspecbleach). Leave empty for automatic detection (pkg-config libdir, then Meson libdir). Useful when libspecbleach is installed to a non-standard location.
+The compiled plugin targets (VST3, AU, LV2) will be generated in `build/NoiseRepellent_artefacts/Release/`.
 
 > [!IMPORTANT]
-> **Critical Performance Note for Packagers**: The "2D Denoising" (NLM) mode uses advanced spectral processing that requires aggressive compiler optimization and **multi-threaded execution via OpenMP**. 
-> 
-> You **MUST** build this project with `--buildtype=release` (which enables `-O3`). Debug or default builds will cause significant CPU spikes and audio dropouts (xruns) on this setting.
->
-> **Note on DSP Usage**: In some DAWs (like Ardour), the parallelized NLM processing might cause the DSP load meter to show high peaks. 
->
-> By default, the plugin uses **4 threads** for NLM processing. If you have many cores and want to reduce these peaks, you can limit the thread count used by the plugin by setting the environment variable `OMP_NUM_THREADS` (e.g., `export OMP_NUM_THREADS=2`).
-
-Example for a self-contained static build:
-```bash
-meson setup build --buildtype=release -Dstatic_libspecbleach=true -Dforce_bundled_libspecbleach=true
-meson compile -C build
-```
+> **Critical Performance Note**: The "2D Denoising" (NLM) algorithm relies on spectral-temporal pattern matching and OpenMP multi-threading. Always build with `-DCMAKE_BUILD_TYPE=Release` (`-O3`) to prevent CPU spikes and xruns.
 
 ## Usage
 
@@ -123,8 +96,8 @@ Please refer to the [Project Wiki](https://github.com/lucianodato/noise-repellen
 
 ## Contributing
 
-Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
+Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our development workflow and standards.
 
 ## License
 
-This project is licensed under the LGPL-3.0 License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the GNU General Public License v3.0 (GPL-3.0-or-later) - see the [LICENSE](LICENSE) file for details.

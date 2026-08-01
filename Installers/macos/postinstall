@@ -1,0 +1,6 @@
+#!/bin/sh
+# Remove quarantine attributes from installed plugins
+xattr -cr "/Library/Audio/Plug-Ins/Components/Noise Repellent.component" 2>/dev/null || true
+xattr -cr "/Library/Audio/Plug-Ins/VST3/Noise Repellent.vst3" 2>/dev/null || true
+xattr -cr "/Library/Audio/Plug-Ins/LV2/Noise Repellent.lv2" 2>/dev/null || true
+exit 0
