@@ -7,6 +7,9 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Enable Position Independent Code (-fPIC) globally for all static libs linked into .so plugins
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
 # Enable MSVC C11 Atomics support globally for Windows MSVC builds
 if(MSVC)
     add_compile_options($<$<COMPILE_LANGUAGE:C>:/std:c11>)
@@ -50,7 +53,7 @@ if(UNIX AND NOT APPLE)
         -static-libstdc++
     )
 
-    # --- Static FreeType for Linux (Fixes symbol lookup issues in DAWs like Ardour) ---
+    # --- Static FreeType for Linux ---
     set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
     set(FT_DISABLE_ZLIB ON CACHE BOOL "" FORCE)
     set(FT_DISABLE_PNG ON CACHE BOOL "" FORCE)
@@ -97,12 +100,13 @@ target_compile_definitions(NoiseRepellent PRIVATE
 # Global options for subprojects
 set(ENABLE_TESTS OFF CACHE BOOL "" FORCE)
 set(ENABLE_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(BUILD_TESTS OFF CACHE BOOL "" FORCE)
 
 # --- Static Universal FFTW3 for Linux and macOS ---
 if(UNIX)
     set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
-    set(ENABLE_FLOAT ON CACHE BOOL "" FORCE)     # Required for single-precision fftw3f
-    set(ENABLE_THREADS ON CACHE BOOL "" FORCE)   # Enables thread support
+    set(ENABLE_FLOAT ON CACHE BOOL "" FORCE)     # Single-precision fftw3f
+    set(ENABLE_THREADS ON CACHE BOOL "" FORCE)   # Thread support
 
     set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
 
@@ -116,7 +120,7 @@ if(UNIX)
     set(FFTW3F_LIB fftw3f CACHE STRING "Path to fftw3f library" FORCE)
     set(FFTW3_LIB fftw3f CACHE STRING "Path to fftw3 library" FORCE)
 
-    # Make fftw3.h available to subprojects (like libspecbleach)
+    # Make fftw3.h available to subprojects
     include_directories(
         ${fftw3_SOURCE_DIR}/api
         ${fftw3_BINARY_DIR}
@@ -153,20 +157,18 @@ target_include_directories(NoiseRepellent PRIVATE
     "${SPECBLEACH_SRC}/src"
 )
 
-# Fix libspecbleach AVX symbol issue on macOS x86_64 cross-compilation
-if(APPLE)
-    if("x86_64" IN_LIST CMAKE_OSX_ARCHITECTURES OR CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
-        target_sources(NoiseRepellent PRIVATE
-            "${SPECBLEACH_SRC}/src/shared/denoiser_logic/processing/nlm_filter_avx.c"
-        )
-        set_source_files_properties(
-            "${SPECBLEACH_SRC}/src/shared/denoiser_logic/processing/nlm_filter_avx.c"
-            PROPERTIES COMPILE_FLAGS "-mavx -mavx2"
-        )
-    endif()
+# Fix libspecbleach AVX symbol issue on x86_64 architecture (Linux & macOS)
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "(x86_64|amd64|AMD64)" OR "x86_64" IN_LIST CMAKE_OSX_ARCHITECTURES)
+    target_sources(NoiseRepellent PRIVATE
+        "${SPECBLEACH_SRC}/src/shared/denoiser_logic/processing/nlm_filter_avx.c"
+    )
+    set_source_files_properties(
+        "${SPECBLEACH_SRC}/src/shared/denoiser_logic/processing/nlm_filter_avx.c"
+        PROPERTIES COMPILE_FLAGS "-mavx -mavx2"
+    )
 endif()
 
-# Hide internal symbols to avoid host DAW symbol collisions
+# Hide internal static library symbols from DAWs
 set_target_properties(NoiseRepellent PROPERTIES
     C_VISIBILITY_PRESET hidden
     CXX_VISIBILITY_PRESET hidden
