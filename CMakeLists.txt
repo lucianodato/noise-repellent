@@ -7,6 +7,14 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Enable MSVC C11 Atomics support globally for Windows MSVC builds
+if(MSVC)
+    add_compile_options($<$<COMPILE_LANGUAGE:C>:/std:c11>)
+    add_compile_options($<$<COMPILE_LANGUAGE:CXX>:/std:c++17>)
+    # Required for MSVC to enable stdatomic.h support in MSVC C11 mode
+    add_compile_options(/experimental:c11atomics) 
+endif()
+
 include(FetchContent)
 
 # Fetch JUCE framework
@@ -59,6 +67,14 @@ target_compile_definitions(NoiseRepellent PRIVATE
     JUCE_VST3_CAN_REPLACE_VST2=0
 )
 
+if(UNIX AND NOT APPLE)
+    # Statically link GCC and C++ standard runtimes into the plugin library
+    target_link_options(NoiseRepellent PRIVATE 
+        -static-libgcc 
+        -static-libstdc++
+    )
+endif()
+
 # Add libspecbleach static library dependency via CMake
 set(ENABLE_TESTS OFF CACHE BOOL "" FORCE)
 set(ENABLE_EXAMPLES OFF CACHE BOOL "" FORCE)
@@ -74,22 +90,6 @@ else()
         GIT_TAG        v0.3.0
     )
     FetchContent_MakeAvailable(libspecbleach)
-endif()
-
-# Enable MSVC C11 Atomics support globally for Windows MSVC builds
-if(MSVC)
-    add_compile_options($<$<COMPILE_LANGUAGE:C>:/std:c11>)
-    add_compile_options($<$<COMPILE_LANGUAGE:CXX>:/std:c++17>)
-    # Required for MSVC to enable stdatomic.h support in MSVC C11 mode
-    add_compile_options(/experimental:c11atomics) 
-endif()
-
-if(UNIX AND NOT APPLE)
-    # Statically link GCC and C++ standard runtimes into the plugin library
-    target_link_options(NoiseRepellent PRIVATE 
-        -static-libgcc 
-        -static-libstdc++
-    )
 endif()
 
 # Link JUCE Modules and DSP Dependencies
