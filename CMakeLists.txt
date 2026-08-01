@@ -149,23 +149,25 @@ else()
         GIT_TAG        v0.3.0
     )
     FetchContent_MakeAvailable(libspecbleach)
-    FetchContent_GetProperties(libspecbleach SOURCE_DIR SPECBLEACH_SRC)
+    set(SPECBLEACH_SRC "${libspecbleach_SOURCE_DIR}")
 endif()
 
-# Explicitly add libspecbleach headers directory
+# Explicitly add libspecbleach headers directory to NoiseRepellent
 target_include_directories(NoiseRepellent PRIVATE
     "${SPECBLEACH_SRC}/src"
 )
 
-# Fix libspecbleach AVX symbol issue on x86_64 architecture (Linux & macOS)
-if(CMAKE_SYSTEM_PROCESSOR MATCHES "(x86_64|amd64|AMD64)" OR "x86_64" IN_LIST CMAKE_OSX_ARCHITECTURES)
-    target_sources(NoiseRepellent PRIVATE
-        "${SPECBLEACH_SRC}/src/shared/denoiser_logic/processing/nlm_filter_avx.c"
-    )
-    set_source_files_properties(
-        "${SPECBLEACH_SRC}/src/shared/denoiser_logic/processing/nlm_filter_avx.c"
-        PROPERTIES COMPILE_FLAGS "-mavx -mavx2"
-    )
+# Fix libspecbleach AVX missing symbol on x86_64 architecture by attaching nlm_filter_avx.c directly to target `libspecbleach`
+if(TARGET libspecbleach)
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "(x86_64|amd64|AMD64)" OR "x86_64" IN_LIST CMAKE_OSX_ARCHITECTURES)
+        target_sources(libspecbleach PRIVATE
+            "${SPECBLEACH_SRC}/src/shared/denoiser_logic/processing/nlm_filter_avx.c"
+        )
+        set_source_files_properties(
+            "${SPECBLEACH_SRC}/src/shared/denoiser_logic/processing/nlm_filter_avx.c"
+            PROPERTIES COMPILE_FLAGS "-mavx -mavx2"
+        )
+    endif()
 endif()
 
 # Hide internal static library symbols from DAWs
