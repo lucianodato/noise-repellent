@@ -17,22 +17,57 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Configure CMake
+      # 1. Configure and Build arm64 slice
+      - name: Configure CMake (arm64)
         run: |
-          cmake -B build \
+          cmake -B build-arm64 \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
+            -DCMAKE_OSX_ARCHITECTURES="arm64"
 
-      - name: Build Targets
+      - name: Build Target (arm64)
         run: |
-          cmake --build build --config Release -j4
+          cmake --build build-arm64 --config Release -j4
 
-      - name: Package Artifacts
+      # 2. Configure and Build x86_64 slice
+      - name: Configure CMake (x86_64)
+        run: |
+          cmake -B build-x86_64 \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_OSX_ARCHITECTURES="x86_64"
+
+      - name: Build Target (x86_64)
+        run: |
+          cmake --build build-x86_64 --config Release -j4
+
+      # 3. Create Staging Directory and Copy Base Bundles
+      - name: Package & Create Universal Fat Binaries
         run: |
           mkdir -p staging
-          cp -R build/NoiseRepellent_artefacts/Release/VST3/Noise\ Repellent.vst3 staging/
-          cp -R build/NoiseRepellent_artefacts/Release/AU/Noise\ Repellent.component staging/
-          cp -R build/NoiseRepellent_artefacts/Release/LV2/Noise\ Repellent.lv2 staging/ || true
+          
+          # Copy base bundles from arm64 build
+          cp -R build-arm64/NoiseRepellent_artefacts/Release/VST3/Noise\ Repellent.vst3 staging/
+          cp -R build-arm64/NoiseRepellent_artefacts/Release/AU/Noise\ Repellent.component staging/
+          cp -R build-arm64/NoiseRepellent_artefacts/Release/LV2/Noise\ Repellent.lv2 staging/ || true
+
+          # Fuse arm64 and x86_64 binaries using lipo
+          lipo -create \
+            "build-arm64/NoiseRepellent_artefacts/Release/VST3/Noise Repellent.vst3/Contents/MacOS/Noise Repellent" \
+            "build-x86_64/NoiseRepellent_artefacts/Release/VST3/Noise Repellent.vst3/Contents/MacOS/Noise Repellent" \
+            -output "staging/Noise Repellent.vst3/Contents/MacOS/Noise Repellent"
+
+          lipo -create \
+            "build-arm64/NoiseRepellent_artefacts/Release/AU/Noise Repellent.component/Contents/MacOS/Noise Repellent" \
+            "build-x86_64/NoiseRepellent_artefacts/Release/AU/Noise Repellent.component/Contents/MacOS/Noise Repellent" \
+            -output "staging/Noise Repellent.component/Contents/MacOS/Noise Repellent"
+
+          if [ -d "build-arm64/NoiseRepellent_artefacts/Release/LV2/Noise Repellent.lv2" ]; then
+            lipo -create \
+              "build-arm64/NoiseRepellent_artefacts/Release/LV2/Noise Repellent.lv2/libNoise Repellent.dylib" \
+              "build-x86_64/NoiseRepellent_artefacts/Release/LV2/Noise Repellent.lv2/libNoise Repellent.dylib" \
+              -output "staging/Noise Repellent.lv2/libNoise Repellent.dylib" || true
+          fi
+
+          # Compress final artifacts
           cd staging && zip -r ../noise-repellent-macOS-universal.zip .
 
       - name: Ad-hoc Code Sign Plugins
@@ -51,6 +86,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         with:
           files: noise-repellent-macOS-universal.zip
+
 
 
   build-linux:
