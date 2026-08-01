@@ -17,17 +17,11 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Install FFTW3 Statically via vcpkg
-        run: |
-          $VCPKG_INSTALLATION_ROOT/vcpkg install fftw3:x64-osx-universal
-
       - name: Configure CMake
         run: |
           cmake -B build \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" \
-            -DVCPKG_TARGET_TRIPLET=x64-osx-universal \
-            "-DCMAKE_TOOLCHAIN_FILE=$VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
+            -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64"
 
       - name: Build Targets
         run: |
@@ -41,22 +35,23 @@ jobs:
           cp -R build/NoiseRepellent_artefacts/Release/LV2/Noise\ Repellent.lv2 staging/ || true
           cd staging && zip -r ../noise-repellent-macOS-universal.zip .
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: noise-repellent-macOS-universal
-          path: staging/
-
       - name: Ad-hoc Code Sign Plugins
         run: |
           codesign --force --deep --sign - staging/Noise\ Repellent.vst3
           codesign --force --deep --sign - staging/Noise\ Repellent.component
           codesign --force --deep --sign - staging/Noise\ Repellent.lv2 || true
 
+      - uses: actions/upload-artifact@v4
+        with:
+          name: noise-repellent-macOS-universal
+          path: staging/
+
       - name: Upload GitHub Release
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
           files: noise-repellent-macOS-universal.zip
+
 
   build-linux:
     name: Linux (x86_64)

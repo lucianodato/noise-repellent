@@ -84,6 +84,21 @@ target_compile_definitions(NoiseRepellent PRIVATE
 set(ENABLE_TESTS OFF CACHE BOOL "" FORCE)
 set(ENABLE_EXAMPLES OFF CACHE BOOL "" FORCE)
 
+# --- Static Universal FFTW3 ---
+if(APPLE)
+    include(FetchContent)
+    set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+    set(ENABLE_FLOAT ON CACHE BOOL "" FORCE)     # Generates fftw3f required for audio DSP
+    set(ENABLE_THREADS ON CACHE BOOL "" FORCE)   # Multithreading support
+
+    FetchContent_Declare(
+        fftw3
+        GIT_REPOSITORY https://github.com/FFTW/fftw3.git
+        GIT_TAG        v3.3.10
+    )
+    FetchContent_MakeAvailable(fftw3)
+endif()
+
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../libspecbleach/CMakeLists.txt")
     add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/../libspecbleach" "${CMAKE_CURRENT_BINARY_DIR}/libspecbleach_build")
 elseif(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/subprojects/libspecbleach/CMakeLists.txt")
