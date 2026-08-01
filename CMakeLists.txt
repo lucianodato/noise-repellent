@@ -1,8 +1,19 @@
 cmake_minimum_required(VERSION 3.22)
 project(NoiseRepellent VERSION 3.0.0 LANGUAGES C CXX)
 
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_C_STANDARD_REQUIRED ON)
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# Enable MSVC C11 Atomics support globally for Windows MSVC builds
+if(MSVC)
+    add_compile_options($<$<COMPILE_LANGUAGE:C>:/std:c11>)
+    add_compile_options($<$<COMPILE_LANGUAGE:CXX>:/std:c++17>)
+    # Required for MSVC to enable stdatomic.h support in MSVC C11 mode
+    add_compile_options(/experimental:c11atomics) 
+endif()
 
 include(FetchContent)
 
