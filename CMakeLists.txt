@@ -91,12 +91,17 @@ if(APPLE)
     set(ENABLE_FLOAT ON CACHE BOOL "" FORCE)     # Required for single-precision fftw3f
     set(ENABLE_THREADS ON CACHE BOOL "" FORCE)   # Enables thread support
 
+    # Workaround for FFTW 3.3.10 legacy cmake_minimum_required version
+    set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
+
     FetchContent_Declare(
         fftw3
         URL https://www.fftw.org/fftw-3.3.10.tar.gz
+        DOWNLOAD_EXTRACT_TIMESTAMP TRUE
     )
     FetchContent_MakeAvailable(fftw3)
 endif()
+
 
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../libspecbleach/CMakeLists.txt")
     add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/../libspecbleach" "${CMAKE_CURRENT_BINARY_DIR}/libspecbleach_build")
