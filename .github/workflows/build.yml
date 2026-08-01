@@ -17,7 +17,6 @@ jobs:
         with:
           submodules: recursive
 
-      # 1. Configure and Build arm64 slice
       - name: Configure CMake (arm64)
         run: |
           cmake -B build-arm64 \
@@ -28,18 +27,19 @@ jobs:
         run: |
           cmake --build build-arm64 --config Release -j4
 
-      # 2. Configure and Build x86_64 slice
       - name: Configure CMake (x86_64)
         run: |
           cmake -B build-x86_64 \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_OSX_ARCHITECTURES="x86_64"
+            -DCMAKE_OSX_ARCHITECTURES="x86_64" \
+            -DCMAKE_C_FLAGS="-mavx -mavx2" \
+            -DCMAKE_CXX_FLAGS="-mavx -mavx2"
+
 
       - name: Build Target (x86_64)
         run: |
           cmake --build build-x86_64 --config Release -j4
 
-      # 3. Create Staging Directory and Copy Base Bundles
       - name: Package & Create Universal Fat Binaries
         run: |
           mkdir -p staging
