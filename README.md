@@ -42,26 +42,37 @@ A multi-format audio plugin (VST3, AU, LV2) for real-time spectral noise reducti
 
 ## Installation
 
-### From Binaries
-Binaries for Linux, macOS, and Windows are provided on the [GitHub Releases](https://github.com/lucianodato/noise-repellent/releases) page. Extract the plugin bundle to your DAW plugin directory:
+Pre-built installers and packages for Linux, macOS, and Windows are available on the [GitHub Releases](https://github.com/lucianodato/noise-repellent/releases) page.
 
-- **VST3**:
-  - **Linux**: `~/.vst3/` or `/usr/lib/vst3/`
-  - **macOS**: `~/Library/Audio/Plug-Ins/VST3/` or `/Library/Audio/Plug-Ins/VST3/`
-  - **Windows**: `%COMMONPROGRAMFILES%\VST3\`
-- **AU (macOS)**:
-  - `~/Library/Audio/Plug-Ins/Components/` or `/Library/Audio/Plug-Ins/Components/`
-- **LV2**:
-  - **Linux**: `~/.lv2/` or `/usr/lib/lv2/`
-  - **macOS**: `~/Library/Audio/Plug-Ins/LV2/` or `/Library/Audio/Plug-Ins/LV2/`
-  - **Windows**: `%COMMONPROGRAMFILES%\LV2\`
+### 🪟 Windows
+1. Download `NoiseRepellent-Win64-Installer.exe` from the latest release.
+2. Run the installer to automatically place the VST3 and LV2 formats into your standard System plugin directories (`C:\Program Files\Common Files\`).
 
-> [!IMPORTANT]
-> **macOS Users**: Due to macOS Gatekeeper security, you might need to remove the quarantine attribute after extracting binary releases manually:
-> ```bash
-> xattr -rd com.apple.quarantine ~/Library/Audio/Plug-Ins/VST3/Noise\ Repellent.vst3
-> xattr -rd com.apple.quarantine ~/Library/Audio/Plug-Ins/Components/Noise\ Repellent.component
-> ```
+---
+
+### 🍎 macOS (Universal: Apple Silicon & Intel)
+1. Download `NoiseRepellent-macOS-Universal.pkg`.
+2. **Right-Click** (or **Ctrl + Click**) the `.pkg` file and choose **Open** from the menu to bypass the initial Gatekeeper prompt.
+3. Follow the installation wizard.
+
+> [!NOTE]
+> The macOS installer automatically strips Gatekeeper quarantine flags during installation, so your installed VST3, AU, and LV2 formats will load immediately inside your DAW without requiring any Terminal commands!
+
+---
+
+### 🐧 Linux (x86_64)
+
+#### Debian / Ubuntu / Linux Mint / Pop!_OS
+1. Download `noise-repellent_3.0.0_amd64.deb`.
+2. Install via software center or terminal:
+   ```bash
+   sudo apt install ./noise-repellent_3.0.0_amd64.deb
+
+#### Other Linux Distributions
+1. Download `noise-repellent-linux-x86_64.tar.gz`
+2. tar -xvf noise-repellent-linux-x86_64.tar.gz
+3. cd noise-repellent-linux-x86_64
+4. ./install.sh
 
 ### From Source
 
