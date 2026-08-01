@@ -48,7 +48,7 @@ jobs:
           cp -R build-arm64/NoiseRepellent_artefacts/Release/AU/Noise\ Repellent.component staging/
           cp -R build-arm64/NoiseRepellent_artefacts/Release/LV2/Noise\ Repellent.lv2 staging/ || true
 
-          # Fuse arm64 and x86_64 binaries
+          # Fuse arm64 and x86_64 VST3 & AU binaries
           lipo -create \
             "build-arm64/NoiseRepellent_artefacts/Release/VST3/Noise Repellent.vst3/Contents/MacOS/Noise Repellent" \
             "build-x86_64/NoiseRepellent_artefacts/Release/VST3/Noise Repellent.vst3/Contents/MacOS/Noise Repellent" \
@@ -59,11 +59,15 @@ jobs:
             "build-x86_64/NoiseRepellent_artefacts/Release/AU/Noise Repellent.component/Contents/MacOS/Noise Repellent" \
             -output "staging/Noise Repellent.component/Contents/MacOS/Noise Repellent"
 
-          if [ -d "build-arm64/NoiseRepellent_artefacts/Release/LV2/Noise Repellent.lv2" ]; then
-            lipo -create \
-              "build-arm64/NoiseRepellent_artefacts/Release/LV2/Noise Repellent.lv2/libNoise Repellent.dylib" \
-              "build-x86_64/NoiseRepellent_artefacts/Release/LV2/Noise Repellent.lv2/libNoise Repellent.dylib" \
-              -output "staging/Noise Repellent.lv2/libNoise Repellent.dylib" || true
+          # Safely fuse LV2 dylib if LV2 exists
+          if [ -d "staging/Noise Repellent.lv2" ]; then
+            ARM_DYLIB=$(find build-arm64/NoiseRepellent_artefacts/Release/LV2 -name "*.dylib" | head -n 1)
+            X86_DYLIB=$(find build-x86_64/NoiseRepellent_artefacts/Release/LV2 -name "*.dylib" | head -n 1)
+            TARGET_DYLIB=$(find "staging/Noise Repellent.lv2" -name "*.dylib" | head -n 1)
+
+            if [ -n "$ARM_DYLIB" ] && [ -n "$X86_DYLIB" ]; then
+              lipo -create "$ARM_DYLIB" "$X86_DYLIB" -output "$TARGET_DYLIB"
+            fi
           fi
 
       - name: Ad-hoc Code Sign Plugins
@@ -80,14 +84,18 @@ jobs:
 
           cp -R "staging/Noise Repellent.component" pkg_root/Library/Audio/Plug-Ins/Components/
           cp -R "staging/Noise Repellent.vst3" pkg_root/Library/Audio/Plug-Ins/VST3/
-          cp -R "staging/Noise Repellent.lv2" pkg_root/Library/Audio/Plug-Ins/LV2/
+          if [ -d "staging/Noise Repellent.lv2" ]; then
+            cp -R "staging/Noise Repellent.lv2" pkg_root/Library/Audio/Plug-Ins/LV2/
+          fi
 
-          pkgbuild --root pkg_root \
-                   --scripts Installers/macos/scripts \
-                   --identifier com.lucianodato.NoiseRepellent \
-                   --version 3.0.0 \
-                   --install-location / \
-                   NoiseRepellent-macOS-Universal.pkg
+          # Construct pkgbuild command safely checking if scripts directory exists
+          PKGBUILD_CMD="pkgbuild --root pkg_root --identifier com.lucianodato.NoiseRepellent --version 3.0.0 --install-location /"
+          
+          if [ -d "installer/macos/scripts" ]; then
+            PKGBUILD_CMD="$PKGBUILD_CMD --scripts installer/macos/scripts"
+          fi
+
+          $PKGBUILD_CMD NoiseRepellent-macOS-Universal.pkg
 
       - uses: actions/upload-artifact@v4
         with:
