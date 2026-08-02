@@ -13,18 +13,6 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 # Statically link MSVC C/C++ Runtime (/MT) on Windows
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
-if(UNIX AND NOT APPLE)
-    # Statically link GCC runtimes AND hide all symbols inside static archives (-Wl,--exclude-libs,ALL)
-    # This prevents host DAWs (like Ardour) from experiencing FreeType/FFTW dynamic linker symbol collisions
-    add_link_options(-static-libgcc -static-libstdc++ -Wl,--exclude-libs,ALL)
-endif()
-
-if(MSVC)
-    add_compile_options($<$<COMPILE_LANGUAGE:C>:/std:c11>)
-    add_compile_options($<$<COMPILE_LANGUAGE:CXX>:/std:c++17>)
-    add_compile_options(/experimental:c11atomics) 
-endif()
-
 # ==============================================================================
 # Build Options (Default OFF for self-contained, portable release binaries)
 # Downstream distro packagers can pass -DUSE_SYSTEM_*=ON to use system libraries
@@ -32,6 +20,21 @@ endif()
 option(USE_SYSTEM_FFTW       "Use system-installed FFTW3 library"       OFF)
 option(USE_SYSTEM_FREETYPE   "Use system-installed FreeType library"   OFF)
 option(USE_SYSTEM_SPECBLEACH "Use system-installed libspecbleach"      OFF)
+
+if(UNIX AND NOT APPLE)
+    # Statically link GCC runtimes AND hide all symbols inside static archives (-Wl,--exclude-libs,ALL)
+    # This prevents host DAWs (like Ardour) from experiencing FreeType/FFTW dynamic linker symbol collisions
+    # Only apply for portable builds (when NOT using system dependencies)
+    if(NOT USE_SYSTEM_FFTW AND NOT USE_SYSTEM_FREETYPE AND NOT USE_SYSTEM_SPECBLEACH)
+        add_link_options(-static-libgcc -static-libstdc++ -Wl,--exclude-libs,ALL)
+    endif()
+endif()
+
+if(MSVC)
+    add_compile_options($<$<COMPILE_LANGUAGE:C>:/std:c11>)
+    add_compile_options($<$<COMPILE_LANGUAGE:CXX>:/std:c++17>)
+    add_compile_options(/experimental:c11atomics)
+endif()
 
 include(FetchContent)
 
@@ -110,11 +113,18 @@ FetchContent_MakeAvailable(JUCE)
 # ==============================================================================
 # 3. Bind Static FreeType to JUCE
 # ==============================================================================
-if(UNIX AND NOT APPLE AND NOT USE_SYSTEM_FREETYPE)
-    # The interceptor gave JUCE an empty PkgConfig target. 
-    # Now we inject our static freetype build directly into JUCE's graphics module.
-    if(TARGET juce_graphics)
-        target_link_libraries(juce_graphics INTERFACE freetype)
+if(UNIX AND NOT APPLE)
+    if(USE_SYSTEM_FREETYPE)
+        # Clear any previously-cached fake pkg-config interceptor to allow real pkg-config discovery
+        unset(PKG_CONFIG_EXECUTABLE CACHE)
+        # Discover system FreeType package
+        find_package(Freetype REQUIRED)
+    elseif(NOT USE_SYSTEM_FREETYPE)
+        # The interceptor gave JUCE an empty PkgConfig target.
+        # Now we inject our static freetype build directly into JUCE's graphics module.
+        if(TARGET juce_graphics)
+            target_link_libraries(juce_graphics INTERFACE freetype)
+        endif()
     endif()
 endif()
 
@@ -170,6 +180,12 @@ set(BUILD_TESTS OFF CACHE BOOL "" FORCE)
 # ==============================================================================
 # 5. FFTW3 Dependency
 # ==============================================================================
+# Disable AVX on Apple platforms BEFORE fetching/configuring FFTW3
+if(APPLE)
+    set(ENABLE_AVX OFF CACHE BOOL "" FORCE)
+    set(USE_AVX OFF CACHE BOOL "" FORCE)
+endif()
+
 if(USE_SYSTEM_FFTW)
     message(STATUS "Using system-installed FFTW3 library")
     find_package(PkgConfig REQUIRED)
@@ -198,11 +214,6 @@ else()
         ${fftw3_BINARY_DIR}
     )
     set(FFTW_TARGET fftw3f)
-endif()
-
-if(APPLE)
-    set(ENABLE_AVX OFF CACHE BOOL "" FORCE)
-    set(USE_AVX OFF CACHE BOOL "" FORCE)
 endif()
 
 # ==============================================================================
@@ -242,7 +253,12 @@ else()
         if(EXISTS "${AVX_C_FILE}")
             if(CMAKE_SYSTEM_PROCESSOR MATCHES "(x86_64|amd64|AMD64|x86-64)" OR "x86_64" IN_LIST CMAKE_OSX_ARCHITECTURES)
                 target_sources(libspecbleach PRIVATE "${AVX_C_FILE}")
-                set_source_files_properties("${AVX_C_FILE}" PROPERTIES COMPILE_FLAGS "-mavx -mavx2")
+                # Apply compiler-specific AVX flags
+                if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+                    set_source_files_properties("${AVX_C_FILE}" PROPERTIES COMPILE_FLAGS "-mavx -mavx2")
+                elseif(MSVC)
+                    set_source_files_properties("${AVX_C_FILE}" PROPERTIES COMPILE_FLAGS "/arch:AVX2")
+                endif()
             endif()
         endif()
     endif()
