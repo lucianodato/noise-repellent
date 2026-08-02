@@ -90,7 +90,7 @@ By default, CMake fetches and statically embeds dependencies (`FFTW3`, `FreeType
 
 ```bash
 # Clone the repository including submodules
-git clone --recurse-submodules [https://github.com/lucianodato/noise-repellent.git](https://github.com/lucianodato/noise-repellent.git)
+git clone --recurse-submodules https://github.com/lucianodato/noise-repellent.git
 cd noise-repellent
 
 # Configure build with static bundled dependencies
@@ -119,9 +119,8 @@ cmake --build build --config Release --parallel
 
 The compiled plugin targets (VST3, AU, LV2) will be generated in `build/NoiseRepellent_artefacts/Release/`.
 
-
-[!IMPORTANT]
-Critical Performance Note: Noise Repellent relies heavily on real-time FFT processing and AVX vectorization routines. Always configure CMake with -DCMAKE_BUILD_TYPE=Release (-O3) to prevent CPU spikes and audio buffer xruns in your DAW.
+> [!IMPORTANT]
+> Noise Repellent relies heavily on real-time FFT processing and AVX vectorization routines. Always configure CMake with `-DCMAKE_BUILD_TYPE=Release` to prevent CPU spikes and audio buffer xruns in your DAW.
 
 ## Usage
 

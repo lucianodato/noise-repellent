@@ -34,7 +34,7 @@ cmake --build build --config Release -j4
 - **FFT Visualization**: Input and output channels feed into `juce::dsp::FFT` order 12 (4096 points) and push magnitude spectra to an SPSC lock-free `juce::AbstractFifo` for smooth rendering in `SpectralVisualizer`.
 - **Latency**: Plugin latency is updated dynamically based on algorithm mode (1D STFT vs 2D NLM) via `setLatencySamples()`.
 
-# Developer & AI Agent Guidelines for NoiseRepellent
+## Developer & AI Agent Guidelines for NoiseRepellent
 
 This document defines mandatory rules for maintaining, building, and releasing NoiseRepellent. Any AI agent or developer making changes to `CMakeLists.txt`, build workflows, or project metadata MUST follow these constraints.
 
@@ -45,7 +45,7 @@ This document defines mandatory rules for maintaining, building, and releasing N
 * **Single Source of Truth**: `CMakeLists.txt` defines the project version via `project(NoiseRepellent VERSION X.Y.Z LANGUAGES C CXX)`.
 * **Release Process**:
   1. Bump `VERSION` in `CMakeLists.txt` (e.g., `0.3.1`).
-  2. Commit and push the version bump to `main`.
+  2. Commit and push the version bump to `master`.
   3. Create and push a Git tag formatted as `vX.Y.Z` (e.g., `v0.3.1`).
 * **CI Version Resolution**: The GitHub Actions workflow dynamically extracts the version from `git describe` and populates `PLUGIN_VERSION`. Do not hardcode version fallback strings inside `.github/workflows/`.
 

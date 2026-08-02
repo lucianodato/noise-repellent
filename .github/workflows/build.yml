@@ -23,8 +23,11 @@ jobs:
           if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
             VERSION="${GITHUB_REF_NAME#v}"
           else
-            RAW_VER=$(git describe --tags --always | sed 's/^v//')
-            VERSION=$(echo "$RAW_VER" | awk -F'-' '{print $1}')
+            if RAW_VER=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//'); then
+              VERSION="$RAW_VER"
+            else
+              VERSION=$(grep -oP '(?<=^project\(NoiseRepellent VERSION )[0-9]+\.[0-9]+\.[0-9]+' CMakeLists.txt)
+            fi
           fi
           echo "PLUGIN_VERSION=${VERSION}" >> $GITHUB_ENV
           echo "Building version: ${VERSION}"
@@ -91,6 +94,11 @@ jobs:
           IFS=$'\n'
           BINARIES=$(find staging -type f \( -name "Noise Repellent" -o -name "*.dylib" \))
 
+          if [ -z "$BINARIES" ]; then
+            echo "❌ ERROR: No plugin binaries found in staging directory!"
+            exit 1
+          fi
+
           HAS_ERRORS=0
 
           for BINARY in $BINARIES; do
@@ -106,9 +114,13 @@ jobs:
             fi
             
             # Check architectures (arm64 + x86_64)
-            LIPO_INFO=$(lipo -info "$BINARY")
+            set +e
+            LIPO_INFO=$(lipo -info "$BINARY" 2>&1)
+            LIPO_STATUS=$?
+            set -e
+
             ARCH_FAILED=0
-            if [[ "$LIPO_INFO" != *"x86_64"* ]] || [[ "$LIPO_INFO" != *"arm64"* ]]; then
+            if [ $LIPO_STATUS -ne 0 ] || [[ "$LIPO_INFO" != *"x86_64"* ]] || [[ "$LIPO_INFO" != *"arm64"* ]]; then
               ARCH_FAILED=1
             fi
 
@@ -175,8 +187,11 @@ jobs:
           if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
             VERSION="${GITHUB_REF_NAME#v}"
           else
-            RAW_VER=$(git describe --tags --always | sed 's/^v//')
-            VERSION=$(echo "$RAW_VER" | awk -F'-' '{print $1}')
+            if RAW_VER=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//'); then
+              VERSION="$RAW_VER"
+            else
+              VERSION=$(grep -oP '(?<=^project\(NoiseRepellent VERSION )[0-9]+\.[0-9]+\.[0-9]+' CMakeLists.txt)
+            fi
           fi
           echo "PLUGIN_VERSION=${VERSION}" >> $GITHUB_ENV
           echo "Building version: ${VERSION}"
@@ -227,8 +242,8 @@ jobs:
             UNEXPECTED_LIBS=$(ldd "$PLUGIN" 2>/dev/null | awk '/=>/ {print $1}' | grep -vE "$ALLOWED_LIBS")
 
             # 2. Check for exported or undefined FreeType/FFTW symbols (DAW collision protection)
-            DEFINED_LEAKS=$(nm -D --defined-only "$PLUGIN" 2>/dev/null | grep -iE " (FT_|fftw_)")
-            UNDEFINED_LEAKS=$(nm -D --undefined-only "$PLUGIN" 2>/dev/null | grep -iE " (FT_|fftw_)")
+            DEFINED_LEAKS=$(nm -D --defined-only "$PLUGIN" 2>/dev/null | grep -iE " (FT_|fftwf?_)")
+            UNDEFINED_LEAKS=$(nm -D --undefined-only "$PLUGIN" 2>/dev/null | grep -iE " (FT_|fftwf?_)")
 
             if [ -n "$UNEXPECTED_LIBS" ] || [ -n "$DEFINED_LEAKS" ] || [ -n "$UNDEFINED_LEAKS" ]; then
               echo "❌ [FAIL] Verification failed for $NAME"
@@ -341,8 +356,11 @@ jobs:
           if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
             VERSION="${GITHUB_REF_NAME#v}"
           else
-            RAW_VER=$(git describe --tags --always | sed 's/^v//')
-            VERSION=$(echo "$RAW_VER" | awk -F'-' '{print $1}')
+            if RAW_VER=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//'); then
+              VERSION="$RAW_VER"
+            else
+              VERSION=$(grep -oP '(?<=^project\(NoiseRepellent VERSION )[0-9]+\.[0-9]+\.[0-9]+' CMakeLists.txt)
+            fi
           fi
           echo "PLUGIN_VERSION=${VERSION}" >> $GITHUB_ENV
           echo "Building version: ${VERSION}"
@@ -376,11 +394,17 @@ jobs:
 
           HAS_ERRORS=0
           # Standard Windows OS libraries (Kernel, User, Direct2D/3D, Desktop Window Manager, WinMM)
-          ALLOWED_DLLS="KERNEL32\.dll|USER32\.dll|GDI32\.dll|SHELL32\.dll|ADVAPI32\.dll|OLE32\.dll|OLEAUT32\.dll|SETUPAPI\.dll|COMDLG32\.dll|WS2_32\.dll|IMM32\.dll|VERSION\.dll|WINMM\.dll|UXTHEME\.dll|SHLWAPI\.dll|d2d1\.dll|dxgi\.dll|d3d11\.dll|dcomp\.dll|dwmapi\.dll|VCRUNTIME140.*\.dll|MSVCP140.*\.dll|ucrtbase\.dll|api-ms-win-.*\.dll|MFPlat\.dll"
-
+          ALLOWED_DLLS="KERNEL32\.dll|USER32\.dll|GDI32\.dll|SHELL32\.dll|ADVAPI32\.dll|OLE32\.dll|OLEAUT32\.dll|SETUPAPI\.dll|COMDLG32\.dll|WS2_32\.dll|IMM32\.dll|VERSION\.dll|WINMM\.dll|UXTHEME\.dll|SHLWAPI\.dll|d2d1\.dll|dxgi\.dll|d3d11\.dll|dcomp\.dll|dwmapi\.dll|VCRUNTIME140.*\.dll|MSVCP140.*\.dll|ucrtbase\.dll|api-ms-win-.*\.dll|MFPlat\.dll|bcrypt\.dll|RPCRT4\.dll|PROPSYS\.dll"
+          
           for BINARY in $BINARIES; do
             NAME=$(basename "$BINARY")
-            DEPENDENTS=$(objdump -p "$BINARY" 2>/dev/null | grep -i "DLL Name:" | awk '{print $3}' || true)
+            DEPENDENTS=$(objdump -p "$BINARY" 2>/dev/null | grep -i "DLL Name:" | awk '{print $3}')
+
+            if [ -z "$DEPENDENTS" ]; then
+              echo "❌ ERROR: Failed to extract DLL dependencies from $NAME (objdump failed or no imports found)"
+              exit 1
+            fi
+
             UNEXPECTED_DLLS=$(echo "$DEPENDENTS" | grep -ivE "$ALLOWED_DLLS" || true)
 
             if [ -n "$UNEXPECTED_DLLS" ]; then
