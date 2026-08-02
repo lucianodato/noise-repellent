@@ -251,7 +251,7 @@ target_link_libraries(NoiseRepellent PRIVATE
     juce::juce_audio_processors
     juce::juce_dsp
     juce::juce_gui_extra
-    juce::juce_basics
+    juce::juce_gui_basics
     juce::juce_graphics
     juce::juce_core
 )
