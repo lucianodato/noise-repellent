@@ -29,10 +29,11 @@ include(FetchContent)
 
 # --- Static FreeType & Disable Fontconfig for Linux (MUST BE BEFORE JUCE) ---
 if(UNIX AND NOT APPLE)
-    # Disable JUCE Fontconfig search to eliminate libfontconfig.so and transitive system libfreetype leaks
+    # Disable JUCE Fontconfig search to eliminate libfontconfig.so
     add_compile_definitions(JUCE_USE_FONTCONFIG=0)
     set(juce_fontconfig_FOUND FALSE CACHE BOOL "" FORCE)
 
+    # Disable external compression/font features in static FreeType
     set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
     set(FT_DISABLE_ZLIB ON CACHE BOOL "" FORCE)
     set(FT_DISABLE_PNG ON CACHE BOOL "" FORCE)
@@ -45,14 +46,6 @@ if(UNIX AND NOT APPLE)
         GIT_TAG        VER-2-12-1
     )
     FetchContent_MakeAvailable(freetype)
-
-    # Force JUCE to link our static FreeType library target
-    set(juce_freetype_FOUND TRUE CACHE BOOL "" FORCE)
-    set(FREETYPE_FOUND TRUE CACHE BOOL "" FORCE)
-
-    if(NOT TARGET PkgConfig::juce_freetype)
-        add_library(PkgConfig::juce_freetype ALIAS freetype)
-    endif()
 endif()
 
 # Fetch JUCE framework
@@ -63,6 +56,22 @@ FetchContent_Declare(
     GIT_TAG        8.0.4
 )
 FetchContent_MakeAvailable(JUCE)
+
+# --- Override JUCE's FreeType target to force our static library ---
+if(UNIX AND NOT APPLE)
+    if(TARGET PkgConfig::juce_freetype)
+        set_target_properties(PkgConfig::juce_freetype PROPERTIES
+            INTERFACE_LINK_LIBRARIES "freetype"
+            INTERFACE_INCLUDE_DIRECTORIES "$<TARGET_PROPERTY:freetype,INTERFACE_INCLUDE_DIRECTORIES>"
+        )
+    else()
+        add_library(PkgConfig::juce_freetype INTERFACE IMPORTED GLOBAL)
+        set_target_properties(PkgConfig::juce_freetype PROPERTIES
+            INTERFACE_LINK_LIBRARIES "freetype"
+            INTERFACE_INCLUDE_DIRECTORIES "$<TARGET_PROPERTY:freetype,INTERFACE_INCLUDE_DIRECTORIES>"
+        )
+    endif()
+endif()
 
 # Add JUCE Audio Plugin target
 juce_add_plugin(NoiseRepellent
