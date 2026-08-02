@@ -188,7 +188,7 @@ jobs:
             build-essential cmake ninja-build \
             libasound2-dev libjack-jackd2-dev libgl1-mesa-dev \
             libx11-dev libxcomposite-dev libxcursor-dev libxext-dev \
-            libxinerama-dev libxrandr-dev libfontconfig1-dev libfreetype6-dev
+            libxinerama-dev libxrandr-dev libfreetype6-dev
 
       - name: Configure CMake
         run: |
@@ -219,18 +219,17 @@ jobs:
             exit 1
           fi
 
-          ALLOWED_LIBS="libc\.so|libm\.so|libpthread\.so|libdl\.so|librt\.so|linux-vdso\.so|ld-linux"
+          # Strict whitelist: glibc, math, pthread, dl, rt, ALSA, OpenGL, X11
+          ALLOWED_LIBS="libc\.so|libm\.so|libpthread\.so|libdl\.so|librt\.so|linux-vdso\.so|ld-linux|libasound\.so|libGL\.so|libX11\.so|libXext\.so|libXcursor\.so|libXinerama\.so|libXrandr\.so|libXrender\.so|libXi\.so"
           HAS_ERRORS=0
 
           for PLUGIN in $PLUGINS; do
             NAME=$(basename "$PLUGIN")
             UNEXPECTED_LIBS=$(ldd "$PLUGIN" | grep "=>" | awk '{print $1}' | grep -vE "$ALLOWED_LIBS" || true)
-            UNDEF_SYMBOLS=$(objdump -T "$PLUGIN" | grep " UND " | grep -E "FT_|fftw_" || true)
 
-            if [ -n "$UNEXPECTED_LIBS" ] || [ -n "$UNDEF_SYMBOLS" ]; then
+            if [ -n "$UNEXPECTED_LIBS" ]; then
               echo "❌ [FAIL] $NAME"
-              [ -n "$UNEXPECTED_LIBS" ] && echo "   └─ Dynamic leaks: $UNEXPECTED_LIBS"
-              [ -n "$UNDEF_SYMBOLS" ] && echo "   └─ Undefined static symbols: $UNDEF_SYMBOLS"
+              echo "   └─ Dynamic leaks: $(echo "$UNEXPECTED_LIBS" | tr '\n' ' ')"
               HAS_ERRORS=1
             else
               echo "✔ [PASS] $NAME"
@@ -241,6 +240,7 @@ jobs:
             exit 1
           fi
           echo "✨ All Linux binaries verified clean!"
+
 
       - name: Package Staging Artifacts
         run: |

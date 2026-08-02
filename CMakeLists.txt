@@ -7,15 +7,15 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Enable Position Independent Code (-fPIC) globally for static libs linked into shared object plugins
+# Enable Position Independent Code (-fPIC) globally for static libs
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 # Statically link MSVC C/C++ Runtime (/MT) on Windows
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 if(UNIX AND NOT APPLE)
-    # Statically link GCC and C++ standard runtimes for ALL CMake targets
-    add_link_options(-static-libgcc -static-libstdc++)
+    # Statically link GCC/C++ runtimes and hide archive symbols to prevent DAW collisions
+    add_link_options(-static-libgcc -static-libstdc++ -Wl,--exclude-libs,ALL)
 endif()
 
 if(MSVC)
@@ -26,12 +26,13 @@ endif()
 
 include(FetchContent)
 
-# --- Static FreeType for Linux (MUST BE DECLARED BEFORE JUCE) ---
+# --- 1. Static FreeType & Disable Fontconfig (Linux) ---
 if(UNIX AND NOT APPLE)
-    # Disable JUCE Fontconfig search in C++ preprocessor
+    # Disable JUCE Fontconfig search completely
+    set(JUCE_USE_FONTCONFIG OFF CACHE BOOL "" FORCE)
     add_compile_definitions(JUCE_USE_FONTCONFIG=0)
 
-    # Build static FreeType without external compression/font dependencies
+    # Disable external compression/font features in static FreeType
     set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
     set(FT_DISABLE_ZLIB ON CACHE BOOL "" FORCE)
     set(FT_DISABLE_PNG ON CACHE BOOL "" FORCE)
@@ -44,15 +45,21 @@ if(UNIX AND NOT APPLE)
         GIT_TAG        VER-2-12-1
     )
     FetchContent_MakeAvailable(freetype)
+
+    # Supply static FreeType paths to CMake BEFORE JUCE searches system paths
+    set(FREETYPE_FOUND TRUE CACHE BOOL "" FORCE)
+    set(Freetype_FOUND TRUE CACHE BOOL "" FORCE)
+    set(FREETYPE_LIBRARIES freetype CACHE STRING "" FORCE)
+    set(FREETYPE_INCLUDE_DIRS 
+        "${freetype_SOURCE_DIR}/include"
+        "${freetype_BINARY_DIR}/include"
+        CACHE STRING "" FORCE
+    )
+    set(FREETYPE_INCLUDE_DIR_ft2build "${freetype_SOURCE_DIR}/include" CACHE PATH "" FORCE)
+    set(FREETYPE_INCLUDE_DIR_freetype2 "${freetype_SOURCE_DIR}/include" CACHE PATH "" FORCE)
 endif()
 
-# --- Isolate PKG_CONFIG during JUCE fetch to prevent auto-linking system .so files ---
-if(UNIX AND NOT APPLE)
-    set(SAVED_PKG_CONFIG_PATH "$ENV{PKG_CONFIG_PATH}")
-    file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/dummy_pkgconfig")
-    set(ENV{PKG_CONFIG_PATH} "${CMAKE_BINARY_DIR}/dummy_pkgconfig")
-endif()
-
+# --- 2. Fetch JUCE Framework ---
 message(STATUS "Fetching JUCE framework...")
 FetchContent_Declare(
     JUCE
@@ -61,12 +68,7 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(JUCE)
 
-if(UNIX AND NOT APPLE)
-    # Restore original PKG_CONFIG_PATH after JUCE initialization
-    set(ENV{PKG_CONFIG_PATH} "${SAVED_PKG_CONFIG_PATH}")
-endif()
-
-# Add JUCE Audio Plugin target
+# --- 3. Add Plugin Target ---
 juce_add_plugin(NoiseRepellent
     COMPANY_NAME "Luciano Dato"
     BUNDLE_ID "com.lucianodato.NoiseRepellent"
@@ -87,12 +89,10 @@ if(APPLE)
     set(CMAKE_OSX_DEPLOYMENT_TARGET "10.13" CACHE STRING "Minimum macOS version")
 endif()
 
-# Include directories
 target_include_directories(NoiseRepellent PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/Source
 )
 
-# Source files
 target_sources(NoiseRepellent PRIVATE
     Source/PluginProcessor.cpp
     Source/PluginProcessor.h
@@ -104,19 +104,17 @@ target_sources(NoiseRepellent PRIVATE
     Source/GUI/SpectralVisualizer.h
 )
 
-# Compile definitions
 target_compile_definitions(NoiseRepellent PRIVATE
     JUCE_WEB_BROWSER=0
     JUCE_USE_CURL=0
     JUCE_VST3_CAN_REPLACE_VST2=0
 )
 
-# Global options for subprojects
 set(ENABLE_TESTS OFF CACHE BOOL "" FORCE)
 set(ENABLE_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(BUILD_TESTS OFF CACHE BOOL "" FORCE)
 
-# --- Static FFTW3 for ALL Platforms (Linux, macOS, Windows) ---
+# --- 4. Static FFTW3 ---
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 set(ENABLE_FLOAT ON CACHE BOOL "" FORCE)
 set(ENABLE_THREADS ON CACHE BOOL "" FORCE)
@@ -143,7 +141,7 @@ if(APPLE)
     set(USE_AVX OFF CACHE BOOL "" FORCE)
 endif()
 
-# --- Libspecbleach Source Resolution ---
+# --- 5. Libspecbleach Source Resolution ---
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../libspecbleach/CMakeLists.txt")
     message(STATUS "Using local libspecbleach from ../libspecbleach")
     set(SPECBLEACH_SRC "${CMAKE_CURRENT_SOURCE_DIR}/../libspecbleach")
@@ -185,8 +183,8 @@ set_target_properties(NoiseRepellent PROPERTIES
     VISIBILITY_INLINES_HIDDEN YES
 )
 
-# Define target link dependencies
-set(NOISE_REPELLENT_LINK_LIBS
+# --- 6. Link Dependencies ---
+target_link_libraries(NoiseRepellent PRIVATE
     libspecbleach
     juce::juce_audio_utils
     juce::juce_audio_processors
@@ -198,10 +196,5 @@ set(NOISE_REPELLENT_LINK_LIBS
 )
 
 if(UNIX AND NOT APPLE)
-    list(APPEND NOISE_REPELLENT_LINK_LIBS freetype)
+    target_link_libraries(NoiseRepellent PRIVATE freetype)
 endif()
-
-# Link JUCE Modules and DSP Dependencies
-target_link_libraries(NoiseRepellent PRIVATE
-    ${NOISE_REPELLENT_LINK_LIBS}
-)
