@@ -36,29 +36,41 @@ option(USE_SYSTEM_SPECBLEACH "Use system-installed libspecbleach"      OFF)
 include(FetchContent)
 
 # ==============================================================================
-# 1. FreeType Handling (Linux)
+# 1. FreeType Handling (MUST BE CONFIGURED BEFORE JUCE)
 # ==============================================================================
 if(UNIX AND NOT APPLE)
     if(USE_SYSTEM_FREETYPE)
         message(STATUS "Using system-installed FreeType library")
         find_package(Freetype REQUIRED)
     else()
-        message(STATUS "Building static FreeType via FetchContent")
-        set(JUCE_USE_FONTCONFIG OFF CACHE BOOL "" FORCE)
-        add_compile_definitions(JUCE_USE_FONTCONFIG=0)
-
+        message(STATUS "Building static FreeType 2.13.2 via FetchContent...")
+        
         set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
         set(FT_DISABLE_ZLIB ON CACHE BOOL "" FORCE)
         set(FT_DISABLE_PNG ON CACHE BOOL "" FORCE)
         set(FT_DISABLE_HARFBUZZ ON CACHE BOOL "" FORCE)
         set(FT_DISABLE_BROTLI ON CACHE BOOL "" FORCE)
 
+        # VER-2-13-2 contains FT_Get_Paint required by JUCE 8
         FetchContent_Declare(
             freetype
             GIT_REPOSITORY https://gitlab.freedesktop.org/freetype/freetype.git
-            GIT_TAG        VER-2-12-1
+            GIT_TAG        VER-2-13-2
         )
         FetchContent_MakeAvailable(freetype)
+
+        # Pre-create JUCE's expected PkgConfig targets BEFORE fetching JUCE.
+        # This prevents JUCE from invoking pkg_check_modules and linking system .so libraries.
+        if(NOT TARGET PkgConfig::juce_freetype)
+            add_library(PkgConfig::juce_freetype INTERFACE IMPORTED GLOBAL)
+            target_link_libraries(PkgConfig::juce_freetype INTERFACE freetype)
+        endif()
+
+        if(NOT TARGET PkgConfig::juce_fontconfig)
+            add_library(PkgConfig::juce_fontconfig INTERFACE IMPORTED GLOBAL)
+        endif()
+
+        add_compile_definitions(JUCE_USE_FONTCONFIG=0)
     endif()
 endif()
 
@@ -72,31 +84,6 @@ FetchContent_Declare(
     GIT_TAG        8.0.4
 )
 FetchContent_MakeAvailable(JUCE)
-
-if(UNIX AND NOT APPLE AND NOT USE_SYSTEM_FREETYPE)
-    # Redirect JUCE PkgConfig target to point to our static freetype library
-    if(TARGET PkgConfig::juce_freetype)
-        set_target_properties(PkgConfig::juce_freetype PROPERTIES
-            IMPORTED_LOCATION ""
-            INTERFACE_LINK_LIBRARIES "freetype"
-            INTERFACE_INCLUDE_DIRECTORIES "$<TARGET_PROPERTY:freetype,INTERFACE_INCLUDE_DIRECTORIES>"
-        )
-    else()
-        add_library(PkgConfig::juce_freetype INTERFACE IMPORTED GLOBAL)
-        set_target_properties(PkgConfig::juce_freetype PROPERTIES
-            INTERFACE_LINK_LIBRARIES "freetype"
-            INTERFACE_INCLUDE_DIRECTORIES "$<TARGET_PROPERTY:freetype,INTERFACE_INCLUDE_DIRECTORIES>"
-        )
-    endif()
-
-    if(TARGET PkgConfig::juce_fontconfig)
-        set_target_properties(PkgConfig::juce_fontconfig PROPERTIES
-            IMPORTED_LOCATION ""
-            INTERFACE_LINK_LIBRARIES ""
-            INTERFACE_INCLUDE_DIRECTORIES ""
-        )
-    endif()
-endif()
 
 # ==============================================================================
 # 3. Audio Plugin Target Definition
@@ -156,7 +143,7 @@ if(USE_SYSTEM_FFTW)
     pkg_check_modules(FFTW3F REQUIRED IMPORTED_TARGET fftw3f)
     set(FFTW_TARGET PkgConfig::FFTW3F)
 else()
-    message(STATUS "Building static FFTW3 via FetchContent")
+    message(STATUS "Building static FFTW3 via FetchContent...")
     set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
     set(ENABLE_FLOAT ON CACHE BOOL "" FORCE)
     set(ENABLE_THREADS ON CACHE BOOL "" FORCE)
