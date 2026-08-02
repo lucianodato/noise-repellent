@@ -87,44 +87,38 @@ jobs:
 
       - name: Verify macOS Universal Architecture & Dependencies
         run: |
-          echo "=== Locating built macOS plugin binaries ==="
+          echo "🔍 Verifying macOS plugin binaries..."
+          IFS=$'\n'
           BINARIES=$(find staging -type f \( -name "Noise Repellent" -o -name "*.dylib" \))
 
           HAS_ERRORS=0
 
           for BINARY in $BINARIES; do
-            echo "================================================="
-            echo "Inspecting: $BINARY"
-            echo "-------------------------------------------------"
-
-            LIPO_INFO=$(lipo -info "$BINARY")
-            echo "Architectures: $LIPO_INFO"
+            NAME="$(basename "$(dirname "$(dirname "$BINARY")")")"
+            [ "$NAME" = "staging" ] && NAME="$(basename "$BINARY")"
             
-            if [[ "$LIPO_INFO" != *"x86_64"* ]] || [[ "$LIPO_INFO" != *"arm64"* ]]; then
-              echo "❌ FAIL: Binary is missing required architectures (must be x86_64 + arm64)!"
-              HAS_ERRORS=1
-            else
-              echo "✅ SUCCESS: Binary is Universal (x86_64 + arm64)."
-            fi
-
-            echo "-------------------------------------------------"
-            otool -L "$BINARY"
-            echo "-------------------------------------------------"
-
+            LIPO_INFO=$(lipo -info "$BINARY")
             BAD_DEPS=$(otool -L "$BINARY" | tail -n +2 | awk '{print $1}' | grep -vE "^/System/Library|^/usr/lib" || true)
 
-            if [ -n "$BAD_DEPS" ]; then
-              echo "❌ FAIL: Found non-system dynamic dependencies:"
-              echo "$BAD_DEPS"
+            FAILED=0
+            if [[ "$LIPO_INFO" != *"x86_64"* ]] || [[ "$LIPO_INFO" != *"arm64"* ]]; then
+              FAILED=1
+            fi
+
+            if [ -n "$BAD_DEPS" ] || [ $FAILED -ne 0 ]; then
+              echo "❌ [FAIL] $NAME"
+              [ $FAILED -ne 0 ] && echo "   └─ Architecture error: $LIPO_INFO"
+              [ -n "$BAD_DEPS" ] && echo "   └─ Dynamic leaks: $(echo "$BAD_DEPS" | tr '\n' ' ')"
               HAS_ERRORS=1
             else
-              echo "✅ SUCCESS: All dynamic dependencies are standard macOS system frameworks."
+              echo "✔ [PASS] $NAME (Universal x86_64+arm64)"
             fi
           done
 
           if [ $HAS_ERRORS -ne 0 ]; then
             exit 1
           fi
+          echo "✨ All macOS binaries verified clean!"
 
       - name: Build macOS PKG Installer
         run: |
@@ -197,50 +191,37 @@ jobs:
 
       - name: Verify Plugin Dependencies & Static Linking (Linux)
         run: |
-          echo "=== Locating built plugin binaries (.so) ==="
+          echo "🔍 Verifying Linux plugin binaries (.so)..."
+          IFS=$'\n'
           PLUGINS=$(find build/NoiseRepellent_artefacts -name "*.so")
 
           if [ -z "$PLUGINS" ]; then
-            echo "❌ ERROR: No .so plugin binaries found in build directory!"
+            echo "❌ ERROR: No .so plugin binaries found!"
             exit 1
           fi
 
           ALLOWED_LIBS="libc\.so|libm\.so|libpthread\.so|libdl\.so|librt\.so|linux-vdso\.so|ld-linux"
-
           HAS_ERRORS=0
 
           for PLUGIN in $PLUGINS; do
-            echo "================================================="
-            echo "Inspecting: $PLUGIN"
-            echo "-------------------------------------------------"
-            
-            ldd "$PLUGIN"
-            echo "-------------------------------------------------"
-
+            NAME=$(basename "$PLUGIN")
             UNEXPECTED_LIBS=$(ldd "$PLUGIN" | grep "=>" | awk '{print $1}' | grep -vE "$ALLOWED_LIBS" || true)
-
-            if [ -n "$UNEXPECTED_LIBS" ]; then
-              echo "❌ FAIL: Found unexpected dynamic dependencies:"
-              echo "$UNEXPECTED_LIBS"
-              HAS_ERRORS=1
-            else
-              echo "✅ SUCCESS: All dynamic library dependencies are clean and whitelisted."
-            fi
-
             UNDEF_SYMBOLS=$(objdump -T "$PLUGIN" | grep " UND " | grep -E "FT_|fftw_" || true)
 
-            if [ -n "$UNDEF_SYMBOLS" ]; then
-              echo "❌ FAIL: Found undefined third-party symbols:"
-              echo "$UNDEF_SYMBOLS"
+            if [ -n "$UNEXPECTED_LIBS" ] || [ -n "$UNDEF_SYMBOLS" ]; then
+              echo "❌ [FAIL] $NAME"
+              [ -n "$UNEXPECTED_LIBS" ] && echo "   └─ Dynamic leaks: $UNEXPECTED_LIBS"
+              [ -n "$UNDEF_SYMBOLS" ] && echo "   └─ Undefined static symbols: $UNDEF_SYMBOLS"
               HAS_ERRORS=1
             else
-              echo "✅ SUCCESS: All FreeType and FFTW3 symbols are resolved internally."
+              echo "✔ [PASS] $NAME"
             fi
           done
 
           if [ $HAS_ERRORS -ne 0 ]; then
             exit 1
           fi
+          echo "✨ All Linux binaries verified clean!"
 
       - name: Package Staging Artifacts
         run: |
@@ -353,11 +334,12 @@ jobs:
       - name: Verify Windows DLL Dependencies
         shell: bash
         run: |
-          echo "=== Locating built Windows plugin binaries ==="
+          echo "🔍 Verifying Windows plugin binaries (.vst3 / .dll)..."
+          IFS=$'\n'
           BINARIES=$(find staging -type f \( -name "*.vst3" -o -name "*.dll" \))
 
           if [ -z "$BINARIES" ]; then
-            echo "❌ ERROR: No .vst3 or .dll plugin binaries found in staging!"
+            echo "❌ ERROR: No .vst3 or .dll plugin binaries found!"
             exit 1
           fi
 
@@ -365,30 +347,23 @@ jobs:
           ALLOWED_DLLS="KERNEL32\.dll|USER32\.dll|GDI32\.dll|SHELL32\.dll|ADVAPI32\.dll|OLE32\.dll|SETUPAPI\.dll|COMDLG32\.dll|WS2_32\.dll|IMM32\.dll|VERSION\.dll|VCRUNTIME140.*\.dll|MSVCP140.*\.dll|ucrtbase\.dll|api-ms-win-.*\.dll|MFPlat\.dll"
 
           for BINARY in $BINARIES; do
-            echo "================================================="
-            echo "Inspecting: $BINARY"
-            echo "-------------------------------------------------"
-
+            NAME=$(basename "$BINARY")
             DEPENDENTS=$(objdump -p "$BINARY" 2>/dev/null | grep -i "DLL Name:" | awk '{print $3}' || true)
-
-            echo "Imported DLLs:"
-            echo "$DEPENDENTS"
-            echo "-------------------------------------------------"
-
             UNEXPECTED_DLLS=$(echo "$DEPENDENTS" | grep -ivE "$ALLOWED_DLLS" || true)
 
             if [ -n "$UNEXPECTED_DLLS" ]; then
-              echo "❌ FAIL: Found non-standard dynamic DLL dependencies:"
-              echo "$UNEXPECTED_DLLS"
+              echo "❌ [FAIL] $NAME"
+              echo "   └─ Dynamic leaks: $(echo "$UNEXPECTED_DLLS" | tr '\n' ' ')"
               HAS_ERRORS=1
             else
-              echo "✅ SUCCESS: All imported DLLs are standard Windows system runtimes."
+              echo "✔ [PASS] $NAME"
             fi
           done
 
           if [ $HAS_ERRORS -ne 0 ]; then
             exit 1
           fi
+          echo "✨ All Windows binaries verified clean!"
 
       - name: Build Inno Setup Installer
         uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
