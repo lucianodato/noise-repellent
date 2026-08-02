@@ -16,9 +16,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-          fetch-depth: 0 # Fetch all history and tags for git describe
+          fetch-depth: 0
 
-      # Strategy 2: Dynamically extract version from git tag or git history
       - name: Extract Version
         run: |
           if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
@@ -165,9 +164,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-          fetch-depth: 0 # Fetch all history and tags for git describe
+          fetch-depth: 0
 
-      # Strategy 2: Dynamically extract version from git tag or git history
       - name: Extract Version
         run: |
           if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
@@ -323,9 +321,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-          fetch-depth: 0 # Fetch all history and tags for git describe
+          fetch-depth: 0
 
-      # Strategy 2: Dynamically extract version from git tag or git history
       - name: Extract Version
         shell: bash
         run: |
