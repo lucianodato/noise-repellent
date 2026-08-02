@@ -57,29 +57,41 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(JUCE)
 
-# --- Force JUCE to link our static 'freetype' target instead of system .so ---
+# --- Force JUCE to link our static 'freetype' target & strip Fontconfig ---
 if(UNIX AND NOT APPLE)
-    # Neutralize PkgConfig::juce_freetype imported target if JUCE created it
+    # 1. Neutralize PkgConfig::juce_fontconfig so it links NOTHING and includes NOTHING
+    if(TARGET PkgConfig::juce_fontconfig)
+        set_target_properties(PkgConfig::juce_fontconfig PROPERTIES
+            IMPORTED_LOCATION ""
+            INTERFACE_LINK_LIBRARIES ""
+            INTERFACE_INCLUDE_DIRECTORIES ""
+        )
+    endif()
+
+    # 2. Redirect PkgConfig::juce_freetype directly to our static 'freetype' target
     if(TARGET PkgConfig::juce_freetype)
         set_target_properties(PkgConfig::juce_freetype PROPERTIES
             IMPORTED_LOCATION ""
             INTERFACE_LINK_LIBRARIES "freetype"
+            INTERFACE_INCLUDE_DIRECTORIES "$<TARGET_PROPERTY:freetype,INTERFACE_INCLUDE_DIRECTORIES>"
         )
     endif()
 
-    # Neutralize Freetype::Freetype imported target if FindFreetype created it
+    # 3. Neutralize Freetype::Freetype if FindFreetype generated it
     if(TARGET Freetype::Freetype)
         set_target_properties(Freetype::Freetype PROPERTIES
             IMPORTED_LOCATION ""
             INTERFACE_LINK_LIBRARIES "freetype"
+            INTERFACE_INCLUDE_DIRECTORIES "$<TARGET_PROPERTY:freetype,INTERFACE_INCLUDE_DIRECTORIES>"
         )
     endif()
 
-    # Scrub any direct system .so paths from juce_graphics interface
+    # 4. Scrub any lingering system .so paths directly from juce_graphics interface
     if(TARGET juce_graphics)
         get_target_property(JUCE_GRAPHICS_LIBS juce_graphics INTERFACE_LINK_LIBRARIES)
         if(JUCE_GRAPHICS_LIBS)
-            string(REGEX REPLACE "[^;]*/libfreetype\\.so[^;]*" "freetype" CLEANED_LIBS "${JUCE_GRAPHICS_LIBS}")
+            string(REGEX REPLACE "[^;]*/libfontconfig\\.so[^;]*" "" CLEANED_LIBS "${JUCE_GRAPHICS_LIBS}")
+            string(REGEX REPLACE "[^;]*/libfreetype\\.so[^;]*" "freetype" CLEANED_LIBS "${CLEANED_LIBS}")
             set_target_properties(juce_graphics PROPERTIES INTERFACE_LINK_LIBRARIES "${CLEANED_LIBS}")
         endif()
     endif()
