@@ -188,7 +188,7 @@ jobs:
             build-essential cmake ninja-build \
             libasound2-dev libjack-jackd2-dev libgl1-mesa-dev \
             libx11-dev libxcomposite-dev libxcursor-dev libxext-dev \
-            libxinerama-dev libxrandr-dev libfontconfig1-dev
+            libxinerama-dev libxrandr-dev
 
       - name: Configure CMake
         run: |
