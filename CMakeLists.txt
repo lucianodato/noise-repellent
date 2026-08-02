@@ -28,10 +28,8 @@ include(FetchContent)
 
 # --- Static FreeType for Linux (MUST BE DECLARED BEFORE JUCE) ---
 if(UNIX AND NOT APPLE)
-    # Disable JUCE Fontconfig search to eliminate libfontconfig.so leaks
-    set(JUCE_USE_FONTCONFIG OFF CACHE BOOL "" FORCE)
+    # Disable JUCE Fontconfig search in C++ preprocessor
     add_compile_definitions(JUCE_USE_FONTCONFIG=0)
-    set(juce_fontconfig_FOUND FALSE CACHE BOOL "" FORCE)
 
     # Build static FreeType without external compression/font dependencies
     set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
@@ -46,20 +44,15 @@ if(UNIX AND NOT APPLE)
         GIT_TAG        VER-2-12-1
     )
     FetchContent_MakeAvailable(freetype)
-
-    # Pre-define JUCE's expected FreeType target BEFORE JUCE initializes.
-    # This prevents JUCE from auto-linking system /usr/lib/.../libfreetype.so!
-    if(NOT TARGET PkgConfig::juce_freetype)
-        add_library(PkgConfig::juce_freetype INTERFACE IMPORTED GLOBAL)
-        set_target_properties(PkgConfig::juce_freetype PROPERTIES
-            INTERFACE_LINK_LIBRARIES "freetype"
-            INTERFACE_INCLUDE_DIRECTORIES "$<TARGET_PROPERTY:freetype,INTERFACE_INCLUDE_DIRECTORIES>"
-        )
-    endif()
-    set(juce_freetype_FOUND TRUE CACHE BOOL "" FORCE)
 endif()
 
-# Fetch JUCE framework
+# --- Isolate PKG_CONFIG during JUCE fetch to prevent auto-linking system .so files ---
+if(UNIX AND NOT APPLE)
+    set(SAVED_PKG_CONFIG_PATH "$ENV{PKG_CONFIG_PATH}")
+    file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/dummy_pkgconfig")
+    set(ENV{PKG_CONFIG_PATH} "${CMAKE_BINARY_DIR}/dummy_pkgconfig")
+endif()
+
 message(STATUS "Fetching JUCE framework...")
 FetchContent_Declare(
     JUCE
@@ -67,6 +60,11 @@ FetchContent_Declare(
     GIT_TAG        8.0.4
 )
 FetchContent_MakeAvailable(JUCE)
+
+if(UNIX AND NOT APPLE)
+    # Restore original PKG_CONFIG_PATH after JUCE initialization
+    set(ENV{PKG_CONFIG_PATH} "${SAVED_PKG_CONFIG_PATH}")
+endif()
 
 # Add JUCE Audio Plugin target
 juce_add_plugin(NoiseRepellent
@@ -187,8 +185,8 @@ set_target_properties(NoiseRepellent PROPERTIES
     VISIBILITY_INLINES_HIDDEN YES
 )
 
-# Link JUCE Modules and DSP Dependencies
-target_link_libraries(NoiseRepellent PRIVATE
+# Define target link dependencies
+set(NOISE_REPELLENT_LINK_LIBS
     libspecbleach
     juce::juce_audio_utils
     juce::juce_audio_processors
@@ -197,4 +195,13 @@ target_link_libraries(NoiseRepellent PRIVATE
     juce::juce_gui_basics
     juce::juce_graphics
     juce::juce_core
+)
+
+if(UNIX AND NOT APPLE)
+    list(APPEND NOISE_REPELLENT_LINK_LIBS freetype)
+endif()
+
+# Link JUCE Modules and DSP Dependencies
+target_link_libraries(NoiseRepellent PRIVATE
+    ${NOISE_REPELLENT_LINK_LIBS}
 )
