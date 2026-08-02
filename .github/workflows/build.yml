@@ -205,8 +205,8 @@ jobs:
           find build -name "*.a"
 
           echo "-------------------------------------------------"
-          echo "=== 2. Inspecting exact g++ linker commands ==="
-          find build -name "link.txt" -exec echo "--- {} ---" \; -exec cat {} \;
+          echo "=== 2. Inspecting FreeType references in Ninja build rules ==="
+          grep -i "freetype" build/build.ninja || true
 
       - name: Verify Plugin Dependencies & Static Linking (Linux)
         run: |

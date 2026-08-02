@@ -28,10 +28,12 @@ include(FetchContent)
 
 # --- Static FreeType & Disable Fontconfig for Linux (MUST BE BEFORE JUCE) ---
 if(UNIX AND NOT APPLE)
+    # Disable JUCE Fontconfig search to eliminate libfontconfig.so
     add_compile_definitions(JUCE_USE_FONTCONFIG=0)
     set(juce_fontconfig_FOUND FALSE CACHE BOOL "" FORCE)
     set(Fontconfig_FOUND FALSE CACHE BOOL "" FORCE)
 
+    # Disable external compression/font features in static FreeType
     set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
     set(FT_DISABLE_ZLIB ON CACHE BOOL "" FORCE)
     set(FT_DISABLE_PNG ON CACHE BOOL "" FORCE)
@@ -44,26 +46,9 @@ if(UNIX AND NOT APPLE)
         GIT_TAG        VER-2-12-1
     )
     FetchContent_MakeAvailable(freetype)
-
-    # Force standard CMake FindFreetype.cmake to use our static 'freetype' target
-    set(FREETYPE_FOUND TRUE CACHE BOOL "" FORCE)
-    set(Freetype_FOUND TRUE CACHE BOOL "" FORCE)
-    set(FREETYPE_LIBRARY freetype CACHE FILEPATH "Static FreeType Target" FORCE)
-    set(FREETYPE_LIBRARIES freetype CACHE STRING "Static FreeType Target" FORCE)
-    set(FREETYPE_INCLUDE_DIRS "$<TARGET_PROPERTY:freetype,INTERFACE_INCLUDE_DIRECTORIES>" CACHE STRING "" FORCE)
-    set(FREETYPE_INCLUDE_DIR_ft2build "$<TARGET_PROPERTY:freetype,INTERFACE_INCLUDE_DIRECTORIES>" CACHE STRING "" FORCE)
-    set(FREETYPE_INCLUDE_DIR_freetype2 "$<TARGET_PROPERTY:freetype,INTERFACE_INCLUDE_DIRECTORIES>" CACHE STRING "" FORCE)
-
-    set(juce_freetype_FOUND TRUE CACHE BOOL "" FORCE)
-    if(NOT TARGET PkgConfig::juce_freetype)
-        add_library(PkgConfig::juce_freetype ALIAS freetype)
-    endif()
-    if(NOT TARGET Freetype::Freetype)
-        add_library(Freetype::Freetype ALIAS freetype)
-    endif()
 endif()
 
-# Fetch JUCE framework (Will now use our static FreeType ALIAS targets above)
+# Fetch JUCE framework
 message(STATUS "Fetching JUCE framework...")
 FetchContent_Declare(
     JUCE
@@ -71,6 +56,34 @@ FetchContent_Declare(
     GIT_TAG        8.0.4
 )
 FetchContent_MakeAvailable(JUCE)
+
+# --- Force JUCE to link our static 'freetype' target instead of system .so ---
+if(UNIX AND NOT APPLE)
+    # Neutralize PkgConfig::juce_freetype imported target if JUCE created it
+    if(TARGET PkgConfig::juce_freetype)
+        set_target_properties(PkgConfig::juce_freetype PROPERTIES
+            IMPORTED_LOCATION ""
+            INTERFACE_LINK_LIBRARIES "freetype"
+        )
+    endif()
+
+    # Neutralize Freetype::Freetype imported target if FindFreetype created it
+    if(TARGET Freetype::Freetype)
+        set_target_properties(Freetype::Freetype PROPERTIES
+            IMPORTED_LOCATION ""
+            INTERFACE_LINK_LIBRARIES "freetype"
+        )
+    endif()
+
+    # Scrub any direct system .so paths from juce_graphics interface
+    if(TARGET juce_graphics)
+        get_target_property(JUCE_GRAPHICS_LIBS juce_graphics INTERFACE_LINK_LIBRARIES)
+        if(JUCE_GRAPHICS_LIBS)
+            string(REGEX REPLACE "[^;]*/libfreetype\\.so[^;]*" "freetype" CLEANED_LIBS "${JUCE_GRAPHICS_LIBS}")
+            set_target_properties(juce_graphics PROPERTIES INTERFACE_LINK_LIBRARIES "${CLEANED_LIBS}")
+        endif()
+    endif()
+endif()
 
 # Add JUCE Audio Plugin target
 juce_add_plugin(NoiseRepellent
