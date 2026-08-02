@@ -14,7 +14,7 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 if(UNIX AND NOT APPLE)
-    # Statically link GCC/C++ runtimes and hide archive symbols to prevent DAW collisions
+    # Statically link GCC/C++ runtimes and hide archive symbols from DAWs
     add_link_options(-static-libgcc -static-libstdc++ -Wl,--exclude-libs,ALL)
 endif()
 
@@ -26,9 +26,9 @@ endif()
 
 include(FetchContent)
 
-# --- 1. Static FreeType & Disable Fontconfig (Linux) ---
+# --- 1. Fetch Static FreeType (Linux) ---
 if(UNIX AND NOT APPLE)
-    # Disable JUCE Fontconfig search completely
+    # Disable Fontconfig
     set(JUCE_USE_FONTCONFIG OFF CACHE BOOL "" FORCE)
     add_compile_definitions(JUCE_USE_FONTCONFIG=0)
 
@@ -45,18 +45,6 @@ if(UNIX AND NOT APPLE)
         GIT_TAG        VER-2-12-1
     )
     FetchContent_MakeAvailable(freetype)
-
-    # Supply static FreeType paths to CMake BEFORE JUCE searches system paths
-    set(FREETYPE_FOUND TRUE CACHE BOOL "" FORCE)
-    set(Freetype_FOUND TRUE CACHE BOOL "" FORCE)
-    set(FREETYPE_LIBRARIES freetype CACHE STRING "" FORCE)
-    set(FREETYPE_INCLUDE_DIRS 
-        "${freetype_SOURCE_DIR}/include"
-        "${freetype_BINARY_DIR}/include"
-        CACHE STRING "" FORCE
-    )
-    set(FREETYPE_INCLUDE_DIR_ft2build "${freetype_SOURCE_DIR}/include" CACHE PATH "" FORCE)
-    set(FREETYPE_INCLUDE_DIR_freetype2 "${freetype_SOURCE_DIR}/include" CACHE PATH "" FORCE)
 endif()
 
 # --- 2. Fetch JUCE Framework ---
@@ -68,7 +56,32 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(JUCE)
 
-# --- 3. Add Plugin Target ---
+# --- 3. Redirect JUCE FreeType target to our static build AFTER JUCE finishes juceaide ---
+if(UNIX AND NOT APPLE)
+    if(TARGET PkgConfig::juce_freetype)
+        set_target_properties(PkgConfig::juce_freetype PROPERTIES
+            IMPORTED_LOCATION ""
+            INTERFACE_LINK_LIBRARIES "freetype"
+            INTERFACE_INCLUDE_DIRECTORIES "$<TARGET_PROPERTY:freetype,INTERFACE_INCLUDE_DIRECTORIES>"
+        )
+    else()
+        add_library(PkgConfig::juce_freetype INTERFACE IMPORTED GLOBAL)
+        set_target_properties(PkgConfig::juce_freetype PROPERTIES
+            INTERFACE_LINK_LIBRARIES "freetype"
+            INTERFACE_INCLUDE_DIRECTORIES "$<TARGET_PROPERTY:freetype,INTERFACE_INCLUDE_DIRECTORIES>"
+        )
+    endif()
+
+    if(TARGET PkgConfig::juce_fontconfig)
+        set_target_properties(PkgConfig::juce_fontconfig PROPERTIES
+            IMPORTED_LOCATION ""
+            INTERFACE_LINK_LIBRARIES ""
+            INTERFACE_INCLUDE_DIRECTORIES ""
+        )
+    endif()
+endif()
+
+# --- 4. Add Plugin Target ---
 juce_add_plugin(NoiseRepellent
     COMPANY_NAME "Luciano Dato"
     BUNDLE_ID "com.lucianodato.NoiseRepellent"
@@ -114,7 +127,7 @@ set(ENABLE_TESTS OFF CACHE BOOL "" FORCE)
 set(ENABLE_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(BUILD_TESTS OFF CACHE BOOL "" FORCE)
 
-# --- 4. Static FFTW3 ---
+# --- 5. Static FFTW3 ---
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 set(ENABLE_FLOAT ON CACHE BOOL "" FORCE)
 set(ENABLE_THREADS ON CACHE BOOL "" FORCE)
@@ -141,7 +154,7 @@ if(APPLE)
     set(USE_AVX OFF CACHE BOOL "" FORCE)
 endif()
 
-# --- 5. Libspecbleach Source Resolution ---
+# --- 6. Libspecbleach Source Resolution ---
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../libspecbleach/CMakeLists.txt")
     message(STATUS "Using local libspecbleach from ../libspecbleach")
     set(SPECBLEACH_SRC "${CMAKE_CURRENT_SOURCE_DIR}/../libspecbleach")
@@ -183,7 +196,7 @@ set_target_properties(NoiseRepellent PROPERTIES
     VISIBILITY_INLINES_HIDDEN YES
 )
 
-# --- 6. Link Dependencies ---
+# --- 7. Link Dependencies ---
 target_link_libraries(NoiseRepellent PRIVATE
     libspecbleach
     juce::juce_audio_utils
@@ -194,7 +207,3 @@ target_link_libraries(NoiseRepellent PRIVATE
     juce::juce_graphics
     juce::juce_core
 )
-
-if(UNIX AND NOT APPLE)
-    target_link_libraries(NoiseRepellent PRIVATE freetype)
-endif()
