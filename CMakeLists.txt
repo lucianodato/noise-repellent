@@ -36,58 +36,63 @@ option(USE_SYSTEM_SPECBLEACH "Use system-installed libspecbleach"      OFF)
 include(FetchContent)
 
 # ==============================================================================
-# 1. FreeType Handling (MUST BE CONFIGURED BEFORE JUCE)
+# 1. FreeType Handling (Portable Static Build via FetchContent)
 # ==============================================================================
-if(UNIX AND NOT APPLE)
-    if(USE_SYSTEM_FREETYPE)
-        message(STATUS "Using system-installed FreeType library")
-        find_package(Freetype REQUIRED)
-    else()
-        message(STATUS "Building static FreeType 2.13.2 via FetchContent...")
-        
-        set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
-        set(FT_DISABLE_ZLIB ON CACHE BOOL "" FORCE)
-        set(FT_DISABLE_PNG ON CACHE BOOL "" FORCE)
-        set(FT_DISABLE_HARFBUZZ ON CACHE BOOL "" FORCE)
-        set(FT_DISABLE_BROTLI ON CACHE BOOL "" FORCE)
+if(UNIX AND NOT APPLE AND NOT USE_SYSTEM_FREETYPE)
+    message(STATUS "Building static FreeType 2.13.2 via FetchContent...")
+    
+    set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+    set(FT_DISABLE_ZLIB ON CACHE BOOL "" FORCE)
+    set(FT_DISABLE_PNG ON CACHE BOOL "" FORCE)
+    set(FT_DISABLE_HARFBUZZ ON CACHE BOOL "" FORCE)
+    set(FT_DISABLE_BROTLI ON CACHE BOOL "" FORCE)
+    set(FT_DISABLE_BZIP2 ON CACHE BOOL "" FORCE)
 
-        # Disable Fontconfig in JUCE
-        set(JUCE_USE_FONTCONFIG OFF CACHE BOOL "" FORCE)
-        add_compile_definitions(JUCE_USE_FONTCONFIG=0)
+    # Disable Fontconfig in JUCE C++
+    set(JUCE_USE_FONTCONFIG OFF CACHE BOOL "" FORCE)
+    add_compile_definitions(JUCE_USE_FONTCONFIG=0)
 
-        # Fetch static FreeType (VER-2-13-2 has FT_Get_Paint for JUCE 8)
-        FetchContent_Declare(
-            freetype
-            GIT_REPOSITORY https://gitlab.freedesktop.org/freetype/freetype.git
-            GIT_TAG        VER-2-13-2
-        )
-        FetchContent_MakeAvailable(freetype)
+    FetchContent_Declare(
+        freetype
+        GIT_REPOSITORY https://gitlab.freedesktop.org/freetype/freetype.git
+        GIT_TAG        VER-2-13-2
+    )
+    FetchContent_MakeAvailable(freetype)
 
-        # 1. Map CMake's standard Freetype::Freetype target directly to our static freetype build
-        if(NOT TARGET Freetype::Freetype)
-            add_library(Freetype::Freetype ALIAS freetype)
-        endif()
+    # --------------------------------------------------------------------------
+    # THE PKG-CONFIG INTERCEPTOR
+    # JUCE strictly demands pkg-config for freetype2. We trick it with a proxy 
+    # script that returns empty flags so system libfreetype.so is never linked.
+    # --------------------------------------------------------------------------
+    find_program(REAL_PKG_CONFIG pkg-config)
+    if(REAL_PKG_CONFIG)
+        set(FAKE_PKG_CONFIG "${CMAKE_CURRENT_BINARY_DIR}/fake-pkg-config.sh")
+        file(WRITE "${FAKE_PKG_CONFIG}"
+        "#!/bin/sh
+        IS_TARGET=0
+        for arg in \"$@\"; do
+            if [ \"$arg\" = \"freetype2\" ] || [ \"$arg\" = \"fontconfig\" ]; then
+                IS_TARGET=1
+            fi
+        done
 
-        # 2. Pre-create JUCE's expected PkgConfig targets to bypass pkg_check_modules
-        if(NOT TARGET PkgConfig::juce_freetype)
-            add_library(PkgConfig::juce_freetype INTERFACE IMPORTED GLOBAL)
-            target_link_libraries(PkgConfig::juce_freetype INTERFACE freetype)
-        endif()
+        if [ \"$IS_TARGET\" = \"1\" ]; then
+            for arg in \"$@\"; do
+                if [ \"$arg\" = \"--modversion\" ]; then
+                    echo \"2.13.2\"
+                    exit 0
+                fi
+            done
+            # Return 0 (success) but output nothing for --cflags and --libs
+            exit 0
+        fi
 
-        if(NOT TARGET PkgConfig::juce_fontconfig)
-            add_library(PkgConfig::juce_fontconfig INTERFACE IMPORTED GLOBAL)
-        endif()
-
-        if(NOT TARGET Fontconfig::Fontconfig)
-            add_library(Fontconfig::Fontconfig INTERFACE IMPORTED GLOBAL)
-        endif()
-
-        # 3. Block CMake from searching system paths for libfreetype.so / libfontconfig.so
-        set(CMAKE_DISABLE_FIND_PACKAGE_Freetype ON CACHE BOOL "" FORCE)
-        set(CMAKE_DISABLE_FIND_PACKAGE_Fontconfig ON CACHE BOOL "" FORCE)
-        set(Freetype_FOUND TRUE CACHE BOOL "" FORCE)
-        set(FREETYPE_FOUND TRUE CACHE BOOL "" FORCE)
-        set(Fontconfig_FOUND TRUE CACHE BOOL "" FORCE)
+        # Pass all other requests (alsa, webkit2gtk, etc.) to the real pkg-config
+        exec \"${REAL_PKG_CONFIG}\" \"$@\"
+        ")
+        execute_process(COMMAND chmod +x "${FAKE_PKG_CONFIG}")
+        # Force CMake to use our interceptor script instead of the real pkg-config
+        set(PKG_CONFIG_EXECUTABLE "${FAKE_PKG_CONFIG}" CACHE FILEPATH "Fake pkg-config" FORCE)
     endif()
 endif()
 
@@ -103,7 +108,18 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(JUCE)
 
 # ==============================================================================
-# 3. Audio Plugin Target Definition
+# 3. Bind Static FreeType to JUCE
+# ==============================================================================
+if(UNIX AND NOT APPLE AND NOT USE_SYSTEM_FREETYPE)
+    # The interceptor gave JUCE an empty PkgConfig target. 
+    # Now we inject our static freetype build directly into JUCE's graphics module.
+    if(TARGET juce_graphics)
+        target_link_libraries(juce_graphics INTERFACE freetype)
+    endif()
+endif()
+
+# ==============================================================================
+# 4. Audio Plugin Target Definition
 # ==============================================================================
 juce_add_plugin(NoiseRepellent
     COMPANY_NAME "Luciano Dato"
@@ -152,7 +168,7 @@ set(ENABLE_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(BUILD_TESTS OFF CACHE BOOL "" FORCE)
 
 # ==============================================================================
-# 4. FFTW3 Dependency
+# 5. FFTW3 Dependency
 # ==============================================================================
 if(USE_SYSTEM_FFTW)
     message(STATUS "Using system-installed FFTW3 library")
@@ -190,7 +206,7 @@ if(APPLE)
 endif()
 
 # ==============================================================================
-# 5. libspecbleach Dependency
+# 6. libspecbleach Dependency
 # ==============================================================================
 if(USE_SYSTEM_SPECBLEACH)
     message(STATUS "Using system-installed libspecbleach library")
@@ -222,21 +238,19 @@ else()
     )
 
     if(TARGET libspecbleach)
-        if(CMAKE_SYSTEM_PROCESSOR MATCHES "(x86_64|amd64|AMD64)" OR "x86_64" IN_LIST CMAKE_OSX_ARCHITECTURES)
-            target_sources(libspecbleach PRIVATE
-                "${SPECBLEACH_SRC}/src/shared/denoiser_logic/processing/nlm_filter_avx.c"
-            )
-            set_source_files_properties(
-                "${SPECBLEACH_SRC}/src/shared/denoiser_logic/processing/nlm_filter_avx.c"
-                PROPERTIES COMPILE_FLAGS "-mavx -mavx2"
-            )
+        set(AVX_C_FILE "${SPECBLEACH_SRC}/src/shared/denoiser_logic/processing/nlm_filter_avx.c")
+        if(EXISTS "${AVX_C_FILE}")
+            if(CMAKE_SYSTEM_PROCESSOR MATCHES "(x86_64|amd64|AMD64|x86-64)" OR "x86_64" IN_LIST CMAKE_OSX_ARCHITECTURES)
+                target_sources(libspecbleach PRIVATE "${AVX_C_FILE}")
+                set_source_files_properties("${AVX_C_FILE}" PROPERTIES COMPILE_FLAGS "-mavx -mavx2")
+            endif()
         endif()
     endif()
     set(SPECBLEACH_TARGET libspecbleach)
 endif()
 
 # ==============================================================================
-# 6. Target Linkage & Symbol Visibility Properties
+# 7. Target Linkage & Symbol Visibility Properties
 # ==============================================================================
 set_target_properties(NoiseRepellent PROPERTIES
     C_VISIBILITY_PRESET hidden

@@ -1,9 +1,13 @@
+[![CI Build](https://github.com/lucianodato/noise-repellent/actions/workflows/build.yml/badge.svg)](https://github.com/lucianodato/noise-repellent/actions/workflows/build.yml)
+![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/lucianodato/noise-repellent?utm_source=oss&utm_medium=github&utm_campaign=lucianodato%2Fnoise-repellent&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)
+
 # Noise Repellent
 
 A multi-format audio plugin (VST3, AU, LV2) for real-time spectral noise reduction, built with [JUCE](https://juce.com/) and powered by the [libspecbleach](https://github.com/lucianodato/libspecbleach) DSP engine.
 
-[![CI Build](https://github.com/lucianodato/noise-repellent/actions/workflows/build.yml/badge.svg)](https://github.com/lucianodato/noise-repellent/actions/workflows/build.yml)
-![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/lucianodato/noise-repellent?utm_source=oss&utm_medium=github&utm_campaign=lucianodato%2Fnoise-repellent&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)
+## Screenshots
+![Advanced Controls](<Images/Screenshot 1.png>)
+![Basic Controls](<Images/Screenshot 2.png>)
 
 ## Features
 
@@ -35,10 +39,6 @@ A multi-format audio plugin (VST3, AU, LV2) for real-time spectral noise reducti
 * **Formats**: VST3, AU, and LV2.
 * **Platforms**: Optimized for Linux, macOS, and Windows.
 * **Stereo Support**: Full multi-channel processing ready for modern stereo production workflows.
-
-## Screenshots
-![Advanced Controls](<Images/Screenshot 1.png>)
-![Basic Controls](<Images/Screenshot 2.png>)
 
 ## Installation
 
@@ -89,31 +89,36 @@ Pre-built installers and packages for Linux, macOS, and Windows are available on
 By default, CMake fetches and statically embeds dependencies (`FFTW3`, `FreeType`, `libspecbleach`) to produce standalone, portable release binaries that prevent symbol conflicts across different DAWs and Linux distributions.
 
 ```bash
-git clone [https://github.com/lucianodato/noise-repellent.git](https://github.com/lucianodato/noise-repellent.git)
+# Clone the repository including submodules
+git clone --recurse-submodules [https://github.com/lucianodato/noise-repellent.git](https://github.com/lucianodato/noise-repellent.git)
 cd noise-repellent
 
 # Configure build with static bundled dependencies
 cmake -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Release
 
 # Compile all plugin formats (VST3, AU, LV2)
-cmake --build build --config Release -j$(nproc)
+cmake --build build --config Release --parallel
 ```
 
 #### 2. Downstream Linux Packaging Build (Shared System Libraries)
-Linux distribution packagers (Arch, Debian, Fedora, etc.) can configure the build to dynamically link against host system libraries (libfftw3f, libfreetype, libspecbleach) using CMake build options:
-# Requires system development packages (e.g., libfftw3-dev, libfreetype6-dev)
+Linux distribution packagers (Arch, Debian, Fedora, etc.) can configure the build to dynamically link against host system libraries (`libfftw3f`, `libfreetype`, `libspecbleach`) using CMake build options.
+
+> **Note:** Requires system development packages installed on the host (e.g., `libfftw3-dev`, `libfreetype6-dev`, `libspecbleach-dev`).
 
 ```bash
+# Configure build using system-installed shared libraries
 cmake -B build -G "Ninja" \
   -DCMAKE_BUILD_TYPE=Release \
   -DUSE_SYSTEM_FFTW=ON \
   -DUSE_SYSTEM_FREETYPE=ON \
   -DUSE_SYSTEM_SPECBLEACH=ON
 
-cmake --build build --config Release -j$(nproc)
+# Compile all plugin formats
+cmake --build build --config Release --parallel
 ```
 
 The compiled plugin targets (VST3, AU, LV2) will be generated in `build/NoiseRepellent_artefacts/Release/`.
+
 
 [!IMPORTANT]
 Critical Performance Note: Noise Repellent relies heavily on real-time FFT processing and AVX vectorization routines. Always configure CMake with -DCMAKE_BUILD_TYPE=Release (-O3) to prevent CPU spikes and audio buffer xruns in your DAW.
