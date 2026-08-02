@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(NoiseRepellent VERSION 0.3.0 LANGUAGES C CXX)
+project(NoiseRepellent VERSION 0.3.1 LANGUAGES C CXX)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -14,11 +14,10 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 if(UNIX AND NOT APPLE)
-    # Statically link GCC and C++ standard runtimes for ALL CMake targets (including JUCE VST3/LV2 targets)
+    # Statically link GCC and C++ standard runtimes for ALL CMake targets
     add_link_options(-static-libgcc -static-libstdc++)
 endif()
 
-# Enable MSVC C11 Atomics support globally for Windows MSVC builds
 if(MSVC)
     add_compile_options($<$<COMPILE_LANGUAGE:C>:/std:c11>)
     add_compile_options($<$<COMPILE_LANGUAGE:CXX>:/std:c++17>)
@@ -27,13 +26,14 @@ endif()
 
 include(FetchContent)
 
-# --- Static FreeType & Disable Fontconfig for Linux (MUST BE BEFORE JUCE) ---
+# --- Static FreeType & Disable Fontconfig for Linux (MUST BE DECLARED BEFORE JUCE) ---
 if(UNIX AND NOT APPLE)
-    # Disable JUCE Fontconfig search to eliminate libfontconfig.so
+    # 1. Disable JUCE Fontconfig search to eliminate libfontconfig.so
     add_compile_definitions(JUCE_USE_FONTCONFIG=0)
     set(juce_fontconfig_FOUND FALSE CACHE BOOL "" FORCE)
+    set(Fontconfig_FOUND FALSE CACHE BOOL "" FORCE)
 
-    # Disable external compression/font features in static FreeType
+    # 2. Disable external compression/font features in static FreeType
     set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
     set(FT_DISABLE_ZLIB ON CACHE BOOL "" FORCE)
     set(FT_DISABLE_PNG ON CACHE BOOL "" FORCE)
@@ -46,9 +46,22 @@ if(UNIX AND NOT APPLE)
         GIT_TAG        VER-2-12-1
     )
     FetchContent_MakeAvailable(freetype)
+
+    # 3. Intercept JUCE's FreeType package searches BEFORE JUCE initializes!
+    set(juce_freetype_FOUND TRUE CACHE BOOL "" FORCE)
+    set(FREETYPE_FOUND TRUE CACHE BOOL "" FORCE)
+    set(Freetype_FOUND TRUE CACHE BOOL "" FORCE)
+
+    # Alias JUCE's expected targets directly to our static 'freetype' target
+    if(NOT TARGET PkgConfig::juce_freetype)
+        add_library(PkgConfig::juce_freetype ALIAS freetype)
+    endif()
+    if(NOT TARGET Freetype::Freetype)
+        add_library(Freetype::Freetype ALIAS freetype)
+    endif()
 endif()
 
-# Fetch JUCE framework
+# Fetch JUCE framework (Will now use our static FreeType ALIAS targets above)
 message(STATUS "Fetching JUCE framework...")
 FetchContent_Declare(
     JUCE
@@ -56,22 +69,6 @@ FetchContent_Declare(
     GIT_TAG        8.0.4
 )
 FetchContent_MakeAvailable(JUCE)
-
-# --- Override JUCE's FreeType target to force our static library ---
-if(UNIX AND NOT APPLE)
-    if(TARGET PkgConfig::juce_freetype)
-        set_target_properties(PkgConfig::juce_freetype PROPERTIES
-            INTERFACE_LINK_LIBRARIES "freetype"
-            INTERFACE_INCLUDE_DIRECTORIES "$<TARGET_PROPERTY:freetype,INTERFACE_INCLUDE_DIRECTORIES>"
-        )
-    else()
-        add_library(PkgConfig::juce_freetype INTERFACE IMPORTED GLOBAL)
-        set_target_properties(PkgConfig::juce_freetype PROPERTIES
-            INTERFACE_LINK_LIBRARIES "freetype"
-            INTERFACE_INCLUDE_DIRECTORIES "$<TARGET_PROPERTY:freetype,INTERFACE_INCLUDE_DIRECTORIES>"
-        )
-    endif()
-endif()
 
 # Add JUCE Audio Plugin target
 juce_add_plugin(NoiseRepellent
@@ -91,7 +88,6 @@ juce_add_plugin(NoiseRepellent
 )
 
 if(APPLE)
-    # Target modern C++ runtime provided by macOS (10.13+)
     set(CMAKE_OSX_DEPLOYMENT_TARGET "10.13" CACHE STRING "Minimum macOS version")
 endif()
 
@@ -126,8 +122,8 @@ set(BUILD_TESTS OFF CACHE BOOL "" FORCE)
 
 # --- Static FFTW3 for ALL Platforms (Linux, macOS, Windows) ---
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
-set(ENABLE_FLOAT ON CACHE BOOL "" FORCE)     # Single-precision fftw3f
-set(ENABLE_THREADS ON CACHE BOOL "" FORCE)   # Thread support
+set(ENABLE_FLOAT ON CACHE BOOL "" FORCE)
+set(ENABLE_THREADS ON CACHE BOOL "" FORCE)
 
 set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
 
@@ -141,7 +137,6 @@ FetchContent_MakeAvailable(fftw3)
 set(FFTW3F_LIB fftw3f CACHE STRING "Path to fftw3f library" FORCE)
 set(FFTW3_LIB fftw3f CACHE STRING "Path to fftw3 library" FORCE)
 
-# Make fftw3.h available to subprojects
 include_directories(
     ${fftw3_SOURCE_DIR}/api
     ${fftw3_BINARY_DIR}
@@ -172,12 +167,10 @@ else()
     set(SPECBLEACH_SRC "${libspecbleach_SOURCE_DIR}")
 endif()
 
-# Explicitly add libspecbleach headers directory to NoiseRepellent
 target_include_directories(NoiseRepellent PRIVATE
     "${SPECBLEACH_SRC}/src"
 )
 
-# Fix libspecbleach AVX missing symbol on x86_64 architecture
 if(TARGET libspecbleach)
     if(CMAKE_SYSTEM_PROCESSOR MATCHES "(x86_64|amd64|AMD64)" OR "x86_64" IN_LIST CMAKE_OSX_ARCHITECTURES)
         target_sources(libspecbleach PRIVATE
@@ -190,14 +183,12 @@ if(TARGET libspecbleach)
     endif()
 endif()
 
-# Hide internal static library symbols from DAWs
 set_target_properties(NoiseRepellent PROPERTIES
     C_VISIBILITY_PRESET hidden
     CXX_VISIBILITY_PRESET hidden
     VISIBILITY_INLINES_HIDDEN YES
 )
 
-# Link JUCE Modules and DSP Dependencies
 target_link_libraries(NoiseRepellent PRIVATE
     libspecbleach
     juce::juce_audio_utils
