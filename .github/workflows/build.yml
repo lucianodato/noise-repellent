@@ -202,6 +202,10 @@ jobs:
 
       - name: Verify Plugin Dependencies & Symbol Isolation (Linux)
         run: |
+          # Temporarily disable errexit/pipefail so inspection pipelines don't abort bash mid-loop
+          set +e
+          set +o pipefail
+
           echo "🔍 Verifying Linux plugin binaries (.so)..."
           IFS=$'\n'
           PLUGINS=$(find build/NoiseRepellent_artefacts -name "*.so")
@@ -220,11 +224,11 @@ jobs:
             echo "Checking $NAME..."
 
             # 1. Check for un-whitelisted dynamic library dependencies
-            UNEXPECTED_LIBS=$(ldd "$PLUGIN" | grep "=>" | awk '{print $1}' | grep -vE "$ALLOWED_LIBS" || true)
+            UNEXPECTED_LIBS=$(ldd "$PLUGIN" 2>/dev/null | awk '/=>/ {print $1}' | grep -vE "$ALLOWED_LIBS")
 
             # 2. Check for exported or undefined FreeType/FFTW symbols (DAW collision protection)
-            DEFINED_LEAKS=$(nm -D --defined-only "$PLUGIN" 2>/dev/null | grep -iE " (FT_|fftw_)" || true)
-            UNDEFINED_LEAKS=$(nm -D --undefined-only "$PLUGIN" 2>/dev/null | grep -iE " (FT_|fftw_)" || true)
+            DEFINED_LEAKS=$(nm -D --defined-only "$PLUGIN" 2>/dev/null | grep -iE " (FT_|fftw_)")
+            UNDEFINED_LEAKS=$(nm -D --undefined-only "$PLUGIN" 2>/dev/null | grep -iE " (FT_|fftw_)")
 
             if [ -n "$UNEXPECTED_LIBS" ] || [ -n "$DEFINED_LEAKS" ] || [ -n "$UNDEFINED_LEAKS" ]; then
               echo "❌ [FAIL] Verification failed for $NAME"
