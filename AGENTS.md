@@ -61,21 +61,25 @@ This document defines mandatory rules for maintaining, building, and releasing N
 
 ---
 
-## 3. CMake & Static Linking Rules
+## 3. CMake & Dependency Linking Rules
 
-To ensure prebuilt binaries work seamlessly across all host DAWs and Linux distributions without symbol missing errors (like `FT_Get_Paint`):
+To balance portable DAW binary compatibility for release artifacts with downstream Linux distribution packaging standards:
 
-1. **Zero External Dynamic Dependencies**:
-   * All third-party libraries (`FFTW3`, `FreeType`, `libspecbleach`) **must be statically embedded** into the plugin targets via CMake `FetchContent`.
-   * On Linux, static GCC runtimes (`-static-libgcc -static-libstdc++`) must be linked.
-   * On Windows, static MSVC runtimes (`/MT`) must be used (`set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")`).
-2. **Order of Evaluation**:
-   * Declare static `freetype` **BEFORE** `FetchContent_MakeAvailable(JUCE)` on Linux to prevent JUCE from auto-linking system `libfreetype.so`.
+1. **Dual-Mode Dependency Linking**:
+   * **Default Portable Release Mode (`USE_SYSTEM_*=OFF`)**:
+     * Third-party libraries (`FFTW3`, `FreeType`, `libspecbleach`) **must be statically embedded** by default into plugin targets to ensure zero host DAW crashes or symbol conflicts (e.g., in Ardour, Bitwig, or REAPER).
+     * On Linux, static GCC runtimes (`-static-libgcc -static-libstdc++`) must be linked for release builds.
+     * On Windows, static MSVC runtimes (`/MT`) must be configured (`set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")`).
+   * **Downstream Packaging Mode (`USE_SYSTEM_*=ON`)**:
+     * Provide CMake build toggles (`USE_SYSTEM_FFTW`, `USE_SYSTEM_FREETYPE`, `USE_SYSTEM_SPECBLEACH`) defaulting to `OFF`.
+     * When set to `ON` by Linux distro packagers, CMake uses `find_package()` / `pkg_check_modules()` to dynamically link against system shared libraries (`.so`).
+2. **Package Metadata Requirements**:
+   * Standard prebuilt release package configurations (`.deb` / CPack) declare core desktop system dependencies (`libasound2`, `libgl1`, `libx11-6`, `libxext6`, `libxcursor1`, `libxinerama1`, `libxrandr2`). Distro-packaged builds managed by package maintainers will handle full dynamic dependency trees via `dpkg-shlibdeps`.
 3. **Position Independent Code**:
-   * `set(CMAKE_POSITION_INDEPENDENT_CODE ON)` must remain enabled globally so static `.a` libraries compile with `-fPIC` for dynamic `.so` plugin output.
+   * `set(CMAKE_POSITION_INDEPENDENT_CODE ON)` must remain enabled globally so static `.a` libraries compile with `-fPIC` for shared object (`.so` / `.vst3` / `.dylib`) plugin outputs.
 4. **Local Submodule Development**:
    * The CMake build must automatically detect local copies of `libspecbleach` at `../libspecbleach` or `subprojects/libspecbleach` before falling back to remote fetching.
-   * Internal subproject source properties (e.g., `nlm_filter_avx.c`) must attach directly to `libspecbleach` target so AVX symbols resolve cleanly across x86_64 architectures.
+   * Internal subproject source properties (e.g., `nlm_filter_avx.c`) must attach directly to the `libspecbleach` target so AVX symbols resolve cleanly across x86_64 architectures.
 
 ---
 
@@ -83,6 +87,7 @@ To ensure prebuilt binaries work seamlessly across all host DAWs and Linux distr
 
 The GitHub Actions workflow enforces strict post-build binary verification steps across all OS targets:
 
-* **Linux**: Runs `ldd` and `objdump` to enforce a strict whitelist (`libc`, `libm`, `libpthread`, `libdl`, `librt`, `ld-linux`). Fails if unexpected libraries (`libfreetype.so`, `libfftw3.so`) or undefined symbols (`FT_`, `fftw_`) leak into the binary.
-* **macOS**: Uses `lipo` to verify fat universal binaries (`arm64` + `x86_64`) and `otool -L` to ensure zero Homebrew/third-party dylib leaks.
-* **Windows**: Parses PE import tables via `objdump -p` to guarantee only standard system DLLs (`KERNEL32.dll`, `VCRUNTIME140.dll`, etc.) are imported.
+* **Linux**: For standard release builds, runs `ldd` against a strict whitelist of core OS/desktop runtimes (`libc`, `libm`, `libpthread`, `libdl`, `librt`, `ld-linux`, `libasound`, `libGL`, `libX11`, `libXext`, `libXcursor`, `libXinerama`, `libXrandr`, `libXrender`, `libXi`). Fails if unexpected dynamic libraries (`libfreetype.so`, `libfftw3.so`) or dynamic C++ runtimes (`libstdc++.so`, `libgcc_s.so`) leak into the prebuilt release binaries.
+* **macOS**: Uses `lipo` to verify fat universal binaries (`arm64` + `x86_64`) and `otool -L` to ensure zero Homebrew or non-system dynamic library leaks.
+* **Windows**: Parses PE import tables via `objdump -p` to guarantee only standard system DLLs (`KERNEL32.dll`, `VCRUNTIME140.dll`, `ucrtbase.dll`, `d2d1.dll`, etc.) are imported.
+

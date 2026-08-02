@@ -78,28 +78,45 @@ Pre-built installers and packages for Linux, macOS, and Windows are available on
 
 **Requirements:**
 - CMake >= 3.22
-- C/C++17 Compiler (GCC, Clang, or MSVC)
-- System FFTW3 library (`libfftw3-dev` / `fftw`)
-- OpenMP (`libomp-dev` / `libomp`) for 2D NLM multi-threading
-- Linux GUI dependencies (if building on Linux): `libasound2-dev`, `libjack-jackd2-dev`, `libgl1-mesa-dev`, `libx11-dev`, `libfreetype6-dev`
+- C11 / C++17 Compiler (GCC 10+, Clang 12+, or MSVC 2019+)
+- Ninja or Make
+- Linux GUI build dependencies (Linux only):
+  - `libasound2-dev`, `libgl1-mesa-dev`, `libx11-dev`, `libxcomposite-dev`, `libxcursor-dev`, `libxext-dev`, `libxinerama-dev`, `libxrandr-dev`, `libfontconfig1-dev`, `libfreetype6-dev`
 
-**Build:**
+---
+
+#### 1. Standard Portable Build (Self-Contained)
+By default, CMake fetches and statically embeds dependencies (`FFTW3`, `FreeType`, `libspecbleach`) to produce standalone, portable release binaries that prevent symbol conflicts across different DAWs and Linux distributions.
 
 ```bash
-git clone https://github.com/lucianodato/noise-repellent.git
+git clone [https://github.com/lucianodato/noise-repellent.git](https://github.com/lucianodato/noise-repellent.git)
 cd noise-repellent
 
-# Configure build
-cmake -B build -DCMAKE_BUILD_TYPE=Release
+# Configure build with static bundled dependencies
+cmake -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Release
 
-# Compile all formats
-cmake --build build --config Release -j4
+# Compile all plugin formats (VST3, AU, LV2)
+cmake --build build --config Release -j$(nproc)
+```
+
+#### 2. Downstream Linux Packaging Build (Shared System Libraries)
+Linux distribution packagers (Arch, Debian, Fedora, etc.) can configure the build to dynamically link against host system libraries (libfftw3f, libfreetype, libspecbleach) using CMake build options:
+# Requires system development packages (e.g., libfftw3-dev, libfreetype6-dev)
+
+```bash
+cmake -B build -G "Ninja" \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DUSE_SYSTEM_FFTW=ON \
+  -DUSE_SYSTEM_FREETYPE=ON \
+  -DUSE_SYSTEM_SPECBLEACH=ON
+
+cmake --build build --config Release -j$(nproc)
 ```
 
 The compiled plugin targets (VST3, AU, LV2) will be generated in `build/NoiseRepellent_artefacts/Release/`.
 
-> [!IMPORTANT]
-> **Critical Performance Note**: The "2D Denoising" (NLM) algorithm relies on spectral-temporal pattern matching and OpenMP multi-threading. Always build with `-DCMAKE_BUILD_TYPE=Release` (`-O3`) to prevent CPU spikes and xruns.
+[!IMPORTANT]
+Critical Performance Note: Noise Repellent relies heavily on real-time FFT processing and AVX vectorization routines. Always configure CMake with -DCMAKE_BUILD_TYPE=Release (-O3) to prevent CPU spikes and audio buffer xruns in your DAW.
 
 ## Usage
 

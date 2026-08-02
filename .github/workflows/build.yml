@@ -192,6 +192,7 @@ jobs:
 
       - name: Configure CMake
         run: |
+          # Default options (USE_SYSTEM_*=OFF) produce portable, self-contained release binaries
           cmake -B build -G "Ninja" \
             -DCMAKE_BUILD_TYPE=Release
 
@@ -201,7 +202,7 @@ jobs:
 
       - name: Verify Plugin Dependencies & Static Linking (Linux)
         run: |
-          echo "🔍 Verifying Linux plugin binaries (.so)..."
+          echo "🔍 Verifying Linux release binaries (.so)..."
           IFS=$'\n'
           PLUGINS=$(find build/NoiseRepellent_artefacts -name "*.so")
 
@@ -210,8 +211,9 @@ jobs:
             exit 1
           fi
 
-          # Whitelist standard Linux system desktop runtimes (glibc, X11, ALSA, OpenGL, Fontconfig/FreeType & core helpers)
-          ALLOWED_LIBS="libc\.so|libm\.so|libpthread\.so|libdl\.so|librt\.so|linux-vdso\.so|ld-linux|libasound\.so|libGL\.so|libX11\.so|libXext\.so|libXcursor\.so|libXinerama\.so|libXrandr\.so|libXrender\.so|libXi\.so|libfontconfig\.so|libfreetype\.so|libz\.so|libpng.*\.so|libbrotli.*\.so|libbz2\.so|libexpat\.so"
+          # Whitelist ONLY standard system/desktop runtimes (glibc, X11, ALSA, OpenGL)
+          # Ensures no leaks of libfreetype, libfftw3, libstdc++, libgcc_s, etc.
+          ALLOWED_LIBS="libc\.so|libm\.so|libpthread\.so|libdl\.so|librt\.so|linux-vdso\.so|ld-linux|libasound\.so|libGL\.so|libX11\.so|libXext\.so|libXcursor\.so|libXinerama\.so|libXrandr\.so|libXrender\.so|libXi\.so"
           HAS_ERRORS=0
 
           for PLUGIN in $PLUGINS; do
@@ -230,7 +232,7 @@ jobs:
           if [ $HAS_ERRORS -ne 0 ]; then
             exit 1
           fi
-          echo "✨ All Linux binaries verified clean!"
+          echo "✨ All Linux release binaries verified clean and self-contained!"
 
       - name: Package Staging Artifacts
         run: |
@@ -249,7 +251,7 @@ jobs:
           Version: $PLUGIN_VERSION
           Architecture: amd64
           Maintainer: Luciano Dato <lucianodato@net>
-          Depends: libasound2 (>= 1.0.16), libfontconfig1 (>= 2.12.0), libfreetype6 (>= 2.10.0), libgl1, libx11-6, libxext6, libxcursor1, libxinerama1, libxrandr2
+          Depends: libasound2 (>= 1.0.16), libgl1, libx11-6, libxext6, libxcursor1, libxinerama1, libxrandr2
           Description: Noise Repellent Audio Processing Plugin
           EOF
 
@@ -304,6 +306,7 @@ jobs:
           files: |
             noise-repellent_${{ env.PLUGIN_VERSION }}_amd64.deb
             noise-repellent-linux-x86_64.tar.gz
+
 
   build-windows:
     name: Windows (x64)
