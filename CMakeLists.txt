@@ -13,6 +13,11 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 # Statically link MSVC C/C++ Runtime (/MT) on Windows
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
+if(UNIX AND NOT APPLE)
+    # Statically link GCC and C++ standard runtimes for ALL CMake targets (including JUCE VST3/LV2 targets)
+    add_link_options(-static-libgcc -static-libstdc++)
+endif()
+
 # Enable MSVC C11 Atomics support globally for Windows MSVC builds
 if(MSVC)
     add_compile_options($<$<COMPILE_LANGUAGE:C>:/std:c11>)
@@ -22,8 +27,12 @@ endif()
 
 include(FetchContent)
 
-# --- Static FreeType for Linux (MUST BE DECLARED BEFORE JUCE) ---
+# --- Static FreeType & Disable Fontconfig for Linux (MUST BE BEFORE JUCE) ---
 if(UNIX AND NOT APPLE)
+    # Disable JUCE Fontconfig search to eliminate libfontconfig.so and transitive system libfreetype leaks
+    add_compile_definitions(JUCE_USE_FONTCONFIG=0)
+    set(juce_fontconfig_FOUND FALSE CACHE BOOL "" FORCE)
+
     set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
     set(FT_DISABLE_ZLIB ON CACHE BOOL "" FORCE)
     set(FT_DISABLE_PNG ON CACHE BOOL "" FORCE)
@@ -37,15 +46,12 @@ if(UNIX AND NOT APPLE)
     )
     FetchContent_MakeAvailable(freetype)
 
-    # Force JUCE to use our static FreeType target instead of querying system pkg-config
+    # Force JUCE to link our static FreeType library target
     set(juce_freetype_FOUND TRUE CACHE BOOL "" FORCE)
     set(FREETYPE_FOUND TRUE CACHE BOOL "" FORCE)
 
     if(NOT TARGET PkgConfig::juce_freetype)
         add_library(PkgConfig::juce_freetype ALIAS freetype)
-    endif()
-    if(NOT TARGET PkgConfig::FREETYPE)
-        add_library(PkgConfig::FREETYPE ALIAS freetype)
     endif()
 endif()
 
@@ -62,7 +68,7 @@ FetchContent_MakeAvailable(JUCE)
 juce_add_plugin(NoiseRepellent
     COMPANY_NAME "Luciano Dato"
     BUNDLE_ID "com.lucianodato.NoiseRepellent"
-    LV2URI "https://github.com/lucianodato/noise-repellent#v0.3"
+    LV2URI "https://github.com/lucianodato/noise-repellent#v0"
     IS_SYNTH FALSE
     NEEDS_MIDI_INPUT FALSE
     NEEDS_MIDI_OUTPUT FALSE
@@ -74,14 +80,6 @@ juce_add_plugin(NoiseRepellent
     FORMATS VST3 AU LV2
     PRODUCT_NAME "Noise Repellent"
 )
-
-if(UNIX AND NOT APPLE)
-    # Statically link GCC and C++ standard runtimes into the plugin library
-    target_link_options(NoiseRepellent PRIVATE 
-        -static-libgcc 
-        -static-libstdc++
-    )
-endif()
 
 if(APPLE)
     # Target modern C++ runtime provided by macOS (10.13+)

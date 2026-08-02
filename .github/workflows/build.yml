@@ -94,20 +94,30 @@ jobs:
           HAS_ERRORS=0
 
           for BINARY in $BINARIES; do
-            NAME="$(basename "$(dirname "$(dirname "$BINARY")")")"
-            [ "$NAME" = "staging" ] && NAME="$(basename "$BINARY")"
+            # Format clean display names (e.g. Noise Repellent.vst3, Noise Repellent.component, Noise Repellent.lv2)
+            if [[ "$BINARY" == *".vst3"* ]]; then
+              NAME="Noise Repellent.vst3"
+            elif [[ "$BINARY" == *".component"* ]]; then
+              NAME="Noise Repellent.component"
+            elif [[ "$BINARY" == *".lv2"* ]]; then
+              NAME="Noise Repellent.lv2"
+            else
+              NAME=$(basename "$BINARY")
+            fi
             
+            # Check architectures (arm64 + x86_64)
             LIPO_INFO=$(lipo -info "$BINARY")
-            BAD_DEPS=$(otool -L "$BINARY" | tail -n +2 | awk '{print $1}' | grep -vE "^/System/Library|^/usr/lib" || true)
-
-            FAILED=0
+            ARCH_FAILED=0
             if [[ "$LIPO_INFO" != *"x86_64"* ]] || [[ "$LIPO_INFO" != *"arm64"* ]]; then
-              FAILED=1
+              ARCH_FAILED=1
             fi
 
-            if [ -n "$BAD_DEPS" ] || [ $FAILED -ne 0 ]; then
+            # Clean otool output: extract full path preserving spaces and ignore self-references
+            BAD_DEPS=$(otool -L "$BINARY" | tail -n +2 | sed -E 's/^[[:space:]]+//; s/[[:space:]]+\(compatibility.*//' | grep -vE "^/System/Library|^/usr/lib|^@loader_path|^@executable_path|^@rpath|Noise Repellent|staging/" || true)
+
+            if [ -n "$BAD_DEPS" ] || [ $ARCH_FAILED -ne 0 ]; then
               echo "❌ [FAIL] $NAME"
-              [ $FAILED -ne 0 ] && echo "   └─ Architecture error: $LIPO_INFO"
+              [ $ARCH_FAILED -ne 0 ] && echo "   └─ Architecture error: $LIPO_INFO"
               [ -n "$BAD_DEPS" ] && echo "   └─ Dynamic leaks: $(echo "$BAD_DEPS" | tr '\n' ' ')"
               HAS_ERRORS=1
             else
@@ -344,7 +354,8 @@ jobs:
           fi
 
           HAS_ERRORS=0
-          ALLOWED_DLLS="KERNEL32\.dll|USER32\.dll|GDI32\.dll|SHELL32\.dll|ADVAPI32\.dll|OLE32\.dll|SETUPAPI\.dll|COMDLG32\.dll|WS2_32\.dll|IMM32\.dll|VERSION\.dll|VCRUNTIME140.*\.dll|MSVCP140.*\.dll|ucrtbase\.dll|api-ms-win-.*\.dll|MFPlat\.dll"
+          # Standard Windows OS libraries (Kernel, User, Direct2D/3D, Desktop Window Manager, WinMM)
+          ALLOWED_DLLS="KERNEL32\.dll|USER32\.dll|GDI32\.dll|SHELL32\.dll|ADVAPI32\.dll|OLE32\.dll|OLEAUT32\.dll|SETUPAPI\.dll|COMDLG32\.dll|WS2_32\.dll|IMM32\.dll|VERSION\.dll|WINMM\.dll|UXTHEME\.dll|SHLWAPI\.dll|d2d1\.dll|dxgi\.dll|d3d11\.dll|dcomp\.dll|dwmapi\.dll|VCRUNTIME140.*\.dll|MSVCP140.*\.dll|ucrtbase\.dll|api-ms-win-.*\.dll|MFPlat\.dll"
 
           for BINARY in $BINARIES; do
             NAME=$(basename "$BINARY")
