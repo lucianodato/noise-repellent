@@ -26,14 +26,14 @@ endif()
 
 include(FetchContent)
 
-# --- Static FreeType & Disable Fontconfig for Linux (MUST BE DECLARED BEFORE JUCE) ---
+# --- Static FreeType for Linux (MUST BE DECLARED BEFORE JUCE) ---
 if(UNIX AND NOT APPLE)
-    # Disable JUCE Fontconfig search to eliminate libfontconfig.so
+    # Disable JUCE Fontconfig search to eliminate libfontconfig.so leaks
+    set(JUCE_USE_FONTCONFIG OFF CACHE BOOL "" FORCE)
     add_compile_definitions(JUCE_USE_FONTCONFIG=0)
     set(juce_fontconfig_FOUND FALSE CACHE BOOL "" FORCE)
-    set(Fontconfig_FOUND FALSE CACHE BOOL "" FORCE)
 
-    # Disable external compression/font features in static FreeType
+    # Build static FreeType without external compression/font dependencies
     set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
     set(FT_DISABLE_ZLIB ON CACHE BOOL "" FORCE)
     set(FT_DISABLE_PNG ON CACHE BOOL "" FORCE)
@@ -46,6 +46,17 @@ if(UNIX AND NOT APPLE)
         GIT_TAG        VER-2-12-1
     )
     FetchContent_MakeAvailable(freetype)
+
+    # Pre-define JUCE's expected FreeType target BEFORE JUCE initializes.
+    # This prevents JUCE from auto-linking system /usr/lib/.../libfreetype.so!
+    if(NOT TARGET PkgConfig::juce_freetype)
+        add_library(PkgConfig::juce_freetype INTERFACE IMPORTED GLOBAL)
+        set_target_properties(PkgConfig::juce_freetype PROPERTIES
+            INTERFACE_LINK_LIBRARIES "freetype"
+            INTERFACE_INCLUDE_DIRECTORIES "$<TARGET_PROPERTY:freetype,INTERFACE_INCLUDE_DIRECTORIES>"
+        )
+    endif()
+    set(juce_freetype_FOUND TRUE CACHE BOOL "" FORCE)
 endif()
 
 # Fetch JUCE framework
@@ -183,52 +194,7 @@ target_link_libraries(NoiseRepellent PRIVATE
     juce::juce_audio_processors
     juce::juce_dsp
     juce::juce_gui_extra
-    juce::juce_gui_basics
+    juce::juce_basics
     juce::juce_graphics
     juce::juce_core
 )
-
-# Strips any system fontconfig / freetype .so libraries auto-linked by JUCE on Linux
-if(UNIX AND NOT APPLE)
-    foreach(PKG_TGT PkgConfig::juce_fontconfig PkgConfig::juce_freetype Freetype::Freetype)
-        if(TARGET ${PKG_TGT})
-            set_target_properties(${PKG_TGT} PROPERTIES
-                INTERFACE_LINK_LIBRARIES ""
-                IMPORTED_LOCATION ""
-            )
-        endif()
-    endforeach()
-
-    set(TARGETS_TO_CLEAN
-        NoiseRepellent
-        NoiseRepellent_VST3
-        NoiseRepellent_LV2
-        NoiseRepellent_SharedCode
-        juce_graphics
-        juce_gui_basics
-    )
-
-    foreach(TGT ${TARGETS_TO_CLEAN})
-        if(TARGET ${TGT})
-            get_target_property(T_LIBS ${TGT} LINK_LIBRARIES)
-            if(T_LIBS)
-                string(REGEX REPLACE "[^;]*/libfontconfig\\.so[^;]*" "" T_LIBS "${T_LIBS}")
-                string(REGEX REPLACE "[^;]*/libfreetype\\.so[^;]*" "" T_LIBS "${T_LIBS}")
-                string(REGEX REPLACE "PkgConfig::juce_fontconfig" "" T_LIBS "${T_LIBS}")
-                string(REGEX REPLACE "PkgConfig::juce_freetype" "" T_LIBS "${T_LIBS}")
-                set_target_properties(${TGT} PROPERTIES LINK_LIBRARIES "${T_LIBS}")
-            endif()
-
-            get_target_property(I_LIBS ${TGT} INTERFACE_LINK_LIBRARIES)
-            if(I_LIBS)
-                string(REGEX REPLACE "[^;]*/libfontconfig\\.so[^;]*" "" I_LIBS "${I_LIBS}")
-                string(REGEX REPLACE "[^;]*/libfreetype\\.so[^;]*" "" I_LIBS "${I_LIBS}")
-                string(REGEX REPLACE "PkgConfig::juce_fontconfig" "" I_LIBS "${I_LIBS}")
-                string(REGEX REPLACE "PkgConfig::juce_freetype" "" I_LIBS "${I_LIBS}")
-                set_target_properties(${I_LIBS} PROPERTIES INTERFACE_LINK_LIBRARIES "${I_LIBS}")
-            endif()
-
-            target_link_libraries(${TGT} PRIVATE freetype)
-        endif()
-    endforeach()
-endif()
