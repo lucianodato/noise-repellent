@@ -14,8 +14,9 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 if(UNIX AND NOT APPLE)
-    # Statically link GCC and C++ standard runtimes for prebuilt release builds
-    add_link_options(-static-libgcc -static-libstdc++)
+    # Statically link GCC runtimes AND hide all symbols inside static archives (-Wl,--exclude-libs,ALL)
+    # This prevents host DAWs (like Ardour) from experiencing FreeType/FFTW dynamic linker symbol collisions
+    add_link_options(-static-libgcc -static-libstdc++ -Wl,--exclude-libs,ALL)
 endif()
 
 if(MSVC)
@@ -73,7 +74,7 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(JUCE)
 
 if(UNIX AND NOT APPLE AND NOT USE_SYSTEM_FREETYPE)
-    # Redirect JUCE PkgConfig target to point to static freetype
+    # Redirect JUCE PkgConfig target to point to our static freetype library
     if(TARGET PkgConfig::juce_freetype)
         set_target_properties(PkgConfig::juce_freetype PROPERTIES
             IMPORTED_LOCATION ""
@@ -231,7 +232,7 @@ else()
 endif()
 
 # ==============================================================================
-# 6. Target Linkage & Visibility Properties
+# 6. Target Linkage & Symbol Visibility Properties
 # ==============================================================================
 set_target_properties(NoiseRepellent PROPERTIES
     C_VISIBILITY_PRESET hidden

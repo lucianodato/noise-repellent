@@ -200,9 +200,9 @@ jobs:
         run: |
           cmake --build build --config Release
 
-      - name: Verify Plugin Dependencies & Static Linking (Linux)
+      - name: Verify Plugin Dependencies & Symbol Isolation (Linux)
         run: |
-          echo "🔍 Verifying Linux release binaries (.so)..."
+          echo "🔍 Verifying Linux plugin binaries (.so)..."
           IFS=$'\n'
           PLUGINS=$(find build/NoiseRepellent_artefacts -name "*.so")
 
@@ -211,28 +211,42 @@ jobs:
             exit 1
           fi
 
-          # Whitelist ONLY standard system/desktop runtimes (glibc, X11, ALSA, OpenGL)
-          # Ensures no leaks of libfreetype, libfftw3, libstdc++, libgcc_s, etc.
+          # Whitelist ONLY core system/desktop runtimes (glibc, X11, ALSA, OpenGL)
           ALLOWED_LIBS="libc\.so|libm\.so|libpthread\.so|libdl\.so|librt\.so|linux-vdso\.so|ld-linux|libasound\.so|libGL\.so|libX11\.so|libXext\.so|libXcursor\.so|libXinerama\.so|libXrandr\.so|libXrender\.so|libXi\.so"
           HAS_ERRORS=0
 
           for PLUGIN in $PLUGINS; do
             NAME=$(basename "$PLUGIN")
+            echo "Checking $NAME..."
+
+            # 1. Check for un-whitelisted dynamic library dependencies
             UNEXPECTED_LIBS=$(ldd "$PLUGIN" | grep "=>" | awk '{print $1}' | grep -vE "$ALLOWED_LIBS" || true)
 
-            if [ -n "$UNEXPECTED_LIBS" ]; then
-              echo "❌ [FAIL] $NAME"
-              echo "   └─ Dynamic leaks: $(echo "$UNEXPECTED_LIBS" | tr '\n' ' ')"
+            # 2. Check for exported or undefined FreeType/FFTW symbols (DAW collision protection)
+            DEFINED_LEAKS=$(nm -D --defined-only "$PLUGIN" 2>/dev/null | grep -iE " (FT_|fftw_)" || true)
+            UNDEFINED_LEAKS=$(nm -D --undefined-only "$PLUGIN" 2>/dev/null | grep -iE " (FT_|fftw_)" || true)
+
+            if [ -n "$UNEXPECTED_LIBS" ] || [ -n "$DEFINED_LEAKS" ] || [ -n "$UNDEFINED_LEAKS" ]; then
+              echo "❌ [FAIL] Verification failed for $NAME"
+              if [ -n "$UNEXPECTED_LIBS" ]; then
+                echo "   └─ Dynamic library leaks: $(echo "$UNEXPECTED_LIBS" | tr '\n' ' ')"
+              fi
+              if [ -n "$DEFINED_LEAKS" ]; then
+                echo "   └─ Exported static symbols: $(echo "$DEFINED_LEAKS" | tr '\n' ' ')"
+              fi
+              if [ -n "$UNDEFINED_LEAKS" ]; then
+                echo "   └─ Undefined system symbols: $(echo "$UNDEFINED_LEAKS" | tr '\n' ' ')"
+              fi
               HAS_ERRORS=1
             else
-              echo "✔ [PASS] $NAME"
+              echo "✔ [PASS] $NAME (Dependencies clean & symbols fully isolated)"
             fi
           done
 
           if [ $HAS_ERRORS -ne 0 ]; then
             exit 1
           fi
-          echo "✨ All Linux release binaries verified clean and self-contained!"
+          echo "✨ All Linux binaries verified clean and properly encapsulated!"
 
       - name: Package Staging Artifacts
         run: |
