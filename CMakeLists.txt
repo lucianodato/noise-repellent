@@ -14,8 +14,8 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 if(UNIX AND NOT APPLE)
-    # Statically link GCC/C++ runtimes and hide archive symbols from DAWs
-    add_link_options(-static-libgcc -static-libstdc++ -Wl,--exclude-libs,ALL)
+    # Statically link GCC and C++ standard runtimes for ALL CMake targets
+    add_link_options(-static-libgcc -static-libstdc++)
 endif()
 
 if(MSVC)
@@ -26,28 +26,7 @@ endif()
 
 include(FetchContent)
 
-# --- 1. Fetch Static FreeType (Linux) ---
-if(UNIX AND NOT APPLE)
-    # Disable Fontconfig
-    set(JUCE_USE_FONTCONFIG OFF CACHE BOOL "" FORCE)
-    add_compile_definitions(JUCE_USE_FONTCONFIG=0)
-
-    # Disable external compression/font features in static FreeType
-    set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
-    set(FT_DISABLE_ZLIB ON CACHE BOOL "" FORCE)
-    set(FT_DISABLE_PNG ON CACHE BOOL "" FORCE)
-    set(FT_DISABLE_HARFBUZZ ON CACHE BOOL "" FORCE)
-    set(FT_DISABLE_BROTLI ON CACHE BOOL "" FORCE)
-
-    FetchContent_Declare(
-        freetype
-        GIT_REPOSITORY https://gitlab.freedesktop.org/freetype/freetype.git
-        GIT_TAG        VER-2-12-1
-    )
-    FetchContent_MakeAvailable(freetype)
-endif()
-
-# --- 2. Fetch JUCE Framework ---
+# Fetch JUCE framework
 message(STATUS "Fetching JUCE framework...")
 FetchContent_Declare(
     JUCE
@@ -56,32 +35,7 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(JUCE)
 
-# --- 3. Redirect JUCE FreeType target to our static build AFTER JUCE finishes juceaide ---
-if(UNIX AND NOT APPLE)
-    if(TARGET PkgConfig::juce_freetype)
-        set_target_properties(PkgConfig::juce_freetype PROPERTIES
-            IMPORTED_LOCATION ""
-            INTERFACE_LINK_LIBRARIES "freetype"
-            INTERFACE_INCLUDE_DIRECTORIES "$<TARGET_PROPERTY:freetype,INTERFACE_INCLUDE_DIRECTORIES>"
-        )
-    else()
-        add_library(PkgConfig::juce_freetype INTERFACE IMPORTED GLOBAL)
-        set_target_properties(PkgConfig::juce_freetype PROPERTIES
-            INTERFACE_LINK_LIBRARIES "freetype"
-            INTERFACE_INCLUDE_DIRECTORIES "$<TARGET_PROPERTY:freetype,INTERFACE_INCLUDE_DIRECTORIES>"
-        )
-    endif()
-
-    if(TARGET PkgConfig::juce_fontconfig)
-        set_target_properties(PkgConfig::juce_fontconfig PROPERTIES
-            IMPORTED_LOCATION ""
-            INTERFACE_LINK_LIBRARIES ""
-            INTERFACE_INCLUDE_DIRECTORIES ""
-        )
-    endif()
-endif()
-
-# --- 4. Add Plugin Target ---
+# Add JUCE Audio Plugin target
 juce_add_plugin(NoiseRepellent
     COMPANY_NAME "Luciano Dato"
     BUNDLE_ID "com.lucianodato.NoiseRepellent"
@@ -102,10 +56,12 @@ if(APPLE)
     set(CMAKE_OSX_DEPLOYMENT_TARGET "10.13" CACHE STRING "Minimum macOS version")
 endif()
 
+# Include directories
 target_include_directories(NoiseRepellent PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/Source
 )
 
+# Source files
 target_sources(NoiseRepellent PRIVATE
     Source/PluginProcessor.cpp
     Source/PluginProcessor.h
@@ -117,17 +73,19 @@ target_sources(NoiseRepellent PRIVATE
     Source/GUI/SpectralVisualizer.h
 )
 
+# Compile definitions
 target_compile_definitions(NoiseRepellent PRIVATE
     JUCE_WEB_BROWSER=0
     JUCE_USE_CURL=0
     JUCE_VST3_CAN_REPLACE_VST2=0
 )
 
+# Global options for subprojects
 set(ENABLE_TESTS OFF CACHE BOOL "" FORCE)
 set(ENABLE_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(BUILD_TESTS OFF CACHE BOOL "" FORCE)
 
-# --- 5. Static FFTW3 ---
+# --- Static FFTW3 for ALL Platforms (Linux, macOS, Windows) ---
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 set(ENABLE_FLOAT ON CACHE BOOL "" FORCE)
 set(ENABLE_THREADS ON CACHE BOOL "" FORCE)
@@ -154,7 +112,7 @@ if(APPLE)
     set(USE_AVX OFF CACHE BOOL "" FORCE)
 endif()
 
-# --- 6. Libspecbleach Source Resolution ---
+# --- Libspecbleach Source Resolution ---
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../libspecbleach/CMakeLists.txt")
     message(STATUS "Using local libspecbleach from ../libspecbleach")
     set(SPECBLEACH_SRC "${CMAKE_CURRENT_SOURCE_DIR}/../libspecbleach")
@@ -196,7 +154,7 @@ set_target_properties(NoiseRepellent PROPERTIES
     VISIBILITY_INLINES_HIDDEN YES
 )
 
-# --- 7. Link Dependencies ---
+# Link JUCE Modules and DSP Dependencies
 target_link_libraries(NoiseRepellent PRIVATE
     libspecbleach
     juce::juce_audio_utils

@@ -188,25 +188,16 @@ jobs:
             build-essential cmake ninja-build \
             libasound2-dev libjack-jackd2-dev libgl1-mesa-dev \
             libx11-dev libxcomposite-dev libxcursor-dev libxext-dev \
-            libxinerama-dev libxrandr-dev libfreetype6-dev
+            libxinerama-dev libxrandr-dev libfontconfig1-dev libfreetype6-dev
 
       - name: Configure CMake
         run: |
           cmake -B build -G "Ninja" \
             -DCMAKE_BUILD_TYPE=Release
 
-      - name: Build Targets
+      - name: Build Plugins
         run: |
-          cmake --build build --config Release -j4
-
-      - name: Debug Linker Command & Static Targets (Linux)
-        run: |
-          echo "=== 1. Checking generated static libraries (.a) ==="
-          find build -name "*.a"
-
-          echo "-------------------------------------------------"
-          echo "=== 2. Inspecting FreeType references in Ninja build rules ==="
-          grep -i "freetype" build/build.ninja || true
+          cmake --build build --config Release
 
       - name: Verify Plugin Dependencies & Static Linking (Linux)
         run: |
@@ -219,8 +210,8 @@ jobs:
             exit 1
           fi
 
-          # Strict whitelist: glibc, math, pthread, dl, rt, ALSA, OpenGL, X11
-          ALLOWED_LIBS="libc\.so|libm\.so|libpthread\.so|libdl\.so|librt\.so|linux-vdso\.so|ld-linux|libasound\.so|libGL\.so|libX11\.so|libXext\.so|libXcursor\.so|libXinerama\.so|libXrandr\.so|libXrender\.so|libXi\.so"
+          # Whitelist standard Linux system desktop runtimes (glibc, X11, ALSA, OpenGL, Fontconfig/FreeType & core helpers)
+          ALLOWED_LIBS="libc\.so|libm\.so|libpthread\.so|libdl\.so|librt\.so|linux-vdso\.so|ld-linux|libasound\.so|libGL\.so|libX11\.so|libXext\.so|libXcursor\.so|libXinerama\.so|libXrandr\.so|libXrender\.so|libXi\.so|libfontconfig\.so|libfreetype\.so|libz\.so|libpng.*\.so|libbrotli.*\.so|libbz2\.so|libexpat\.so"
           HAS_ERRORS=0
 
           for PLUGIN in $PLUGINS; do
@@ -241,7 +232,6 @@ jobs:
           fi
           echo "✨ All Linux binaries verified clean!"
 
-
       - name: Package Staging Artifacts
         run: |
           mkdir -p staging
@@ -259,6 +249,7 @@ jobs:
           Version: $PLUGIN_VERSION
           Architecture: amd64
           Maintainer: Luciano Dato <lucianodato@net>
+          Depends: libasound2 (>= 1.0.16), libfontconfig1 (>= 2.12.0), libfreetype6 (>= 2.10.0), libgl1, libx11-6, libxext6, libxcursor1, libxinerama1, libxrandr2
           Description: Noise Repellent Audio Processing Plugin
           EOF
 
