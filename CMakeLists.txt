@@ -26,14 +26,12 @@ endif()
 
 include(FetchContent)
 
-# --- Static FreeType & Disable Fontconfig for Linux (MUST BE DECLARED BEFORE JUCE) ---
+# --- Static FreeType & Disable Fontconfig for Linux (MUST BE BEFORE JUCE) ---
 if(UNIX AND NOT APPLE)
-    # 1. Disable JUCE Fontconfig search to eliminate libfontconfig.so
     add_compile_definitions(JUCE_USE_FONTCONFIG=0)
     set(juce_fontconfig_FOUND FALSE CACHE BOOL "" FORCE)
     set(Fontconfig_FOUND FALSE CACHE BOOL "" FORCE)
 
-    # 2. Disable external compression/font features in static FreeType
     set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
     set(FT_DISABLE_ZLIB ON CACHE BOOL "" FORCE)
     set(FT_DISABLE_PNG ON CACHE BOOL "" FORCE)
@@ -47,12 +45,16 @@ if(UNIX AND NOT APPLE)
     )
     FetchContent_MakeAvailable(freetype)
 
-    # 3. Intercept JUCE's FreeType package searches BEFORE JUCE initializes!
-    set(juce_freetype_FOUND TRUE CACHE BOOL "" FORCE)
+    # Force standard CMake FindFreetype.cmake to use our static 'freetype' target
     set(FREETYPE_FOUND TRUE CACHE BOOL "" FORCE)
     set(Freetype_FOUND TRUE CACHE BOOL "" FORCE)
+    set(FREETYPE_LIBRARY freetype CACHE FILEPATH "Static FreeType Target" FORCE)
+    set(FREETYPE_LIBRARIES freetype CACHE STRING "Static FreeType Target" FORCE)
+    set(FREETYPE_INCLUDE_DIRS "$<TARGET_PROPERTY:freetype,INTERFACE_INCLUDE_DIRECTORIES>" CACHE STRING "" FORCE)
+    set(FREETYPE_INCLUDE_DIR_ft2build "$<TARGET_PROPERTY:freetype,INTERFACE_INCLUDE_DIRECTORIES>" CACHE STRING "" FORCE)
+    set(FREETYPE_INCLUDE_DIR_freetype2 "$<TARGET_PROPERTY:freetype,INTERFACE_INCLUDE_DIRECTORIES>" CACHE STRING "" FORCE)
 
-    # Alias JUCE's expected targets directly to our static 'freetype' target
+    set(juce_freetype_FOUND TRUE CACHE BOOL "" FORCE)
     if(NOT TARGET PkgConfig::juce_freetype)
         add_library(PkgConfig::juce_freetype ALIAS freetype)
     endif()
