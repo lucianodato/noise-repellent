@@ -51,7 +51,11 @@ if(UNIX AND NOT APPLE)
         set(FT_DISABLE_HARFBUZZ ON CACHE BOOL "" FORCE)
         set(FT_DISABLE_BROTLI ON CACHE BOOL "" FORCE)
 
-        # VER-2-13-2 contains FT_Get_Paint required by JUCE 8
+        # Disable Fontconfig in JUCE
+        set(JUCE_USE_FONTCONFIG OFF CACHE BOOL "" FORCE)
+        add_compile_definitions(JUCE_USE_FONTCONFIG=0)
+
+        # Fetch static FreeType (VER-2-13-2 has FT_Get_Paint for JUCE 8)
         FetchContent_Declare(
             freetype
             GIT_REPOSITORY https://gitlab.freedesktop.org/freetype/freetype.git
@@ -59,8 +63,12 @@ if(UNIX AND NOT APPLE)
         )
         FetchContent_MakeAvailable(freetype)
 
-        # Pre-create JUCE's expected PkgConfig targets BEFORE fetching JUCE.
-        # This prevents JUCE from invoking pkg_check_modules and linking system .so libraries.
+        # 1. Map CMake's standard Freetype::Freetype target directly to our static freetype build
+        if(NOT TARGET Freetype::Freetype)
+            add_library(Freetype::Freetype ALIAS freetype)
+        endif()
+
+        # 2. Pre-create JUCE's expected PkgConfig targets to bypass pkg_check_modules
         if(NOT TARGET PkgConfig::juce_freetype)
             add_library(PkgConfig::juce_freetype INTERFACE IMPORTED GLOBAL)
             target_link_libraries(PkgConfig::juce_freetype INTERFACE freetype)
@@ -70,7 +78,16 @@ if(UNIX AND NOT APPLE)
             add_library(PkgConfig::juce_fontconfig INTERFACE IMPORTED GLOBAL)
         endif()
 
-        add_compile_definitions(JUCE_USE_FONTCONFIG=0)
+        if(NOT TARGET Fontconfig::Fontconfig)
+            add_library(Fontconfig::Fontconfig INTERFACE IMPORTED GLOBAL)
+        endif()
+
+        # 3. Block CMake from searching system paths for libfreetype.so / libfontconfig.so
+        set(CMAKE_DISABLE_FIND_PACKAGE_Freetype ON CACHE BOOL "" FORCE)
+        set(CMAKE_DISABLE_FIND_PACKAGE_Fontconfig ON CACHE BOOL "" FORCE)
+        set(Freetype_FOUND TRUE CACHE BOOL "" FORCE)
+        set(FREETYPE_FOUND TRUE CACHE BOOL "" FORCE)
+        set(Fontconfig_FOUND TRUE CACHE BOOL "" FORCE)
     endif()
 endif()
 
@@ -234,11 +251,15 @@ target_link_libraries(NoiseRepellent PRIVATE
     juce::juce_audio_processors
     juce::juce_dsp
     juce::juce_gui_extra
-    juce::juce_gui_basics
+    juce::juce_basics
     juce::juce_graphics
     juce::juce_core
 )
 
-if(UNIX AND NOT APPLE AND USE_SYSTEM_FREETYPE)
-    target_link_libraries(NoiseRepellent PRIVATE Freetype::Freetype)
+if(UNIX AND NOT APPLE)
+    if(USE_SYSTEM_FREETYPE)
+        target_link_libraries(NoiseRepellent PRIVATE Freetype::Freetype)
+    else()
+        target_link_libraries(NoiseRepellent PRIVATE freetype)
+    endif()
 endif()
