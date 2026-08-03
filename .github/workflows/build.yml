@@ -23,10 +23,12 @@ jobs:
           if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
             VERSION="${GITHUB_REF_NAME#v}"
           else
-            if RAW_VER=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//'); then
-              VERSION="$RAW_VER"
+            if DESCRIBE=$(git describe --tags --always 2>/dev/null); then
+              VERSION="${DESCRIBE#v}"
             else
-              VERSION=$(grep -oP '(?<=^project\(NoiseRepellent VERSION )[0-9]+\.[0-9]+\.[0-9]+' CMakeLists.txt)
+              BASE_VER=$(sed -n -E 's/.*project\(NoiseRepellent VERSION ([0-9]+\.[0-9]+\.[0-9]+\).*/\1/p' CMakeLists.txt || echo "0.0.0")
+              SHORT_SHA=$(git rev-parse --short HEAD)
+              VERSION="${BASE_VER}-${SHORT_SHA}"
             fi
           fi
           echo "PLUGIN_VERSION=${VERSION}" >> $GITHUB_ENV
@@ -102,7 +104,6 @@ jobs:
           HAS_ERRORS=0
 
           for BINARY in $BINARIES; do
-            # Format clean display names (e.g. Noise Repellent.vst3, Noise Repellent.component, Noise Repellent.lv2)
             if [[ "$BINARY" == *".vst3"* ]]; then
               NAME="Noise Repellent.vst3"
             elif [[ "$BINARY" == *".component"* ]]; then
@@ -113,7 +114,6 @@ jobs:
               NAME=$(basename "$BINARY")
             fi
             
-            # Check architectures (arm64 + x86_64)
             set +e
             LIPO_INFO=$(lipo -info "$BINARY" 2>&1)
             LIPO_STATUS=$?
@@ -124,7 +124,6 @@ jobs:
               ARCH_FAILED=1
             fi
 
-            # Clean otool output: extract full path preserving spaces and ignore self-references
             BAD_DEPS=$(otool -L "$BINARY" | tail -n +2 | sed -E 's/^[[:space:]]+//; s/[[:space:]]+\(compatibility.*//' | grep -vE "^/System/Library|^/usr/lib|^@loader_path|^@executable_path|^@rpath|Noise Repellent|staging/" || true)
 
             if [ -n "$BAD_DEPS" ] || [ $ARCH_FAILED -ne 0 ]; then
@@ -160,18 +159,18 @@ jobs:
             PKGBUILD_CMD="$PKGBUILD_CMD --scripts installer/macos/scripts"
           fi
 
-          $PKGBUILD_CMD NoiseRepellent-macOS-Universal.pkg
+          $PKGBUILD_CMD "NoiseRepellent-macOS-Universal-${PLUGIN_VERSION}.pkg"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: noise-repellent-macOS-installer
-          path: NoiseRepellent-macOS-Universal.pkg
+          name: noise-repellent-macOS-installer-${{ env.PLUGIN_VERSION }}
+          path: NoiseRepellent-macOS-Universal-${{ env.PLUGIN_VERSION }}.pkg
 
       - name: Upload GitHub Release
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: NoiseRepellent-macOS-Universal.pkg
+          files: NoiseRepellent-macOS-Universal-${{ env.PLUGIN_VERSION }}.pkg
 
   build-linux:
     name: Linux (x86_64)
@@ -187,10 +186,12 @@ jobs:
           if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
             VERSION="${GITHUB_REF_NAME#v}"
           else
-            if RAW_VER=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//'); then
-              VERSION="$RAW_VER"
+            if DESCRIBE=$(git describe --tags --always 2>/dev/null); then
+              VERSION="${DESCRIBE#v}"
             else
-              VERSION=$(grep -oP '(?<=^project\(NoiseRepellent VERSION )[0-9]+\.[0-9]+\.[0-9]+' CMakeLists.txt)
+              BASE_VER=$(sed -n -E 's/.*project\(NoiseRepellent VERSION ([0-9]+\.[0-9]+\.[0-9]+\).*/\1/p' CMakeLists.txt || echo "0.0.0")
+              SHORT_SHA=$(git rev-parse --short HEAD)
+              VERSION="${BASE_VER}-${SHORT_SHA}"
             fi
           fi
           echo "PLUGIN_VERSION=${VERSION}" >> $GITHUB_ENV
@@ -207,7 +208,6 @@ jobs:
 
       - name: Configure CMake
         run: |
-          # Default options (USE_SYSTEM_*=OFF) produce portable, self-contained release binaries
           cmake -B build -G "Ninja" \
             -DCMAKE_BUILD_TYPE=Release
 
@@ -217,7 +217,6 @@ jobs:
 
       - name: Verify Plugin Dependencies & Symbol Isolation (Linux)
         run: |
-          # Temporarily disable errexit/pipefail so inspection pipelines don't abort bash mid-loop
           set +e
           set +o pipefail
 
@@ -230,32 +229,22 @@ jobs:
             exit 1
           fi
 
-          # Whitelist ONLY core system/desktop runtimes (glibc, X11, ALSA, OpenGL)
-          ALLOWED_LIBS="libc\.so|libm\.so|libpthread\.so|libdl\.so|librt\.so|linux-vdso\.so|ld-linux|libasound\.so|libGL\.so|libX11\.so|libXext\.so|libXcursor\.so|libXinerama\.so|libXrandr\.so|libXrender\.so|libXi\.so"
+          ALLOWED_LIBS="libc\.so|libm\.so|libpthread\.so|libdl\.so|librt\.so|ld-linux|libasound\.so|libGL\.so|libX11\.so|libXext\.so|libXcursor\.so|libXinerama\.so|libXrandr\.so|libXrender\.so|libXi\.so"
           HAS_ERRORS=0
 
           for PLUGIN in $PLUGINS; do
             NAME=$(basename "$PLUGIN")
             echo "Checking $NAME..."
 
-            # 1. Check for un-whitelisted dynamic library dependencies
             UNEXPECTED_LIBS=$(ldd "$PLUGIN" 2>/dev/null | awk '/=>/ {print $1}' | grep -vE "$ALLOWED_LIBS")
-
-            # 2. Check for exported or undefined FreeType/FFTW symbols (DAW collision protection)
             DEFINED_LEAKS=$(nm -D --defined-only "$PLUGIN" 2>/dev/null | grep -iE " (FT_|fftwf?_)")
             UNDEFINED_LEAKS=$(nm -D --undefined-only "$PLUGIN" 2>/dev/null | grep -iE " (FT_|fftwf?_)")
 
             if [ -n "$UNEXPECTED_LIBS" ] || [ -n "$DEFINED_LEAKS" ] || [ -n "$UNDEFINED_LEAKS" ]; then
               echo "❌ [FAIL] Verification failed for $NAME"
-              if [ -n "$UNEXPECTED_LIBS" ]; then
-                echo "   └─ Dynamic library leaks: $(echo "$UNEXPECTED_LIBS" | tr '\n' ' ')"
-              fi
-              if [ -n "$DEFINED_LEAKS" ]; then
-                echo "   └─ Exported static symbols: $(echo "$DEFINED_LEAKS" | tr '\n' ' ')"
-              fi
-              if [ -n "$UNDEFINED_LEAKS" ]; then
-                echo "   └─ Undefined system symbols: $(echo "$UNDEFINED_LEAKS" | tr '\n' ' ')"
-              fi
+              [ -n "$UNEXPECTED_LIBS" ] && echo "   └─ Dynamic library leaks: $(echo "$UNEXPECTED_LIBS" | tr '\n' ' ')"
+              [ -n "$DEFINED_LEAKS" ] && echo "   └─ Exported static symbols: $(echo "$DEFINED_LEAKS" | tr '\n' ' ')"
+              [ -n "$UNDEFINED_LEAKS" ] && echo "   └─ Undefined system symbols: $(echo "$UNDEFINED_LEAKS" | tr '\n' ' ')"
               HAS_ERRORS=1
             else
               echo "✔ [PASS] $NAME (Dependencies clean & symbols fully isolated)"
@@ -291,7 +280,7 @@ jobs:
           cp -R "staging/Noise Repellent.vst3" deb_root/usr/lib/vst3/
           cp -R "staging/Noise Repellent.lv2" deb_root/usr/lib/lv2/
 
-          dpkg-deb --build deb_root noise-repellent_${PLUGIN_VERSION}_amd64.deb
+          dpkg-deb --build deb_root "noise-repellent_${PLUGIN_VERSION}_amd64.deb"
 
       - name: Create Universal Tarball with Installer Script
         run: |
@@ -320,17 +309,17 @@ jobs:
 
           chmod +x staging/install.sh
 
-          cd staging && tar -czvf ../noise-repellent-linux-x86_64.tar.gz .
+          cd staging && tar -czvf "../noise-repellent-linux-x86_64-${PLUGIN_VERSION}.tar.gz" .
 
       - uses: actions/upload-artifact@v4
         with:
-          name: noise-repellent-linux-deb
+          name: noise-repellent-linux-deb-${{ env.PLUGIN_VERSION }}
           path: noise-repellent_${{ env.PLUGIN_VERSION }}_amd64.deb
 
       - uses: actions/upload-artifact@v4
         with:
-          name: noise-repellent-linux-tarball
-          path: noise-repellent-linux-x86_64.tar.gz
+          name: noise-repellent-linux-tarball-${{ env.PLUGIN_VERSION }}
+          path: noise-repellent-linux-x86_64-${{ env.PLUGIN_VERSION }}.tar.gz
 
       - name: Upload GitHub Release
         uses: softprops/action-gh-release@v2
@@ -338,8 +327,7 @@ jobs:
         with:
           files: |
             noise-repellent_${{ env.PLUGIN_VERSION }}_amd64.deb
-            noise-repellent-linux-x86_64.tar.gz
-
+            noise-repellent-linux-x86_64-${{ env.PLUGIN_VERSION }}.tar.gz
 
   build-windows:
     name: Windows (x64)
@@ -356,10 +344,12 @@ jobs:
           if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
             VERSION="${GITHUB_REF_NAME#v}"
           else
-            if RAW_VER=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//'); then
-              VERSION="$RAW_VER"
+            if DESCRIBE=$(git describe --tags --always 2>/dev/null); then
+              VERSION="${DESCRIBE#v}"
             else
-              VERSION=$(grep -oP '(?<=^project\(NoiseRepellent VERSION )[0-9]+\.[0-9]+\.[0-9]+' CMakeLists.txt)
+              BASE_VER=$(sed -n -E 's/.*project\(NoiseRepellent VERSION ([0-9]+\.[0-9]+\.[0-9]+\).*/\1/p' CMakeLists.txt || echo "0.0.0")
+              SHORT_SHA=$(git rev-parse --short HEAD)
+              VERSION="${BASE_VER}-${SHORT_SHA}"
             fi
           fi
           echo "PLUGIN_VERSION=${VERSION}" >> $GITHUB_ENV
@@ -393,7 +383,6 @@ jobs:
           fi
 
           HAS_ERRORS=0
-          # Standard Windows OS libraries (Kernel, User, Direct2D/3D, Desktop Window Manager, WinMM)
           ALLOWED_DLLS="KERNEL32\.dll|USER32\.dll|GDI32\.dll|SHELL32\.dll|ADVAPI32\.dll|OLE32\.dll|OLEAUT32\.dll|SETUPAPI\.dll|COMDLG32\.dll|WS2_32\.dll|IMM32\.dll|VERSION\.dll|WINMM\.dll|UXTHEME\.dll|SHLWAPI\.dll|d2d1\.dll|dxgi\.dll|d3d11\.dll|dcomp\.dll|dwmapi\.dll|VCRUNTIME140.*\.dll|MSVCP140.*\.dll|ucrtbase\.dll|api-ms-win-.*\.dll|MFPlat\.dll|bcrypt\.dll|RPCRT4\.dll|PROPSYS\.dll"
           
           for BINARY in $BINARIES; do
@@ -427,14 +416,19 @@ jobs:
           path: Installers/windows/installer.iss
           options: /O"Output" /DMyAppVersion=${{ env.PLUGIN_VERSION }}
 
+      - name: Rename Installer Artifact
+        shell: bash
+        run: |
+          mv Output/NoiseRepellent-Win64-Installer.exe "Output/NoiseRepellent-Win64-Installer-${PLUGIN_VERSION}.exe"
+
       - name: Upload Installer Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: noise-repellent-win64-installer
-          path: Output/NoiseRepellent-Win64-Installer.exe
+          name: noise-repellent-win64-installer-${{ env.PLUGIN_VERSION }}
+          path: Output/NoiseRepellent-Win64-Installer-${{ env.PLUGIN_VERSION }}.exe
 
       - name: Upload GitHub Release
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: Output/NoiseRepellent-Win64-Installer.exe
+          files: Output/NoiseRepellent-Win64-Installer-${{ env.PLUGIN_VERSION }}.exe
