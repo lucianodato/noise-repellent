@@ -390,8 +390,12 @@ jobs:
         shell: bash
         run: |
           mkdir -p staging
-          cp -R build/NoiseRepellent_artefacts/VST3/Noise\ Repellent.vst3 staging/ 2>/dev/null || cp -R build/NoiseRepellent_artefacts/Release/VST3/Noise\ Repellent.vst3 staging/ || true
-          cp -R build/NoiseRepellent_artefacts/LV2/Noise\ Repellent.lv2 staging/ 2>/dev/null || cp -R build/NoiseRepellent_artefacts/Release/LV2/Noise\ Repellent.lv2 staging/ || true
+          echo "Listing JUCE artifacts directory:"
+          find build -type f \( -name "*.vst3" -o -name "*.dll" \) || true
+          
+          # Copy VST3 bundle or dylib/dll
+          find build -name "*Noise*Repellent*.vst3" -exec cp -R {} staging/ \; 2>/dev/null || true
+          find build -name "*Noise*Repellent*.lv2" -exec cp -R {} staging/ \; 2>/dev/null || true
 
       - name: Verify Windows DLL Dependencies
         shell: bash
