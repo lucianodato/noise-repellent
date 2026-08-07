@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.22)
+cmake_minimum_required(VERSION 3.31)
 project(NoiseRepellent VERSION 0.3.1 LANGUAGES C CXX)
 
 set(CMAKE_C_STANDARD 11)
@@ -238,7 +238,7 @@ else()
         FetchContent_Declare(
             libspecbleach
             GIT_REPOSITORY https://github.com/lucianodato/libspecbleach.git
-            GIT_TAG        v0.3.0
+            GIT_TAG        v0.3.1
         )
         FetchContent_MakeAvailable(libspecbleach)
         set(SPECBLEACH_SRC "${libspecbleach_SOURCE_DIR}")
@@ -293,3 +293,57 @@ if(UNIX AND NOT APPLE)
         target_link_libraries(NoiseRepellent PRIVATE freetype)
     endif()
 endif()
+
+# ==============================================================================
+# 8. Installation Rules
+# ==============================================================================
+include(GNUInstallDirs)
+
+if(APPLE)
+    set(DEFAULT_VST3_DIR "/Library/Audio/Plug-Ins/VST3")
+    set(DEFAULT_AU_DIR   "/Library/Audio/Plug-Ins/Components")
+    set(DEFAULT_LV2_DIR  "/Library/Audio/Plug-Ins/LV2")
+elseif(WIN32)
+    if(DEFINED ENV{CommonProgramFiles})
+        file(TO_CMAKE_PATH "$ENV{CommonProgramFiles}" COMMON_PROGRAM_FILES)
+        set(DEFAULT_VST3_DIR "${COMMON_PROGRAM_FILES}/VST3")
+        set(DEFAULT_LV2_DIR  "${COMMON_PROGRAM_FILES}/LV2")
+    else()
+        set(DEFAULT_VST3_DIR "${CMAKE_INSTALL_PREFIX}/vst3")
+        set(DEFAULT_LV2_DIR  "${CMAKE_INSTALL_PREFIX}/lv2")
+    endif()
+else() # Linux / Unix
+    set(DEFAULT_VST3_DIR "${CMAKE_INSTALL_LIBDIR}/vst3")
+    set(DEFAULT_LV2_DIR  "${CMAKE_INSTALL_LIBDIR}/lv2")
+endif()
+
+
+set(INSTALL_VST3_DIR "${DEFAULT_VST3_DIR}" CACHE PATH "Installation directory for VST3 plugins")
+set(INSTALL_AU_DIR   "${DEFAULT_AU_DIR}"   CACHE PATH "Installation directory for AU plugins")
+set(INSTALL_LV2_DIR  "${DEFAULT_LV2_DIR}"  CACHE PATH "Installation directory for LV2 plugins")
+
+if(TARGET NoiseRepellent_VST3)
+    install(DIRECTORY "$<TARGET_PROPERTY:NoiseRepellent_VST3,JUCE_PLUGIN_ARTEFACT_FILE>"
+        DESTINATION "${INSTALL_VST3_DIR}"
+        USE_SOURCE_PERMISSIONS
+        COMPONENT VST3
+    )
+endif()
+
+if(TARGET NoiseRepellent_AU)
+    install(DIRECTORY "$<TARGET_PROPERTY:NoiseRepellent_AU,JUCE_PLUGIN_ARTEFACT_FILE>"
+        DESTINATION "${INSTALL_AU_DIR}"
+        USE_SOURCE_PERMISSIONS
+        COMPONENT AU
+    )
+endif()
+
+if(TARGET NoiseRepellent_LV2)
+    install(DIRECTORY "$<TARGET_PROPERTY:NoiseRepellent_LV2,JUCE_PLUGIN_ARTEFACT_FILE>"
+        DESTINATION "${INSTALL_LV2_DIR}"
+        USE_SOURCE_PERMISSIONS
+        COMPONENT LV2
+    )
+endif()
+
+

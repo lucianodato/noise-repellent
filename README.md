@@ -98,6 +98,9 @@ cmake -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Release
 
 # Compile all plugin formats (VST3, AU, LV2)
 cmake --build build --config Release --parallel
+
+# Install plugins to standard system plugin locations
+sudo cmake --install build
 ```
 
 #### 2. Downstream Linux Packaging Build (Shared System Libraries)
@@ -109,18 +112,32 @@ Linux distribution packagers (Arch, Debian, Fedora, etc.) can configure the buil
 # Configure build using system-installed shared libraries
 cmake -B build -G "Ninja" \
   -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_INSTALL_PREFIX=/usr \
   -DUSE_SYSTEM_FFTW=ON \
   -DUSE_SYSTEM_FREETYPE=ON \
   -DUSE_SYSTEM_SPECBLEACH=ON
 
 # Compile all plugin formats
 cmake --build build --config Release --parallel
+
+# Install to packaging staging area or system
+cmake --install build
 ```
 
-The compiled plugin targets (VST3, AU, LV2) will be generated in `build/NoiseRepellent_artefacts/Release/`.
+The compiled plugin targets (VST3, AU, LV2) will be generated in `build/NoiseRepellent_artefacts/Release/` and installed to system plugin locations (`/usr/lib/vst3`, `/usr/lib/lv2`, `/Library/Audio/Plug-Ins/`, etc.).
+
+#### Custom Installation Paths
+You can override the installation destination for specific formats using `-Doption=VALUE`:
+
+| Option | Default | Description |
+| :--- | :--- | :--- |
+| `INSTALL_VST3_DIR` | OS Standard (`${CMAKE_INSTALL_LIBDIR}/vst3` on Linux, `/Library/Audio/Plug-Ins/VST3` on macOS) | Destination path for VST3 plugin bundle |
+| `INSTALL_AU_DIR` | OS Standard (`/Library/Audio/Plug-Ins/Components` on macOS) | Destination path for AU component bundle |
+| `INSTALL_LV2_DIR` | OS Standard (`${CMAKE_INSTALL_LIBDIR}/lv2` on Linux, `/Library/Audio/Plug-Ins/LV2` on macOS) | Destination path for LV2 plugin bundle |
 
 > [!IMPORTANT]
 > Noise Repellent relies heavily on real-time FFT processing and AVX vectorization routines. Always configure CMake with `-DCMAKE_BUILD_TYPE=Release` to prevent CPU spikes and audio buffer xruns in your DAW.
+
 
 ## Usage
 
