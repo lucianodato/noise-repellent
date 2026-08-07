@@ -87,7 +87,7 @@ To balance portable DAW binary compatibility for release artifacts with downstre
 
 The GitHub Actions workflow enforces strict post-build binary verification steps across all OS targets:
 
-* **Linux**: For standard release builds, runs `ldd` against a strict whitelist of core OS/desktop runtimes (`libc`, `libm`, `libpthread`, `libdl`, `librt`, `ld-linux`, `libasound`, `libGL`, `libX11`, `libXext`, `libXcursor`, `libXinerama`, `libXrandr`, `libXrender`, `libXi`). Fails if unexpected dynamic libraries (`libfreetype.so`, `libfftw3.so`) or dynamic C++ runtimes (`libstdc++.so`, `libgcc_s.so`) leak into the prebuilt release binaries.
+* **Linux**: For standard release builds, runs `ldd` against a strict whitelist of core OS/desktop runtimes (`libc`, `libm`, `libpthread`, `libdl`, `librt`, `ld-linux`, `libasound`, `libGL`, `libX11`, `libXext`, `libXcursor`, `libXinerama`, `libXrandr`, `libXrender`, `libXi`, `libgomp`). Fails if unexpected dynamic libraries (`libfreetype.so`, `libfftw3.so`) or dynamic C++ runtimes (`libstdc++.so`, `libgcc_s.so`) leak into the prebuilt release binaries.
 * **macOS**: Uses `lipo` to verify fat universal binaries (`arm64` + `x86_64`) and `otool -L` to ensure zero Homebrew or non-system dynamic library leaks.
 * **Windows**: Parses PE import tables via `objdump -p` to guarantee only standard system DLLs (`KERNEL32.dll`, `VCRUNTIME140.dll`, `ucrtbase.dll`, `d2d1.dll`, etc.) are imported.
 

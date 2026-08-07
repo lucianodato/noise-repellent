@@ -229,7 +229,7 @@ jobs:
             exit 1
           fi
 
-          ALLOWED_LIBS="libc\.so|libm\.so|libpthread\.so|libdl\.so|librt\.so|ld-linux|libasound\.so|libGL\.so|libX11\.so|libXext\.so|libXcursor\.so|libXinerama\.so|libXrandr\.so|libXrender\.so|libXi\.so"
+          ALLOWED_LIBS="libc\.so|libm\.so|libpthread\.so|libdl\.so|librt\.so|ld-linux|libasound\.so|libGL\.so|libX11\.so|libXext\.so|libXcursor\.so|libXinerama\.so|libXrandr\.so|libXrender\.so|libXi\.so|libgomp\.so"
           HAS_ERRORS=0
 
           for PLUGIN in $PLUGINS; do
