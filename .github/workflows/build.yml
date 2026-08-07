@@ -378,13 +378,7 @@ jobs:
       - name: Set up Ninja & MSVC Developer Environment
         uses: ilammy/msvc-dev-cmd@v1
 
-      - name: Setup sccache
-        uses: mozilla-actions/sccache-action@v0.0.8
-
       - name: Configure CMake
-        env:
-          CMAKE_C_COMPILER_LAUNCHER: sccache
-          CMAKE_CXX_COMPILER_LAUNCHER: sccache
         run: |
           cmake -B build -G "Ninja"
 
