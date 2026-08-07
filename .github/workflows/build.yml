@@ -357,7 +357,7 @@ jobs:
 
       - name: Configure CMake
         run: |
-          cmake -B build
+          cmake -B build -DENABLE_OPENMP=OFF
 
       - name: Build Targets
         run: |
