@@ -410,7 +410,7 @@ jobs:
           fi
 
           HAS_ERRORS=0
-          ALLOWED_DLLS="KERNEL32\.dll|USER32\.dll|GDI32\.dll|SHELL32\.dll|ADVAPI32\.dll|OLE32\.dll|OLEAUT32\.dll|SETUPAPI\.dll|COMDLG32\.dll|WS2_32\.dll|IMM32\.dll|VERSION\.dll|WINMM\.dll|UXTHEME\.dll|SHLWAPI\.dll|d2d1\.dll|dxgi\.dll|d3d11\.dll|dcomp\.dll|dwmapi\.dll|VCRUNTIME140.*\.dll|MSVCP140.*\.dll|ucrtbase\.dll|api-ms-win-.*\.dll|MFPlat\.dll|bcrypt\.dll|RPCRT4\.dll|PROPSYS\.dll"
+          ALLOWED_DLLS="KERNEL32\.dll|USER32\.dll|GDI32\.dll|SHELL32\.dll|ADVAPI32\.dll|OLE32\.dll|OLEAUT32\.dll|SETUPAPI\.dll|COMDLG32\.dll|WS2_32\.dll|IMM32\.dll|VERSION\.dll|WINMM\.dll|UXTHEME\.dll|SHLWAPI\.dll|WININET\.dll|dbghelp\.dll|COMCTL32\.dll|d2d1\.dll|dxgi\.dll|d3d11\.dll|dcomp\.dll|dwmapi\.dll|VCRUNTIME140.*\.dll|MSVCP140.*\.dll|libomp140.*\.dll|ucrtbase\.dll|api-ms-win-.*\.dll|MFPlat\.dll|bcrypt\.dll|RPCRT4\.dll|PROPSYS\.dll"
           
           for BINARY in $BINARIES; do
             NAME=$(basename "$BINARY")
