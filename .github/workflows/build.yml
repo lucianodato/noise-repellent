@@ -355,9 +355,12 @@ jobs:
           echo "PLUGIN_VERSION=${VERSION}" >> $GITHUB_ENV
           echo "Building version: ${VERSION}"
 
+      - name: Set up Ninja & MSVC Developer Environment
+        uses: ilammy/msvc-dev-cmd@v1
+
       - name: Configure CMake
         run: |
-          cmake -B build
+          cmake -B build -G "Ninja"
 
       - name: Build Targets
         run: |
