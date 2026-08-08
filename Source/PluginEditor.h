@@ -20,12 +20,15 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #pragma once
 
 #include <juce_gui_basics/juce_gui_basics.h>
+#include <atomic>
 #include "PluginProcessor.h"
 #include "GUI/LookAndFeel.h"
 #include "GUI/SpectralVisualizer.h"
 
 class NoiseRepellentAudioProcessorEditor : public juce::AudioProcessorEditor,
-                                    public juce::Timer
+                                    public juce::Timer,
+                                    public juce::AudioProcessorValueTreeState::Listener,
+                                    public juce::AsyncUpdater
 {
 public:
     explicit NoiseRepellentAudioProcessorEditor(NoiseRepellentAudioProcessor&);
@@ -34,13 +37,22 @@ public:
     void paint(juce::Graphics&) override;
     void resized() override;
     void timerCallback() override;
+    void mouseEnter(const juce::MouseEvent&) override;
+    void mouseMove(const juce::MouseEvent&) override;
+    void mouseExit(const juce::MouseEvent&) override;
+
+    void parameterChanged(const juce::String& parameterID, float newValue) override;
+    void handleAsyncUpdate() override;
 
 private:
     NoiseRepellentAudioProcessor& audioProcessor;
     NoiseRepellentLookAndFeel customLookAndFeel;
 
+    std::atomic<bool> tooltipStateDirty{ false };
+
     // Header Controls
     juce::Label brandLabel;
+    juce::TextButton btnPreferences{ juce::CharPointer_UTF8("\xe2\x96\xbc") };
     juce::Label lblAlgoHeader{ "lblAlgoHeader", "PROCESSING ENGINE" };
     juce::ComboBox comboAlgoMode;
     juce::TextButton btnAdvancedToggle{ juce::CharPointer_UTF8("\xe2\x9a\x99  Advanced Controls") };
@@ -79,6 +91,9 @@ private:
     juce::Label lblMasking{ "lblMasking", "MASKING PROTECT" };
     juce::Label lblWhitening{ "lblWhitening", "WHITENING" };
     juce::Label lblSuppression{ "lblSuppression", "SUPPRESSION" };
+
+    // Footer Tooltip Bar
+    juce::Label footerTooltipLabel;
 
     // Parameter Attachments
     using ButtonAttachment = juce::AudioProcessorValueTreeState::ButtonAttachment;
