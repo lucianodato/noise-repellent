@@ -41,6 +41,7 @@ public:
 
     void processBlock(juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
     void processBlockBypassed(juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
+    juce::AudioProcessorParameter* getBypassParameter() const override;
 
     juce::AudioProcessorEditor* createEditor() override;
     bool hasEditor() const override { return true; }
@@ -98,6 +99,7 @@ private:
     SpectralBleachHandle specbleach2D_L = nullptr;
     SpectralBleachHandle specbleach2D_R = nullptr;
 
+    juce::AudioParameterBool* bypassParameter = nullptr;
     juce::dsp::DryWetMixer<float> dryWetMixer;
 
     double currentSampleRate = 44100.0;
