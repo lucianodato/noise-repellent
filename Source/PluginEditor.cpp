@@ -250,7 +250,7 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(NoiseRepe
     btnAdvancedToggle.setTooltip("Toggle visibility of advanced DSP tuning controls.");
     btnLearn.setTooltip("Capture static noise profile from current audio input.");
     btnResetProfile.setTooltip("Clear learned noise profile.");
-    btnAdaptiveNoise.setTooltip("Continuously estimate background noise without manual learning.");
+    btnAdaptiveNoise.setTooltip("Enable continuous background noise estimation (operates standalone or refines manual noise profiles).");
     sliderAggressiveness.setTooltip("Adjust noise profile threshold offset (-1.0 to +1.0 dB).");
     lblAggressiveness.setTooltip("Adjust noise profile threshold offset (-1.0 to +1.0 dB).");
     btnDelta.setTooltip("Listen to removed noise signal (residual audio).");
@@ -260,8 +260,10 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(NoiseRepe
     sliderTonalRed.setTooltip("Set reduction depth specifically for tonal noise peaks.");
     lblTonalRed.setTooltip("Set reduction depth specifically for tonal noise peaks.");
     btnLink.setTooltip("Link broadband and tonal reduction controls together.");
-    comboMethod.setTooltip("Select adaptive noise estimation algorithm (SPP-MMSE, Brandt, or Martin).");
-    lblMethod.setTooltip("Select adaptive noise estimation algorithm (SPP-MMSE, Brandt, or Martin).");
+
+    const juce::String methodTip = "Estimation method: SPP-MMSE (best for voice & dynamic noise), Brandt (steady hiss/hum/fans), or Martin (slow background, preserves transients).";
+    comboMethod.setTooltip(methodTip);
+    lblMethod.setTooltip(methodTip);
     sliderSmoothing.setTooltip("Apply temporal smoothing across frames to reduce musical noise artifacts.");
     lblSmoothing.setTooltip("Apply temporal smoothing across frames to reduce musical noise artifacts.");
     sliderMasking.setTooltip("Adjust psychoacoustic masking threshold to protect quiet signal components.");
