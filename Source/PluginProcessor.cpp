@@ -109,6 +109,65 @@ NoiseRepellentAudioProcessor::createParameterLayout() {
   return {params.begin(), params.end()};
 }
 
+static bool loadProfile1DSafe(SpectralBleachHandle h, const float* data,
+                              uint32_t size, uint32_t blockCount, int mode) {
+  if (!h || !data || size == 0)
+    return false;
+  uint32_t targetSize = specbleach_get_noise_profile_size(h);
+  if (targetSize == 0)
+    return false;
+
+  if (size == targetSize) {
+    return specbleach_load_noise_profile_for_mode(h, data, size, blockCount,
+                                                  mode);
+  } else {
+    std::vector<float> resampled(targetSize);
+    float maxSrcIdx = static_cast<float>(size - 1);
+    float maxTargetIdx = static_cast<float>(targetSize - 1);
+    for (uint32_t i = 0; i < targetSize; ++i) {
+      float normPos = static_cast<float>(i) / maxTargetIdx;
+      float exactIdx = normPos * maxSrcIdx;
+      uint32_t idx0 =
+          std::clamp(static_cast<uint32_t>(exactIdx), 0u, size - 1);
+      uint32_t idx1 = std::min(idx0 + 1, size - 1);
+      float frac = exactIdx - static_cast<float>(idx0);
+      resampled[i] = (1.0f - frac) * data[idx0] + frac * data[idx1];
+    }
+    return specbleach_load_noise_profile_for_mode(
+        h, resampled.data(), targetSize, blockCount, mode);
+  }
+}
+
+static bool loadProfile2DSafe(SpectralBleachHandle h,
+                              const float* data, uint32_t size,
+                              uint32_t blockCount, int mode) {
+  if (!h || !data || size == 0)
+    return false;
+  uint32_t targetSize = specbleach_2d_get_noise_profile_size(h);
+  if (targetSize == 0)
+    return false;
+
+  if (size == targetSize) {
+    return specbleach_2d_load_noise_profile_for_mode(h, data, size,
+                                                     blockCount, mode);
+  } else {
+    std::vector<float> resampled(targetSize);
+    float maxSrcIdx = static_cast<float>(size - 1);
+    float maxTargetIdx = static_cast<float>(targetSize - 1);
+    for (uint32_t i = 0; i < targetSize; ++i) {
+      float normPos = static_cast<float>(i) / maxTargetIdx;
+      float exactIdx = normPos * maxSrcIdx;
+      uint32_t idx0 =
+          std::clamp(static_cast<uint32_t>(exactIdx), 0u, size - 1);
+      uint32_t idx1 = std::min(idx0 + 1, size - 1);
+      float frac = exactIdx - static_cast<float>(idx0);
+      resampled[i] = (1.0f - frac) * data[idx0] + frac * data[idx1];
+    }
+    return specbleach_2d_load_noise_profile_for_mode(
+        h, resampled.data(), targetSize, blockCount, mode);
+  }
+}
+
 void NoiseRepellentAudioProcessor::ensureEnginesInitialized(double sampleRate) {
   bool needNewEngines = (specbleach1D_L == nullptr ||
                          std::abs(currentSampleRate - sampleRate) > 0.001);
@@ -117,6 +176,7 @@ void NoiseRepellentAudioProcessor::ensureEnginesInitialized(double sampleRate) {
     return;
 
   struct SavedProfileData {
+    int channel; // 0 = Left, 1 = Right
     int mode;
     uint32_t size;
     uint32_t blockCount;
@@ -126,37 +186,37 @@ void NoiseRepellentAudioProcessor::ensureEnginesInitialized(double sampleRate) {
   std::vector<SavedProfileData> profiles1D;
   std::vector<SavedProfileData> profiles2D;
 
-  // Backup 1D profiles if handles exist
-  if (specbleach1D_L) {
+  auto backup1D = [&](SpectralBleachHandle h, int channel) {
+    if (!h) return;
     for (int mode = 1; mode <= 4; ++mode) {
-      if (specbleach_noise_profile_available_for_mode(specbleach1D_L, mode)) {
-        float* p = specbleach_get_noise_profile_for_mode(specbleach1D_L, mode);
-        uint32_t sz = specbleach_get_noise_profile_size(specbleach1D_L);
-        uint32_t bc = specbleach_get_noise_profile_block_count_for_mode(
-            specbleach1D_L, mode);
+      if (specbleach_noise_profile_available_for_mode(h, mode)) {
+        float* p = specbleach_get_noise_profile_for_mode(h, mode);
+        uint32_t sz = specbleach_get_noise_profile_size(h);
+        uint32_t bc = specbleach_get_noise_profile_block_count_for_mode(h, mode);
         if (p && sz > 0) {
-          profiles1D.push_back({mode, sz, bc, std::vector<float>(p, p + sz)});
+          profiles1D.push_back({channel, mode, sz, bc, std::vector<float>(p, p + sz)});
         }
       }
     }
-  }
+  };
+  backup1D(specbleach1D_L, 0);
+  backup1D(specbleach1D_R, 1);
 
-  // Backup 2D profiles if handles exist
-  if (specbleach2D_L) {
+  auto backup2D = [&](auto h, int channel) {
+    if (!h) return;
     for (int mode = 1; mode <= 4; ++mode) {
-      if (specbleach_2d_noise_profile_available_for_mode(specbleach2D_L,
-                                                         mode)) {
-        float* p =
-            specbleach_2d_get_noise_profile_for_mode(specbleach2D_L, mode);
-        uint32_t sz = specbleach_2d_get_noise_profile_size(specbleach2D_L);
-        uint32_t bc = specbleach_2d_get_noise_profile_block_count_for_mode(
-            specbleach2D_L, mode);
+      if (specbleach_2d_noise_profile_available_for_mode(h, mode)) {
+        float* p = specbleach_2d_get_noise_profile_for_mode(h, mode);
+        uint32_t sz = specbleach_2d_get_noise_profile_size(h);
+        uint32_t bc = specbleach_2d_get_noise_profile_block_count_for_mode(h, mode);
         if (p && sz > 0) {
-          profiles2D.push_back({mode, sz, bc, std::vector<float>(p, p + sz)});
+          profiles2D.push_back({channel, mode, sz, bc, std::vector<float>(p, p + sz)});
         }
       }
     }
-  }
+  };
+  backup2D(specbleach2D_L, 0);
+  backup2D(specbleach2D_R, 1);
 
   // Free existing handles
   if (specbleach1D_L)
@@ -182,26 +242,47 @@ void NoiseRepellentAudioProcessor::ensureEnginesInitialized(double sampleRate) {
 
   // Restore saved profiles into new handles
   for (const auto& item : profiles1D) {
-    if (specbleach1D_L)
-      specbleach_load_noise_profile_for_mode(specbleach1D_L, item.data.data(),
-                                             item.size, item.blockCount,
-                                             item.mode);
-    if (specbleach1D_R)
-      specbleach_load_noise_profile_for_mode(specbleach1D_R, item.data.data(),
-                                             item.size, item.blockCount,
-                                             item.mode);
+    auto h = (item.channel == 1) ? specbleach1D_R : specbleach1D_L;
+    if (h)
+      loadProfile1DSafe(h, item.data.data(), item.size, item.blockCount,
+                        item.mode);
   }
 
   for (const auto& item : profiles2D) {
-    if (specbleach2D_L)
-      specbleach_2d_load_noise_profile_for_mode(specbleach2D_L,
-                                                item.data.data(), item.size,
-                                                item.blockCount, item.mode);
-    if (specbleach2D_R)
-      specbleach_2d_load_noise_profile_for_mode(specbleach2D_R,
-                                                item.data.data(), item.size,
-                                                item.blockCount, item.mode);
+    auto h = (item.channel == 1) ? specbleach2D_R : specbleach2D_L;
+    if (h)
+      loadProfile2DSafe(h, item.data.data(), item.size, item.blockCount,
+                        item.mode);
   }
+
+  // Restore state pending profiles if loaded before prepareToPlay
+  bool hasCh1 = false;
+  for (const auto& item : pendingProfiles) {
+    if (item.channel == 1) hasCh1 = true;
+    auto h1D = (item.channel == 1) ? specbleach1D_R : specbleach1D_L;
+    auto h2D = (item.channel == 1) ? specbleach2D_R : specbleach2D_L;
+    if (h1D)
+      loadProfile1DSafe(h1D, item.data.data(), item.size, item.blockCount,
+                        item.mode);
+    if (h2D)
+      loadProfile2DSafe(h2D, item.data.data(), item.size, item.blockCount,
+                        item.mode);
+  }
+
+  // If no channel 1 profile, fallback channel 0 to channel 1
+  if (!hasCh1) {
+    for (const auto& item : pendingProfiles) {
+      if (item.channel == 0) {
+        if (specbleach1D_R)
+          loadProfile1DSafe(specbleach1D_R, item.data.data(), item.size,
+                            item.blockCount, item.mode);
+        if (specbleach2D_R)
+          loadProfile2DSafe(specbleach2D_R, item.data.data(), item.size,
+                            item.blockCount, item.mode);
+      }
+    }
+  }
+  pendingProfiles.clear();
 
   // Synchronize loaded profiles between engines
   syncNoiseProfiles(0);
@@ -306,7 +387,8 @@ void NoiseRepellentAudioProcessor::prepareToPlay(double sampleRate,
   dryWetMixer.setMixingRule(juce::dsp::DryWetMixingRule::linear);
   dryWetMixer.setWetLatency(static_cast<float>(latency));
 
-  // Prepare buffer and state for engine crossfading
+  // Pre-allocate persistent buffers to prevent audio-thread allocations
+  dryInputL.resize(static_cast<size_t>(samplesPerBlock), 0.0f);
   crossfadeBuffer.setSize(getTotalNumOutputChannels(), samplesPerBlock, false,
                           false, true);
   crossfadeProgress = 1.0f;
@@ -336,6 +418,9 @@ void NoiseRepellentAudioProcessor::processBlock(
   juce::ScopedNoDenormals noDenormals;
   const int numSamples = buffer.getNumSamples();
   const int numChannels = buffer.getNumChannels();
+
+  if (numSamples == 0 || numChannels == 0)
+    return;
 
   const bool isBypassed =
       parameters.getRawParameterValue("bypass")->load() > 0.5f;
@@ -408,9 +493,9 @@ void NoiseRepellentAudioProcessor::processBlock(
   }
 
   // Save dry input copy for FFT visualization before processing
-  std::vector<float> dryInputL(static_cast<size_t>(numSamples));
-  if (numChannels >= 1)
-    std::copy_n(buffer.getReadPointer(0), numSamples, dryInputL.begin());
+  const size_t copySamples = std::min(static_cast<size_t>(numSamples), dryInputL.size());
+  if (numChannels >= 1 && copySamples > 0)
+    std::copy_n(buffer.getReadPointer(0), copySamples, dryInputL.begin());
 
   // Push dry samples into JUCE DryWetMixer before in-place DSP processing
   juce::dsp::AudioBlock<float> audioBlock(buffer);
@@ -445,25 +530,24 @@ void NoiseRepellentAudioProcessor::processBlock(
 
   if (crossfadeProgress < 1.0f) {
     // Smooth crossfade mode: run both engines and blend sample-by-sample
-    if (crossfadeBuffer.getNumChannels() < numChannels ||
-        crossfadeBuffer.getNumSamples() < numSamples)
-      crossfadeBuffer.setSize(numChannels, numSamples, false, false, true);
+    const int maxSamples = std::min(numSamples, crossfadeBuffer.getNumSamples());
+    const int maxChannels = std::min(numChannels, crossfadeBuffer.getNumChannels());
 
-    for (int ch = 0; ch < numChannels; ++ch)
-      std::copy_n(buffer.getReadPointer(ch), numSamples,
+    for (int ch = 0; ch < maxChannels; ++ch)
+      std::copy_n(buffer.getReadPointer(ch), maxSamples,
                   crossfadeBuffer.getWritePointer(ch));
 
     // Process 1D on buffer
     if (specbleach1D_L) {
       specbleach_load_parameters(specbleach1D_L, p);
       float* ch0 = buffer.getWritePointer(0);
-      specbleach_process(specbleach1D_L, static_cast<uint32_t>(numSamples), ch0,
+      specbleach_process(specbleach1D_L, static_cast<uint32_t>(maxSamples), ch0,
                          ch0);
     }
     if (numChannels >= 2 && specbleach1D_R) {
       specbleach_load_parameters(specbleach1D_R, p);
       float* ch1 = buffer.getWritePointer(1);
-      specbleach_process(specbleach1D_R, static_cast<uint32_t>(numSamples), ch1,
+      specbleach_process(specbleach1D_R, static_cast<uint32_t>(maxSamples), ch1,
                          ch1);
     }
 
@@ -471,23 +555,23 @@ void NoiseRepellentAudioProcessor::processBlock(
     if (specbleach2D_L) {
       specbleach_2d_load_parameters(specbleach2D_L, p2);
       float* ch0 = crossfadeBuffer.getWritePointer(0);
-      specbleach_2d_process(specbleach2D_L, static_cast<uint32_t>(numSamples),
+      specbleach_2d_process(specbleach2D_L, static_cast<uint32_t>(maxSamples),
                             ch0, ch0);
     }
-    if (numChannels >= 2 && specbleach2D_R) {
+    if (numChannels >= 2 && specbleach2D_R && maxChannels >= 2) {
       specbleach_2d_load_parameters(specbleach2D_R, p2);
       float* ch1 = crossfadeBuffer.getWritePointer(1);
-      specbleach_2d_process(specbleach2D_R, static_cast<uint32_t>(numSamples),
+      specbleach_2d_process(specbleach2D_R, static_cast<uint32_t>(maxSamples),
                             ch1, ch1);
     }
 
     // Equal-power crossfade blend into buffer
-    for (int ch = 0; ch < numChannels; ++ch) {
+    for (int ch = 0; ch < maxChannels; ++ch) {
       float* out1D = buffer.getWritePointer(ch);
       const float* out2D = crossfadeBuffer.getReadPointer(ch);
 
       float currentP = crossfadeProgress;
-      for (int s = 0; s < numSamples; ++s) {
+      for (int s = 0; s < maxSamples; ++s) {
         float pVal = std::min(1.0f, currentP);
         float rad = pVal * juce::MathConstants<float>::halfPi;
         float w1D = (targetAlgoMode == 1) ? std::cos(rad) : std::sin(rad);
@@ -497,7 +581,7 @@ void NoiseRepellentAudioProcessor::processBlock(
         currentP += crossfadeStep;
       }
     }
-    crossfadeProgress += numSamples * crossfadeStep;
+    crossfadeProgress += maxSamples * crossfadeStep;
     if (crossfadeProgress > 1.0f)
       crossfadeProgress = 1.0f;
   } else if (algoMode == 0) {
@@ -586,22 +670,48 @@ void NoiseRepellentAudioProcessor::processBlock(
         bool profileAvailable = false;
 
         bool isAdaptive = adaptiveNoise;
+        bool profileHasAnyMode = false;
 
-        if (algoMode == 0 && specbleach1D_L &&
-            (isAdaptive ||
-             specbleach_noise_profile_available_for_mode(specbleach1D_L, 1))) {
-          actualNoiseProfile =
-              specbleach_get_active_noise_profile(specbleach1D_L);
-          profileSize = specbleach_get_noise_profile_size(specbleach1D_L);
-          profileAvailable = (actualNoiseProfile != nullptr && profileSize > 0);
-        } else if (algoMode == 1 && specbleach2D_L &&
-                   (isAdaptive ||
-                    specbleach_2d_noise_profile_available_for_mode(
-                        specbleach2D_L, 1))) {
-          actualNoiseProfile =
-              specbleach_2d_get_active_noise_profile(specbleach2D_L);
-          profileSize = specbleach_2d_get_noise_profile_size(specbleach2D_L);
-          profileAvailable = (actualNoiseProfile != nullptr && profileSize > 0);
+        if (algoMode == 0 && specbleach1D_L) {
+          for (int m = 1; m <= 4; ++m) {
+            if (specbleach_noise_profile_available_for_mode(specbleach1D_L, m)) {
+              profileHasAnyMode = true;
+              break;
+            }
+          }
+          if (isAdaptive || profileHasAnyMode) {
+            actualNoiseProfile = specbleach_get_active_noise_profile(specbleach1D_L);
+            profileSize = specbleach_get_noise_profile_size(specbleach1D_L);
+            if (!actualNoiseProfile && profileHasAnyMode) {
+              for (int m = 1; m <= 4; ++m) {
+                if (specbleach_noise_profile_available_for_mode(specbleach1D_L, m)) {
+                  actualNoiseProfile = specbleach_get_noise_profile_for_mode(specbleach1D_L, m);
+                  break;
+                }
+              }
+            }
+            profileAvailable = (actualNoiseProfile != nullptr && profileSize > 0);
+          }
+        } else if (algoMode == 1 && specbleach2D_L) {
+          for (int m = 1; m <= 4; ++m) {
+            if (specbleach_2d_noise_profile_available_for_mode(specbleach2D_L, m)) {
+              profileHasAnyMode = true;
+              break;
+            }
+          }
+          if (isAdaptive || profileHasAnyMode) {
+            actualNoiseProfile = specbleach_2d_get_active_noise_profile(specbleach2D_L);
+            profileSize = specbleach_2d_get_noise_profile_size(specbleach2D_L);
+            if (!actualNoiseProfile && profileHasAnyMode) {
+              for (int m = 1; m <= 4; ++m) {
+                if (specbleach_2d_noise_profile_available_for_mode(specbleach2D_L, m)) {
+                  actualNoiseProfile = specbleach_2d_get_noise_profile_for_mode(specbleach2D_L, m);
+                  break;
+                }
+              }
+            }
+            profileAvailable = (actualNoiseProfile != nullptr && profileSize > 0);
+          }
         }
 
         frame.hasNoiseProfile = profileAvailable;
@@ -610,10 +720,7 @@ void NoiseRepellentAudioProcessor::processBlock(
         frame.tonalPeaksHz.clear();
 
         if (profileAvailable && actualNoiseProfile) {
-          // In 2D mode, noise_profile_size is
-          // SB_PROCESSOR_CORE_FULL_FFT_SPECTRUM (e.g. 3008 bins). The real
-          // unique spectrum from DC (0 Hz) to Nyquist (Fs/2) is the first
-          // (profileSize / 2) + 1 bins.
+          // profileSize represents the unique spectrum from DC (0 Hz) to Nyquist (Fs/2)
           size_t realProfileBins = profileSize;
 
           const float maxProfileIdx = static_cast<float>(realProfileBins - 1);
@@ -712,27 +819,16 @@ void NoiseRepellentAudioProcessor::resetNoiseProfile() {
     specbleach_2d_reset_noise_profile(specbleach2D_L);
   if (specbleach2D_R)
     specbleach_2d_reset_noise_profile(specbleach2D_R);
+  pendingProfiles.clear();
 }
 
 bool NoiseRepellentAudioProcessor::hasNoiseProfile() const {
-  auto* paramAlgo = parameters.getRawParameterValue("algorithm_mode");
-  if (!paramAlgo)
-    return false;
-
-  int algoMode = static_cast<int>(paramAlgo->load());
-
-  if (algoMode == 0 && specbleach1D_L) {
-    for (int mode = 1; mode <= 4; ++mode) {
-      if (specbleach_noise_profile_available_for_mode(specbleach1D_L, mode))
-        return true;
-    }
-  } else if (algoMode == 1 && specbleach2D_L) {
-    for (int mode = 1; mode <= 4; ++mode) {
-      if (specbleach_2d_noise_profile_available_for_mode(specbleach2D_L, mode))
-        return true;
-    }
+  for (int mode = 1; mode <= 4; ++mode) {
+    if (specbleach1D_L && specbleach_noise_profile_available_for_mode(specbleach1D_L, mode))
+      return true;
+    if (specbleach2D_L && specbleach_2d_noise_profile_available_for_mode(specbleach2D_L, mode))
+      return true;
   }
-
   return false;
 }
 
@@ -742,44 +838,44 @@ juce::AudioProcessorEditor* NoiseRepellentAudioProcessor::createEditor() {
 
 void NoiseRepellentAudioProcessor::getStateInformation(
     juce::MemoryBlock& destData) {
+  // Sync profiles across engines before state serialization
+  syncNoiseProfiles(currentAlgoMode);
+
   auto state = parameters.copyState();
 
   juce::ValueTree profilesTree("LEARNED_PROFILES");
 
-  auto saveProfiles = [&](SpectralBleachHandle instance, const char* tagName,
-                          auto getProfileFn, auto getSizeFn,
-                          auto getBlockCountFn, auto isAvailableFn) {
-    // Modes 1-4: ROLLING_MEAN=1, MEDIAN=2, MAX=3, MINIMUM=4
-    for (int mode = 1; mode <= 4; ++mode) {
-      if (instance && isAvailableFn(instance, mode)) {
-        float* profile = getProfileFn(instance, mode);
-        uint32_t profileSize = getSizeFn(instance);
-        uint32_t blockCount = getBlockCountFn(instance, mode);
+  for (int channel = 0; channel < 2; ++channel) {
+    auto h1D = (channel == 0) ? specbleach1D_L : specbleach1D_R;
+    auto h2D = (channel == 0) ? specbleach2D_L : specbleach2D_R;
 
-        if (profile && profileSize > 0) {
-          juce::MemoryBlock mb(profile, profileSize * sizeof(float));
-          juce::ValueTree node(tagName);
-          node.setProperty("mode", mode, nullptr);
-          node.setProperty("size", static_cast<int>(profileSize), nullptr);
-          node.setProperty("blockCount", static_cast<int>(blockCount), nullptr);
-          node.setProperty("data", mb.toBase64Encoding(), nullptr);
-          profilesTree.appendChild(node, nullptr);
-        }
+    for (int mode = 1; mode <= 4; ++mode) {
+      const float* profile = nullptr;
+      uint32_t profileSize = 0;
+      uint32_t blockCount = 0;
+
+      if (h1D && specbleach_noise_profile_available_for_mode(h1D, mode)) {
+        profile = specbleach_get_noise_profile_for_mode(h1D, mode);
+        profileSize = specbleach_get_noise_profile_size(h1D);
+        blockCount = specbleach_get_noise_profile_block_count_for_mode(h1D, mode);
+      } else if (h2D && specbleach_2d_noise_profile_available_for_mode(h2D, mode)) {
+        profile = specbleach_2d_get_noise_profile_for_mode(h2D, mode);
+        profileSize = specbleach_2d_get_noise_profile_size(h2D);
+        blockCount = specbleach_2d_get_noise_profile_block_count_for_mode(h2D, mode);
+      }
+
+      if (profile && profileSize > 0) {
+        juce::MemoryBlock mb(profile, profileSize * sizeof(float));
+        juce::ValueTree node("CHANNEL_PROFILE");
+        node.setProperty("channel", channel, nullptr);
+        node.setProperty("mode", mode, nullptr);
+        node.setProperty("size", static_cast<int>(profileSize), nullptr);
+        node.setProperty("blockCount", static_cast<int>(blockCount), nullptr);
+        node.setProperty("data", mb.toBase64Encoding(), nullptr);
+        profilesTree.appendChild(node, nullptr);
       }
     }
-  };
-
-  saveProfiles(specbleach1D_L, "PROFILE_1D",
-               specbleach_get_noise_profile_for_mode,
-               specbleach_get_noise_profile_size,
-               specbleach_get_noise_profile_block_count_for_mode,
-               specbleach_noise_profile_available_for_mode);
-
-  saveProfiles(specbleach2D_L, "PROFILE_2D",
-               specbleach_2d_get_noise_profile_for_mode,
-               specbleach_2d_get_noise_profile_size,
-               specbleach_2d_get_noise_profile_block_count_for_mode,
-               specbleach_2d_noise_profile_available_for_mode);
+  }
 
   state.appendChild(profilesTree, nullptr);
 
@@ -789,16 +885,44 @@ void NoiseRepellentAudioProcessor::getStateInformation(
 
 void NoiseRepellentAudioProcessor::setStateInformation(const void* data,
                                                        int sizeInBytes) {
+  pendingProfiles.clear();
+
   std::unique_ptr<juce::XmlElement> xmlState(
       getXmlFromBinary(data, sizeInBytes));
-  if (xmlState != nullptr && xmlState->hasTagName(parameters.state.getType())) {
-    juce::ValueTree state = juce::ValueTree::fromXml(*xmlState);
-    parameters.replaceState(state);
+  if (xmlState == nullptr && data != nullptr && sizeInBytes > 0) {
+    juce::String xmlString = juce::String::createStringFromData(data, sizeInBytes);
+    if (xmlString.trim().startsWith("<")) {
+      xmlState = juce::XmlDocument::parse(xmlString);
+    }
+  }
 
-    juce::ValueTree profilesTree = state.getChildWithName("LEARNED_PROFILES");
+  if (xmlState != nullptr) {
+    juce::ValueTree state = juce::ValueTree::fromXml(*xmlState);
+    
+    // Extract LEARNED_PROFILES before replaceState modifies state
+    juce::ValueTree profilesTree;
+    if (state.isValid()) {
+      profilesTree = state.getChildWithName("LEARNED_PROFILES");
+    }
+
+    if (!profilesTree.isValid()) {
+      juce::XmlElement* xmlProfiles = xmlState->getChildByName("LEARNED_PROFILES");
+      if (xmlProfiles != nullptr) {
+        profilesTree = juce::ValueTree::fromXml(*xmlProfiles);
+      }
+    }
+
+    if (state.isValid()) {
+      parameters.replaceState(state);
+    }
+
     if (profilesTree.isValid()) {
+      bool hasCh1 = false;
       for (int i = 0; i < profilesTree.getNumChildren(); ++i) {
         juce::ValueTree node = profilesTree.getChild(i);
+        int channel = node.getProperty("channel", 0);
+        if (channel == 1) hasCh1 = true;
+
         int mode = node.getProperty("mode", 0);
         uint32_t size = static_cast<uint32_t>(
             static_cast<int>(node.getProperty("size", 0)));
@@ -812,21 +936,34 @@ void NoiseRepellentAudioProcessor::setStateInformation(const void* data,
               mb.getSize() >= size * sizeof(float)) {
             const float* floatArray =
                 reinterpret_cast<const float*>(mb.getData());
-            if (node.hasType("PROFILE_1D")) {
-              if (specbleach1D_L)
-                specbleach_load_noise_profile_for_mode(
-                    specbleach1D_L, floatArray, size, blockCount, mode);
-              if (specbleach1D_R)
-                specbleach_load_noise_profile_for_mode(
-                    specbleach1D_R, floatArray, size, blockCount, mode);
-            } else if (node.hasType("PROFILE_2D")) {
-              if (specbleach2D_L)
-                specbleach_2d_load_noise_profile_for_mode(
-                    specbleach2D_L, floatArray, size, blockCount, mode);
-              if (specbleach2D_R)
-                specbleach_2d_load_noise_profile_for_mode(
-                    specbleach2D_R, floatArray, size, blockCount, mode);
-            }
+
+            PendingProfile pp;
+            pp.channel = channel;
+            pp.mode = mode;
+            pp.size = size;
+            pp.blockCount = blockCount;
+            pp.data.assign(floatArray, floatArray + size);
+            pendingProfiles.push_back(pp);
+
+            auto h1D = (channel == 1) ? specbleach1D_R : specbleach1D_L;
+            auto h2D = (channel == 1) ? specbleach2D_R : specbleach2D_L;
+
+            if (h1D)
+              loadProfile1DSafe(h1D, floatArray, size, blockCount, mode);
+            if (h2D)
+              loadProfile2DSafe(h2D, floatArray, size, blockCount, mode);
+          }
+        }
+      }
+
+      // If legacy profile had no Channel 1 profile, copy Channel 0 to Channel 1 handles
+      if (!hasCh1) {
+        for (const auto& pp : pendingProfiles) {
+          if (pp.channel == 0) {
+            if (specbleach1D_R)
+              loadProfile1DSafe(specbleach1D_R, pp.data.data(), pp.size, pp.blockCount, pp.mode);
+            if (specbleach2D_R)
+              loadProfile2DSafe(specbleach2D_R, pp.data.data(), pp.size, pp.blockCount, pp.mode);
           }
         }
       }
