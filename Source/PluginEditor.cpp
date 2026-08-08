@@ -264,8 +264,22 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(NoiseRepe
     const juce::String methodTip = "Estimation method: SPP-MMSE (best for voice & dynamic noise), Brandt (steady hiss/hum/fans), or Martin (slow background, preserves transients).";
     comboMethod.setTooltip(methodTip);
     lblMethod.setTooltip(methodTip);
-    sliderSmoothing.setTooltip("Apply temporal smoothing across frames to reduce musical noise artifacts.");
-    lblSmoothing.setTooltip("Apply temporal smoothing across frames to reduce musical noise artifacts.");
+    auto updateSmoothingTooltip = [this]() {
+        juce::String tip;
+        if (comboAlgoMode.getSelectedItemIndex() == 1) // 2D NLM Patch
+        {
+            tip = "Smoothing: Controls 2D NLM patch smoothing to eliminate musical noise artifacts while preserving transients.";
+        }
+        else // 1D Spectral
+        {
+            tip = "Smoothing: Applies temporal frame smoothing to reduce musical noise artifacts.";
+        }
+        sliderSmoothing.setTooltip(tip);
+        lblSmoothing.setTooltip(tip);
+    };
+
+    comboAlgoMode.onChange = updateSmoothingTooltip;
+    updateSmoothingTooltip();
     sliderMasking.setTooltip("Adjust psychoacoustic masking threshold to protect quiet signal components.");
     lblMasking.setTooltip("Adjust psychoacoustic masking threshold to protect quiet signal components.");
     sliderWhitening.setTooltip("Adjust spectral whitening to balance residual noise coloration.");
