@@ -3,10 +3,13 @@ name: Build & Release JUCE Plugin
 on:
   push:
     tags:
-    - "v*.*.*"
+      - "v*.*.*"
   pull_request:
     branches:
       - "*"
+
+env:
+  CCACHE_SLOPPINESS: include_file_ctime,include_file_mtime,time_macros
 
 jobs:
   build-macos:
@@ -16,12 +19,37 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
+          fetch-depth: 0
+
+      - name: Extract Version
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            if DESCRIBE=$(git describe --tags --always 2>/dev/null); then
+              VERSION="${DESCRIBE#v}"
+            else
+              BASE_VER=$(sed -n -E 's/.*project\(NoiseRepellent VERSION ([0-9]+\.[0-9]+\.[0-9]+\).*/\1/p' CMakeLists.txt || echo "0.0.0")
+              SHORT_SHA=$(git rev-parse --short HEAD)
+              VERSION="${BASE_VER}-${SHORT_SHA}"
+            fi
+          fi
+          echo "PLUGIN_VERSION=${VERSION}" >> $GITHUB_ENV
+          echo "Building version: ${VERSION}"
+
+      - name: Setup ccache
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: ${{ runner.os }}-ccache
+          max-size: 2000M
 
       - name: Configure CMake (arm64)
         run: |
           cmake -B build-arm64 \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_OSX_ARCHITECTURES="arm64"
+            -DCMAKE_OSX_ARCHITECTURES="arm64" \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
 
       - name: Build Target (arm64)
         run: |
@@ -33,7 +61,9 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_OSX_ARCHITECTURES="x86_64" \
             -DCMAKE_SYSTEM_PROCESSOR=x86_64 \
-            -DENABLE_AVX=ON
+            -DENABLE_AVX=ON \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
 
       - name: Build Target (x86_64)
         run: |
@@ -43,12 +73,10 @@ jobs:
         run: |
           mkdir -p staging
           
-          # Copy base structures from arm64 build
           cp -R build-arm64/NoiseRepellent_artefacts/Release/VST3/Noise\ Repellent.vst3 staging/
           cp -R build-arm64/NoiseRepellent_artefacts/Release/AU/Noise\ Repellent.component staging/
           cp -R build-arm64/NoiseRepellent_artefacts/Release/LV2/Noise\ Repellent.lv2 staging/ || true
 
-          # Fuse arm64 and x86_64 VST3 & AU binaries
           lipo -create \
             "build-arm64/NoiseRepellent_artefacts/Release/VST3/Noise Repellent.vst3/Contents/MacOS/Noise Repellent" \
             "build-x86_64/NoiseRepellent_artefacts/Release/VST3/Noise Repellent.vst3/Contents/MacOS/Noise Repellent" \
@@ -59,7 +87,6 @@ jobs:
             "build-x86_64/NoiseRepellent_artefacts/Release/AU/Noise Repellent.component/Contents/MacOS/Noise Repellent" \
             -output "staging/Noise Repellent.component/Contents/MacOS/Noise Repellent"
 
-          # Safely fuse LV2 dylib if LV2 exists
           if [ -d "staging/Noise Repellent.lv2" ]; then
             ARM_DYLIB=$(find build-arm64/NoiseRepellent_artefacts/Release/LV2 -name "*.dylib" | head -n 1)
             X86_DYLIB=$(find build-x86_64/NoiseRepellent_artefacts/Release/LV2 -name "*.dylib" | head -n 1)
@@ -76,6 +103,57 @@ jobs:
           codesign --force --deep --sign - staging/Noise\ Repellent.component
           codesign --force --deep --sign - staging/Noise\ Repellent.lv2 || true
 
+      - name: Verify macOS Universal Architecture & Dependencies
+        run: |
+          echo "🔍 Verifying macOS plugin binaries..."
+          IFS=$'\n'
+          BINARIES=$(find staging -type f \( -name "Noise Repellent" -o -name "*.dylib" \))
+
+          if [ -z "$BINARIES" ]; then
+            echo "❌ ERROR: No plugin binaries found in staging directory!"
+            exit 1
+          fi
+
+          HAS_ERRORS=0
+
+          for BINARY in $BINARIES; do
+            if [[ "$BINARY" == *".vst3"* ]]; then
+              NAME="Noise Repellent.vst3"
+            elif [[ "$BINARY" == *".component"* ]]; then
+              NAME="Noise Repellent.component"
+            elif [[ "$BINARY" == *".lv2"* ]]; then
+              NAME="Noise Repellent.lv2"
+            else
+              NAME=$(basename "$BINARY")
+            fi
+            
+            set +e
+            LIPO_INFO=$(lipo -info "$BINARY" 2>&1)
+            LIPO_STATUS=$?
+            set -e
+
+            ARCH_FAILED=0
+            if [ $LIPO_STATUS -ne 0 ] || [[ "$LIPO_INFO" != *"x86_64"* ]] || [[ "$LIPO_INFO" != *"arm64"* ]]; then
+              ARCH_FAILED=1
+            fi
+
+            BAD_DEPS=$(otool -L "$BINARY" | tail -n +2 | sed -E 's/^[[:space:]]+//; s/[[:space:]]+\(compatibility.*//' | grep -vE "^/System/Library|^/usr/lib|^@loader_path|^@executable_path|^@rpath|Noise Repellent|staging/" || true)
+
+            if [ -n "$BAD_DEPS" ] || [ $ARCH_FAILED -ne 0 ]; then
+              echo "❌ [FAIL] $NAME"
+              [ $ARCH_FAILED -ne 0 ] && echo "   └─ Architecture error: $LIPO_INFO"
+              [ -n "$BAD_DEPS" ] && echo "   └─ Dynamic leaks: $(echo "$BAD_DEPS" | tr '\n' ' ')"
+              HAS_ERRORS=1
+            else
+              echo "✔ [PASS] $NAME (Universal x86_64+arm64)"
+            fi
+          done
+
+          if [ $HAS_ERRORS -ne 0 ]; then
+            exit 1
+          fi
+          echo "✨ All macOS binaries verified clean!"
+
       - name: Build macOS PKG Installer
         run: |
           mkdir -p pkg_root/Library/Audio/Plug-Ins/Components
@@ -88,25 +166,24 @@ jobs:
             cp -R "staging/Noise Repellent.lv2" pkg_root/Library/Audio/Plug-Ins/LV2/
           fi
 
-          # Construct pkgbuild command safely checking if scripts directory exists
-          PKGBUILD_CMD="pkgbuild --root pkg_root --identifier com.lucianodato.NoiseRepellent --version 3.0.0 --install-location /"
+          PKGBUILD_CMD="pkgbuild --root pkg_root --identifier com.lucianodato.NoiseRepellent --version $PLUGIN_VERSION --install-location /"
           
           if [ -d "installer/macos/scripts" ]; then
             PKGBUILD_CMD="$PKGBUILD_CMD --scripts installer/macos/scripts"
           fi
 
-          $PKGBUILD_CMD NoiseRepellent-macOS-Universal.pkg
+          $PKGBUILD_CMD "NoiseRepellent-macOS-Universal-${PLUGIN_VERSION}.pkg"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: noise-repellent-macOS-installer
-          path: NoiseRepellent-macOS-Universal.pkg
+          name: noise-repellent-macOS-installer-${{ env.PLUGIN_VERSION }}
+          path: NoiseRepellent-macOS-Universal-${{ env.PLUGIN_VERSION }}.pkg
 
       - name: Upload GitHub Release
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: NoiseRepellent-macOS-Universal.pkg
+          files: NoiseRepellent-macOS-Universal-${{ env.PLUGIN_VERSION }}.pkg
 
   build-linux:
     name: Linux (x86_64)
@@ -115,30 +192,90 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
+          fetch-depth: 0
+
+      - name: Extract Version
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            if DESCRIBE=$(git describe --tags --always 2>/dev/null); then
+              VERSION="${DESCRIBE#v}"
+            else
+              BASE_VER=$(sed -n -E 's/.*project\(NoiseRepellent VERSION ([0-9]+\.[0-9]+\.[0-9]+\).*/\1/p' CMakeLists.txt || echo "0.0.0")
+              SHORT_SHA=$(git rev-parse --short HEAD)
+              VERSION="${BASE_VER}-${SHORT_SHA}"
+            fi
+          fi
+          echo "PLUGIN_VERSION=${VERSION}" >> $GITHUB_ENV
+          echo "Building version: ${VERSION}"
 
       - name: Install System UI Dependencies & Build Tools
         run: |
           sudo apt-get update -qq
           sudo apt-get install -qq -y \
-            build-essential cmake ninja-build \
+            build-essential cmake ninja-build ccache \
             libasound2-dev libjack-jackd2-dev libgl1-mesa-dev \
             libx11-dev libxcomposite-dev libxcursor-dev libxext-dev \
-            libxinerama-dev libxrandr-dev libfreetype6-dev libfontconfig1-dev
+            libxinerama-dev libxrandr-dev libfontconfig1-dev libfreetype6-dev
 
-      - name: Install FFTW3 Statically via vcpkg
-        run: |
-          vcpkg install fftw3[threads]:x64-linux
+      - name: Setup ccache
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: ${{ runner.os }}-ccache
+          max-size: 2000M
 
       - name: Configure CMake
         run: |
           cmake -B build -G "Ninja" \
             -DCMAKE_BUILD_TYPE=Release \
-            -DVCPKG_TARGET_TRIPLET=x64-linux \
-            "-DCMAKE_TOOLCHAIN_FILE=$VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
 
-      - name: Build Targets
+      - name: Build Plugins
         run: |
-          cmake --build build --config Release -j4
+          cmake --build build --config Release
+
+      - name: Verify Plugin Dependencies & Symbol Isolation (Linux)
+        run: |
+          set +e
+          set +o pipefail
+
+          echo "🔍 Verifying Linux plugin binaries (.so)..."
+          IFS=$'\n'
+          PLUGINS=$(find build/NoiseRepellent_artefacts -name "*.so")
+
+          if [ -z "$PLUGINS" ]; then
+            echo "❌ ERROR: No .so plugin binaries found!"
+            exit 1
+          fi
+
+          ALLOWED_LIBS="libc\.so|libm\.so|libpthread\.so|libdl\.so|librt\.so|ld-linux|libasound\.so|libGL\.so|libX11\.so|libXext\.so|libXcursor\.so|libXinerama\.so|libXrandr\.so|libXrender\.so|libXi\.so|libgomp\.so"
+          HAS_ERRORS=0
+
+          for PLUGIN in $PLUGINS; do
+            NAME=$(basename "$PLUGIN")
+            echo "Checking $NAME..."
+
+            UNEXPECTED_LIBS=$(ldd "$PLUGIN" 2>/dev/null | awk '/=>/ {print $1}' | grep -vE "$ALLOWED_LIBS")
+            DEFINED_LEAKS=$(nm -D --defined-only "$PLUGIN" 2>/dev/null | grep -iE " (FT_|fftwf?_)")
+            UNDEFINED_LEAKS=$(nm -D --undefined-only "$PLUGIN" 2>/dev/null | grep -iE " (FT_|fftwf?_)")
+
+            if [ -n "$UNEXPECTED_LIBS" ] || [ -n "$DEFINED_LEAKS" ] || [ -n "$UNDEFINED_LEAKS" ]; then
+              echo "❌ [FAIL] Verification failed for $NAME"
+              [ -n "$UNEXPECTED_LIBS" ] && echo "   └─ Dynamic library leaks: $(echo "$UNEXPECTED_LIBS" | tr '\n' ' ')"
+              [ -n "$DEFINED_LEAKS" ] && echo "   └─ Exported static symbols: $(echo "$DEFINED_LEAKS" | tr '\n' ' ')"
+              [ -n "$UNDEFINED_LEAKS" ] && echo "   └─ Undefined system symbols: $(echo "$UNDEFINED_LEAKS" | tr '\n' ' ')"
+              HAS_ERRORS=1
+            else
+              echo "✔ [PASS] $NAME (Dependencies clean & symbols fully isolated)"
+            fi
+          done
+
+          if [ $HAS_ERRORS -ne 0 ]; then
+            exit 1
+          fi
+          echo "✨ All Linux binaries verified clean and properly encapsulated!"
 
       - name: Package Staging Artifacts
         run: |
@@ -152,22 +289,22 @@ jobs:
           mkdir -p deb_root/usr/lib/vst3
           mkdir -p deb_root/usr/lib/lv2
 
-          cat << 'EOF' > deb_root/DEBIAN/control
+          cat << EOF > deb_root/DEBIAN/control
           Package: noise-repellent
-          Version: 3.0.0
+          Version: $PLUGIN_VERSION
           Architecture: amd64
           Maintainer: Luciano Dato <lucianodato@net>
+          Depends: libasound2 (>= 1.0.16), libgl1, libx11-6, libxext6, libxcursor1, libxinerama1, libxrandr2
           Description: Noise Repellent Audio Processing Plugin
           EOF
 
           cp -R "staging/Noise Repellent.vst3" deb_root/usr/lib/vst3/
           cp -R "staging/Noise Repellent.lv2" deb_root/usr/lib/lv2/
 
-          dpkg-deb --build deb_root noise-repellent_3.0.0_amd64.deb
+          dpkg-deb --build deb_root "noise-repellent_${PLUGIN_VERSION}_amd64.deb"
 
       - name: Create Universal Tarball with Installer Script
         run: |
-          # Generate install.sh script inside staging
           cat << 'EOF' > staging/install.sh
           #!/bin/bash
           set -e
@@ -193,29 +330,25 @@ jobs:
 
           chmod +x staging/install.sh
 
-          # Create .tar.gz archive
-          cd staging && tar -czvf ../noise-repellent-linux-x86_64.tar.gz .
-
-      # 3. Upload Artifacts
-      - uses: actions/upload-artifact@v4
-        with:
-          name: noise-repellent-linux-deb
-          path: noise-repellent_3.0.0_amd64.deb
+          cd staging && tar -czvf "../noise-repellent-linux-x86_64-${PLUGIN_VERSION}.tar.gz" .
 
       - uses: actions/upload-artifact@v4
         with:
-          name: noise-repellent-linux-tarball
-          path: noise-repellent-linux-x86_64.tar.gz
+          name: noise-repellent-linux-deb-${{ env.PLUGIN_VERSION }}
+          path: noise-repellent_${{ env.PLUGIN_VERSION }}_amd64.deb
 
-      # 4. Attach Both Packages to GitHub Release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: noise-repellent-linux-tarball-${{ env.PLUGIN_VERSION }}
+          path: noise-repellent-linux-x86_64-${{ env.PLUGIN_VERSION }}.tar.gz
+
       - name: Upload GitHub Release
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
           files: |
-            noise-repellent_3.0.0_amd64.deb
-            noise-repellent-linux-x86_64.tar.gz
-
+            noise-repellent_${{ env.PLUGIN_VERSION }}_amd64.deb
+            noise-repellent-linux-x86_64-${{ env.PLUGIN_VERSION }}.tar.gz
 
   build-windows:
     name: Windows (x64)
@@ -224,14 +357,40 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
+          fetch-depth: 0
 
-      - name: Install Dependencies
+      - name: Extract Version
+        shell: bash
         run: |
-          vcpkg install fftw3:x64-windows-static
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            if DESCRIBE=$(git describe --tags --always 2>/dev/null); then
+              VERSION="${DESCRIBE#v}"
+            else
+              BASE_VER=$(sed -n -E 's/.*project\(NoiseRepellent VERSION ([0-9]+\.[0-9]+\.[0-9]+\).*/\1/p' CMakeLists.txt || echo "0.0.0")
+              SHORT_SHA=$(git rev-parse --short HEAD)
+              VERSION="${BASE_VER}-${SHORT_SHA}"
+            fi
+          fi
+          echo "PLUGIN_VERSION=${VERSION}" >> $GITHUB_ENV
+          echo "Building version: ${VERSION}"
+
+      - name: Setup ccache
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: ${{ runner.os }}-ccache
+          variant: sccache
+
+      - name: Set up Ninja & MSVC Developer Environment
+        uses: ilammy/msvc-dev-cmd@v1
 
       - name: Configure CMake
         run: |
-          cmake -B build -DVCPKG_TARGET_TRIPLET=x64-windows-static "-DCMAKE_TOOLCHAIN_FILE=$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake"
+          cmake -B build -G "Ninja" `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DCMAKE_C_COMPILER_LAUNCHER=sccache `
+            -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
 
       - name: Build Targets
         run: |
@@ -241,23 +400,72 @@ jobs:
         shell: bash
         run: |
           mkdir -p staging
-          cp -R build/NoiseRepellent_artefacts/Release/VST3/Noise\ Repellent.vst3 staging/ || true
-          cp -R build/NoiseRepellent_artefacts/Release/LV2/Noise\ Repellent.lv2 staging/ || true
+          echo "Listing JUCE artifacts directory:"
+          find build -type f \( -name "*.vst3" -o -name "*.dll" \) || true
+          
+          # Copy VST3 bundle or dylib/dll
+          find build -name "*Noise*Repellent*.vst3" -exec cp -R {} staging/ \; 2>/dev/null || true
+          find build -name "*Noise*Repellent*.lv2" -exec cp -R {} staging/ \; 2>/dev/null || true
+
+      - name: Verify Windows DLL Dependencies
+        shell: bash
+        run: |
+          echo "🔍 Verifying Windows plugin binaries (.vst3 / .dll)..."
+          IFS=$'\n'
+          BINARIES=$(find staging -type f \( -name "*.vst3" -o -name "*.dll" \))
+
+          if [ -z "$BINARIES" ]; then
+            echo "❌ ERROR: No .vst3 or .dll plugin binaries found!"
+            exit 1
+          fi
+
+          HAS_ERRORS=0
+          ALLOWED_DLLS="KERNEL32\.dll|USER32\.dll|GDI32\.dll|SHELL32\.dll|ADVAPI32\.dll|OLE32\.dll|OLEAUT32\.dll|SETUPAPI\.dll|COMDLG32\.dll|WS2_32\.dll|IMM32\.dll|VERSION\.dll|WINMM\.dll|UXTHEME\.dll|SHLWAPI\.dll|WININET\.dll|dbghelp\.dll|COMCTL32\.dll|d2d1\.dll|dxgi\.dll|d3d11\.dll|dcomp\.dll|dwmapi\.dll|VCRUNTIME140.*\.dll|MSVCP140.*\.dll|libomp140.*\.dll|ucrtbase\.dll|api-ms-win-.*\.dll|MFPlat\.dll|bcrypt\.dll|RPCRT4\.dll|PROPSYS\.dll"
+          
+          for BINARY in $BINARIES; do
+            NAME=$(basename "$BINARY")
+            DEPENDENTS=$(objdump -p "$BINARY" 2>/dev/null | grep -i "DLL Name:" | awk '{print $3}')
+
+            if [ -z "$DEPENDENTS" ]; then
+              echo "❌ ERROR: Failed to extract DLL dependencies from $NAME (objdump failed or no imports found)"
+              exit 1
+            fi
+
+            UNEXPECTED_DLLS=$(echo "$DEPENDENTS" | grep -ivE "$ALLOWED_DLLS" || true)
+
+            if [ -n "$UNEXPECTED_DLLS" ]; then
+              echo "❌ [FAIL] $NAME"
+              echo "   └─ Dynamic leaks: $(echo "$UNEXPECTED_DLLS" | tr '\n' ' ')"
+              HAS_ERRORS=1
+            else
+              echo "✔ [PASS] $NAME"
+            fi
+          done
+
+          if [ $HAS_ERRORS -ne 0 ]; then
+            exit 1
+          fi
+          echo "✨ All Windows binaries verified clean!"
 
       - name: Build Inno Setup Installer
         uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
         with:
           path: Installers/windows/installer.iss
-          options: /O"Output"
+          options: /O"Output" /DMyAppVersion=${{ env.PLUGIN_VERSION }}
+
+      - name: Rename Installer Artifact
+        shell: bash
+        run: |
+          mv Output/NoiseRepellent-Win64-Installer.exe "Output/NoiseRepellent-Win64-Installer-${PLUGIN_VERSION}.exe"
 
       - name: Upload Installer Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: noise-repellent-win64-installer
-          path: Output/NoiseRepellent-Win64-Installer.exe
+          name: noise-repellent-win64-installer-${{ env.PLUGIN_VERSION }}
+          path: Output/NoiseRepellent-Win64-Installer-${{ env.PLUGIN_VERSION }}.exe
 
       - name: Upload GitHub Release
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: Output/NoiseRepellent-Win64-Installer.exe
+          files: Output/NoiseRepellent-Win64-Installer-${{ env.PLUGIN_VERSION }}.exe
