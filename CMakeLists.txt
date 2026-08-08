@@ -239,7 +239,7 @@ else()
         FetchContent_Declare(
             libspecbleach
             GIT_REPOSITORY https://github.com/lucianodato/libspecbleach.git
-            GIT_TAG        20a8019e451ab23ef6e0f887ee043b9b642f125b
+            GIT_TAG        v0.3.1
         )
         FetchContent_MakeAvailable(libspecbleach)
         set(SPECBLEACH_SRC "${libspecbleach_SOURCE_DIR}")
