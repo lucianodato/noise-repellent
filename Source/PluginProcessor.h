@@ -41,6 +41,7 @@ public:
 
     void processBlock(juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
     void processBlockBypassed(juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
+    juce::AudioProcessorParameter* getBypassParameter() const override;
 
     juce::AudioProcessorEditor* createEditor() override;
     bool hasEditor() const override { return true; }
@@ -98,11 +99,28 @@ private:
     SpectralBleachHandle specbleach2D_L = nullptr;
     SpectralBleachHandle specbleach2D_R = nullptr;
 
+    juce::AudioParameterBool* bypassParameter = nullptr;
     juce::dsp::DryWetMixer<float> dryWetMixer;
 
     double currentSampleRate = 44100.0;
     int currentAlgoMode = 1; // Track for dynamic latency updates
     bool wasLearning = false; // Track learn mode state transition to sync profiles
+
+    struct PendingProfile {
+        int channel = 0; // 0 = Left, 1 = Right
+        int mode = 1;
+        uint32_t size = 0;
+        uint32_t blockCount = 0;
+        std::vector<float> data;
+    };
+
+    std::vector<PendingProfile> pendingProfiles;
+
+    // Lock to protect noise profile synchronization and serialization
+    juce::SpinLock profileLock;
+
+    // Persistent dry input copy for FFT visualization (prevents RT audio thread allocation)
+    std::vector<float> dryInputL;
 
     // Crossfading between 1D and 2D engines to prevent clicks/pops during mode changes
     juce::AudioBuffer<float> crossfadeBuffer;
