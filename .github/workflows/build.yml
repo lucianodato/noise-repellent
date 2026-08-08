@@ -169,6 +169,7 @@ jobs:
           PKGBUILD_CMD="pkgbuild --root pkg_root --identifier com.lucianodato.NoiseRepellent --version $PLUGIN_VERSION --install-location /"
           
           if [ -d "Installers/macos" ]; then
+            chmod +x Installers/macos/* 2>/dev/null || true
             PKGBUILD_CMD="$PKGBUILD_CMD --scripts Installers/macos"
           fi
 
