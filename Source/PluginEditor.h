@@ -20,6 +20,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #pragma once
 
 #include <juce_gui_basics/juce_gui_basics.h>
+#include <atomic>
 #include "PluginProcessor.h"
 #include "GUI/LookAndFeel.h"
 #include "GUI/SpectralVisualizer.h"
@@ -46,6 +47,8 @@ public:
 private:
     NoiseRepellentAudioProcessor& audioProcessor;
     NoiseRepellentLookAndFeel customLookAndFeel;
+
+    std::atomic<bool> tooltipStateDirty{ false };
 
     // Header Controls
     juce::Label brandLabel;

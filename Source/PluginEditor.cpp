@@ -347,7 +347,7 @@ void NoiseRepellentAudioProcessorEditor::parameterChanged(const juce::String& pa
 {
     if (parameterID == "show_tooltips")
     {
-        triggerAsyncUpdate();
+        tooltipStateDirty.store(true, std::memory_order_relaxed);
     }
 }
 
@@ -481,14 +481,22 @@ void NoiseRepellentAudioProcessorEditor::updateProfileStatus()
     } else if (isAdaptive) {
         lblProfileStatus.setText("STATUS: ADAPTIVE", juce::dontSendNotification);
         lblProfileStatus.setColour(juce::Label::textColourId, NoiseRepellentLookAndFeel::kColorDenoising);
-    } else {
+    } else if (hasProfile) {
         lblProfileStatus.setText("STATUS: PROFILE ACTIVE", juce::dontSendNotification);
         lblProfileStatus.setColour(juce::Label::textColourId, NoiseRepellentLookAndFeel::kColorNoiseProfile);
+    } else {
+        lblProfileStatus.setText("STATUS: NO PROFILE", juce::dontSendNotification);
+        lblProfileStatus.setColour(juce::Label::textColourId, juce::Colour(0xff808896));
     }
 }
 
 void NoiseRepellentAudioProcessorEditor::timerCallback()
 {
+    if (tooltipStateDirty.exchange(false, std::memory_order_relaxed))
+    {
+        triggerAsyncUpdate();
+    }
+
     updateSliderLabels();
     updateProfileStatus();
 }

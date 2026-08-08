@@ -326,18 +326,22 @@ void SpectralVisualizerComponent::paint(juce::Graphics& g)
         const float legendH = 24.0f;
         const float advButtonW = 148.0f;
         const float gapToAdvButton = 12.0f;
-        const float legendX = std::max(170.0f, w - advButtonW - 12.0f - gapToAdvButton - legendW);
+        const float availableRightX = w - advButtonW - 12.0f - gapToAdvButton;
+        const float legendX = availableRightX - legendW;
+        const float minLeftX = 140.0f;
         const float legendY = 10.0f;
 
-        // Semi-transparent dark glass background
-        g.setColour(juce::Colour(0xeb252a35));
-        g.fillRoundedRectangle(legendX, legendY, legendW, legendH, 4.0f);
-        g.setColour(juce::Colour(0xff4c566a));
-        g.drawRoundedRectangle(legendX, legendY, legendW, legendH, 4.0f, 1.0f);
+        if (legendX >= minLeftX && availableRightX <= w)
+        {
+            // Semi-transparent dark glass background
+            g.setColour(juce::Colour(0xeb252a35));
+            g.fillRoundedRectangle(legendX, legendY, legendW, legendH, 4.0f);
+            g.setColour(juce::Colour(0xff4c566a));
+            g.drawRoundedRectangle(legendX, legendY, legendW, legendH, 4.0f, 1.0f);
 
-        g.setFont(juce::FontOptions(NoiseRepellentLookAndFeel::kFontSizeLabel, juce::Font::bold));
+            g.setFont(juce::FontOptions(NoiseRepellentLookAndFeel::kFontSizeLabel, juce::Font::bold));
 
-        float curX = legendX + padding;
+            float curX = legendX + padding;
 
         // Swatch 1: Live Input (Filled Area)
         g.setColour(NoiseRepellentLookAndFeel::kColorInputSignal.withAlpha(0.70f));
@@ -376,4 +380,5 @@ void SpectralVisualizerComponent::paint(juce::Graphics& g)
             g.drawText("Tonal Peaks", static_cast<int>(curX), static_cast<int>(legendY), 64, static_cast<int>(legendH), juce::Justification::left);
         }
     }
+}
 }
