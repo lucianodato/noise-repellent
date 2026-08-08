@@ -27,8 +27,8 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(NoiseRepe
 
     // 1. Native Resizable Window Settings
     setResizable(true, true);
-    setResizeLimits(960, 520, 1600, 1000);
-    setSize(980, 580);
+    setResizeLimits(840, 480, 1600, 1000);
+    setSize(940, 560);
 
     // Brand Header
     brandLabel.setText("NOISE REPELLENT", juce::dontSendNotification);
@@ -39,7 +39,7 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(NoiseRepe
     // Preferences Header Button
     addAndMakeVisible(btnPreferences);
     btnPreferences.setTooltip("Preferences");
-    btnPreferences.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff3f4757));
+    btnPreferences.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff3a4150));
     btnPreferences.onClick = [this]() {
         auto* param = audioProcessor.getAPVTS().getParameter("show_tooltips");
         if (param == nullptr)
@@ -52,16 +52,10 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(NoiseRepe
         item.itemID = 1;
         item.isEnabled = true;
         item.isTicked = currentVal;
-        item.action = [this, param, currentVal]() {
+        item.action = [param, currentVal]() {
             param->beginChangeGesture();
             param->setValueNotifyingHost(currentVal ? 0.0f : 1.0f);
             param->endChangeGesture();
-
-            if (currentVal) // Toggled off
-            {
-                footerTooltipLabel.setText({}, juce::dontSendNotification);
-            }
-            updateLayout();
         };
         menu.addItem(item);
 
@@ -281,6 +275,16 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(NoiseRepe
     updateSliderLabels();
     startTimerHz(30);
 
+    // Initial default instruction text
+    auto* showTooltipsParam = audioProcessor.getAPVTS().getRawParameterValue("show_tooltips");
+    if (showTooltipsParam == nullptr || showTooltipsParam->load() > 0.5f)
+    {
+        footerTooltipLabel.setText("Loop a noise-only segment in your DAW and click Learn Noise to capture a profile, then adjust reduction.", juce::dontSendNotification);
+    }
+
+    // Register parameter listener for show_tooltips
+    audioProcessor.getAPVTS().addParameterListener("show_tooltips", this);
+
     // Register mouse listener AFTER all child components are added
     addMouseListener(this, true);
 }
@@ -308,6 +312,9 @@ void NoiseRepellentAudioProcessorEditor::mouseEnter(const juce::MouseEvent& even
         }
         comp = comp->getParentComponent();
     }
+
+    // Default instruction when hovering over background / non-tooltip components
+    footerTooltipLabel.setText("Loop a noise-only segment in your DAW and click Learn Noise to capture a profile, then adjust reduction.", juce::dontSendNotification);
 }
 
 void NoiseRepellentAudioProcessorEditor::mouseMove(const juce::MouseEvent& event)
@@ -317,13 +324,45 @@ void NoiseRepellentAudioProcessorEditor::mouseMove(const juce::MouseEvent& event
 
 void NoiseRepellentAudioProcessorEditor::mouseExit(const juce::MouseEvent& /*event*/)
 {
-    footerTooltipLabel.setText({}, juce::dontSendNotification);
+    auto* showTooltipsParam = audioProcessor.getAPVTS().getRawParameterValue("show_tooltips");
+    if (showTooltipsParam != nullptr && showTooltipsParam->load() > 0.5f)
+    {
+        footerTooltipLabel.setText("Loop a noise-only segment in your DAW and click Learn Noise to capture a profile, then adjust reduction.", juce::dontSendNotification);
+    }
+    else
+    {
+        footerTooltipLabel.setText({}, juce::dontSendNotification);
+    }
 }
 
 NoiseRepellentAudioProcessorEditor::~NoiseRepellentAudioProcessorEditor()
 {
+    audioProcessor.getAPVTS().removeParameterListener("show_tooltips", this);
+    cancelPendingUpdate();
     stopTimer();
     setLookAndFeel(nullptr);
+}
+
+void NoiseRepellentAudioProcessorEditor::parameterChanged(const juce::String& parameterID, float /*newValue*/)
+{
+    if (parameterID == "show_tooltips")
+    {
+        triggerAsyncUpdate();
+    }
+}
+
+void NoiseRepellentAudioProcessorEditor::handleAsyncUpdate()
+{
+    auto* showTooltipsParam = audioProcessor.getAPVTS().getRawParameterValue("show_tooltips");
+    if (showTooltipsParam != nullptr && showTooltipsParam->load() > 0.5f)
+    {
+        footerTooltipLabel.setText("Loop a noise-only segment in your DAW and click Learn Noise to capture a profile, then adjust reduction.", juce::dontSendNotification);
+    }
+    else
+    {
+        footerTooltipLabel.setText({}, juce::dontSendNotification);
+    }
+    updateLayout();
 }
 
 void NoiseRepellentAudioProcessorEditor::updateLayout()
@@ -354,9 +393,10 @@ void NoiseRepellentAudioProcessorEditor::updateLayout()
 
 void NoiseRepellentAudioProcessorEditor::updateSliderLabels()
 {
-    lblAggressiveness.setText("AGGRESSIVENESS: " + juce::String(sliderAggressiveness.getValue(), 1), juce::dontSendNotification);
+    bool isCompact = getWidth() < 900;
+    lblAggressiveness.setText(isCompact ? "AGGR: " + juce::String(sliderAggressiveness.getValue(), 1) : "AGGRESSIVENESS: " + juce::String(sliderAggressiveness.getValue(), 1), juce::dontSendNotification);
     lblSmoothing.setText("SMOOTHING: " + juce::String(static_cast<int>(sliderSmoothing.getValue())) + "%", juce::dontSendNotification);
-    lblMasking.setText("MASKING PROTECT: " + juce::String(static_cast<int>(sliderMasking.getValue())) + "%", juce::dontSendNotification);
+    lblMasking.setText(isCompact ? "MASKING: " + juce::String(static_cast<int>(sliderMasking.getValue())) + "%" : "MASKING PROTECT: " + juce::String(static_cast<int>(sliderMasking.getValue())) + "%", juce::dontSendNotification);
     lblWhitening.setText("WHITENING: " + juce::String(static_cast<int>(sliderWhitening.getValue())) + "%", juce::dontSendNotification);
     lblSuppression.setText("SUPPRESSION: " + juce::String(static_cast<int>(sliderSuppression.getValue())) + "%", juce::dontSendNotification);
 }
@@ -436,13 +476,13 @@ void NoiseRepellentAudioProcessorEditor::updateProfileStatus()
         lblProfileStatus.setText("STATUS: BYPASSED", juce::dontSendNotification);
         lblProfileStatus.setColour(juce::Label::textColourId, juce::Colour(0xff808896));
     } else if (isDelta) {
-        lblProfileStatus.setText("STATUS: DELTA (LISTENING TO REMOVED NOISE)", juce::dontSendNotification);
+        lblProfileStatus.setText("STATUS: DELTA", juce::dontSendNotification);
         lblProfileStatus.setColour(juce::Label::textColourId, NoiseRepellentLookAndFeel::kColorTonalPeaks);
     } else if (isAdaptive) {
-        lblProfileStatus.setText("STATUS: ADAPTIVE NOISE ESTIMATION", juce::dontSendNotification);
+        lblProfileStatus.setText("STATUS: ADAPTIVE", juce::dontSendNotification);
         lblProfileStatus.setColour(juce::Label::textColourId, NoiseRepellentLookAndFeel::kColorDenoising);
     } else {
-        lblProfileStatus.setText("STATUS: STATIONARY NOISE PROFILE", juce::dontSendNotification);
+        lblProfileStatus.setText("STATUS: PROFILE ACTIVE", juce::dontSendNotification);
         lblProfileStatus.setColour(juce::Label::textColourId, NoiseRepellentLookAndFeel::kColorNoiseProfile);
     }
 }
@@ -465,30 +505,30 @@ void NoiseRepellentAudioProcessorEditor::paint(juce::Graphics& g)
         float bottomY = (float)groupAdvanced.getBottom() - 14.0f;
 
         // Separator 1: After Adaptive Noise & Estimation Method block
-        if (comboMethod.getWidth() > 0)
+        if (comboMethod.getWidth() > 0 && sliderSmoothing.getWidth() > 0)
         {
-            float x1 = (float)comboMethod.getRight() + 7.0f;
+            float x1 = (float)(comboMethod.getRight() + sliderSmoothing.getX()) / 2.0f;
             g.drawVerticalLine(juce::roundToInt(x1), topY, bottomY);
         }
 
         // Separator 2: After Smoothing slider block
-        if (sliderSmoothing.getWidth() > 0)
+        if (sliderSmoothing.getWidth() > 0 && sliderMasking.getWidth() > 0)
         {
-            float x2 = (float)sliderSmoothing.getRight() + 7.0f;
+            float x2 = (float)(sliderSmoothing.getRight() + sliderMasking.getX()) / 2.0f;
             g.drawVerticalLine(juce::roundToInt(x2), topY, bottomY);
         }
 
         // Separator 3: After Masking Protect slider block
-        if (sliderMasking.getWidth() > 0)
+        if (sliderMasking.getWidth() > 0 && sliderWhitening.getWidth() > 0)
         {
-            float x3 = (float)sliderMasking.getRight() + 7.0f;
+            float x3 = (float)(sliderMasking.getRight() + sliderWhitening.getX()) / 2.0f;
             g.drawVerticalLine(juce::roundToInt(x3), topY, bottomY);
         }
 
         // Separator 4: After Whitening slider block
-        if (sliderWhitening.getWidth() > 0)
+        if (sliderWhitening.getWidth() > 0 && sliderSuppression.getWidth() > 0)
         {
-            float x4 = (float)sliderWhitening.getRight() + 7.0f;
+            float x4 = (float)(sliderWhitening.getRight() + sliderSuppression.getX()) / 2.0f;
             g.drawVerticalLine(juce::roundToInt(x4), topY, bottomY);
         }
     }
@@ -500,25 +540,29 @@ void NoiseRepellentAudioProcessorEditor::resized()
 
     // Header (Fixed 54px with spacious headroom for profile controls)
     auto headerArea = area.removeFromTop(54);
-    brandLabel.setBounds(headerArea.removeFromLeft(150).withSizeKeepingCentre(150, 26));
 
+    // Left Title & Options Block
+    brandLabel.setBounds(headerArea.removeFromLeft(135).withSizeKeepingCentre(135, 26));
     headerArea.removeFromLeft(4);
-    btnPreferences.setBounds(headerArea.removeFromLeft(24).withSizeKeepingCentre(24, 24));
+    btnPreferences.setBounds(headerArea.removeFromLeft(22).withSizeKeepingCentre(22, 22));
 
-    btnBypass.setBounds(headerArea.removeFromRight(65).withSizeKeepingCentre(65, 24));
+    // Right Action Buttons Block
+    btnBypass.setBounds(headerArea.removeFromRight(60).withSizeKeepingCentre(60, 24));
     headerArea.removeFromRight(6);
-    btnDelta.setBounds(headerArea.removeFromRight(55).withSizeKeepingCentre(55, 24));
-    headerArea.removeFromRight(12);
+    btnDelta.setBounds(headerArea.removeFromRight(50).withSizeKeepingCentre(50, 24));
 
-    // Calculate dynamic centering offset between brand logo and delta button
-    constexpr int kAlgoWidth = 230;
-    constexpr int kProfileWidth = 350;
-    constexpr int kBoxGap = 16;
-    int totalBoxesWidth = kAlgoWidth + kBoxGap + kProfileWidth;
-    int availMiddleWidth = headerArea.getWidth();
-    int centerOffset = std::max(0, (availMiddleWidth - totalBoxesWidth) / 2);
+    // Forced consistent horizontal gap between all header modules
+    constexpr int kHeaderGap = 16;
 
-    headerArea.removeFromLeft(centerOffset);
+    // 16px gap between options button and algorithm dropdown
+    headerArea.removeFromLeft(kHeaderGap);
+
+    // Calculate middle module widths so gaps on left, middle, and right are all identically kHeaderGap
+    int availMiddleWidth = headerArea.getWidth(); // Width remaining up to delta button
+    int totalModuleWidth = availMiddleWidth - kHeaderGap; // Available width for algo column + kHeaderGap + profile box
+
+    int kAlgoWidth = std::clamp((totalModuleWidth - kHeaderGap) * 38 / 100, 170, 220);
+    int kProfileWidth = totalModuleWidth - kHeaderGap - kAlgoWidth;
 
     // Processing Engine Column in Header
     auto algoCol = headerArea.removeFromLeft(kAlgoWidth);
@@ -527,9 +571,11 @@ void NoiseRepellentAudioProcessorEditor::resized()
     lblAlgoHeader.setBounds(algoCol.removeFromTop(15));
     algoCol.removeFromTop(3);
     comboAlgoMode.setBounds(algoCol.removeFromTop(26));
-    headerArea.removeFromLeft(kBoxGap);
 
-    // Encapsulated Noise Profile Group Box in Header
+    // 16px gap between algorithm dropdown and noise profile box
+    headerArea.removeFromLeft(kHeaderGap);
+
+    // Encapsulated Noise Profile Group Box in Header (ends with 16px gap before delta button)
     auto profileGroupArea = headerArea.removeFromLeft(kProfileWidth);
     groupProfile.setBounds(profileGroupArea);
 
@@ -537,13 +583,15 @@ void NoiseRepellentAudioProcessorEditor::resized()
     profileInner.removeFromTop(10); // Clear space for "NOISE PROFILE" group title line
 
     auto profileRow = profileInner;
-    auto btnCol1 = profileRow.removeFromLeft(95);
-    btnLearn.setBounds(btnCol1.withSizeKeepingCentre(95, 24));
-    profileRow.removeFromLeft(6);
+    int learnW = std::clamp(profileGroupArea.getWidth() * 28 / 100, 75, 95);
+    auto btnCol1 = profileRow.removeFromLeft(learnW);
+    btnLearn.setBounds(btnCol1.withSizeKeepingCentre(learnW, 24));
+    profileRow.removeFromLeft(4);
 
-    auto btnCol2 = profileRow.removeFromLeft(55);
-    btnResetProfile.setBounds(btnCol2.withSizeKeepingCentre(55, 24));
-    profileRow.removeFromLeft(14);
+    int resetW = std::clamp(profileGroupArea.getWidth() * 18 / 100, 48, 55);
+    auto btnCol2 = profileRow.removeFromLeft(resetW);
+    btnResetProfile.setBounds(btnCol2.withSizeKeepingCentre(resetW, 24));
+    profileRow.removeFromLeft(6);
 
     // Aggressiveness Slider Stack (Perfectly Vertically Centered)
     auto aggrCol = profileRow;
@@ -583,7 +631,18 @@ void NoiseRepellentAudioProcessorEditor::resized()
         auto advInner = advArea.reduced(12);
         advInner.removeFromTop(12);
 
-        auto leftAdv = advInner.removeFromLeft(240);
+        // Dynamic responsive column width allocation
+        constexpr int kNumGaps = 4;
+        constexpr int kGapW = 12;
+        int totalAvailWidth = advInner.getWidth() - (kNumGaps * kGapW);
+
+        // Allocate ~26% of available width to Left Block (Adaptive & Method), clamped between 160px and 220px
+        int leftAdvW = std::clamp(totalAvailWidth * 26 / 100, 160, 220);
+
+        // Distribute remaining width equally among the 4 slider columns
+        int sliderW = (totalAvailWidth - leftAdvW) / 4;
+
+        auto leftAdv = advInner.removeFromLeft(leftAdvW);
 
         // Vertically center Adaptive Noise checkbox & Estimation Method controls
         constexpr int totalLeftHeight = 24 + 12 + 16 + 4 + 26; // 82px
@@ -591,34 +650,32 @@ void NoiseRepellentAudioProcessorEditor::resized()
         leftAdv.removeFromTop(vertPad);
 
         btnAdaptiveNoise.setBounds(leftAdv.removeFromTop(24));
-        leftAdv.removeFromTop(12); // Generous padding between Adaptive checkbox and Estimation Method
+        leftAdv.removeFromTop(12);
 
         lblMethod.setBounds(leftAdv.removeFromTop(16));
         leftAdv.removeFromTop(4);
         comboMethod.setBounds(leftAdv.removeFromTop(26));
 
-        advInner.removeFromLeft(14);
-
-        int sliderW = (advInner.getWidth() - 42) / 4;
+        advInner.removeFromLeft(kGapW);
 
         auto s1 = advInner.removeFromLeft(sliderW);
         lblSmoothing.setBounds(s1.removeFromTop(18));
         s1.removeFromTop(4);
         sliderSmoothing.setBounds(s1);
 
-        advInner.removeFromLeft(14);
+        advInner.removeFromLeft(kGapW);
         auto s2 = advInner.removeFromLeft(sliderW);
         lblMasking.setBounds(s2.removeFromTop(18));
         s2.removeFromTop(4);
         sliderMasking.setBounds(s2);
 
-        advInner.removeFromLeft(14);
+        advInner.removeFromLeft(kGapW);
         auto s3 = advInner.removeFromLeft(sliderW);
         lblWhitening.setBounds(s3.removeFromTop(18));
         s3.removeFromTop(4);
         sliderWhitening.setBounds(s3);
 
-        advInner.removeFromLeft(14);
+        advInner.removeFromLeft(kGapW);
         lblSuppression.setBounds(advInner.removeFromTop(18));
         advInner.removeFromTop(4);
         sliderSuppression.setBounds(advInner);
@@ -670,8 +727,8 @@ void NoiseRepellentAudioProcessorEditor::resized()
     // Dynamic Expanding FFT Canvas takes ALL remaining full space
     spectralVisualizer.setBounds(denoiseInner);
 
-    // Position Profile Status HUD overlay label in top-left corner of FFT display canvas (offset by 52px to clear dB Y-axis labels)
-    lblProfileStatus.setBounds(spectralVisualizer.getX() + 52, spectralVisualizer.getY() + 10, 225, 20);
+    // Position Profile Status HUD overlay label in top-left corner of FFT display canvas (offset by 50px to clear dB Y-axis labels)
+    lblProfileStatus.setBounds(spectralVisualizer.getX() + 50, spectralVisualizer.getY() + 10, 140, 20);
     lblProfileStatus.toFront(false);
 
     // Position Advanced Controls overlay button in top-right corner of FFT display canvas

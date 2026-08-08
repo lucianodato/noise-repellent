@@ -25,7 +25,9 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "GUI/SpectralVisualizer.h"
 
 class NoiseRepellentAudioProcessorEditor : public juce::AudioProcessorEditor,
-                                    public juce::Timer
+                                    public juce::Timer,
+                                    public juce::AudioProcessorValueTreeState::Listener,
+                                    public juce::AsyncUpdater
 {
 public:
     explicit NoiseRepellentAudioProcessorEditor(NoiseRepellentAudioProcessor&);
@@ -37,6 +39,9 @@ public:
     void mouseEnter(const juce::MouseEvent&) override;
     void mouseMove(const juce::MouseEvent&) override;
     void mouseExit(const juce::MouseEvent&) override;
+
+    void parameterChanged(const juce::String& parameterID, float newValue) override;
+    void handleAsyncUpdate() override;
 
 private:
     NoiseRepellentAudioProcessor& audioProcessor;

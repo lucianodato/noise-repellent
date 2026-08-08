@@ -316,10 +316,17 @@ void SpectralVisualizerComponent::paint(juce::Graphics& g)
     // 5. HUD Color Legend (Top-Right Overlay, positioned to the left of Advanced Controls button)
     {
         const bool showTonalSwatch = !currentFrame.isLinked;
-        const float legendW = showTonalSwatch ? 292.0f : 205.0f;
+        const float padding = 10.0f;
+        const float swatch1W = 10.0f + 4.0f + 32.0f + 14.0f; // Input (60)
+        const float swatch2W = 12.0f + 4.0f + 38.0f + 14.0f; // Profile (68)
+        const float swatch3W = 12.0f + 4.0f + 40.0f + (showTonalSwatch ? 14.0f : 0.0f); // Output (56 or 70)
+        const float swatch4W = showTonalSwatch ? (12.0f + 4.0f + 64.0f) : 0.0f; // Tonal Peaks (80)
+
+        const float legendW = padding + swatch1W + swatch2W + swatch3W + swatch4W + padding;
         const float legendH = 24.0f;
         const float advButtonW = 148.0f;
-        const float legendX = std::max(250.0f, w - advButtonW - 12.0f - 10.0f - legendW);
+        const float gapToAdvButton = 12.0f;
+        const float legendX = std::max(170.0f, w - advButtonW - 12.0f - gapToAdvButton - legendW);
         const float legendY = 10.0f;
 
         // Semi-transparent dark glass background
@@ -330,42 +337,43 @@ void SpectralVisualizerComponent::paint(juce::Graphics& g)
 
         g.setFont(juce::FontOptions(NoiseRepellentLookAndFeel::kFontSizeLabel, juce::Font::bold));
 
-        float curX = legendX + 10.0f;
+        float curX = legendX + padding;
 
         // Swatch 1: Live Input (Filled Area)
         g.setColour(NoiseRepellentLookAndFeel::kColorInputSignal.withAlpha(0.70f));
-        g.fillRect(curX, legendY + 7.0f, 11.0f, 8.0f);
-        curX += 15.0f;
+        g.fillRect(curX, legendY + 7.0f, 10.0f, 8.0f);
+        curX += 14.0f;
         g.setColour(juce::Colour(0xffd8e0ec));
         g.drawText("Input", static_cast<int>(curX), static_cast<int>(legendY), 32, static_cast<int>(legendH), juce::Justification::left);
-        curX += 46.0f;
+        curX += 32.0f + 14.0f;
 
         // Swatch 2: Noise Profile (Solid Amber Line)
         g.setColour(NoiseRepellentLookAndFeel::kColorNoiseProfile);
-        g.drawLine(curX, legendY + 11.0f, curX + 13.0f, legendY + 11.0f, 2.0f);
-        curX += 17.0f;
+        g.drawLine(curX, legendY + 11.0f, curX + 12.0f, legendY + 11.0f, 2.0f);
+        curX += 16.0f;
         g.setColour(juce::Colour(0xffd8e0ec));
-        g.drawText("Profile", static_cast<int>(curX), static_cast<int>(legendY), 36, static_cast<int>(legendH), juce::Justification::left);
-        curX += 50.0f;
+        g.drawText("Profile", static_cast<int>(curX), static_cast<int>(legendY), 38, static_cast<int>(legendH), juce::Justification::left);
+        curX += 38.0f + 14.0f;
 
         // Swatch 3: Output Area (Solid Cyan Line)
         g.setColour(NoiseRepellentLookAndFeel::kColorDenoising);
-        g.drawLine(curX, legendY + 11.0f, curX + 13.0f, legendY + 11.0f, 2.0f);
-        curX += 17.0f;
+        g.drawLine(curX, legendY + 11.0f, curX + 12.0f, legendY + 11.0f, 2.0f);
+        curX += 16.0f;
         g.setColour(juce::Colour(0xffd8e0ec));
-        g.drawText("Output", static_cast<int>(curX), static_cast<int>(legendY), 38, static_cast<int>(legendH), juce::Justification::left);
-        curX += 52.0f;
+        g.drawText("Output", static_cast<int>(curX), static_cast<int>(legendY), 40, static_cast<int>(legendH), juce::Justification::left);
+        curX += 40.0f;
 
         // Swatch 4: Tonal Peaks (Only when Reduction is Unlinked)
         if (showTonalSwatch)
         {
+            curX += 14.0f;
             g.setColour(NoiseRepellentLookAndFeel::kColorTonalPeaks);
-            juce::Line<float> dashLine(curX, legendY + 11.0f, curX + 13.0f, legendY + 11.0f);
+            juce::Line<float> dashLine(curX, legendY + 11.0f, curX + 12.0f, legendY + 11.0f);
             float dLen[] = { 2.0f, 2.0f };
             g.drawDashedLine(dashLine, dLen, 2, 1.5f);
-            curX += 17.0f;
+            curX += 16.0f;
             g.setColour(juce::Colour(0xffd8e0ec));
-            g.drawText("Tonal Peaks", static_cast<int>(curX), static_cast<int>(legendY), 65, static_cast<int>(legendH), juce::Justification::left);
+            g.drawText("Tonal Peaks", static_cast<int>(curX), static_cast<int>(legendY), 64, static_cast<int>(legendH), juce::Justification::left);
         }
     }
 }
