@@ -34,6 +34,9 @@ public:
     void paint(juce::Graphics&) override;
     void resized() override;
     void timerCallback() override;
+    void mouseEnter(const juce::MouseEvent&) override;
+    void mouseMove(const juce::MouseEvent&) override;
+    void mouseExit(const juce::MouseEvent&) override;
 
 private:
     NoiseRepellentAudioProcessor& audioProcessor;
@@ -41,6 +44,7 @@ private:
 
     // Header Controls
     juce::Label brandLabel;
+    juce::TextButton btnPreferences{ juce::CharPointer_UTF8("\xe2\x96\xbc") };
     juce::Label lblAlgoHeader{ "lblAlgoHeader", "PROCESSING ENGINE" };
     juce::ComboBox comboAlgoMode;
     juce::TextButton btnAdvancedToggle{ juce::CharPointer_UTF8("\xe2\x9a\x99  Advanced Controls") };
@@ -79,6 +83,9 @@ private:
     juce::Label lblMasking{ "lblMasking", "MASKING PROTECT" };
     juce::Label lblWhitening{ "lblWhitening", "WHITENING" };
     juce::Label lblSuppression{ "lblSuppression", "SUPPRESSION" };
+
+    // Footer Tooltip Bar
+    juce::Label footerTooltipLabel;
 
     // Parameter Attachments
     using ButtonAttachment = juce::AudioProcessorValueTreeState::ButtonAttachment;

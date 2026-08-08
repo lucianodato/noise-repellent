@@ -106,6 +106,11 @@ NoiseRepellentAudioProcessor::createParameterLayout() {
       juce::AudioParameterBoolAttributes().withAutomatable(false).withMeta(
           true)));
 
+  params.push_back(std::make_unique<juce::AudioParameterBool>(
+      "show_tooltips", "Show Tooltips", true,
+      juce::AudioParameterBoolAttributes().withAutomatable(false).withMeta(
+          true)));
+
   return {params.begin(), params.end()};
 }
 
