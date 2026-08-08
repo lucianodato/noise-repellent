@@ -116,6 +116,9 @@ private:
 
     std::vector<PendingProfile> pendingProfiles;
 
+    // Lock to protect noise profile synchronization and serialization
+    juce::SpinLock profileLock;
+
     // Persistent dry input copy for FFT visualization (prevents RT audio thread allocation)
     std::vector<float> dryInputL;
 
