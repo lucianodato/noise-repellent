@@ -1,6 +1,6 @@
 [Setup]
 AppName=Noise Repellent
-AppVersion=3.0.0
+AppVersion=0.3.1
 AppPublisher=Luciano Dato
 DefaultDirName={commoncf}\VST3
 DisableDirPage=yes

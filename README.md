@@ -63,10 +63,10 @@ Pre-built installers and packages for Linux, macOS, and Windows are available on
 ### 🐧 Linux (x86_64)
 
 #### Debian / Ubuntu / Linux Mint / Pop!_OS
-1. Download `noise-repellent_3.0.0_amd64.deb`.
+1. Download `noise-repellent_0.3.1_amd64.deb`.
 2. Install via software center or terminal:
    ```bash
-   sudo apt install ./noise-repellent_3.0.0_amd64.deb
+   sudo apt install ./noise-repellent_0.3.1_amd64.deb
 
 #### Other Linux Distributions
 1. Download `noise-repellent-linux-x86_64.tar.gz`

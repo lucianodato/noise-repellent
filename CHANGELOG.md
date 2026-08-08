@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [3.0.0] - 2026-07-31
+## [0.3.1] - 2026-08-08
 
 ### Changed
 - **Major Architecture Migration**: Migrated plugin framework from legacy LV2 C implementation to modern C++ framework using JUCE 8.
