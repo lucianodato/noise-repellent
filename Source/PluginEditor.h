@@ -60,10 +60,11 @@ private:
     juce::ToggleButton btnBypass{ "Bypass" };
 
     // Module 1: Compact Noise Profile
-    juce::GroupComponent groupProfile{ "groupProfile", "PROFILE" };
+    juce::GroupComponent groupProfile{ "groupProfile", "NOISE PROFILE" };
     juce::TextButton btnLearn{ "Learn Noise" };
+    juce::TextButton btnAdaptiveNoise{ "Adaptive" };
+    juce::TextButton btnAdaptiveArrow{ juce::CharPointer_UTF8("\xe2\x96\xbc") };
     juce::TextButton btnResetProfile{ "Reset" };
-    juce::ToggleButton btnAdaptiveNoise{ "Adaptive Noise" };
     juce::Label lblProfileStatus;
 
     // Module 2: Denoising & Spectrum

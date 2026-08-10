@@ -254,5 +254,18 @@ juce::Font NoiseRepellentLookAndFeel::getComboBoxFont(juce::ComboBox&)
 
 juce::Font NoiseRepellentLookAndFeel::getPopupMenuFont()
 {
-    return juce::FontOptions(kFontSizeLabel, juce::Font::bold);
+    return juce::FontOptions(kFontSizeLabel, juce::Font::plain);
+}
+
+void NoiseRepellentLookAndFeel::drawPopupMenuSectionHeader(juce::Graphics& g, const juce::Rectangle<int>& area, const juce::String& sectionName)
+{
+    g.setColour(juce::Colour(0xff64748b)); // Slate Gray
+    g.setFont(juce::FontOptions(kFontSizeLabel - 1.0f, juce::Font::bold));
+    g.drawText(sectionName, area.reduced(12, 0), juce::Justification::centredLeft, true);
+}
+
+void NoiseRepellentLookAndFeel::getIdealPopupMenuItemSize(const juce::String& text, bool isSeparator, int standardMenuItemHeight, int& idealWidth, int& idealHeight)
+{
+    juce::LookAndFeel_V4::getIdealPopupMenuItemSize(text, isSeparator, standardMenuItemHeight, idealWidth, idealHeight);
+    idealHeight = 24; // Match standard combobox height
 }
