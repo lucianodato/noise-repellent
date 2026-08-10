@@ -73,7 +73,11 @@ jobs:
           cmake --build build-x86_64 --config Release -j4
 
       - name: CCache Statistics
-        run: ccache -s
+        run: |
+          echo "### CCache Statistics" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          ccache -s >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
 
       - name: Package & Create Universal Fat Binaries
         run: |
@@ -247,7 +251,11 @@ jobs:
           cmake --build build --config Release
 
       - name: CCache Statistics
-        run: ccache -s
+        run: |
+          echo "### CCache Statistics" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          ccache -s >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
 
       - name: Verify Plugin Dependencies & Symbol Isolation (Linux)
         run: |
@@ -421,7 +429,11 @@ jobs:
 
       - name: CCache Statistics
         shell: bash
-        run: ccache -s
+        run: |
+          echo "### CCache Statistics" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          ccache -s >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
 
       - name: Package Staging Artifacts
         shell: bash
