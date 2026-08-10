@@ -44,6 +44,7 @@ jobs:
         with:
           key: ${{ runner.os }}-ccache
           max-size: 2000M
+          verbose: 2
 
       - name: Configure CMake (arm64)
         run: |
@@ -70,6 +71,9 @@ jobs:
       - name: Build Target (x86_64)
         run: |
           cmake --build build-x86_64 --config Release -j4
+
+      - name: CCache Statistics
+        run: ccache -s
 
       - name: Package & Create Universal Fat Binaries
         run: |
@@ -219,7 +223,7 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -qq -y \
-            build-essential cmake ninja-build ccache \
+            build-essential cmake ninja-build \
             libasound2-dev libjack-jackd2-dev libgl1-mesa-dev \
             libx11-dev libxcomposite-dev libxcursor-dev libxext-dev \
             libxinerama-dev libxrandr-dev libfontconfig1-dev libfreetype6-dev
@@ -229,6 +233,7 @@ jobs:
         with:
           key: ${{ runner.os }}-ccache
           max-size: 2000M
+          verbose: 2
 
       - name: Configure CMake
         run: |
@@ -240,6 +245,9 @@ jobs:
       - name: Build Plugins
         run: |
           cmake --build build --config Release
+
+      - name: CCache Statistics
+        run: ccache -s
 
       - name: Verify Plugin Dependencies & Symbol Isolation (Linux)
         run: |
@@ -364,6 +372,12 @@ jobs:
           submodules: recursive
           fetch-depth: 0
 
+      - name: Remove Strawberry Perl from PATH
+        shell: pwsh
+        run: |
+          $env:PATH = ($env:PATH -split ';' | Where-Object { $_ -notlike '*Strawberry*' }) -join ';'
+          echo "PATH=$env:PATH" >> $env:GITHUB_ENV
+
       - name: Extract Version
         id: extract_version
         shell: bash
@@ -391,17 +405,23 @@ jobs:
         with:
           key: ${{ runner.os }}-ccache
           max-size: 2000M
+          verbose: 2
 
       - name: Configure CMake
         run: |
           cmake -B build -G "Ninja" `
             -DCMAKE_BUILD_TYPE=Release `
+            -DCMAKE_MSVC_DEBUG_INFORMATION_FORMAT=Embedded `
             -DCMAKE_C_COMPILER_LAUNCHER=ccache `
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
 
       - name: Build Targets
         run: |
           cmake --build build --config Release -j4
+
+      - name: CCache Statistics
+        shell: bash
+        run: ccache -s
 
       - name: Package Staging Artifacts
         shell: bash
