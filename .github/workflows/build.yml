@@ -383,21 +383,21 @@ jobs:
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
           echo "Building version: ${VERSION}"
 
+      - name: Set up Ninja & MSVC Developer Environment
+        uses: ilammy/msvc-dev-cmd@v1
+
       - name: Setup ccache
         uses: hendrikmuhs/ccache-action@v1.2
         with:
           key: ${{ runner.os }}-ccache
-          variant: sccache
-
-      - name: Set up Ninja & MSVC Developer Environment
-        uses: ilammy/msvc-dev-cmd@v1
+          max-size: 2000M
 
       - name: Configure CMake
         run: |
           cmake -B build -G "Ninja" `
             -DCMAKE_BUILD_TYPE=Release `
-            -DCMAKE_C_COMPILER_LAUNCHER=sccache `
-            -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache `
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
 
       - name: Build Targets
         run: |
