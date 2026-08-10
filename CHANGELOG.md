@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.2] - Unreleased
+
+### Added
+- **Improve Adaptive/Manual profile learn UX and UI**: Adaptive noise learn can work as a standalone mode or on top of a manual profile.
+
+### Improved & Refactored
+
+### Fixed
+
 ## [0.3.1] - 2026-08-08
 
 ### Changed

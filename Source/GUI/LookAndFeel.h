@@ -56,6 +56,8 @@ public:
 
     juce::Font getComboBoxFont(juce::ComboBox& box) override;
     juce::Font getPopupMenuFont() override;
+    void drawPopupMenuSectionHeader(juce::Graphics& g, const juce::Rectangle<int>& area, const juce::String& sectionName) override;
+    void getIdealPopupMenuItemSize(const juce::String& text, bool isSeparator, int standardMenuItemHeight, int& idealWidth, int& idealHeight) override;
 
     // Domain Colors
     static const juce::Colour kColorNoiseProfile; // Warm Amber 0xffe5a000

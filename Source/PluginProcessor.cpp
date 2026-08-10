@@ -111,6 +111,11 @@ NoiseRepellentAudioProcessor::createParameterLayout() {
       juce::AudioParameterBoolAttributes().withAutomatable(false).withMeta(
           true)));
 
+  params.push_back(std::make_unique<juce::AudioParameterBool>(
+      "show_hud", "Show HUD Status", true,
+      juce::AudioParameterBoolAttributes().withAutomatable(false).withMeta(
+          true)));
+
   return {params.begin(), params.end()};
 }
 

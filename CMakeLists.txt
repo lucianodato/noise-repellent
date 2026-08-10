@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(NoiseRepellent VERSION 0.3.1 LANGUAGES C CXX)
+project(NoiseRepellent VERSION 0.3.2 LANGUAGES C CXX)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -239,7 +239,7 @@ else()
         FetchContent_Declare(
             libspecbleach
             GIT_REPOSITORY https://github.com/lucianodato/libspecbleach.git
-            GIT_TAG        v0.3.1
+            GIT_TAG        main
         )
         FetchContent_MakeAvailable(libspecbleach)
         set(SPECBLEACH_SRC "${libspecbleach_SOURCE_DIR}")
