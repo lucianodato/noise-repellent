@@ -23,6 +23,7 @@ jobs:
           fetch-depth: 0
 
       - name: Extract Version
+        id: extract_version
         run: |
           if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
             VERSION="${GITHUB_REF_NAME#v}"
@@ -30,12 +31,13 @@ jobs:
             if DESCRIBE=$(git describe --tags --always 2>/dev/null); then
               VERSION="${DESCRIBE#v}"
             else
-              BASE_VER=$(sed -n -E 's/.*project\(NoiseRepellent VERSION ([0-9]+\.[0-9]+\.[0-9]+\).*/\1/p' CMakeLists.txt || echo "0.0.0")
+              BASE_VER=$(sed -n -E 's/.*project\(NoiseRepellent VERSION ([0-9]+\.[0-9]+\.[0-9]+\).*/\1/p' CMakeLists.txt)
               SHORT_SHA=$(git rev-parse --short HEAD)
               VERSION="${BASE_VER}-${SHORT_SHA}"
             fi
           fi
           echo "PLUGIN_VERSION=${VERSION}" >> $GITHUB_ENV
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
           echo "Building version: ${VERSION}"
 
       - name: Setup ccache
@@ -178,14 +180,14 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: noise-repellent-macOS-installer-${{ env.PLUGIN_VERSION }}
-          path: NoiseRepellent-macOS-Universal-${{ env.PLUGIN_VERSION }}.pkg
+          name: noise-repellent-macOS-installer-${{ steps.extract_version.outputs.version }}
+          path: NoiseRepellent-macOS-Universal-${{ steps.extract_version.outputs.version }}.pkg
 
       - name: Upload GitHub Release
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: NoiseRepellent-macOS-Universal-${{ env.PLUGIN_VERSION }}.pkg
+          files: NoiseRepellent-macOS-Universal-${{ steps.extract_version.outputs.version }}.pkg
 
   build-linux:
     name: Linux (x86_64)
@@ -197,6 +199,7 @@ jobs:
           fetch-depth: 0
 
       - name: Extract Version
+        id: extract_version
         run: |
           if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
             VERSION="${GITHUB_REF_NAME#v}"
@@ -204,12 +207,13 @@ jobs:
             if DESCRIBE=$(git describe --tags --always 2>/dev/null); then
               VERSION="${DESCRIBE#v}"
             else
-              BASE_VER=$(sed -n -E 's/.*project\(NoiseRepellent VERSION ([0-9]+\.[0-9]+\.[0-9]+\).*/\1/p' CMakeLists.txt || echo "0.0.0")
+              BASE_VER=$(sed -n -E 's/.*project\(NoiseRepellent VERSION ([0-9]+\.[0-9]+\.[0-9]+\).*/\1/p' CMakeLists.txt)
               SHORT_SHA=$(git rev-parse --short HEAD)
               VERSION="${BASE_VER}-${SHORT_SHA}"
             fi
           fi
           echo "PLUGIN_VERSION=${VERSION}" >> $GITHUB_ENV
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
           echo "Building version: ${VERSION}"
 
       - name: Install System UI Dependencies & Build Tools
@@ -336,21 +340,21 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: noise-repellent-linux-deb-${{ env.PLUGIN_VERSION }}
-          path: noise-repellent_${{ env.PLUGIN_VERSION }}_amd64.deb
+          name: noise-repellent-linux-deb-${{ steps.extract_version.outputs.version }}
+          path: noise-repellent_${{ steps.extract_version.outputs.version }}_amd64.deb
 
       - uses: actions/upload-artifact@v4
         with:
-          name: noise-repellent-linux-tarball-${{ env.PLUGIN_VERSION }}
-          path: noise-repellent-linux-x86_64-${{ env.PLUGIN_VERSION }}.tar.gz
+          name: noise-repellent-linux-tarball-${{ steps.extract_version.outputs.version }}
+          path: noise-repellent-linux-x86_64-${{ steps.extract_version.outputs.version }}.tar.gz
 
       - name: Upload GitHub Release
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
           files: |
-            noise-repellent_${{ env.PLUGIN_VERSION }}_amd64.deb
-            noise-repellent-linux-x86_64-${{ env.PLUGIN_VERSION }}.tar.gz
+            noise-repellent_${{ steps.extract_version.outputs.version }}_amd64.deb
+            noise-repellent-linux-x86_64-${{ steps.extract_version.outputs.version }}.tar.gz
 
   build-windows:
     name: Windows (x64)
@@ -362,6 +366,7 @@ jobs:
           fetch-depth: 0
 
       - name: Extract Version
+        id: extract_version
         shell: bash
         run: |
           if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
@@ -370,12 +375,13 @@ jobs:
             if DESCRIBE=$(git describe --tags --always 2>/dev/null); then
               VERSION="${DESCRIBE#v}"
             else
-              BASE_VER=$(sed -n -E 's/.*project\(NoiseRepellent VERSION ([0-9]+\.[0-9]+\.[0-9]+\).*/\1/p' CMakeLists.txt || echo "0.0.0")
+              BASE_VER=$(sed -n -E 's/.*project\(NoiseRepellent VERSION ([0-9]+\.[0-9]+\.[0-9]+\).*/\1/p' CMakeLists.txt)
               SHORT_SHA=$(git rev-parse --short HEAD)
               VERSION="${BASE_VER}-${SHORT_SHA}"
             fi
           fi
           echo "PLUGIN_VERSION=${VERSION}" >> $GITHUB_ENV
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
           echo "Building version: ${VERSION}"
 
       - name: Setup ccache
@@ -453,7 +459,7 @@ jobs:
         uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
         with:
           path: Installers/windows/installer.iss
-          options: /O"Output" /DMyAppVersion=${{ env.PLUGIN_VERSION }}
+          options: /O"Output" /DMyAppVersion=${{ steps.extract_version.outputs.version }}
 
       - name: Rename Installer Artifact
         shell: bash
@@ -463,11 +469,11 @@ jobs:
       - name: Upload Installer Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: noise-repellent-win64-installer-${{ env.PLUGIN_VERSION }}
-          path: Output/NoiseRepellent-Win64-Installer-${{ env.PLUGIN_VERSION }}.exe
+          name: noise-repellent-win64-installer-${{ steps.extract_version.outputs.version }}
+          path: Output/NoiseRepellent-Win64-Installer-${{ steps.extract_version.outputs.version }}.exe
 
       - name: Upload GitHub Release
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: Output/NoiseRepellent-Win64-Installer-${{ env.PLUGIN_VERSION }}.exe
+          files: Output/NoiseRepellent-Win64-Installer-${{ steps.extract_version.outputs.version }}.exe

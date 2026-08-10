@@ -235,11 +235,11 @@ else()
         set(SPECBLEACH_SRC "${CMAKE_CURRENT_SOURCE_DIR}/subprojects/libspecbleach")
         add_subdirectory("${SPECBLEACH_SRC}" "${CMAKE_CURRENT_BINARY_DIR}/libspecbleach_build")
     else()
-        message(STATUS "Fetching libspecbleach v0.3.2 remotely...")
+        message(STATUS "Fetching libspecbleach v0.3.1 remotely...")
         FetchContent_Declare(
             libspecbleach
             GIT_REPOSITORY https://github.com/lucianodato/libspecbleach.git
-            GIT_TAG        v0.3.2
+            GIT_TAG        main
         )
         FetchContent_MakeAvailable(libspecbleach)
         set(SPECBLEACH_SRC "${libspecbleach_SOURCE_DIR}")
