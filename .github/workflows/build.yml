@@ -83,23 +83,32 @@ jobs:
         run: |
           mkdir -p staging
           
-          cp -R build-arm64/NoiseRepellent_artefacts/Release/VST3/Noise\ Repellent.vst3 staging/
-          cp -R build-arm64/NoiseRepellent_artefacts/Release/AU/Noise\ Repellent.component staging/
-          cp -R build-arm64/NoiseRepellent_artefacts/Release/LV2/Noise\ Repellent.lv2 staging/ || true
+          ARM_VST3_DIR=$(find build-arm64/NoiseRepellent_artefacts -name "Noise Repellent.vst3" -type d | head -n 1)
+          ARM_AU_DIR=$(find build-arm64/NoiseRepellent_artefacts -name "Noise Repellent.component" -type d | head -n 1)
+          ARM_LV2_DIR=$(find build-arm64/NoiseRepellent_artefacts -name "Noise Repellent.lv2" -type d | head -n 1)
+
+          cp -R "$ARM_VST3_DIR" staging/
+          cp -R "$ARM_AU_DIR" staging/
+          if [ -n "$ARM_LV2_DIR" ]; then
+            cp -R "$ARM_LV2_DIR" staging/ || true
+          fi
+
+          X86_VST3_BIN=$(find build-x86_64/NoiseRepellent_artefacts -path "*/VST3/*.vst3/Contents/MacOS/Noise Repellent" | head -n 1)
+          X86_AU_BIN=$(find build-x86_64/NoiseRepellent_artefacts -path "*/AU/*.component/Contents/MacOS/Noise Repellent" | head -n 1)
 
           lipo -create \
-            "build-arm64/NoiseRepellent_artefacts/Release/VST3/Noise Repellent.vst3/Contents/MacOS/Noise Repellent" \
-            "build-x86_64/NoiseRepellent_artefacts/Release/VST3/Noise Repellent.vst3/Contents/MacOS/Noise Repellent" \
+            "$ARM_VST3_DIR/Contents/MacOS/Noise Repellent" \
+            "$X86_VST3_BIN" \
             -output "staging/Noise Repellent.vst3/Contents/MacOS/Noise Repellent"
 
           lipo -create \
-            "build-arm64/NoiseRepellent_artefacts/Release/AU/Noise Repellent.component/Contents/MacOS/Noise Repellent" \
-            "build-x86_64/NoiseRepellent_artefacts/Release/AU/Noise Repellent.component/Contents/MacOS/Noise Repellent" \
+            "$ARM_AU_DIR/Contents/MacOS/Noise Repellent" \
+            "$X86_AU_BIN" \
             -output "staging/Noise Repellent.component/Contents/MacOS/Noise Repellent"
 
           if [ -d "staging/Noise Repellent.lv2" ]; then
-            ARM_DYLIB=$(find build-arm64/NoiseRepellent_artefacts/Release/LV2 -name "*.dylib" | head -n 1)
-            X86_DYLIB=$(find build-x86_64/NoiseRepellent_artefacts/Release/LV2 -name "*.dylib" | head -n 1)
+            ARM_DYLIB=$(find build-arm64/NoiseRepellent_artefacts -path "*/LV2/*.lv2/*" -name "*.dylib" | head -n 1)
+            X86_DYLIB=$(find build-x86_64/NoiseRepellent_artefacts -path "*/LV2/*.lv2/*" -name "*.dylib" | head -n 1)
             TARGET_DYLIB=$(find "staging/Noise Repellent.lv2" -name "*.dylib" | head -n 1)
 
             if [ -n "$ARM_DYLIB" ] && [ -n "$X86_DYLIB" ]; then
@@ -166,7 +175,7 @@ jobs:
 
       - name: Create Zip Archive
         run: |
-          cd staging && zip -r "../noise-repellent-macOS-Universal-${PLUGIN_VERSION}.zip" .
+          cd staging && zip -r "../noise-repellent-macOS-Universal-${PLUGIN_VERSION}.zip" *
 
       - name: Build macOS PKG Installer
         run: |
@@ -321,8 +330,14 @@ jobs:
       - name: Package Staging Artifacts
         run: |
           mkdir -p staging
-          cp -R build/NoiseRepellent_artefacts/Release/VST3/Noise\ Repellent.vst3 staging/ || true
-          cp -R build/NoiseRepellent_artefacts/Release/LV2/Noise\ Repellent.lv2 staging/ || true
+          VST3_DIR=$(find build/NoiseRepellent_artefacts -name "Noise Repellent.vst3" -type d | head -n 1)
+          LV2_DIR=$(find build/NoiseRepellent_artefacts -name "Noise Repellent.lv2" -type d | head -n 1)
+          if [ -n "$VST3_DIR" ]; then
+            cp -R "$VST3_DIR" staging/ || true
+          fi
+          if [ -n "$LV2_DIR" ]; then
+            cp -R "$LV2_DIR" staging/ || true
+          fi
 
       - name: Build Debian Package
         run: |
@@ -371,7 +386,7 @@ jobs:
 
           chmod +x staging/install.sh
 
-          cd staging && tar -czvf "../noise-repellent-linux-x86_64-${PLUGIN_VERSION}.tar.gz" .
+          cd staging && tar -czvf "../noise-repellent-linux-x86_64-${PLUGIN_VERSION}.tar.gz" *
 
       - uses: actions/upload-artifact@v4
         with:
@@ -462,9 +477,14 @@ jobs:
           echo "Listing JUCE artifacts directory:"
           find build -type f \( -name "*.vst3" -o -name "*.dll" \) || true
           
-          # Copy VST3 bundle or dylib/dll
-          find build -name "*Noise*Repellent*.vst3" -exec cp -R {} staging/ \; 2>/dev/null || true
-          find build -name "*Noise*Repellent*.lv2" -exec cp -R {} staging/ \; 2>/dev/null || true
+          VST3_DIR=$(find build/NoiseRepellent_artefacts -name "Noise Repellent.vst3" -type d | head -n 1)
+          LV2_DIR=$(find build/NoiseRepellent_artefacts -name "Noise Repellent.lv2" -type d | head -n 1)
+          if [ -n "$VST3_DIR" ]; then
+            cp -R "$VST3_DIR" staging/ || true
+          fi
+          if [ -n "$LV2_DIR" ]; then
+            cp -R "$LV2_DIR" staging/ || true
+          fi
 
       - name: Verify Windows DLL Dependencies
         shell: bash
@@ -509,7 +529,7 @@ jobs:
       - name: Create Zip Archive
         shell: bash
         run: |
-          cd staging && 7z a "../noise-repellent-windows-x64-${PLUGIN_VERSION}.zip" .
+          cd staging && 7z a "../noise-repellent-windows-x64-${PLUGIN_VERSION}.zip" *
 
       - name: Generate Inno Setup Script
         shell: bash
