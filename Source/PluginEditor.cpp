@@ -87,6 +87,7 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(NoiseRepe
 
     comboAlgoMode.addItemList({ "1D Spectral (Fast & Low CPU)", "2D NLM Patch (High Quality)" }, 1);
     addAndMakeVisible(comboAlgoMode);
+    comboAlgoMode.onChange = [this]() { updateLayout(); };
 
     // Header Action Toggles
     isAdvancedVisible = audioProcessor.getAPVTS().getRawParameterValue("show_advanced")->load() > 0.5f;
@@ -625,21 +626,22 @@ void NoiseRepellentAudioProcessorEditor::updateProfileStatus()
     }
 
     // Reduction controls
-    bool allowUnlink = pluginActive && (!isAdaptive || hasProfile);
+    bool canUnlink = (!isAdaptive || hasProfile);
+    bool allowUnlink = pluginActive && canUnlink;
     btnLink.setEnabled(allowUnlink);
 
-    if (!allowUnlink && !btnLink.getToggleState())
+    if (!canUnlink && !btnLink.getToggleState())
     {
         btnLink.setToggleState(true, juce::dontSendNotification);
         if (auto* linkParam = audioProcessor.getAPVTS().getParameter("link_reduction"))
             linkParam->setValueNotifyingHost(1.0f);
     }
 
-    if (allowUnlink)
+    if (canUnlink)
     {
         btnLink.setTooltip("Link broadband and tonal reduction controls together\nfor unified adjustment.");
     }
-    else if (isAdaptive && !hasProfile)
+    else
     {
         btnLink.setTooltip("Unlinking tonal reduction is disabled in Standalone Adaptive mode\n(requires a captured manual profile to detect tonal peaks).");
     }
@@ -679,6 +681,14 @@ void NoiseRepellentAudioProcessorEditor::updateProfileStatus()
     comboMethod.setEnabled(pluginActive);
     lblMethod.setEnabled(pluginActive);
     groupAdvanced.setEnabled(pluginActive);
+
+    bool is2D = (comboAlgoMode.getSelectedItemIndex() == 1);
+    const juce::String smoothingTip = is2D
+        ? "Adjust NLM patch similarity filtering strength (h-parameter)\nto control 2D time-frequency smoothing."
+        : "Apply temporal smoothing across spectral frames\nto reduce musical noise bubbling artifacts.";
+
+    sliderSmoothing.setTooltip(smoothingTip);
+    lblSmoothing.setTooltip(smoothingTip);
 
     // Status label (HUD overlay on FFT spectrum chart)
     bool isDelta = btnDelta.getToggleState();
