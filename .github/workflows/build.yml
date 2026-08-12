@@ -83,23 +83,32 @@ jobs:
         run: |
           mkdir -p staging
           
-          cp -R build-arm64/NoiseRepellent_artefacts/Release/VST3/Noise\ Repellent.vst3 staging/
-          cp -R build-arm64/NoiseRepellent_artefacts/Release/AU/Noise\ Repellent.component staging/
-          cp -R build-arm64/NoiseRepellent_artefacts/Release/LV2/Noise\ Repellent.lv2 staging/ || true
+          ARM_VST3_DIR=$(find build-arm64/NoiseRepellent_artefacts -name "Noise Repellent.vst3" -type d | head -n 1)
+          ARM_AU_DIR=$(find build-arm64/NoiseRepellent_artefacts -name "Noise Repellent.component" -type d | head -n 1)
+          ARM_LV2_DIR=$(find build-arm64/NoiseRepellent_artefacts -name "Noise Repellent.lv2" -type d | head -n 1)
+
+          cp -R "$ARM_VST3_DIR" staging/
+          cp -R "$ARM_AU_DIR" staging/
+          if [ -n "$ARM_LV2_DIR" ]; then
+            cp -R "$ARM_LV2_DIR" staging/ || true
+          fi
+
+          X86_VST3_BIN=$(find build-x86_64/NoiseRepellent_artefacts -path "*/VST3/*.vst3/Contents/MacOS/Noise Repellent" | head -n 1)
+          X86_AU_BIN=$(find build-x86_64/NoiseRepellent_artefacts -path "*/AU/*.component/Contents/MacOS/Noise Repellent" | head -n 1)
 
           lipo -create \
-            "build-arm64/NoiseRepellent_artefacts/Release/VST3/Noise Repellent.vst3/Contents/MacOS/Noise Repellent" \
-            "build-x86_64/NoiseRepellent_artefacts/Release/VST3/Noise Repellent.vst3/Contents/MacOS/Noise Repellent" \
+            "$ARM_VST3_DIR/Contents/MacOS/Noise Repellent" \
+            "$X86_VST3_BIN" \
             -output "staging/Noise Repellent.vst3/Contents/MacOS/Noise Repellent"
 
           lipo -create \
-            "build-arm64/NoiseRepellent_artefacts/Release/AU/Noise Repellent.component/Contents/MacOS/Noise Repellent" \
-            "build-x86_64/NoiseRepellent_artefacts/Release/AU/Noise Repellent.component/Contents/MacOS/Noise Repellent" \
+            "$ARM_AU_DIR/Contents/MacOS/Noise Repellent" \
+            "$X86_AU_BIN" \
             -output "staging/Noise Repellent.component/Contents/MacOS/Noise Repellent"
 
           if [ -d "staging/Noise Repellent.lv2" ]; then
-            ARM_DYLIB=$(find build-arm64/NoiseRepellent_artefacts/Release/LV2 -name "*.dylib" | head -n 1)
-            X86_DYLIB=$(find build-x86_64/NoiseRepellent_artefacts/Release/LV2 -name "*.dylib" | head -n 1)
+            ARM_DYLIB=$(find build-arm64/NoiseRepellent_artefacts -path "*/LV2/*.lv2/*" -name "*.dylib" | head -n 1)
+            X86_DYLIB=$(find build-x86_64/NoiseRepellent_artefacts -path "*/LV2/*.lv2/*" -name "*.dylib" | head -n 1)
             TARGET_DYLIB=$(find "staging/Noise Repellent.lv2" -name "*.dylib" | head -n 1)
 
             if [ -n "$ARM_DYLIB" ] && [ -n "$X86_DYLIB" ]; then
@@ -164,11 +173,16 @@ jobs:
           fi
           echo "✨ All macOS binaries verified clean!"
 
+      - name: Create Zip Archive
+        run: |
+          cd staging && zip -r "../noise-repellent-macOS-Universal-${PLUGIN_VERSION}.zip" *
+
       - name: Build macOS PKG Installer
         run: |
           mkdir -p pkg_root/Library/Audio/Plug-Ins/Components
           mkdir -p pkg_root/Library/Audio/Plug-Ins/VST3
           mkdir -p pkg_root/Library/Audio/Plug-Ins/LV2
+          mkdir -p pkg_scripts
 
           cp -R "staging/Noise Repellent.component" pkg_root/Library/Audio/Plug-Ins/Components/
           cp -R "staging/Noise Repellent.vst3" pkg_root/Library/Audio/Plug-Ins/VST3/
@@ -176,25 +190,40 @@ jobs:
             cp -R "staging/Noise Repellent.lv2" pkg_root/Library/Audio/Plug-Ins/LV2/
           fi
 
-          PKGBUILD_CMD="pkgbuild --root pkg_root --identifier com.lucianodato.NoiseRepellent --version $PLUGIN_VERSION --install-location /"
-          
-          if [ -d "Installers/macos" ]; then
-            chmod +x Installers/macos/* 2>/dev/null || true
-            PKGBUILD_CMD="$PKGBUILD_CMD --scripts Installers/macos"
-          fi
+          cat << 'EOF' > pkg_scripts/postinstall
+          #!/bin/sh
+          # Remove quarantine attributes from installed plugins
+          xattr -cr "/Library/Audio/Plug-Ins/Components/Noise Repellent.component" 2>/dev/null || true
+          xattr -cr "/Library/Audio/Plug-Ins/VST3/Noise Repellent.vst3" 2>/dev/null || true
+          xattr -cr "/Library/Audio/Plug-Ins/LV2/Noise Repellent.lv2" 2>/dev/null || true
+          exit 0
+          EOF
+          chmod +x pkg_scripts/postinstall
 
-          $PKGBUILD_CMD "NoiseRepellent-macOS-Universal-${PLUGIN_VERSION}.pkg"
+          pkgbuild --root pkg_root \
+            --identifier com.lucianodato.NoiseRepellent \
+            --version "$PLUGIN_VERSION" \
+            --install-location / \
+            --scripts pkg_scripts \
+            "NoiseRepellent-macOS-Universal-${PLUGIN_VERSION}.pkg"
 
       - uses: actions/upload-artifact@v4
         with:
           name: noise-repellent-macOS-installer-${{ steps.extract_version.outputs.version }}
           path: NoiseRepellent-macOS-Universal-${{ steps.extract_version.outputs.version }}.pkg
 
+      - uses: actions/upload-artifact@v4
+        with:
+          name: noise-repellent-macOS-zip-${{ steps.extract_version.outputs.version }}
+          path: noise-repellent-macOS-Universal-${{ steps.extract_version.outputs.version }}.zip
+
       - name: Upload GitHub Release
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: NoiseRepellent-macOS-Universal-${{ steps.extract_version.outputs.version }}.pkg
+          files: |
+            NoiseRepellent-macOS-Universal-${{ steps.extract_version.outputs.version }}.pkg
+            noise-repellent-macOS-Universal-${{ steps.extract_version.outputs.version }}.zip
 
   build-linux:
     name: Linux (x86_64)
@@ -301,8 +330,14 @@ jobs:
       - name: Package Staging Artifacts
         run: |
           mkdir -p staging
-          cp -R build/NoiseRepellent_artefacts/Release/VST3/Noise\ Repellent.vst3 staging/ || true
-          cp -R build/NoiseRepellent_artefacts/Release/LV2/Noise\ Repellent.lv2 staging/ || true
+          VST3_DIR=$(find build/NoiseRepellent_artefacts -name "Noise Repellent.vst3" -type d | head -n 1)
+          LV2_DIR=$(find build/NoiseRepellent_artefacts -name "Noise Repellent.lv2" -type d | head -n 1)
+          if [ -n "$VST3_DIR" ]; then
+            cp -R "$VST3_DIR" staging/ || true
+          fi
+          if [ -n "$LV2_DIR" ]; then
+            cp -R "$LV2_DIR" staging/ || true
+          fi
 
       - name: Build Debian Package
         run: |
@@ -351,7 +386,7 @@ jobs:
 
           chmod +x staging/install.sh
 
-          cd staging && tar -czvf "../noise-repellent-linux-x86_64-${PLUGIN_VERSION}.tar.gz" .
+          cd staging && tar -czvf "../noise-repellent-linux-x86_64-${PLUGIN_VERSION}.tar.gz" *
 
       - uses: actions/upload-artifact@v4
         with:
@@ -442,9 +477,20 @@ jobs:
           echo "Listing JUCE artifacts directory:"
           find build -type f \( -name "*.vst3" -o -name "*.dll" \) || true
           
-          # Copy VST3 bundle or dylib/dll
-          find build -name "*Noise*Repellent*.vst3" -exec cp -R {} staging/ \; 2>/dev/null || true
-          find build -name "*Noise*Repellent*.lv2" -exec cp -R {} staging/ \; 2>/dev/null || true
+          VST3_FILE=$(find build/NoiseRepellent_artefacts -type f -name "*.vst3" 2>/dev/null | head -n 1)
+          if [ -n "$VST3_FILE" ]; then
+            cp "$VST3_FILE" staging/Noise\ Repellent.vst3
+          else
+            VST3_DIR=$(find build/NoiseRepellent_artefacts -name "Noise Repellent.vst3" -type d | head -n 1)
+            if [ -n "$VST3_DIR" ]; then
+              cp -R "$VST3_DIR" staging/ || true
+            fi
+          fi
+
+          LV2_DIR=$(find build/NoiseRepellent_artefacts -name "Noise Repellent.lv2" -type d | head -n 1)
+          if [ -n "$LV2_DIR" ]; then
+            cp -R "$LV2_DIR" staging/ || true
+          fi
 
       - name: Verify Windows DLL Dependencies
         shell: bash
@@ -486,10 +532,36 @@ jobs:
           fi
           echo "✨ All Windows binaries verified clean!"
 
+      - name: Create Zip Archive
+        shell: bash
+        run: |
+          cd staging && 7z a "../noise-repellent-windows-x64-${PLUGIN_VERSION}.zip" *
+
+      - name: Generate Inno Setup Script
+        shell: bash
+        run: |
+          mkdir -p installer_build
+          cat << EOF > installer_build/installer.iss
+          [Setup]
+          AppName=Noise Repellent
+          AppVersion=${PLUGIN_VERSION}
+          AppPublisher=Luciano Dato
+          DefaultDirName={commoncf}\VST3
+          DisableDirPage=yes
+          OutputBaseFilename=NoiseRepellent-Win64-Installer
+          Compression=lzma2/ultra64
+          SolidCompression=yes
+          ArchitecturesInstallIn64BitMode=x64
+
+          [Files]
+          Source: "..\staging\Noise Repellent.vst3"; DestDir: "{commoncf}\VST3"; Flags: ignoreversion
+          Source: "..\staging\Noise Repellent.lv2\*"; DestDir: "{commoncf}\LV2\Noise Repellent.lv2"; Flags: ignoreversion recursesubdirs createallsubdirs
+          EOF
+
       - name: Build Inno Setup Installer
         uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
         with:
-          path: Installers/windows/installer.iss
+          path: installer_build/installer.iss
           options: /O"Output" /DMyAppVersion=${{ steps.extract_version.outputs.version }}
 
       - name: Rename Installer Artifact
@@ -503,8 +575,16 @@ jobs:
           name: noise-repellent-win64-installer-${{ steps.extract_version.outputs.version }}
           path: Output/NoiseRepellent-Win64-Installer-${{ steps.extract_version.outputs.version }}.exe
 
+      - name: Upload Zip Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: noise-repellent-win64-zip-${{ steps.extract_version.outputs.version }}
+          path: noise-repellent-windows-x64-${{ steps.extract_version.outputs.version }}.zip
+
       - name: Upload GitHub Release
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: Output/NoiseRepellent-Win64-Installer-${{ steps.extract_version.outputs.version }}.exe
+          files: |
+            Output/NoiseRepellent-Win64-Installer-${{ steps.extract_version.outputs.version }}.exe
+            noise-repellent-windows-x64-${{ steps.extract_version.outputs.version }}.zip

@@ -24,6 +24,7 @@ const juce::Colour NoiseRepellentLookAndFeel::kColorDenoising    = juce::Colour(
 const juce::Colour NoiseRepellentLookAndFeel::kColorFineTuning   = juce::Colour(0xffb4bfce);
 const juce::Colour NoiseRepellentLookAndFeel::kColorInputSignal  = juce::Colour(0xff6184a8);
 const juce::Colour NoiseRepellentLookAndFeel::kColorTonalPeaks   = juce::Colour(0xffe07055);
+const juce::Colour NoiseRepellentLookAndFeel::kColorReductionCurve = juce::Colour(0xff4caf50);
 const juce::Colour NoiseRepellentLookAndFeel::kColorPanelBg      = juce::Colour(0xff343a48);
 const juce::Colour NoiseRepellentLookAndFeel::kColorPanelBorder  = juce::Colour(0xff4f586c);
 

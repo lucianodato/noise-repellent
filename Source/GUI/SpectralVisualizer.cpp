@@ -260,6 +260,104 @@ void SpectralVisualizerComponent::paint(juce::Graphics& g)
         g.strokePath(noisePath, juce::PathStrokeType(2.0f));
     }
 
+    // 3b. Reduction Curve Bias Overlay & Nodes
+    if (currentFrame.reductionCurveEnabled)
+    {
+        const auto& nodes = processor.getCurveNodes();
+        if (nodes.size() >= 2)
+        {
+            auto nodeToPoint = [&](const NoiseRepellentAudioProcessor::CurveNode& n) -> juce::Point<float> {
+                float nx = std::clamp(n.normX, 0.0f, 1.0f);
+                float ny = h * 0.5f - (n.biasDB / 24.0f) * (h * 0.4f);
+                return { nx * w, ny };
+            };
+
+            // Draw zero-bias centerline (dashed soft green)
+            g.setColour(NoiseRepellentLookAndFeel::kColorReductionCurve.withAlpha(0.35f));
+            juce::Line<float> zeroLine(0.0f, h * 0.5f, w, h * 0.5f);
+            float dashLen[] = { 4.0f, 4.0f };
+            g.drawDashedLine(zeroLine, dashLen, 2, 1.0f);
+
+            // Draw smooth cubic spline curve path using JUCE Path cubicTo
+            juce::Path curvePath;
+            juce::Point<float> pStart = nodeToPoint(nodes.front());
+            curvePath.startNewSubPath(pStart);
+
+            size_t numNodes = nodes.size();
+            if (numNodes == 2)
+            {
+                curvePath.lineTo(nodeToPoint(nodes.back()));
+            }
+            else
+            {
+                std::vector<juce::Point<float>> pts(numNodes);
+                for (size_t i = 0; i < numNodes; ++i)
+                    pts[i] = nodeToPoint(nodes[i]);
+
+                std::vector<float> dY(numNodes - 1);
+                std::vector<float> dX(numNodes - 1);
+                for (size_t i = 0; i < numNodes - 1; ++i)
+                {
+                    dX[i] = pts[i + 1].x - pts[i].x;
+                    dY[i] = pts[i + 1].y - pts[i].y;
+                }
+
+                std::vector<float> m(numNodes, 0.0f);
+                m.front() = (dX.front() > 1e-5f) ? dY.front() / dX.front() : 0.0f;
+                m.back() = (dX.back() > 1e-5f) ? dY.back() / dX.back() : 0.0f;
+
+                for (size_t i = 1; i < numNodes - 1; ++i)
+                {
+                    float secant1 = (dX[i - 1] > 1e-5f) ? dY[i - 1] / dX[i - 1] : 0.0f;
+                    float secant2 = (dX[i] > 1e-5f) ? dY[i] / dX[i] : 0.0f;
+                    if (secant1 * secant2 <= 0.0f)
+                        m[i] = 0.0f;
+                    else
+                        m[i] = 0.5f * (secant1 + secant2);
+                }
+
+                for (size_t i = 0; i < numNodes - 1; ++i)
+                {
+                    float dx = dX[i];
+                    juce::Point<float> c1(pts[i].x + (1.0f / 3.0f) * dx, pts[i].y + (1.0f / 3.0f) * dx * m[i]);
+                    juce::Point<float> c2(pts[i + 1].x - (1.0f / 3.0f) * dx, pts[i + 1].y - (1.0f / 3.0f) * dx * m[i + 1]);
+                    curvePath.cubicTo(c1, c2, pts[i + 1]);
+                }
+            }
+
+            g.setColour(NoiseRepellentLookAndFeel::kColorReductionCurve);
+            g.strokePath(curvePath, juce::PathStrokeType(2.2f));
+
+            // Draw nodes
+            for (size_t i = 0; i < nodes.size(); ++i)
+            {
+                juce::Point<float> pt = nodeToPoint(nodes[i]);
+                g.setColour(NoiseRepellentLookAndFeel::kColorReductionCurve);
+                g.fillEllipse(pt.x - 5.0f, pt.y - 5.0f, 10.0f, 10.0f);
+                g.setColour(juce::Colours::white);
+                g.drawEllipse(pt.x - 5.0f, pt.y - 5.0f, 10.0f, 10.0f, 1.5f);
+            }
+
+            // Draw dB Reference Y-Scale for Reduction Curve on Right Margin
+            const float scaleX = w - 42.0f;
+            const float textX = w - 38.0f;
+            static const int biasLevels[] = { +24, +12, 0, -12, -24 };
+
+            for (int biasVal : biasLevels)
+            {
+                float ny = h * 0.5f - (static_cast<float>(biasVal) / 24.0f) * (h * 0.4f);
+                g.setColour(NoiseRepellentLookAndFeel::kColorReductionCurve.withAlpha(0.35f));
+                g.drawHorizontalLine(static_cast<int>(ny), scaleX, w);
+
+                g.setColour(NoiseRepellentLookAndFeel::kColorReductionCurve);
+                g.setFont(juce::FontOptions(10.0f, juce::Font::bold));
+                int reductionVal = -biasVal;
+                juce::String labelStr = (reductionVal > 0 ? "+" : "") + juce::String(reductionVal) + "dB";
+                g.drawText(labelStr, static_cast<int>(textX), static_cast<int>(ny) - 7, 36, 14, juce::Justification::left);
+            }
+        }
+    }
+
     // 4. Tonal Peak Markers (Dashed vertical lines with staggered multi-tier frequency tags; shown ONLY when Reduction is UNLINKED)
     if (!currentFrame.isLinked && currentFrame.hasNoiseProfile && !currentFrame.tonalPeaksHz.empty())
     {
@@ -316,22 +414,20 @@ void SpectralVisualizerComponent::paint(juce::Graphics& g)
     // 5. HUD Color Legend (Top-Right Overlay, positioned to the left of Advanced Controls button)
     {
         const bool showTonalSwatch = !currentFrame.isLinked;
+        const bool showCurveSwatch = currentFrame.reductionCurveEnabled;
         const float padding = 10.0f;
         const float swatch1W = 10.0f + 4.0f + 32.0f + 14.0f; // Input (60)
         const float swatch2W = 12.0f + 4.0f + 38.0f + 14.0f; // Profile (68)
-        const float swatch3W = 12.0f + 4.0f + 40.0f + (showTonalSwatch ? 14.0f : 0.0f); // Output (56 or 70)
-        const float swatch4W = showTonalSwatch ? (12.0f + 4.0f + 64.0f) : 0.0f; // Tonal Peaks (80)
+        const float swatch3W = 12.0f + 4.0f + 40.0f + ((showTonalSwatch || showCurveSwatch) ? 14.0f : 0.0f); // Output
+        const float swatch4W = showTonalSwatch ? (12.0f + 4.0f + 64.0f + (showCurveSwatch ? 14.0f : 0.0f)) : 0.0f; // Tonal Peaks
+        const float swatch5W = showCurveSwatch ? (12.0f + 4.0f + 38.0f) : 0.0f; // Curve (54)
 
-        const float legendW = padding + swatch1W + swatch2W + swatch3W + swatch4W + padding;
+        const float legendW = padding + swatch1W + swatch2W + swatch3W + swatch4W + swatch5W + padding;
         const float legendH = 24.0f;
-        const float advButtonW = 148.0f;
-        const float gapToAdvButton = 12.0f;
-        const float availableRightX = w - advButtonW - 12.0f - gapToAdvButton;
-        const float legendX = availableRightX - legendW;
-        const float minLeftX = 140.0f;
+        const float legendX = (w - legendW) * 0.5f;
         const float legendY = 10.0f;
 
-        if (legendX >= minLeftX && availableRightX <= w)
+        if (legendX >= 10.0f && (legendX + legendW) <= w - 10.0f)
         {
             // Semi-transparent dark glass background
             g.setColour(juce::Colour(0xeb252a35));
@@ -343,42 +439,128 @@ void SpectralVisualizerComponent::paint(juce::Graphics& g)
 
             float curX = legendX + padding;
 
-        // Swatch 1: Live Input (Filled Area)
-        g.setColour(NoiseRepellentLookAndFeel::kColorInputSignal.withAlpha(0.70f));
-        g.fillRect(curX, legendY + 7.0f, 10.0f, 8.0f);
-        curX += 14.0f;
-        g.setColour(juce::Colour(0xffd8e0ec));
-        g.drawText("Input", static_cast<int>(curX), static_cast<int>(legendY), 32, static_cast<int>(legendH), juce::Justification::left);
-        curX += 32.0f + 14.0f;
-
-        // Swatch 2: Noise Profile (Solid Amber Line)
-        g.setColour(NoiseRepellentLookAndFeel::kColorNoiseProfile);
-        g.drawLine(curX, legendY + 11.0f, curX + 12.0f, legendY + 11.0f, 2.0f);
-        curX += 16.0f;
-        g.setColour(juce::Colour(0xffd8e0ec));
-        g.drawText("Profile", static_cast<int>(curX), static_cast<int>(legendY), 38, static_cast<int>(legendH), juce::Justification::left);
-        curX += 38.0f + 14.0f;
-
-        // Swatch 3: Output Area (Solid Cyan Line)
-        g.setColour(NoiseRepellentLookAndFeel::kColorDenoising);
-        g.drawLine(curX, legendY + 11.0f, curX + 12.0f, legendY + 11.0f, 2.0f);
-        curX += 16.0f;
-        g.setColour(juce::Colour(0xffd8e0ec));
-        g.drawText("Output", static_cast<int>(curX), static_cast<int>(legendY), 40, static_cast<int>(legendH), juce::Justification::left);
-        curX += 40.0f;
-
-        // Swatch 4: Tonal Peaks (Only when Reduction is Unlinked)
-        if (showTonalSwatch)
-        {
+            // Swatch 1: Live Input (Filled Area)
+            g.setColour(NoiseRepellentLookAndFeel::kColorInputSignal.withAlpha(0.70f));
+            g.fillRect(curX, legendY + 7.0f, 10.0f, 8.0f);
             curX += 14.0f;
-            g.setColour(NoiseRepellentLookAndFeel::kColorTonalPeaks);
-            juce::Line<float> dashLine(curX, legendY + 11.0f, curX + 12.0f, legendY + 11.0f);
-            float dLen[] = { 2.0f, 2.0f };
-            g.drawDashedLine(dashLine, dLen, 2, 1.5f);
+            g.setColour(juce::Colour(0xffd8e0ec));
+            g.drawText("Input", static_cast<int>(curX), static_cast<int>(legendY), 32, static_cast<int>(legendH), juce::Justification::left);
+            curX += 32.0f + 14.0f;
+
+            // Swatch 2: Noise Profile (Solid Amber Line)
+            g.setColour(NoiseRepellentLookAndFeel::kColorNoiseProfile);
+            g.drawLine(curX, legendY + 11.0f, curX + 12.0f, legendY + 11.0f, 2.0f);
             curX += 16.0f;
             g.setColour(juce::Colour(0xffd8e0ec));
-            g.drawText("Tonal Peaks", static_cast<int>(curX), static_cast<int>(legendY), 64, static_cast<int>(legendH), juce::Justification::left);
+            g.drawText("Profile", static_cast<int>(curX), static_cast<int>(legendY), 38, static_cast<int>(legendH), juce::Justification::left);
+            curX += 38.0f + 14.0f;
+
+            // Swatch 3: Output Area (Solid Cyan Line)
+            g.setColour(NoiseRepellentLookAndFeel::kColorDenoising);
+            g.drawLine(curX, legendY + 11.0f, curX + 12.0f, legendY + 11.0f, 2.0f);
+            curX += 16.0f;
+            g.setColour(juce::Colour(0xffd8e0ec));
+            g.drawText("Output", static_cast<int>(curX), static_cast<int>(legendY), 40, static_cast<int>(legendH), juce::Justification::left);
+            curX += 40.0f;
+
+            // Swatch 4: Tonal Peaks (Only when Reduction is Unlinked)
+            if (showTonalSwatch)
+            {
+                curX += 14.0f;
+                g.setColour(NoiseRepellentLookAndFeel::kColorTonalPeaks);
+                juce::Line<float> dashLine(curX, legendY + 11.0f, curX + 12.0f, legendY + 11.0f);
+                float dLen[] = { 2.0f, 2.0f };
+                g.drawDashedLine(dashLine, dLen, 2, 1.5f);
+                curX += 16.0f;
+                g.setColour(juce::Colour(0xffd8e0ec));
+                g.drawText("Tonal Peaks", static_cast<int>(curX), static_cast<int>(legendY), 64, static_cast<int>(legendH), juce::Justification::left);
+                curX += 64.0f;
+            }
+
+            // Swatch 5: Reduction Curve (Only when enabled)
+            if (showCurveSwatch)
+            {
+                curX += 14.0f;
+                g.setColour(NoiseRepellentLookAndFeel::kColorReductionCurve);
+                g.drawLine(curX, legendY + 11.0f, curX + 12.0f, legendY + 11.0f, 2.0f);
+                curX += 16.0f;
+                g.setColour(juce::Colour(0xffd8e0ec));
+                g.drawText("Curve", static_cast<int>(curX), static_cast<int>(legendY), 38, static_cast<int>(legendH), juce::Justification::left);
+            }
         }
     }
 }
+
+void SpectralVisualizerComponent::mouseDown(const juce::MouseEvent& e)
+{
+    activeDragTarget = DragTarget::None;
+    activeNodeIndex = -1;
+    dragStartPos = e.position;
+
+    const float w = static_cast<float>(getWidth());
+    const float h = static_cast<float>(getHeight());
+
+    // Check Reduction Curve nodes (if enabled)
+    if (currentFrame.reductionCurveEnabled)
+    {
+        const auto& nodes = processor.getCurveNodes();
+        for (size_t i = 0; i < nodes.size(); ++i)
+        {
+            float nx = std::clamp(nodes[i].normX, 0.0f, 1.0f);
+            float ny = h * 0.5f - (nodes[i].biasDB / 24.0f) * (h * 0.4f);
+            if (e.position.getDistanceFrom({ nx * w, ny }) <= 12.0f)
+            {
+                activeDragTarget = DragTarget::CurveNode;
+                activeNodeIndex = static_cast<int>(i);
+                return;
+            }
+        }
+
+        // Add a new curve node on empty click
+        float clickNormX = std::clamp(e.position.x / w, 0.01f, 0.99f);
+        float clickBiasDB = std::clamp(((h * 0.5f - e.position.y) / (h * 0.4f)) * 24.0f, -24.0f, 24.0f);
+        processor.addCurveNode(clickNormX, clickBiasDB);
+        repaint();
+    }
+}
+
+void SpectralVisualizerComponent::mouseDrag(const juce::MouseEvent& e)
+{
+    const float w = static_cast<float>(getWidth());
+    const float h = static_cast<float>(getHeight());
+
+    if (activeDragTarget == DragTarget::CurveNode && activeNodeIndex >= 0)
+    {
+        float normX = std::clamp(e.position.x / w, 0.0f, 1.0f);
+        float biasDB = std::clamp(((h * 0.5f - e.position.y) / (h * 0.4f)) * 24.0f, -24.0f, 24.0f);
+        processor.updateCurveNode(activeNodeIndex, normX, biasDB);
+        repaint();
+    }
+}
+
+void SpectralVisualizerComponent::mouseUp(const juce::MouseEvent&)
+{
+    activeDragTarget = DragTarget::None;
+    activeNodeIndex = -1;
+}
+
+void SpectralVisualizerComponent::mouseDoubleClick(const juce::MouseEvent& e)
+{
+    if (!currentFrame.reductionCurveEnabled) return;
+
+    const float w = static_cast<float>(getWidth());
+    const float h = static_cast<float>(getHeight());
+    const auto& nodes = processor.getCurveNodes();
+
+    for (size_t i = 1; i < nodes.size() - 1; ++i)
+    {
+        float nx = std::clamp(nodes[i].normX, 0.0f, 1.0f);
+        float ny = h * 0.5f - (nodes[i].biasDB / 24.0f) * (h * 0.4f);
+        if (e.position.getDistanceFrom({ nx * w, ny }) <= 12.0f)
+        {
+            processor.removeCurveNode(static_cast<int>(i));
+            repaint();
+            return;
+        }
+    }
 }
