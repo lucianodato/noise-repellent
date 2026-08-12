@@ -477,11 +477,17 @@ jobs:
           echo "Listing JUCE artifacts directory:"
           find build -type f \( -name "*.vst3" -o -name "*.dll" \) || true
           
-          VST3_DIR=$(find build/NoiseRepellent_artefacts -name "Noise Repellent.vst3" -type d | head -n 1)
-          LV2_DIR=$(find build/NoiseRepellent_artefacts -name "Noise Repellent.lv2" -type d | head -n 1)
-          if [ -n "$VST3_DIR" ]; then
-            cp -R "$VST3_DIR" staging/ || true
+          VST3_FILE=$(find build/NoiseRepellent_artefacts -type f -name "*.vst3" 2>/dev/null | head -n 1)
+          if [ -n "$VST3_FILE" ]; then
+            cp "$VST3_FILE" staging/Noise\ Repellent.vst3
+          else
+            VST3_DIR=$(find build/NoiseRepellent_artefacts -name "Noise Repellent.vst3" -type d | head -n 1)
+            if [ -n "$VST3_DIR" ]; then
+              cp -R "$VST3_DIR" staging/ || true
+            fi
           fi
+
+          LV2_DIR=$(find build/NoiseRepellent_artefacts -name "Noise Repellent.lv2" -type d | head -n 1)
           if [ -n "$LV2_DIR" ]; then
             cp -R "$LV2_DIR" staging/ || true
           fi
@@ -548,7 +554,7 @@ jobs:
           ArchitecturesInstallIn64BitMode=x64
 
           [Files]
-          Source: "..\staging\Noise Repellent.vst3\*"; DestDir: "{commoncf}\VST3\Noise Repellent.vst3"; Flags: ignoreversion recursesubdirs createallsubdirs
+          Source: "..\staging\Noise Repellent.vst3"; DestDir: "{commoncf}\VST3"; Flags: ignoreversion
           Source: "..\staging\Noise Repellent.lv2\*"; DestDir: "{commoncf}\LV2\Noise Repellent.lv2"; Flags: ignoreversion recursesubdirs createallsubdirs
           EOF
 
