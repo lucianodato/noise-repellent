@@ -116,6 +116,7 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(NoiseRepe
     groupProfile.setText("NOISE PROFILE");
     groupProfile.setColour(juce::GroupComponent::outlineColourId, NoiseRepellentLookAndFeel::kColorPanelBorder);
     groupProfile.setColour(juce::GroupComponent::textColourId, NoiseRepellentLookAndFeel::kColorFineTuning);
+    groupProfile.setInterceptsMouseClicks(false, false);
 
     btnLearn.setClickingTogglesState(true);
     addAndMakeVisible(btnLearn);
@@ -137,7 +138,8 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(NoiseRepe
     };
 
     addAndMakeVisible(btnAdaptiveArrow);
-    btnAdaptiveArrow.setTooltip("Select Adaptive Estimation Method (SPP-MMSE, Brandt, Martin MS).");
+    const juce::String adaptiveMethodTip = "Select Adaptive Estimation Method: SPP-MMSE (best for speech & dynamic noise),\nBrandt (best for steady hiss & fans), or Martin (best for slow background).";
+    btnAdaptiveArrow.setTooltip(adaptiveMethodTip);
     btnAdaptiveArrow.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff353b48));
     btnAdaptiveArrow.onClick = [this]() {
         juce::PopupMenu menu;
@@ -165,6 +167,7 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(NoiseRepe
     };
 
     addAndMakeVisible(btnResetProfile);
+    btnResetProfile.setTooltip("Reset noise profile");
     btnResetProfile.onClick = [this]() {
         audioProcessor.resetNoiseProfile();
         if (auto* pLearn = audioProcessor.getAPVTS().getParameter("learn_noise"))
@@ -187,6 +190,7 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(NoiseRepe
     groupDenoising.setText("");
     groupDenoising.setColour(juce::GroupComponent::outlineColourId, NoiseRepellentLookAndFeel::kColorPanelBorder);
     groupDenoising.setColour(juce::GroupComponent::textColourId, NoiseRepellentLookAndFeel::kColorFineTuning);
+    groupDenoising.setInterceptsMouseClicks(false, false);
 
     lblReductionHeader.setFont(juce::FontOptions(NoiseRepellentLookAndFeel::kFontSizeLabel, juce::Font::bold));
     lblReductionHeader.setColour(juce::Label::textColourId, NoiseRepellentLookAndFeel::kColorDenoising);
@@ -207,6 +211,20 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(NoiseRepe
                 pTonal->setValueNotifyingHost(pTonal->getDefaultValue());
         }
         updateLayout();
+    };
+
+    btnCurveToggle.setClickingTogglesState(true);
+    btnCurveToggle.setTooltip("Enable per-frequency reduction bias curve.");
+    addAndMakeVisible(btnCurveToggle);
+    btnCurveToggle.onClick = [this]() {
+        updateLayout();
+    };
+
+    btnResetCurve.setTooltip("Reset reduction curve to flat 0 dB line.");
+    addAndMakeVisible(btnResetCurve);
+    btnResetCurve.onClick = [this]() {
+        audioProcessor.resetCurveNodes();
+        spectralVisualizer.repaint();
     };
 
     lblMasterRed.setText("BROADBAND", juce::dontSendNotification);
@@ -234,6 +252,7 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(NoiseRepe
     groupAdvanced.setText("ADVANCED CONTROLS");
     groupAdvanced.setColour(juce::GroupComponent::outlineColourId, NoiseRepellentLookAndFeel::kColorPanelBorder);
     groupAdvanced.setColour(juce::GroupComponent::textColourId, NoiseRepellentLookAndFeel::kColorFineTuning);
+    groupAdvanced.setInterceptsMouseClicks(false, false);
 
     comboMethod.addItemList({ "SPP-MMSE (Unbiased)", "Brandt (Trimmed Mean)", "Martin (Min Statistics)" }, 1);
     addAndMakeVisible(comboMethod);
@@ -242,6 +261,13 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(NoiseRepe
     lblMethod.setColour(juce::Label::textColourId, NoiseRepellentLookAndFeel::kColorDenoising);
     lblMethod.setJustificationType(juce::Justification::left);
     addAndMakeVisible(lblMethod);
+
+    lblOffset.setFont(juce::FontOptions(NoiseRepellentLookAndFeel::kFontSizeLabel, juce::Font::bold));
+    lblOffset.setColour(juce::Label::textColourId, NoiseRepellentLookAndFeel::kColorDenoising);
+    lblOffset.setJustificationType(juce::Justification::centred);
+    sliderOffset.setColour(juce::Slider::rotarySliderFillColourId, NoiseRepellentLookAndFeel::kColorDenoising);
+    addAndMakeVisible(sliderOffset);
+    addAndMakeVisible(lblOffset);
 
     lblAggressiveness.setFont(juce::FontOptions(NoiseRepellentLookAndFeel::kFontSizeLabel, juce::Font::bold));
     lblAggressiveness.setColour(juce::Label::textColourId, NoiseRepellentLookAndFeel::kColorDenoising);
@@ -260,13 +286,35 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(NoiseRepe
     addAndMakeVisible(sliderWhitening);
     addAndMakeVisible(sliderSuppression);
 
-    for (auto* lbl : { &lblSmoothing, &lblMasking, &lblWhitening, &lblSuppression })
-    {
-        lbl->setFont(juce::FontOptions(NoiseRepellentLookAndFeel::kFontSizeLabel, juce::Font::bold));
-        lbl->setColour(juce::Label::textColourId, NoiseRepellentLookAndFeel::kColorDenoising);
-        lbl->setJustificationType(juce::Justification::centred);
-        addAndMakeVisible(lbl);
-    }
+    lblSmoothing.setFont(juce::FontOptions(NoiseRepellentLookAndFeel::kFontSizeLabel, juce::Font::bold));
+    lblSmoothing.setColour(juce::Label::textColourId, NoiseRepellentLookAndFeel::kColorDenoising);
+    lblSmoothing.setJustificationType(juce::Justification::centred);
+    addAndMakeVisible(lblSmoothing);
+
+    lblMasking.setFont(juce::FontOptions(NoiseRepellentLookAndFeel::kFontSizeLabel, juce::Font::bold));
+    lblMasking.setColour(juce::Label::textColourId, NoiseRepellentLookAndFeel::kColorDenoising);
+    lblMasking.setJustificationType(juce::Justification::centred);
+    addAndMakeVisible(lblMasking);
+
+    lblWhitening.setFont(juce::FontOptions(NoiseRepellentLookAndFeel::kFontSizeLabel, juce::Font::bold));
+    lblWhitening.setColour(juce::Label::textColourId, NoiseRepellentLookAndFeel::kColorDenoising);
+    lblWhitening.setJustificationType(juce::Justification::centred);
+    addAndMakeVisible(lblWhitening);
+
+    lblSuppression.setFont(juce::FontOptions(NoiseRepellentLookAndFeel::kFontSizeLabel, juce::Font::bold));
+    lblSuppression.setColour(juce::Label::textColourId, NoiseRepellentLookAndFeel::kColorDenoising);
+    lblSuppression.setJustificationType(juce::Justification::centred);
+    addAndMakeVisible(lblSuppression);
+
+    // Advanced Controls Toggle Button
+    btnAdvancedToggle.setClickingTogglesState(true);
+    btnAdvancedToggle.setButtonText("ADVANCED");
+    btnAdvancedToggle.setTooltip("Toggle Advanced DSP Controls (Smoothing, Masking, Whitening, Suppression, Profile Morphing).");
+    addAndMakeVisible(btnAdvancedToggle);
+    btnAdvancedToggle.onClick = [this]() {
+        isAdvancedVisible = btnAdvancedToggle.getToggleState();
+        updateLayout();
+    };
 
     // Parameter APVTS Attachments
     auto& apvts = audioProcessor.getAPVTS();
@@ -275,6 +323,7 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(NoiseRepe
     attachLearn = std::make_unique<ButtonAttachment>(apvts, "learn_noise", btnLearn);
     attachAdaptive = std::make_unique<ButtonAttachment>(apvts, "adaptive_noise", btnAdaptiveNoise);
     attachLink = std::make_unique<ButtonAttachment>(apvts, "link_reduction", btnLink);
+    attachCurveToggle = std::make_unique<ButtonAttachment>(apvts, "reduction_curve_enabled", btnCurveToggle);
     attachDelta = std::make_unique<ButtonAttachment>(apvts, "residual_listen", btnDelta);
     attachBypass = std::make_unique<ButtonAttachment>(apvts, "bypass", btnBypass);
     attachShowAdvanced = std::make_unique<ButtonAttachment>(apvts, "show_advanced", btnAdvancedToggle);
@@ -283,77 +332,65 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(NoiseRepe
 
     attachMasterRed = std::make_unique<SliderAttachment>(apvts, "reduction_amount", sliderMasterRed);
     attachTonalRed = std::make_unique<SliderAttachment>(apvts, "tonal_reduction", sliderTonalRed);
+    attachOffset = std::make_unique<SliderAttachment>(apvts, "noise_profile_offset", sliderOffset);
     attachAggressiveness = std::make_unique<SliderAttachment>(apvts, "aggressiveness", sliderAggressiveness);
     attachSmoothing = std::make_unique<SliderAttachment>(apvts, "smoothing_factor", sliderSmoothing);
     attachMasking = std::make_unique<SliderAttachment>(apvts, "masking_depth", sliderMasking);
     attachWhitening = std::make_unique<SliderAttachment>(apvts, "whitening_factor", sliderWhitening);
     attachSuppression = std::make_unique<SliderAttachment>(apvts, "suppression_strength", sliderSuppression);
 
-    // Footer Tooltip Bar Styling (Transparent background/border for seamless plugin background integration)
-    footerTooltipLabel.setFont(juce::FontOptions(NoiseRepellentLookAndFeel::kFontSizeLabel));
-    footerTooltipLabel.setMinimumHorizontalScale(0.85f);
-    footerTooltipLabel.setColour(juce::Label::backgroundColourId, juce::Colours::transparentBlack);
-    footerTooltipLabel.setColour(juce::Label::outlineColourId, juce::Colours::transparentBlack);
-    footerTooltipLabel.setColour(juce::Label::textColourId, juce::Colour(0xffd0d7e2));
-    footerTooltipLabel.setJustificationType(juce::Justification::centredLeft);
-    footerTooltipLabel.setBorderSize(juce::BorderSize<int>(0, 4, 0, 4));
-    addAndMakeVisible(footerTooltipLabel);
-
     // Control Tooltip Descriptions
     btnPreferences.setTooltip("Plugin preferences menu.");
-    comboAlgoMode.setTooltip("Select denoising algorithm: 1D STFT (fast) or 2D NLM Patch (high quality).");
-    lblAlgoHeader.setTooltip("Select denoising algorithm: 1D STFT (fast) or 2D NLM Patch (high quality).");
-    btnAdvancedToggle.setTooltip("Toggle visibility of advanced DSP tuning controls.");
-    btnLearn.setTooltip("Capture static noise profile from current audio input (supports multi-section accumulation).");
-    btnResetProfile.setTooltip("Reset noise profile and disable adaptive estimation.");
+    comboAlgoMode.setTooltip("Select denoising algorithm: 1D STFT (fast & low latency)\nor 2D NLM Patch (high quality non-local means processing).");
+    lblAlgoHeader.setTooltip("Select denoising algorithm: 1D STFT (fast & low latency)\nor 2D NLM Patch (high quality non-local means processing).");
+    btnAdvancedToggle.setTooltip("Toggle Advanced DSP Controls\n(Smoothing, Masking, Whitening, Suppression, Profile Morphing).");
+    btnLearn.setTooltip("Capture static noise profile from current audio input\n(supports multi-section accumulation).");
+    btnResetProfile.setTooltip("Reset noise profile and clear learned data.");
     btnAdaptiveNoise.setTooltip("Toggle continuous adaptive noise estimation.\nWorks standalone or on top of a manually learned profile.");
+    btnAdaptiveArrow.setTooltip(adaptiveMethodTip);
+    comboMethod.setTooltip(adaptiveMethodTip);
+    lblMethod.setTooltip(adaptiveMethodTip);
     
-    sliderAggressiveness.setTooltip("Morph noise profile statistics (-1.0: Median/Min, 0.0: Mean, +1.0: Max).");
-    lblAggressiveness.setTooltip("Morph noise profile statistics (-1.0: Median/Min, 0.0: Mean, +1.0: Max).");
-    btnDelta.setTooltip("Listen to removed noise signal (residual audio).");
-    btnBypass.setTooltip("Soft bypass plugin processing with smooth wet/dry fade.");
-    sliderMasterRed.setTooltip("Set total noise reduction depth in dB.");
-    lblMasterRed.setTooltip("Set total noise reduction depth in dB.");
-    sliderTonalRed.setTooltip("Set reduction depth specifically for tonal noise peaks.");
-    lblTonalRed.setTooltip("Set reduction depth specifically for tonal noise peaks.");
-    btnLink.setTooltip("Link broadband and tonal reduction controls together.");
+    const juce::String masterRedTip = "Adjust noise reduction level in decibels\n(0 to 40 dB across all bands).";
+    const juce::String tonalRedTip = "Adjust reduction level for tonal noise components\n(0 to 40 dB for harmonic peaks).";
+    sliderMasterRed.setTooltip(masterRedTip);
+    lblMasterRed.setTooltip(masterRedTip);
+    lblReductionHeader.setTooltip(masterRedTip);
+    sliderTonalRed.setTooltip(tonalRedTip);
+    lblTonalRed.setTooltip(tonalRedTip);
 
-    const juce::String methodTip = "Adaptive Estimation Method: SPP-MMSE (best for voice & dynamic noise), Brandt (steady hiss/hum/fans), or Martin (slow background, preserves transients).";
-    btnAdaptiveArrow.setTooltip(methodTip);
-    comboMethod.setTooltip(methodTip);
-    lblMethod.setTooltip(methodTip);
-    auto updateSmoothingTooltip = [this]() {
-        juce::String tip;
-        if (comboAlgoMode.getSelectedItemIndex() == 1) // 2D NLM Patch
-        {
-            tip = "Smoothing: Controls 2D NLM patch smoothing to eliminate musical noise artifacts while preserving transients.";
-        }
-        else // 1D Spectral
-        {
-            tip = "Smoothing: Applies temporal frame smoothing to reduce musical noise artifacts.";
-        }
-        sliderSmoothing.setTooltip(tip);
-        lblSmoothing.setTooltip(tip);
-    };
+    sliderOffset.setTooltip("Shift noise profile threshold up or down\nin decibels (-6 to +6 dB).");
+    lblOffset.setTooltip("Shift noise profile threshold up or down\nin decibels (-6 to +6 dB).");
+    const juce::String aggrTip = "Adjust noise profile aggressiveness by morphing between median, average,\nand max noise statistics (-1.0: Median, 0.0: Average, +1.0: Max).";
+    sliderAggressiveness.setTooltip(aggrTip);
+    lblAggressiveness.setTooltip(aggrTip);
+    btnDelta.setTooltip("Listen to removed noise signal\n(residual audio output).");
+    btnBypass.setTooltip("Soft bypass plugin processing\nwith smooth wet/dry fade transition.");
+    
+    sliderSmoothing.setTooltip("Apply temporal smoothing across spectral frames\nto reduce musical noise bubbling artifacts.");
+    sliderMasking.setTooltip("Adjust psychoacoustic masking threshold\nto protect quiet musical transients.");
+    sliderWhitening.setTooltip("Spectral whitening factor to equalize\nthe residual noise floor spectrum.");
+    sliderSuppression.setTooltip("Maximum noise suppression floor (-dB)\nto prevent over-attenuation artifacts.");
+    btnLink.setTooltip("Link broadband and tonal reduction controls together\nfor unified adjustment.");
+    btnCurveToggle.setTooltip("Enable per-frequency reduction bias curve\noverlay on spectral display.");
+    btnResetCurve.setTooltip("Reset reduction curve to flat 0 dB line.");
 
-    comboAlgoMode.onChange = updateSmoothingTooltip;
-    updateSmoothingTooltip();
-    sliderMasking.setTooltip("Adjust psychoacoustic masking threshold to protect quiet signal components.");
-    lblMasking.setTooltip("Adjust psychoacoustic masking threshold to protect quiet signal components.");
-    sliderWhitening.setTooltip("Adjust spectral whitening to balance residual noise coloration.");
-    lblWhitening.setTooltip("Adjust spectral whitening to balance residual noise coloration.");
-    sliderSuppression.setTooltip("Set maximum attenuation floor for unmasked noise frequencies.");
-    lblSuppression.setTooltip("Set maximum attenuation floor for unmasked noise frequencies.");
-
+    // Initial Layout update
+    isAdvancedVisible = btnAdvancedToggle.getToggleState();
     updateLayout();
     updateSliderLabels();
     startTimerHz(30);
 
     // Initial default instruction text
+    footerTooltipLabel.setFont(juce::FontOptions(NoiseRepellentLookAndFeel::kFontSizeTooltip, juce::Font::plain));
+    footerTooltipLabel.setColour(juce::Label::textColourId, juce::Colour(0xff94a3b8));
+    footerTooltipLabel.setJustificationType(juce::Justification::left);
+    addAndMakeVisible(footerTooltipLabel);
+
     auto* showTooltipsParam = audioProcessor.getAPVTS().getRawParameterValue("show_tooltips");
     if (showTooltipsParam == nullptr || showTooltipsParam->load() > 0.5f)
     {
-        footerTooltipLabel.setText("Loop a noise-only segment in your DAW and click Learn Noise to capture a profile, then adjust reduction.", juce::dontSendNotification);
+        footerTooltipLabel.setText("Loop a noise-only segment in your DAW and click Learn Noise\nto capture a profile, then adjust reduction level.", juce::dontSendNotification);
     }
 
     // Register parameter listener for show_tooltips
@@ -372,8 +409,13 @@ void NoiseRepellentAudioProcessorEditor::mouseEnter(const juce::MouseEvent& even
         return;
     }
 
-    auto* comp = event.originalComponent;
-    while (comp != nullptr)
+    juce::Component* comp = event.originalComponent;
+    if (comp == nullptr || comp == this || comp == &groupProfile || comp == &groupDenoising || comp == &groupAdvanced)
+    {
+        comp = getComponentAt(event.getEventRelativeTo(this).getPosition());
+    }
+
+    while (comp != nullptr && comp != this)
     {
         if (auto* client = dynamic_cast<juce::TooltipClient*>(comp))
         {
@@ -388,7 +430,7 @@ void NoiseRepellentAudioProcessorEditor::mouseEnter(const juce::MouseEvent& even
     }
 
     // Default instruction when hovering over background / non-tooltip components
-    footerTooltipLabel.setText("Loop a noise-only segment in your DAW and click Learn Noise to capture a profile, then adjust reduction.", juce::dontSendNotification);
+    footerTooltipLabel.setText("Loop a noise-only segment in your DAW and click Learn Noise\nto capture a profile, then adjust reduction level.", juce::dontSendNotification);
 }
 
 void NoiseRepellentAudioProcessorEditor::mouseMove(const juce::MouseEvent& event)
@@ -401,7 +443,7 @@ void NoiseRepellentAudioProcessorEditor::mouseExit(const juce::MouseEvent& /*eve
     auto* showTooltipsParam = audioProcessor.getAPVTS().getRawParameterValue("show_tooltips");
     if (showTooltipsParam != nullptr && showTooltipsParam->load() > 0.5f)
     {
-        footerTooltipLabel.setText("Loop a noise-only segment in your DAW and click Learn Noise to capture a profile, then adjust reduction.", juce::dontSendNotification);
+        footerTooltipLabel.setText("Loop a noise-only segment in your DAW and click Learn Noise\nto capture a profile, then adjust reduction level.", juce::dontSendNotification);
     }
     else
     {
@@ -430,7 +472,7 @@ void NoiseRepellentAudioProcessorEditor::handleAsyncUpdate()
     auto* showTooltipsParam = audioProcessor.getAPVTS().getRawParameterValue("show_tooltips");
     if (showTooltipsParam != nullptr && showTooltipsParam->load() > 0.5f)
     {
-        footerTooltipLabel.setText("Loop a noise-only segment in your DAW and click Learn Noise to capture a profile, then adjust reduction.", juce::dontSendNotification);
+        footerTooltipLabel.setText("Loop a noise-only segment in your DAW and click Learn Noise\nto capture a profile, then adjust reduction level.", juce::dontSendNotification);
     }
     else
     {
@@ -442,12 +484,21 @@ void NoiseRepellentAudioProcessorEditor::handleAsyncUpdate()
 void NoiseRepellentAudioProcessorEditor::updateLayout()
 {
     bool isLinked = btnLink.getToggleState();
+    bool isCurveOn = btnCurveToggle.getToggleState();
 
     sliderMasterRed.setVisible(true);
     sliderTonalRed.setVisible(!isLinked);
 
     lblMasterRed.setVisible(!isLinked);
     lblTonalRed.setVisible(!isLinked);
+
+    btnCurveToggle.setVisible(true);
+    btnResetCurve.setVisible(isCurveOn);
+
+    sliderOffset.setVisible(true);
+    lblOffset.setVisible(true);
+    sliderAggressiveness.setVisible(isAdvancedVisible);
+    lblAggressiveness.setVisible(isAdvancedVisible);
 
     groupAdvanced.setVisible(isAdvancedVisible);
     btnLearn.setVisible(true);
@@ -456,8 +507,6 @@ void NoiseRepellentAudioProcessorEditor::updateLayout()
     btnResetProfile.setVisible(true);
     comboMethod.setVisible(false);
     lblMethod.setVisible(false);
-    sliderAggressiveness.setVisible(true);
-    lblAggressiveness.setVisible(true);
     sliderSmoothing.setVisible(isAdvancedVisible);
     lblSmoothing.setVisible(isAdvancedVisible);
     sliderMasking.setVisible(isAdvancedVisible);
@@ -466,6 +515,8 @@ void NoiseRepellentAudioProcessorEditor::updateLayout()
     lblWhitening.setVisible(isAdvancedVisible);
     sliderSuppression.setVisible(isAdvancedVisible);
     lblSuppression.setVisible(isAdvancedVisible);
+
+    btnAdvancedToggle.setButtonText(juce::CharPointer_UTF8(isAdvancedVisible ? "ADVANCED \xe2\x96\xb2" : "ADVANCED \xe2\x96\xbc"));
 
     auto* showTooltipsParam = audioProcessor.getAPVTS().getRawParameterValue("show_tooltips");
     auto* showHudParam = audioProcessor.getAPVTS().getRawParameterValue("show_hud");
@@ -482,7 +533,8 @@ void NoiseRepellentAudioProcessorEditor::updateLayout()
 void NoiseRepellentAudioProcessorEditor::updateSliderLabels()
 {
     bool isCompact = getWidth() < 900;
-    lblAggressiveness.setText(isCompact ? "AGGR: " + juce::String(sliderAggressiveness.getValue(), 1) : "AGGRESSIVENESS: " + juce::String(sliderAggressiveness.getValue(), 1), juce::dontSendNotification);
+    lblOffset.setText(isCompact ? "THRESH" : "THRESHOLD", juce::dontSendNotification);
+    lblAggressiveness.setText("AGGRESSIVENESS: " + juce::String(sliderAggressiveness.getValue(), 1), juce::dontSendNotification);
     lblSmoothing.setText("SMOOTHING: " + juce::String(static_cast<int>(sliderSmoothing.getValue())) + "%", juce::dontSendNotification);
     lblMasking.setText(isCompact ? "MASKING: " + juce::String(static_cast<int>(sliderMasking.getValue())) + "%" : "MASKING PROTECT: " + juce::String(static_cast<int>(sliderMasking.getValue())) + "%", juce::dontSendNotification);
     lblWhitening.setText("WHITENING: " + juce::String(static_cast<int>(sliderWhitening.getValue())) + "%", juce::dontSendNotification);
@@ -505,19 +557,17 @@ void NoiseRepellentAudioProcessorEditor::updateProfileStatus()
     }
     else if (hasProfile)
     {
-        // Profile is active: match golden amber profile curve & set text to "+ Learn"
         btnLearn.setButtonText("+ Learn");
         btnLearn.setColour(juce::TextButton::buttonColourId, NoiseRepellentLookAndFeel::kColorNoiseProfile);
         btnLearn.setColour(juce::TextButton::buttonOnColourId, NoiseRepellentLookAndFeel::kColorNoiseProfile);
-        btnLearn.setTooltip("Capture and accumulate an additional noise section into profile.");
+        btnLearn.setTooltip("Capture and accumulate an additional noise section\ninto the current profile.");
     }
     else
     {
-        // No profile: prominent red CTA "Learn Noise"
         btnLearn.setButtonText("Learn Noise");
         btnLearn.setColour(juce::TextButton::buttonColourId, juce::Colour(0xffc0392b));   // Prominent Crimson Red CTA
         btnLearn.setColour(juce::TextButton::buttonOnColourId, juce::Colour(0xffe74c3c)); // Active Learning Red
-        btnLearn.setTooltip("Loop a noise-only segment in your DAW and click to capture a noise profile.");
+        btnLearn.setTooltip("Loop a noise-only segment in your DAW and click\nto capture a noise profile.");
     }
     btnLearn.repaint();
 
@@ -551,28 +601,30 @@ void NoiseRepellentAudioProcessorEditor::updateProfileStatus()
     btnAdaptiveNoise.setEnabled(pluginActive);
     btnAdaptiveArrow.setEnabled(pluginActive);
 
-    // Aggressiveness enabled ONLY in Manual and Hybrid modes (when a captured manual profile exists)
-    bool aggressivenessEnabled = pluginActive && hasProfile;
+    // Noise Threshold (Offset) enabled whenever plugin is active
+    sliderOffset.setEnabled(pluginActive);
+    lblOffset.setEnabled(pluginActive);
+    sliderOffset.setTooltip("Shift noise profile threshold up or down\nin decibels (-6 to +6 dB).");
+    lblOffset.setTooltip("Shift noise profile threshold up or down\nin decibels (-6 to +6 dB).");
+
+    // Aggressiveness (Profile Morphing) enabled in Noise Profile box when a manual profile exists and Advanced Controls is ON
+    bool aggressivenessEnabled = pluginActive && isAdvancedVisible && hasProfile;
     sliderAggressiveness.setEnabled(aggressivenessEnabled);
     lblAggressiveness.setEnabled(aggressivenessEnabled);
 
     if (aggressivenessEnabled)
     {
-        sliderAggressiveness.setTooltip("Morph manual noise profile statistics (-1.0: Median/Min, 0.0: Mean, +1.0: Max).");
-        lblAggressiveness.setTooltip("Morph manual noise profile statistics (-1.0: Median/Min, 0.0: Mean, +1.0: Max).");
-    }
-    else if (isAdaptive)
-    {
-        sliderAggressiveness.setTooltip("Aggressiveness disabled in Standalone Adaptive mode (requires captured manual profile).");
-        lblAggressiveness.setTooltip("Aggressiveness disabled in Standalone Adaptive mode (requires captured manual profile).");
+        const juce::String aggrTip = "Adjust noise profile aggressiveness by morphing between median, average,\nand max noise statistics (-1.0: Median, 0.0: Average, +1.0: Max).";
+        sliderAggressiveness.setTooltip(aggrTip);
+        lblAggressiveness.setTooltip(aggrTip);
     }
     else
     {
-        sliderAggressiveness.setTooltip("Aggressiveness disabled until a noise profile is captured.");
-        lblAggressiveness.setTooltip("Aggressiveness disabled until a noise profile is captured.");
+        sliderAggressiveness.setTooltip("Profile Morphing is available in Advanced Controls\nwhen a manual learned noise profile is captured.");
+        lblAggressiveness.setTooltip("Profile Morphing is available in Advanced Controls\nwhen a manual learned noise profile is captured.");
     }
 
-    // Reduction controls: Link button is enabled only when plugin is active AND a manual profile exists or adaptive is off
+    // Reduction controls
     bool allowUnlink = pluginActive && (!isAdaptive || hasProfile);
     btnLink.setEnabled(allowUnlink);
 
@@ -585,11 +637,11 @@ void NoiseRepellentAudioProcessorEditor::updateProfileStatus()
 
     if (allowUnlink)
     {
-        btnLink.setTooltip("Link broadband and tonal reduction controls together.");
+        btnLink.setTooltip("Link broadband and tonal reduction controls together\nfor unified adjustment.");
     }
     else if (isAdaptive && !hasProfile)
     {
-        btnLink.setTooltip("Unlinking tonal reduction disabled in Standalone Adaptive mode (requires a captured manual profile to detect tonal peaks).");
+        btnLink.setTooltip("Unlinking tonal reduction is disabled in Standalone Adaptive mode\n(requires a captured manual profile to detect tonal peaks).");
     }
 
     lblReductionHeader.setEnabled(pluginActive);
@@ -600,6 +652,20 @@ void NoiseRepellentAudioProcessorEditor::updateProfileStatus()
     bool tonalEnabled = pluginActive && !isLinked && allowUnlink;
     sliderTonalRed.setEnabled(tonalEnabled);
     lblTonalRed.setEnabled(tonalEnabled);
+
+    const juce::String masterRedTip = isLinked
+        ? "Adjust noise reduction level in decibels\n(0 to 40 dB across all bands)."
+        : "Adjust broadband noise reduction level in decibels\n(0 to 40 dB).";
+    const juce::String tonalRedTip = "Adjust reduction level for tonal noise components\n(0 to 40 dB).";
+
+    lblReductionHeader.setTooltip(masterRedTip);
+    sliderMasterRed.setTooltip(masterRedTip);
+    lblMasterRed.setTooltip(masterRedTip);
+    sliderTonalRed.setTooltip(tonalRedTip);
+    lblTonalRed.setTooltip(tonalRedTip);
+
+    btnCurveToggle.setEnabled(pluginActive);
+    btnResetCurve.setEnabled(pluginActive && btnCurveToggle.getToggleState());
 
     // Advanced controls
     sliderSmoothing.setEnabled(pluginActive);
@@ -663,21 +729,17 @@ void NoiseRepellentAudioProcessorEditor::paint(juce::Graphics& g)
         float topY = (float)groupAdvanced.getY() + 22.0f;
         float bottomY = (float)groupAdvanced.getBottom() - 10.0f;
 
-        // Separator 1: After Smoothing slider block
+        // 3 Separator lines between 4 slider blocks in Advanced Controls
         if (sliderSmoothing.getWidth() > 0 && sliderMasking.getWidth() > 0)
         {
             float x1 = (float)(sliderSmoothing.getRight() + sliderMasking.getX()) / 2.0f;
             g.drawVerticalLine(juce::roundToInt(x1), topY, bottomY);
         }
-
-        // Separator 2: After Masking Protect slider block
         if (sliderMasking.getWidth() > 0 && sliderWhitening.getWidth() > 0)
         {
             float x2 = (float)(sliderMasking.getRight() + sliderWhitening.getX()) / 2.0f;
             g.drawVerticalLine(juce::roundToInt(x2), topY, bottomY);
         }
-
-        // Separator 3: After Whitening slider block
         if (sliderWhitening.getWidth() > 0 && sliderSuppression.getWidth() > 0)
         {
             float x3 = (float)(sliderWhitening.getRight() + sliderSuppression.getX()) / 2.0f;
@@ -703,18 +765,27 @@ void NoiseRepellentAudioProcessorEditor::resized()
     headerArea.removeFromRight(6);
     btnDelta.setBounds(headerArea.removeFromRight(50).withSizeKeepingCentre(50, 24));
 
-    // Forced consistent horizontal gap between all header modules
     constexpr int kHeaderGap = 16;
-
-    // 16px gap between options button and algorithm dropdown
     headerArea.removeFromLeft(kHeaderGap);
 
-    // Calculate middle module widths so gaps on left, middle, and right are all identically kHeaderGap
-    int availMiddleWidth = headerArea.getWidth(); // Width remaining up to delta button
-    int totalModuleWidth = availMiddleWidth - kHeaderGap; // Available width for algo column + kHeaderGap + profile box
+    int availMiddleWidth = headerArea.getWidth() - kHeaderGap;
 
-    int kAlgoWidth = std::clamp((totalModuleWidth - kHeaderGap) * 38 / 100, 170, 220);
-    int kProfileWidth = totalModuleWidth - kHeaderGap - kAlgoWidth;
+    constexpr int kLearnW = 72;
+    constexpr int kAdaptW = 56;
+    constexpr int kArrowW = 18;
+    constexpr int kResetW = 22;
+    constexpr int kBtnGap = 4;
+    int buttonsWidth = kLearnW + kBtnGap + kAdaptW + kArrowW + kBtnGap + kResetW;
+
+    constexpr int kAlgoWidth = 210;
+    int kProfileWidth = isAdvancedVisible ? (buttonsWidth + 12 + 130) : (buttonsWidth + 12);
+    int combinedHeaderWidth = kAlgoWidth + kHeaderGap + kProfileWidth;
+
+    if (availMiddleWidth > combinedHeaderWidth)
+    {
+        int leftPad = (availMiddleWidth - combinedHeaderWidth) / 2;
+        headerArea.removeFromLeft(leftPad);
+    }
 
     // Processing Engine Column in Header
     auto algoCol = headerArea.removeFromLeft(kAlgoWidth);
@@ -724,27 +795,16 @@ void NoiseRepellentAudioProcessorEditor::resized()
     algoCol.removeFromTop(3);
     comboAlgoMode.setBounds(algoCol.removeFromTop(26));
 
-    // 16px gap between algorithm dropdown and noise profile box
     headerArea.removeFromLeft(kHeaderGap);
 
-    // Encapsulated Noise Profile Group Box in Header (ends with 16px gap before delta button)
+    // Encapsulated Noise Profile Group Box in Header
     auto profileGroupArea = headerArea.removeFromLeft(kProfileWidth);
     groupProfile.setBounds(profileGroupArea);
 
     auto profileInner = profileGroupArea.reduced(6, 4);
-    profileInner.removeFromTop(10); // Clear space for "NOISE PROFILE" group title line
+    profileInner.removeFromTop(10);
 
     auto profileRow = profileInner;
-    int totalW = profileRow.getWidth();
-
-    constexpr int kLearnW = 72;
-    constexpr int kAdaptW = 60;
-    constexpr int kArrowW = 18;
-    constexpr int kResetW = 46;
-    constexpr int kBtnGap = 4;
-
-    int buttonsWidth = kLearnW + kBtnGap + kAdaptW + kArrowW + kBtnGap + kResetW;
-    int aggrW = std::max(60, totalW - buttonsWidth - 10);
 
     auto bLearn = profileRow.removeFromLeft(kLearnW);
     btnLearn.setBounds(bLearn.withSizeKeepingCentre(kLearnW, 24));
@@ -761,25 +821,27 @@ void NoiseRepellentAudioProcessorEditor::resized()
     btnResetProfile.setBounds(bReset.withSizeKeepingCentre(kResetW, 24));
     profileRow.removeFromLeft(8);
 
-    // Aggressiveness Slider Stack (Perfectly Vertically Centered on right)
-    auto aggrCol = profileRow;
-    constexpr int kStackHeight = 14 + 3 + 16; // 33px stack
-    int aggrYPad = std::max(0, (aggrCol.getHeight() - kStackHeight) / 2);
-    aggrCol.removeFromTop(aggrYPad);
+    if (isAdvancedVisible)
+    {
+        // Aggressiveness Slider Stack (Vertically Centered on right side of Noise Profile box)
+        auto aggrCol = profileRow;
+        constexpr int kStackHeight = 14 + 3 + 16;
+        int aggrYPad = std::max(0, (aggrCol.getHeight() - kStackHeight) / 2);
+        aggrCol.removeFromTop(aggrYPad);
 
-    lblAggressiveness.setBounds(aggrCol.removeFromTop(14));
-    aggrCol.removeFromTop(3);
-    sliderAggressiveness.setBounds(aggrCol.removeFromTop(16));
+        lblAggressiveness.setBounds(aggrCol.removeFromTop(14));
+        aggrCol.removeFromTop(3);
+        sliderAggressiveness.setBounds(aggrCol.removeFromTop(16));
+    }
 
     area.removeFromTop(8);
 
-    // Carve footer bar off the very bottom of outer area when tooltips or HUD status preferences are enabled
+    // Footer bar
     auto* showTooltipsParam = audioProcessor.getAPVTS().getRawParameterValue("show_tooltips");
     auto* showHudParam = audioProcessor.getAPVTS().getRawParameterValue("show_hud");
 
     bool showTooltips = (showTooltipsParam == nullptr || showTooltipsParam->load() > 0.5f);
     bool showHud = (showHudParam == nullptr || showHudParam->load() > 0.5f);
-
     bool showFooter = showTooltips || showHud;
 
     footerTooltipLabel.setVisible(showTooltips);
@@ -787,7 +849,7 @@ void NoiseRepellentAudioProcessorEditor::resized()
 
     if (showFooter)
     {
-        constexpr int kFooterHeight = 24;
+        constexpr int kFooterHeight = 34;
         auto footerArea = area.removeFromBottom(kFooterHeight);
         area.removeFromBottom(8);
 
@@ -809,19 +871,15 @@ void NoiseRepellentAudioProcessorEditor::resized()
         }
     }
 
-    // Bottom Collapsible Advanced Panel
+    // Bottom Collapsible Advanced Panel (4 Sliders: Smoothing, Masking, Whitening, Suppression)
     if (isAdvancedVisible)
     {
         auto advArea = area.removeFromBottom(68);
         groupAdvanced.setBounds(advArea);
 
-        // Position Advanced Controls toggle button embedded in top-right title bar of groupAdvanced
-        btnAdvancedToggle.setBounds(advArea.getRight() - 145, advArea.getY() + 2, 135, 20);
-
         auto advInner = advArea.reduced(10, 4);
         advInner.removeFromTop(12);
 
-        // Dynamic responsive column width allocation for 4 sliders
         constexpr int kNumGaps = 3;
         constexpr int kGapW = 12;
         int totalAvailWidth = advInner.getWidth() - (kNumGaps * kGapW);
@@ -853,14 +911,14 @@ void NoiseRepellentAudioProcessorEditor::resized()
         area.removeFromBottom(8);
     }
 
-    // Main Denoising & Spectrum Canvas takes FULL 100% remaining width and height
+    // Main Denoising & Spectrum Canvas
     groupDenoising.setBounds(area);
 
     auto denoiseInner = area.reduced(10);
     denoiseInner.removeFromTop(10);
 
     bool isLinked = btnLink.getToggleState();
-    int faderBankWidth = isLinked ? 85 : 155;
+    int faderBankWidth = isLinked ? 95 : 155;
 
     auto faderBankArea = denoiseInner.removeFromLeft(faderBankWidth);
     lblReductionHeader.setBounds(faderBankArea.removeFromTop(16));
@@ -868,19 +926,32 @@ void NoiseRepellentAudioProcessorEditor::resized()
     btnLink.setBounds(faderBankArea.removeFromTop(22));
     faderBankArea.removeFromTop(6);
 
+    // Carve bottom area of faderBankArea for Curve split button [ Curve ][ ↺ ]
+    bool isCurveOn = btnCurveToggle.getToggleState();
+    auto faderBottomArea = faderBankArea.removeFromBottom(22);
+    faderBankArea.removeFromBottom(6);
+
+    if (isCurveOn)
+    {
+        btnCurveToggle.setBounds(faderBottomArea.removeFromLeft(faderBottomArea.getWidth() - 22));
+        faderBottomArea.removeFromLeft(2);
+        btnResetCurve.setBounds(faderBottomArea);
+    }
+    else
+    {
+        btnCurveToggle.setBounds(faderBottomArea);
+    }
+
     if (isLinked)
     {
-        lblMasterRed.setBounds(faderBankArea.removeFromTop(16));
-        faderBankArea.removeFromTop(2);
         sliderMasterRed.setBounds(faderBankArea);
     }
     else
     {
-        // Unlinked: show TWO sliders side by side (BROADBAND on left, TONAL on right)
         int colW = (faderBankArea.getWidth() - 6) / 2;
 
         auto leftCol = faderBankArea.removeFromLeft(colW);
-        faderBankArea.removeFromLeft(6); // spacing between columns
+        faderBankArea.removeFromLeft(6);
         auto rightCol = faderBankArea;
 
         lblMasterRed.setBounds(leftCol.removeFromTop(16));
@@ -894,14 +965,21 @@ void NoiseRepellentAudioProcessorEditor::resized()
 
     denoiseInner.removeFromLeft(10);
 
-    // Dynamic Expanding FFT Canvas takes ALL remaining full space
-    spectralVisualizer.setBounds(denoiseInner);
+    // Right-side Threshold (Noise Profile Offset) vertical fader bank (symmetric to reduction sliders on left)
+    auto offsetBankArea = denoiseInner.removeFromRight(95);
+    denoiseInner.removeFromRight(10);
 
-    // Position Advanced Controls overlay button in top-right corner of FFT display canvas
-    constexpr int advW = 148;
-    constexpr int advH = 24;
-    btnAdvancedToggle.setBounds(spectralVisualizer.getRight() - advW - 12, spectralVisualizer.getY() + 10, advW, advH);
-    btnAdvancedToggle.toFront(false);
+    lblOffset.setBounds(offsetBankArea.removeFromTop(16));
+    offsetBankArea.removeFromTop(2);
+
+    // Carve bottom area of offsetBankArea for Advanced Controls button below threshold slider
+    auto offsetBottomArea = offsetBankArea.removeFromBottom(22);
+    offsetBankArea.removeFromBottom(6);
+    btnAdvancedToggle.setBounds(offsetBottomArea);
+
+    sliderOffset.setBounds(offsetBankArea);
+
+    spectralVisualizer.setBounds(denoiseInner);
 
     btnPreferences.toFront(false);
     footerTooltipLabel.toFront(false);

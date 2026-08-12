@@ -65,10 +65,12 @@ public:
     static const juce::Colour kColorFineTuning;   // Slate Gray  0xff64748b
     static const juce::Colour kColorInputSignal;  // Soft Teal   0xff486581
     static const juce::Colour kColorTonalPeaks;   // Muted Violet 0xff9d65c9
+    static const juce::Colour kColorReductionCurve; // Soft Green 0xff4caf50
     static const juce::Colour kColorPanelBg;      // Matte Dark  0xff171a21
     static const juce::Colour kColorPanelBorder;  // Border      0xff272c37
 
     // Typography Scale
     static constexpr float kFontSizeLabel = 12.0f;  // Standardized UI font size for all labels, headers, buttons, dropdowns
+    static constexpr float kFontSizeTooltip = 13.5f; // Increased font size for footer tooltips
     static constexpr float kFontSizeBrand = 18.0f;  // Brand name only
 };

@@ -33,6 +33,11 @@ public:
     void resized() override;
     void timerCallback() override;
 
+    void mouseDown(const juce::MouseEvent& e) override;
+    void mouseDrag(const juce::MouseEvent& e) override;
+    void mouseUp(const juce::MouseEvent& e) override;
+    void mouseDoubleClick(const juce::MouseEvent& e) override;
+
 private:
     NoiseRepellentAudioProcessor& processor;
     NoiseRepellentAudioProcessor::SpectralFrame currentFrame;
@@ -40,6 +45,14 @@ private:
     std::array<float, NoiseRepellentAudioProcessor::kFftBins> smoothedInputDB;
     std::array<float, NoiseRepellentAudioProcessor::kFftBins> smoothedOutputDB;
     bool isSmoothedInitialized = false;
+
+    // Mouse Interaction
+    enum class DragTarget { None, CurveNode };
+    DragTarget activeDragTarget = DragTarget::None;
+    int activeNodeIndex = -1;
+    juce::Point<float> dragStartPos;
+    float dragStartNormX = 0.0f;
+    float dragStartBiasDB = 0.0f;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SpectralVisualizerComponent)
 };

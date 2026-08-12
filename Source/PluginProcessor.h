@@ -64,6 +64,19 @@ public:
 
     juce::AudioProcessorValueTreeState& getAPVTS() { return parameters; }
 
+    // Reduction Curve — spline node data
+    struct CurveNode {
+        float normX = 0.0f;  // 0.0 (DC) to 1.0 (Nyquist)
+        float biasDB = 0.0f; // dB offset from baseline (positive = more reduction)
+    };
+
+    const std::vector<CurveNode>& getCurveNodes() const { return curveNodes; }
+    void setCurveNodes(const std::vector<CurveNode>& nodes);
+    void resetCurveNodes();
+    void addCurveNode(float normX, float biasDB);
+    void removeCurveNode(int index); // Cannot remove boundary nodes (0 or last)
+    void updateCurveNode(int index, float normX, float biasDB);
+
     // FFT visualization constants
     static constexpr int kFftOrder = 12;                    // 2^12 = 4096 point FFT
     static constexpr size_t kFftSize = 1 << kFftOrder;      // 4096
@@ -77,6 +90,7 @@ public:
         std::vector<float> tonalPeaksHz{};                  // Detected tonal peak frequencies in Hz
         bool hasNoiseProfile = false;
         bool isLinked = true;
+        bool reductionCurveEnabled = false;
     };
 
     bool getNextSpectralFrame(SpectralFrame& frame);
@@ -89,6 +103,13 @@ public:
 private:
     void ensureEnginesInitialized(double sampleRate);
     void syncNoiseProfiles(int sourceAlgoMode);
+    void interpolateCurve(uint32_t numBins);
+
+    // Thread-safe reduction curve data
+    juce::SpinLock curveLock;
+    std::vector<CurveNode> curveNodes{{0.0f, 0.0f}, {1.0f, 0.0f}};
+    std::vector<float> interpolatedCurveBias;
+    std::atomic<bool> curveNodesDirty{true};
 
     juce::AudioProcessorValueTreeState parameters;
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();

@@ -55,7 +55,7 @@ private:
     juce::TextButton btnPreferences{ juce::CharPointer_UTF8("\xe2\x96\xbc") };
     juce::Label lblAlgoHeader{ "lblAlgoHeader", "PROCESSING ENGINE" };
     juce::ComboBox comboAlgoMode;
-    juce::TextButton btnAdvancedToggle{ juce::CharPointer_UTF8("\xe2\x9a\x99  Advanced Controls") };
+    juce::TextButton btnAdvancedToggle{ "ADVANCED" };
     juce::ToggleButton btnDelta{ "Delta" };
     juce::ToggleButton btnBypass{ "Bypass" };
 
@@ -64,13 +64,17 @@ private:
     juce::TextButton btnLearn{ "Learn Noise" };
     juce::TextButton btnAdaptiveNoise{ "Adaptive" };
     juce::TextButton btnAdaptiveArrow{ juce::CharPointer_UTF8("\xe2\x96\xbc") };
-    juce::TextButton btnResetProfile{ "Reset" };
+    juce::TextButton btnResetProfile{ juce::CharPointer_UTF8("\xe2\x86\xba") };
+    juce::Slider sliderOffset{ juce::Slider::LinearVertical, juce::Slider::TextBoxBelow };
+    juce::Label lblOffset{ "lblOffset", "THRESHOLD" };
     juce::Label lblProfileStatus;
 
     // Module 2: Denoising & Spectrum
     juce::GroupComponent groupDenoising{ "groupDenoising", "DENOISING PROCESSING" };
     juce::Label lblReductionHeader{ "lblReductionHeader", "REDUCTION" };
     juce::ToggleButton btnLink{ "Linked" };
+    juce::ToggleButton btnCurveToggle{ "Curve" };
+    juce::TextButton btnResetCurve{ juce::CharPointer_UTF8("\xe2\x86\xba") };
     juce::Label lblMasterRed{ "lblMasterRed", "REDUCTION" };
     juce::Label lblTonalRed{ "lblTonalRed", "TONAL" };
     juce::Slider sliderMasterRed{ juce::Slider::LinearVertical, juce::Slider::TextBoxBelow };
@@ -105,6 +109,7 @@ private:
     std::unique_ptr<ButtonAttachment> attachLearn;
     std::unique_ptr<ButtonAttachment> attachAdaptive;
     std::unique_ptr<ButtonAttachment> attachLink;
+    std::unique_ptr<ButtonAttachment> attachCurveToggle;
     std::unique_ptr<ButtonAttachment> attachDelta;
     std::unique_ptr<ButtonAttachment> attachBypass;
     std::unique_ptr<ButtonAttachment> attachShowAdvanced;
@@ -113,6 +118,7 @@ private:
 
     std::unique_ptr<SliderAttachment> attachMasterRed;
     std::unique_ptr<SliderAttachment> attachTonalRed;
+    std::unique_ptr<SliderAttachment> attachOffset;
     std::unique_ptr<SliderAttachment> attachAggressiveness;
     std::unique_ptr<SliderAttachment> attachSmoothing;
     std::unique_ptr<SliderAttachment> attachMasking;

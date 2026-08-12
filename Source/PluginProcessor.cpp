@@ -116,7 +116,163 @@ NoiseRepellentAudioProcessor::createParameterLayout() {
       juce::AudioParameterBoolAttributes().withAutomatable(false).withMeta(
           true)));
 
+  params.push_back(std::make_unique<juce::AudioParameterFloat>(
+      "noise_profile_offset", "Noise Profile Offset",
+      juce::NormalisableRange<float>(-6.0f, 6.0f, 0.1f), 0.0f));
+
+  params.push_back(std::make_unique<juce::AudioParameterBool>(
+      "reduction_curve_enabled", "Reduction Curve", false));
+
   return {params.begin(), params.end()};
+}
+
+void NoiseRepellentAudioProcessor::setCurveNodes(const std::vector<CurveNode>& nodes) {
+    juce::SpinLock::ScopedLockType lock(curveLock);
+    curveNodes = nodes;
+    if (curveNodes.empty() || curveNodes.front().normX > 0.001f)
+        curveNodes.insert(curveNodes.begin(), {0.0f, 0.0f});
+    if (curveNodes.back().normX < 0.999f)
+        curveNodes.push_back({1.0f, 0.0f});
+    curveNodesDirty = true;
+}
+
+void NoiseRepellentAudioProcessor::resetCurveNodes() {
+    juce::SpinLock::ScopedLockType lock(curveLock);
+    curveNodes = {{0.0f, 0.0f}, {1.0f, 0.0f}};
+    curveNodesDirty = true;
+}
+
+void NoiseRepellentAudioProcessor::addCurveNode(float normX, float biasDB) {
+    juce::SpinLock::ScopedLockType lock(curveLock);
+    normX = std::clamp(normX, 0.0f, 1.0f);
+    biasDB = std::clamp(biasDB, -24.0f, 24.0f);
+    curveNodes.push_back({normX, biasDB});
+    std::sort(curveNodes.begin(), curveNodes.end(),
+              [](const CurveNode& a, const CurveNode& b) { return a.normX < b.normX; });
+    curveNodesDirty = true;
+}
+
+void NoiseRepellentAudioProcessor::removeCurveNode(int index) {
+    juce::SpinLock::ScopedLockType lock(curveLock);
+    if (index > 0 && index < static_cast<int>(curveNodes.size()) - 1) {
+        curveNodes.erase(curveNodes.begin() + index);
+        curveNodesDirty = true;
+    }
+}
+
+void NoiseRepellentAudioProcessor::updateCurveNode(int index, float normX, float biasDB) {
+    juce::SpinLock::ScopedLockType lock(curveLock);
+    if (index >= 0 && index < static_cast<int>(curveNodes.size())) {
+        if (index == 0) {
+            curveNodes[index].normX = 0.0f;
+        } else if (index == static_cast<int>(curveNodes.size()) - 1) {
+            curveNodes[index].normX = 1.0f;
+        } else {
+            curveNodes[index].normX = std::clamp(normX, 0.001f, 0.999f);
+        }
+        curveNodes[index].biasDB = std::clamp(biasDB, -24.0f, 24.0f);
+        std::sort(curveNodes.begin(), curveNodes.end(),
+                  [](const CurveNode& a, const CurveNode& b) { return a.normX < b.normX; });
+        curveNodesDirty = true;
+    }
+}
+
+void NoiseRepellentAudioProcessor::interpolateCurve(uint32_t numBins) {
+    if (numBins == 0) return;
+    if (interpolatedCurveBias.size() != numBins)
+        interpolatedCurveBias.resize(numBins, 0.0f);
+
+    if (curveNodes.empty()) {
+        std::fill(interpolatedCurveBias.begin(), interpolatedCurveBias.end(), 0.0f);
+        return;
+    }
+
+    auto sortedNodes = curveNodes;
+    std::sort(sortedNodes.begin(), sortedNodes.end(),
+              [](const CurveNode& a, const CurveNode& b) { return a.normX < b.normX; });
+
+    size_t numNodes = sortedNodes.size();
+    if (numNodes == 1) {
+        std::fill(interpolatedCurveBias.begin(), interpolatedCurveBias.end(), -sortedNodes.front().biasDB);
+        return;
+    }
+
+    double sr = getSampleRate();
+    if (sr <= 0.0) sr = 48000.0;
+    float nyquist = static_cast<float>(sr * 0.5);
+
+    constexpr float minFreq = 20.0f;
+    constexpr float maxFreq = 20000.0f;
+    const float logMin = std::log10(minFreq);
+    const float logMax = std::log10(maxFreq);
+    const float logRange = logMax - logMin;
+
+    std::vector<float> dX(numNodes - 1);
+    std::vector<float> dY(numNodes - 1);
+    for (size_t i = 0; i < numNodes - 1; ++i) {
+        dX[i] = sortedNodes[i + 1].normX - sortedNodes[i].normX;
+        dY[i] = sortedNodes[i + 1].biasDB - sortedNodes[i].biasDB;
+    }
+
+    std::vector<float> m(numNodes, 0.0f);
+    if (numNodes > 2) {
+        m.front() = (dX.front() > 1e-5f) ? dY.front() / dX.front() : 0.0f;
+        m.back() = (dX.back() > 1e-5f) ? dY.back() / dX.back() : 0.0f;
+
+        for (size_t i = 1; i < numNodes - 1; ++i) {
+            float secant1 = (dX[i - 1] > 1e-5f) ? dY[i - 1] / dX[i - 1] : 0.0f;
+            float secant2 = (dX[i] > 1e-5f) ? dY[i] / dX[i] : 0.0f;
+            if (secant1 * secant2 <= 0.0f) {
+                m[i] = 0.0f;
+            } else {
+                m[i] = 0.5f * (secant1 + secant2);
+            }
+        }
+    } else {
+        float secant = (dX.front() > 1e-5f) ? dY.front() / dX.front() : 0.0f;
+        m[0] = secant;
+        m[1] = secant;
+    }
+
+    for (uint32_t k = 0; k < numBins; ++k) {
+        float freqHz = (static_cast<float>(k) / static_cast<float>(numBins - 1)) * nyquist;
+
+        float binNormX = 0.0f;
+        if (freqHz <= minFreq) {
+            binNormX = 0.0f;
+        } else if (freqHz >= maxFreq) {
+            binNormX = 1.0f;
+        } else {
+            binNormX = (std::log10(freqHz) - logMin) / logRange;
+        }
+
+        if (binNormX <= sortedNodes.front().normX) {
+            interpolatedCurveBias[k] = -sortedNodes.front().biasDB;
+            continue;
+        }
+        if (binNormX >= sortedNodes.back().normX) {
+            interpolatedCurveBias[k] = -sortedNodes.back().biasDB;
+            continue;
+        }
+
+        for (size_t i = 0; i < numNodes - 1; ++i) {
+            if (binNormX >= sortedNodes[i].normX && binNormX <= sortedNodes[i + 1].normX) {
+                float dx = dX[i];
+                float t = (dx > 1e-9f) ? (binNormX - sortedNodes[i].normX) / dx : 0.0f;
+                float t2 = t * t;
+                float t3 = t2 * t;
+
+                float h00 = 2.0f * t3 - 3.0f * t2 + 1.0f;
+                float h10 = t3 - 2.0f * t2 + t;
+                float h01 = -2.0f * t3 + 3.0f * t2;
+                float h11 = t3 - t2;
+
+                float val = h00 * sortedNodes[i].biasDB + h10 * dx * m[i] + h01 * sortedNodes[i + 1].biasDB + h11 * dx * m[i + 1];
+                interpolatedCurveBias[k] = -val;
+                break;
+            }
+        }
+    }
 }
 
 template <typename SizeQueryFn, typename LoadProfileFn>
@@ -462,6 +618,27 @@ void NoiseRepellentAudioProcessor::processBlock(
 
   const bool residualListen =
       parameters.getRawParameterValue("residual_listen")->load() > 0.5f;
+  const float profileOffset =
+      parameters.getRawParameterValue("noise_profile_offset")->load();
+  const bool curveEnabled =
+      parameters.getRawParameterValue("reduction_curve_enabled")->load() > 0.5f;
+
+  if (curveEnabled) {
+    if (curveNodesDirty.exchange(false)) {
+      juce::SpinLock::ScopedTryLockType tryLock(curveLock);
+      if (tryLock.isLocked()) {
+        uint32_t profileSize = 0;
+        if (algoMode == 0 && specbleach1D_L)
+          profileSize = specbleach_get_noise_profile_size(specbleach1D_L);
+        else if (algoMode == 1 && specbleach2D_L)
+          profileSize = specbleach_2d_get_noise_profile_size(specbleach2D_L);
+        if (profileSize > 0)
+          interpolateCurve(profileSize);
+      } else {
+        curveNodesDirty = true;
+      }
+    }
+  }
 
   // Sync profiles if manual noise learning was just turned off
   if (wasLearning && !learnNoise) {
@@ -523,6 +700,9 @@ void NoiseRepellentAudioProcessor::processBlock(
   p.suppression_strength = suppression;
   p.aggressiveness = aggressiveness;
   p.tonal_reduction = tonalRed;
+  p.noise_profile_offset_db = profileOffset;
+  p.reduction_curve_enabled = curveEnabled;
+  p.reduction_curve_bias = curveEnabled ? interpolatedCurveBias.data() : nullptr;
 
   SpectralBleach2DDenoiserParameters p2;
   p2.learn_noise = learnNoise ? 1 : 0;
@@ -536,6 +716,9 @@ void NoiseRepellentAudioProcessor::processBlock(
   p2.suppression_strength = suppression;
   p2.aggressiveness = aggressiveness;
   p2.tonal_reduction = tonalRed;
+  p2.noise_profile_offset_db = profileOffset;
+  p2.reduction_curve_enabled = curveEnabled;
+  p2.reduction_curve_bias = curveEnabled ? interpolatedCurveBias.data() : nullptr;
 
   if (crossfadeProgress < 1.0f) {
     // Smooth crossfade mode: run both engines and blend sample-by-sample
@@ -729,6 +912,8 @@ void NoiseRepellentAudioProcessor::processBlock(
         frame.hasNoiseProfile = profileAvailable;
         frame.isLinked =
             (parameters.getRawParameterValue("link_reduction")->load() > 0.5f);
+        frame.reductionCurveEnabled =
+            (parameters.getRawParameterValue("reduction_curve_enabled")->load() > 0.5f);
         frame.tonalPeaksHz.clear();
 
         if (profileAvailable && actualNoiseProfile) {
@@ -893,6 +1078,18 @@ void NoiseRepellentAudioProcessor::getStateInformation(
 
   state.appendChild(profilesTree, nullptr);
 
+  juce::ValueTree curveTree("REDUCTION_CURVE");
+  {
+    juce::SpinLock::ScopedLockType curveLockGuard(curveLock);
+    for (const auto& node : curveNodes) {
+      juce::ValueTree nodeTree("NODE");
+      nodeTree.setProperty("x", static_cast<double>(node.normX), nullptr);
+      nodeTree.setProperty("y", static_cast<double>(node.biasDB), nullptr);
+      curveTree.appendChild(nodeTree, nullptr);
+    }
+  }
+  state.appendChild(curveTree, nullptr);
+
   std::unique_ptr<juce::XmlElement> xml(state.createXml());
   copyXmlToBinary(*xml, destData);
 }
@@ -912,6 +1109,29 @@ void NoiseRepellentAudioProcessor::setStateInformation(const void* data,
 
   if (xmlState != nullptr) {
     juce::ValueTree state = juce::ValueTree::fromXml(*xmlState);
+
+    // Extract REDUCTION_CURVE if present
+    juce::ValueTree curveTree;
+    if (state.isValid()) {
+      curveTree = state.getChildWithName("REDUCTION_CURVE");
+    }
+    if (!curveTree.isValid()) {
+      juce::XmlElement* xmlCurve = xmlState->getChildByName("REDUCTION_CURVE");
+      if (xmlCurve != nullptr) {
+        curveTree = juce::ValueTree::fromXml(*xmlCurve);
+      }
+    }
+    if (curveTree.isValid() && curveTree.getNumChildren() > 0) {
+      std::vector<CurveNode> loadedNodes;
+      for (int i = 0; i < curveTree.getNumChildren(); ++i) {
+        juce::ValueTree nodeTree = curveTree.getChild(i);
+        CurveNode cn;
+        cn.normX = static_cast<float>(static_cast<double>(nodeTree.getProperty("x", 0.0)));
+        cn.biasDB = static_cast<float>(static_cast<double>(nodeTree.getProperty("y", 0.0)));
+        loadedNodes.push_back(cn);
+      }
+      setCurveNodes(loadedNodes);
+    }
     
     // Extract LEARNED_PROFILES before replaceState modifies state
     juce::ValueTree profilesTree;
