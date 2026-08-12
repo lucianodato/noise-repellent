@@ -164,11 +164,16 @@ jobs:
           fi
           echo "✨ All macOS binaries verified clean!"
 
+      - name: Create Zip Archive
+        run: |
+          cd staging && zip -r "../noise-repellent-macOS-Universal-${PLUGIN_VERSION}.zip" .
+
       - name: Build macOS PKG Installer
         run: |
           mkdir -p pkg_root/Library/Audio/Plug-Ins/Components
           mkdir -p pkg_root/Library/Audio/Plug-Ins/VST3
           mkdir -p pkg_root/Library/Audio/Plug-Ins/LV2
+          mkdir -p pkg_scripts
 
           cp -R "staging/Noise Repellent.component" pkg_root/Library/Audio/Plug-Ins/Components/
           cp -R "staging/Noise Repellent.vst3" pkg_root/Library/Audio/Plug-Ins/VST3/
@@ -176,25 +181,40 @@ jobs:
             cp -R "staging/Noise Repellent.lv2" pkg_root/Library/Audio/Plug-Ins/LV2/
           fi
 
-          PKGBUILD_CMD="pkgbuild --root pkg_root --identifier com.lucianodato.NoiseRepellent --version $PLUGIN_VERSION --install-location /"
-          
-          if [ -d "Installers/macos" ]; then
-            chmod +x Installers/macos/* 2>/dev/null || true
-            PKGBUILD_CMD="$PKGBUILD_CMD --scripts Installers/macos"
-          fi
+          cat << 'EOF' > pkg_scripts/postinstall
+          #!/bin/sh
+          # Remove quarantine attributes from installed plugins
+          xattr -cr "/Library/Audio/Plug-Ins/Components/Noise Repellent.component" 2>/dev/null || true
+          xattr -cr "/Library/Audio/Plug-Ins/VST3/Noise Repellent.vst3" 2>/dev/null || true
+          xattr -cr "/Library/Audio/Plug-Ins/LV2/Noise Repellent.lv2" 2>/dev/null || true
+          exit 0
+          EOF
+          chmod +x pkg_scripts/postinstall
 
-          $PKGBUILD_CMD "NoiseRepellent-macOS-Universal-${PLUGIN_VERSION}.pkg"
+          pkgbuild --root pkg_root \
+            --identifier com.lucianodato.NoiseRepellent \
+            --version "$PLUGIN_VERSION" \
+            --install-location / \
+            --scripts pkg_scripts \
+            "NoiseRepellent-macOS-Universal-${PLUGIN_VERSION}.pkg"
 
       - uses: actions/upload-artifact@v4
         with:
           name: noise-repellent-macOS-installer-${{ steps.extract_version.outputs.version }}
           path: NoiseRepellent-macOS-Universal-${{ steps.extract_version.outputs.version }}.pkg
 
+      - uses: actions/upload-artifact@v4
+        with:
+          name: noise-repellent-macOS-zip-${{ steps.extract_version.outputs.version }}
+          path: noise-repellent-macOS-Universal-${{ steps.extract_version.outputs.version }}.zip
+
       - name: Upload GitHub Release
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: NoiseRepellent-macOS-Universal-${{ steps.extract_version.outputs.version }}.pkg
+          files: |
+            NoiseRepellent-macOS-Universal-${{ steps.extract_version.outputs.version }}.pkg
+            noise-repellent-macOS-Universal-${{ steps.extract_version.outputs.version }}.zip
 
   build-linux:
     name: Linux (x86_64)
@@ -486,10 +506,36 @@ jobs:
           fi
           echo "✨ All Windows binaries verified clean!"
 
+      - name: Create Zip Archive
+        shell: bash
+        run: |
+          cd staging && 7z a "../noise-repellent-windows-x64-${PLUGIN_VERSION}.zip" .
+
+      - name: Generate Inno Setup Script
+        shell: bash
+        run: |
+          mkdir -p installer_build
+          cat << EOF > installer_build/installer.iss
+          [Setup]
+          AppName=Noise Repellent
+          AppVersion=${PLUGIN_VERSION}
+          AppPublisher=Luciano Dato
+          DefaultDirName={commoncf}\VST3
+          DisableDirPage=yes
+          OutputBaseFilename=NoiseRepellent-Win64-Installer
+          Compression=lzma2/ultra64
+          SolidCompression=yes
+          ArchitecturesInstallIn64BitMode=x64
+
+          [Files]
+          Source: "..\staging\Noise Repellent.vst3\*"; DestDir: "{commoncf}\VST3\Noise Repellent.vst3"; Flags: ignoreversion recursesubdirs createallsubdirs
+          Source: "..\staging\Noise Repellent.lv2\*"; DestDir: "{commoncf}\LV2\Noise Repellent.lv2"; Flags: ignoreversion recursesubdirs createallsubdirs
+          EOF
+
       - name: Build Inno Setup Installer
         uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
         with:
-          path: Installers/windows/installer.iss
+          path: installer_build/installer.iss
           options: /O"Output" /DMyAppVersion=${{ steps.extract_version.outputs.version }}
 
       - name: Rename Installer Artifact
@@ -503,8 +549,16 @@ jobs:
           name: noise-repellent-win64-installer-${{ steps.extract_version.outputs.version }}
           path: Output/NoiseRepellent-Win64-Installer-${{ steps.extract_version.outputs.version }}.exe
 
+      - name: Upload Zip Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: noise-repellent-win64-zip-${{ steps.extract_version.outputs.version }}
+          path: noise-repellent-windows-x64-${{ steps.extract_version.outputs.version }}.zip
+
       - name: Upload GitHub Release
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: Output/NoiseRepellent-Win64-Installer-${{ steps.extract_version.outputs.version }}.exe
+          files: |
+            Output/NoiseRepellent-Win64-Installer-${{ steps.extract_version.outputs.version }}.exe
+            noise-repellent-windows-x64-${{ steps.extract_version.outputs.version }}.zip
