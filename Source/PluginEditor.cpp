@@ -360,8 +360,8 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(NoiseRepe
     sliderTonalRed.setTooltip(tonalRedTip);
     lblTonalRed.setTooltip(tonalRedTip);
 
-    sliderOffset.setTooltip("Shift noise profile threshold up or down\nin decibels (-6 to +6 dB).");
-    lblOffset.setTooltip("Shift noise profile threshold up or down\nin decibels (-6 to +6 dB).");
+    sliderOffset.setTooltip("Shift noise profile threshold up or down\nin decibels (-12 to +12 dB).");
+    lblOffset.setTooltip("Shift noise profile threshold up or down\nin decibels (-12 to +12 dB).");
     const juce::String aggrTip = "Adjust noise profile aggressiveness by morphing between median, average,\nand max noise statistics (-1.0: Median, 0.0: Average, +1.0: Max).";
     sliderAggressiveness.setTooltip(aggrTip);
     lblAggressiveness.setTooltip(aggrTip);
@@ -605,8 +605,8 @@ void NoiseRepellentAudioProcessorEditor::updateProfileStatus()
     // Noise Threshold (Offset) enabled whenever plugin is active
     sliderOffset.setEnabled(pluginActive);
     lblOffset.setEnabled(pluginActive);
-    sliderOffset.setTooltip("Shift noise profile threshold up or down\nin decibels (-6 to +6 dB).");
-    lblOffset.setTooltip("Shift noise profile threshold up or down\nin decibels (-6 to +6 dB).");
+    sliderOffset.setTooltip("Shift noise profile threshold up or down\nin decibels (-12 to +12 dB).");
+    lblOffset.setTooltip("Shift noise profile threshold up or down\nin decibels (-12 to +12 dB).");
 
     // Aggressiveness (Profile Morphing) enabled in Noise Profile box when a manual profile exists and Advanced Controls is ON
     bool aggressivenessEnabled = pluginActive && isAdvancedVisible && hasProfile;

@@ -118,7 +118,7 @@ NoiseRepellentAudioProcessor::createParameterLayout() {
 
   params.push_back(std::make_unique<juce::AudioParameterFloat>(
       "noise_profile_offset", "Noise Profile Offset",
-      juce::NormalisableRange<float>(-6.0f, 6.0f, 0.1f), 0.0f));
+      juce::NormalisableRange<float>(-12.0f, 12.0f, 0.1f), 0.0f));
 
   params.push_back(std::make_unique<juce::AudioParameterBool>(
       "reduction_curve_enabled", "Reduction Curve", false));
@@ -524,6 +524,7 @@ void NoiseRepellentAudioProcessor::prepareToPlay(double sampleRate,
   // Set initial latency based on current algorithm mode
   currentAlgoMode = static_cast<int>(
       parameters.getRawParameterValue("algorithm_mode")->load());
+
   uint32_t latency = 0;
   if (currentAlgoMode == 0 && specbleach1D_L) {
     latency = specbleach_get_latency(specbleach1D_L);
@@ -532,23 +533,39 @@ void NoiseRepellentAudioProcessor::prepareToPlay(double sampleRate,
   }
   setLatencySamples(static_cast<int>(latency));
 
+  const int bufferCapacity = std::max(samplesPerBlock, 16384);
+  preparedBlockSize = static_cast<uint32_t>(bufferCapacity);
+  preparedNumChannels = static_cast<uint32_t>(
+      std::max({getTotalNumInputChannels(), getTotalNumOutputChannels(), 2}));
+
   juce::dsp::ProcessSpec spec;
   spec.sampleRate = sampleRate;
-  spec.maximumBlockSize = static_cast<juce::uint32>(samplesPerBlock);
-  spec.numChannels = static_cast<juce::uint32>(getTotalNumOutputChannels());
+  spec.maximumBlockSize = preparedBlockSize;
+  spec.numChannels = preparedNumChannels;
 
   dryWetMixer.prepare(spec);
   dryWetMixer.setMixingRule(juce::dsp::DryWetMixingRule::linear);
   dryWetMixer.setWetLatency(static_cast<float>(latency));
 
+  currentLatency = latency;
+  visualizerDelayBuffer.assign(std::max<size_t>(32768, latency + 8192), 0.0f);
+  visualizerDelayWritePos = 0;
+
   // Pre-allocate persistent buffers to prevent audio-thread allocations
-  const int bufferCapacity = std::max(samplesPerBlock, 8192);
   dryInputL.resize(static_cast<size_t>(bufferCapacity), 0.0f);
-  crossfadeBuffer.setSize(getTotalNumOutputChannels(), bufferCapacity, false,
+  crossfadeBuffer.setSize(static_cast<int>(preparedNumChannels), bufferCapacity, false,
                           false, true);
+  crossfadeDelayBuffer.setSize(static_cast<int>(preparedNumChannels), 16384, false,
+                               false, true);
+  crossfadeDelayBuffer.clear();
+  crossfadeDelayWritePos = 0;
+  crossfadeLatencyDiff = 0;
+  delaySlewProgress = 1.0f;
+  delaySlewStep = 0.0f;
   jassert(dryInputL.size() >= static_cast<size_t>(samplesPerBlock));
   jassert(crossfadeBuffer.getNumSamples() >= samplesPerBlock);
   crossfadeProgress = 1.0f;
+  sourceAlgoMode = currentAlgoMode;
   targetAlgoMode = currentAlgoMode;
 
   // Reset FFT accumulation
@@ -578,6 +595,11 @@ void NoiseRepellentAudioProcessor::processBlock(
 
   if (numSamples == 0 || numChannels == 0)
     return;
+
+  const int safeNumChannels =
+      std::min(numChannels, static_cast<int>(preparedNumChannels));
+  const int safeNumSamples =
+      std::min(numSamples, static_cast<int>(preparedBlockSize));
 
   const bool isBypassed =
       parameters.getRawParameterValue("bypass")->load() > 0.5f;
@@ -658,24 +680,28 @@ void NoiseRepellentAudioProcessor::processBlock(
         syncNoiseProfiles(currentAlgoMode);
       }
     }
+    sourceAlgoMode = currentAlgoMode;
     targetAlgoMode = algoMode;
     currentAlgoMode = algoMode;
 
-    // Initiate 30 ms smooth crossfade transition to prevent clicks/pops
-    int crossfadeSamples = static_cast<int>(currentSampleRate * 0.030);
+    uint32_t lat1D = specbleach1D_L ? specbleach_get_latency(specbleach1D_L) : 0;
+    uint32_t lat2D = specbleach2D_L ? specbleach_2d_get_latency(specbleach2D_L) : 0;
+    crossfadeLatencyDiff = (lat2D > lat1D) ? (lat2D - lat1D) : 0;
+
+    // Initiate 40 ms smooth crossfade transition to prevent clicks/pops
+    int crossfadeSamples = static_cast<int>(currentSampleRate * 0.040);
     if (crossfadeSamples < 1)
       crossfadeSamples = 1;
     crossfadeProgress = 0.0f;
     crossfadeStep = 1.0f / static_cast<float>(crossfadeSamples);
 
-    uint32_t latency = 0;
-    if (algoMode == 0 && specbleach1D_L) {
-      latency = specbleach_get_latency(specbleach1D_L);
-    } else if (algoMode == 1 && specbleach2D_L) {
-      latency = specbleach_2d_get_latency(specbleach2D_L);
+    if (targetAlgoMode == 0) {
+      delaySlewProgress = 0.0f;
+      delaySlewStep = 1.0f / static_cast<float>(crossfadeSamples);
+    } else {
+      delaySlewProgress = 1.0f;
+      delaySlewStep = 0.0f;
     }
-    setLatencySamples(static_cast<int>(latency));
-    dryWetMixer.setWetLatency(static_cast<float>(latency));
   }
 
   // Save dry input copy for FFT visualization before processing
@@ -721,7 +747,7 @@ void NoiseRepellentAudioProcessor::processBlock(
   p2.reduction_curve_bias = curveEnabled ? interpolatedCurveBias.data() : nullptr;
 
   if (crossfadeProgress < 1.0f) {
-    // Smooth crossfade mode: run both engines and blend sample-by-sample
+    // Smooth crossfade mode: run both engines and blend sample-by-sample with delay alignment
     jassert(numSamples <= crossfadeBuffer.getNumSamples());
     const int maxChannels = std::min(numChannels, crossfadeBuffer.getNumChannels());
 
@@ -757,27 +783,44 @@ void NoiseRepellentAudioProcessor::processBlock(
                             ch1, ch1);
     }
 
-    // Equal-power crossfade blend into buffer
+    // Equal-power crossfade blend with delay alignment:
+    // Delay 1D output by crossfadeLatencyDiff so it precisely matches 2D latency during crossfade
+    const size_t delayBufSize = static_cast<size_t>(crossfadeDelayBuffer.getNumSamples());
+    size_t writePos = crossfadeDelayWritePos;
+
     for (int ch = 0; ch < maxChannels; ++ch) {
       float* out1D = buffer.getWritePointer(ch);
       const float* out2D = crossfadeBuffer.getReadPointer(ch);
+      float* delayLine = crossfadeDelayBuffer.getWritePointer(ch);
 
       float currentP = crossfadeProgress;
+      size_t wp = writePos;
+
       for (int s = 0; s < numSamples; ++s) {
+        float in1D = out1D[s];
+        delayLine[wp] = in1D;
+        size_t delay = crossfadeLatencyDiff % delayBufSize;
+        size_t readPos = (wp + delayBufSize - delay) % delayBufSize;
+        float aligned1D = delayLine[readPos];
+        wp = (wp + 1) % delayBufSize;
+
         float pVal = std::min(1.0f, currentP);
         float rad = pVal * juce::MathConstants<float>::halfPi;
+        // If transitioning 1D -> 2D (target == 1): fade from aligned 1D to 2D
+        // If transitioning 2D -> 1D (target == 0): fade from 2D to aligned 1D
         float w1D = (targetAlgoMode == 1) ? std::cos(rad) : std::sin(rad);
         float w2D = (targetAlgoMode == 1) ? std::sin(rad) : std::cos(rad);
 
-        out1D[s] = w1D * out1D[s] + w2D * out2D[s];
+        out1D[s] = w1D * aligned1D + w2D * out2D[s];
         currentP += crossfadeStep;
       }
     }
+    crossfadeDelayWritePos = (writePos + numSamples) % delayBufSize;
     crossfadeProgress += numSamples * crossfadeStep;
     if (crossfadeProgress > 1.0f)
       crossfadeProgress = 1.0f;
   } else if (algoMode == 0) {
-    // Steady-state 1D mode
+    // 1D Mode
     if (specbleach1D_L) {
       specbleach_load_parameters(specbleach1D_L, p);
       float* ch0 = buffer.getWritePointer(0);
@@ -789,6 +832,41 @@ void NoiseRepellentAudioProcessor::processBlock(
       float* ch1 = buffer.getWritePointer(1);
       specbleach_process(specbleach1D_R, static_cast<uint32_t>(numSamples), ch1,
                          ch1);
+    }
+
+    if (delaySlewProgress < 1.0f) {
+      const size_t delayBufSize = static_cast<size_t>(crossfadeDelayBuffer.getNumSamples());
+      const int maxChannels = std::min(numChannels, crossfadeDelayBuffer.getNumChannels());
+      size_t writePos = crossfadeDelayWritePos;
+
+      for (int ch = 0; ch < maxChannels; ++ch) {
+        float* out1D = buffer.getWritePointer(ch);
+        float* delayLine = crossfadeDelayBuffer.getWritePointer(ch);
+        float currentP = delaySlewProgress;
+        size_t wp = writePos;
+
+        for (int s = 0; s < numSamples; ++s) {
+          float undelayedSample = out1D[s];
+          delayLine[wp] = undelayedSample;
+          size_t delay = crossfadeLatencyDiff % delayBufSize;
+          size_t readPos = (wp + delayBufSize - delay) % delayBufSize;
+          float alignedSample = delayLine[readPos];
+          wp = (wp + 1) % delayBufSize;
+
+          float pVal = std::min(1.0f, currentP);
+          float rad = pVal * juce::MathConstants<float>::halfPi;
+          // Smoothly fade from aligned (delayed) to undelayed 1D
+          float wDelayed = std::cos(rad);
+          float wUndelayed = std::sin(rad);
+
+          out1D[s] = wDelayed * alignedSample + wUndelayed * undelayedSample;
+          currentP += delaySlewStep;
+        }
+      }
+      crossfadeDelayWritePos = (writePos + numSamples) % delayBufSize;
+      delaySlewProgress += numSamples * delaySlewStep;
+      if (delaySlewProgress > 1.0f)
+        delaySlewProgress = 1.0f;
     }
   } else if (algoMode == 1) {
     // Steady-state 2D mode
@@ -806,6 +884,23 @@ void NoiseRepellentAudioProcessor::processBlock(
     }
   }
 
+  // Update dynamic latency if changed by algorithm mode or HPSS quality mode
+  uint32_t activeLatency = 0;
+  if (algoMode == 0 && specbleach1D_L) {
+    activeLatency = specbleach_get_latency(specbleach1D_L);
+  } else if (algoMode == 1 && specbleach2D_L) {
+    activeLatency = specbleach_2d_get_latency(specbleach2D_L);
+  }
+
+  if (activeLatency != currentLatency) {
+    currentLatency = activeLatency;
+    setLatencySamples(static_cast<int>(activeLatency));
+    dryWetMixer.setWetLatency(static_cast<float>(activeLatency));
+    if (visualizerDelayBuffer.size() < activeLatency + 8192) {
+      visualizerDelayBuffer.resize(activeLatency + 8192, 0.0f);
+    }
+  }
+
   // Apply Soft Crossfade Bypass using JUCE DryWetMixer (with dry latency
   // compensation)
   dryWetMixer.setWetMixProportion(isBypassed ? 0.0f : 1.0f);
@@ -817,9 +912,21 @@ void NoiseRepellentAudioProcessor::processBlock(
   const float* outputSrc =
       (numChannels >= 1) ? buffer.getReadPointer(0) : nullptr;
 
+  const size_t vBufSize = visualizerDelayBuffer.size();
   for (size_t s = 0; s < copySamples; ++s) {
+    float inSample = inputSrc[s];
+    float alignedInputSample = inSample;
+
+    if (vBufSize > 0) {
+      visualizerDelayBuffer[visualizerDelayWritePos] = inSample;
+      size_t delay = currentLatency % vBufSize;
+      size_t readPos = (visualizerDelayWritePos + vBufSize - delay) % vBufSize;
+      alignedInputSample = visualizerDelayBuffer[readPos];
+      visualizerDelayWritePos = (visualizerDelayWritePos + 1) % vBufSize;
+    }
+
     if (fftAccumCount < kFftSize) {
-      fftAccumInput[fftAccumCount] = inputSrc[s];
+      fftAccumInput[fftAccumCount] = alignedInputSample;
       fftAccumOutput[fftAccumCount] = outputSrc ? outputSrc[s] : 0.0f;
       fftAccumCount++;
     }

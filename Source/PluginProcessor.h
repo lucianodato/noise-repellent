@@ -142,12 +142,22 @@ private:
 
     // Persistent dry input copy for FFT visualization (prevents RT audio thread allocation)
     std::vector<float> dryInputL;
+    uint32_t preparedBlockSize = 0;
+    uint32_t preparedNumChannels = 0;
 
     // Crossfading between 1D and 2D engines to prevent clicks/pops during mode changes
     juce::AudioBuffer<float> crossfadeBuffer;
+    int sourceAlgoMode = 1;
     int targetAlgoMode = 1;
     float crossfadeProgress = 1.0f;
     float crossfadeStep = 0.0f;
+
+    // Delay alignment buffer for clickless transitions between 1D and 2D latencies
+    juce::AudioBuffer<float> crossfadeDelayBuffer;
+    size_t crossfadeDelayWritePos = 0;
+    uint32_t crossfadeLatencyDiff = 0;
+    float delaySlewProgress = 1.0f;
+    float delaySlewStep = 0.0f;
 
     // FFT analysis for visualization
     juce::dsp::FFT fftAnalyzer{ kFftOrder };
@@ -163,6 +173,11 @@ private:
     std::array<float, kFftSize> fftAccumInput{};
     std::array<float, kFftSize> fftAccumOutput{};
     size_t fftAccumCount = 0;
+
+    // Latency-compensated delay line for input FFT visualization
+    std::vector<float> visualizerDelayBuffer;
+    size_t visualizerDelayWritePos = 0;
+    uint32_t currentLatency = 0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(NoiseRepellentAudioProcessor)
 };
