@@ -19,117 +19,131 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 #pragma once
 
-#include <juce_gui_basics/juce_gui_basics.h>
-#include <atomic>
-#include "PluginProcessor.h"
 #include "GUI/LookAndFeel.h"
 #include "GUI/SpectralVisualizer.h"
+#include "PluginProcessor.h"
+#include <atomic>
+#include <juce_gui_basics/juce_gui_basics.h>
 
-class NoiseRepellentAudioProcessorEditor : public juce::AudioProcessorEditor,
-                                    public juce::Timer,
-                                    public juce::AudioProcessorValueTreeState::Listener,
-                                    public juce::AsyncUpdater
-{
+class NoiseRepellentAudioProcessorEditor
+    : public juce::AudioProcessorEditor,
+      public juce::Timer,
+      public juce::AudioProcessorValueTreeState::Listener,
+      public juce::AsyncUpdater {
 public:
-    explicit NoiseRepellentAudioProcessorEditor(NoiseRepellentAudioProcessor&);
-    ~NoiseRepellentAudioProcessorEditor() override;
+  explicit NoiseRepellentAudioProcessorEditor(NoiseRepellentAudioProcessor&);
+  ~NoiseRepellentAudioProcessorEditor() override;
 
-    void paint(juce::Graphics&) override;
-    void resized() override;
-    void timerCallback() override;
-    void mouseEnter(const juce::MouseEvent&) override;
-    void mouseMove(const juce::MouseEvent&) override;
-    void mouseExit(const juce::MouseEvent&) override;
+  void paint(juce::Graphics&) override;
+  void resized() override;
+  void timerCallback() override;
+  void mouseEnter(const juce::MouseEvent&) override;
+  void mouseMove(const juce::MouseEvent&) override;
+  void mouseExit(const juce::MouseEvent&) override;
 
-    void parameterChanged(const juce::String& parameterID, float newValue) override;
-    void handleAsyncUpdate() override;
+  void parameterChanged(const juce::String& parameterID,
+                        float newValue) override;
+  void handleAsyncUpdate() override;
 
 private:
-    NoiseRepellentAudioProcessor& audioProcessor;
-    NoiseRepellentLookAndFeel customLookAndFeel;
+  NoiseRepellentAudioProcessor& audioProcessor;
+  NoiseRepellentLookAndFeel customLookAndFeel;
 
-    std::atomic<bool> tooltipStateDirty{ false };
+  std::atomic<bool> tooltipStateDirty{false};
 
-    // Header Controls
-    juce::Label brandLabel;
-    juce::TextButton btnPreferences{ juce::CharPointer_UTF8("\xe2\x96\xbc") };
-    juce::Label lblAlgoHeader{ "lblAlgoHeader", "PROCESSING ENGINE" };
-    juce::ComboBox comboAlgoMode;
-    juce::TextButton btnAdvancedToggle{ "ADVANCED" };
-    juce::ToggleButton btnDelta{ "Delta" };
-    juce::ToggleButton btnBypass{ "Bypass" };
+  // Header Controls
+  juce::Label brandLabel;
+  juce::TextButton btnPreferences{juce::CharPointer_UTF8("\xe2\x96\xbc")};
+  juce::Label lblAlgoHeader{"lblAlgoHeader", "PROCESSING ENGINE"};
+  juce::ComboBox comboAlgoMode;
+  juce::TextButton btnAdvancedToggle{"ADVANCED"};
+  juce::ToggleButton btnDelta{"Delta"};
+  juce::ToggleButton btnBypass{"Bypass"};
 
-    // Module 1: Compact Noise Profile
-    juce::GroupComponent groupProfile{ "groupProfile", "NOISE PROFILE" };
-    juce::TextButton btnLearn{ "Learn Noise" };
-    juce::TextButton btnAdaptiveNoise{ "Adaptive" };
-    juce::TextButton btnAdaptiveArrow{ juce::CharPointer_UTF8("\xe2\x96\xbc") };
-    juce::TextButton btnResetProfile{ juce::CharPointer_UTF8("\xe2\x86\xba") };
-    juce::Slider sliderOffset{ juce::Slider::LinearVertical, juce::Slider::TextBoxBelow };
-    juce::Label lblOffset{ "lblOffset", "THRESHOLD" };
-    juce::Label lblProfileStatus;
+  // Module 1: Compact Noise Profile
+  juce::GroupComponent groupProfile{"groupProfile", "NOISE PROFILE"};
+  juce::TextButton btnLearn{"Learn Noise"};
+  juce::TextButton btnAdaptiveNoise{"Adaptive"};
+  juce::TextButton btnAdaptiveArrow{juce::CharPointer_UTF8("\xe2\x96\xbc")};
+  juce::TextButton btnResetProfile{juce::CharPointer_UTF8("\xe2\x86\xba")};
+  juce::Slider sliderOffset{juce::Slider::LinearVertical,
+                            juce::Slider::TextBoxBelow};
+  juce::Label lblOffset{"lblOffset", "THRESHOLD"};
+  juce::Label lblProfileStatus;
 
-    // Module 2: Denoising & Spectrum
-    juce::GroupComponent groupDenoising{ "groupDenoising", "DENOISING PROCESSING" };
-    juce::Label lblReductionHeader{ "lblReductionHeader", "REDUCTION" };
-    juce::ToggleButton btnLink{ "Linked" };
-    juce::ToggleButton btnCurveToggle{ "Curve" };
-    juce::TextButton btnResetCurve{ juce::CharPointer_UTF8("\xe2\x86\xba") };
-    juce::Label lblMasterRed{ "lblMasterRed", "REDUCTION" };
-    juce::Label lblTonalRed{ "lblTonalRed", "TONAL" };
-    juce::Slider sliderMasterRed{ juce::Slider::LinearVertical, juce::Slider::TextBoxBelow };
-    juce::Slider sliderTonalRed{ juce::Slider::LinearVertical, juce::Slider::TextBoxBelow };
-    SpectralVisualizerComponent spectralVisualizer;
+  // Module 2: Denoising & Spectrum
+  juce::GroupComponent groupDenoising{"groupDenoising", "DENOISING PROCESSING"};
+  juce::Label lblReductionHeader{"lblReductionHeader", "REDUCTION"};
+  juce::ToggleButton btnLink{"Linked"};
+  juce::ToggleButton btnCurveToggle{"Curve"};
+  juce::TextButton btnResetCurve{juce::CharPointer_UTF8("\xe2\x86\xba")};
+  juce::Label lblMasterRed{"lblMasterRed", "REDUCTION"};
+  juce::Label lblTonalRed{"lblTonalRed", "TONAL"};
+  juce::Slider sliderMasterRed{juce::Slider::LinearVertical,
+                               juce::Slider::TextBoxBelow};
+  juce::Slider sliderTonalRed{juce::Slider::LinearVertical,
+                              juce::Slider::TextBoxBelow};
+  SpectralVisualizerComponent spectralVisualizer;
 
-    // Module 3: Advanced Controls Panel (Collapsible)
-    juce::GroupComponent groupAdvanced{ "groupAdvanced", "ADVANCED CONTROLS" };
-    juce::ComboBox comboMethod;
-    juce::Slider sliderAggressiveness{ juce::Slider::LinearHorizontal, juce::Slider::NoTextBox };
-    juce::Slider sliderSmoothing{ juce::Slider::LinearHorizontal, juce::Slider::NoTextBox };
-    juce::Slider sliderMasking{ juce::Slider::LinearHorizontal, juce::Slider::NoTextBox };
-    juce::Slider sliderWhitening{ juce::Slider::LinearHorizontal, juce::Slider::NoTextBox };
-    juce::Slider sliderSuppression{ juce::Slider::LinearHorizontal, juce::Slider::NoTextBox };
+  // Module 3: Advanced Controls Panel (Collapsible)
+  juce::GroupComponent groupAdvanced{"groupAdvanced", "ADVANCED CONTROLS"};
+  juce::ComboBox comboMethod;
+  juce::ComboBox comboHpssQuality;
+  juce::Slider sliderAggressiveness{juce::Slider::LinearHorizontal,
+                                    juce::Slider::NoTextBox};
+  juce::Slider sliderSmoothing{juce::Slider::LinearHorizontal,
+                               juce::Slider::NoTextBox};
+  juce::Slider sliderMasking{juce::Slider::LinearHorizontal,
+                             juce::Slider::NoTextBox};
+  juce::Slider sliderWhitening{juce::Slider::LinearHorizontal,
+                               juce::Slider::NoTextBox};
+  juce::Slider sliderSuppression{juce::Slider::LinearHorizontal,
+                                 juce::Slider::NoTextBox};
 
-    juce::Label lblMethod{ "lblMethod", "ESTIMATION METHOD" };
-    juce::Label lblAggressiveness{ "lblAggressiveness", "AGGRESSIVENESS" };
-    juce::Label lblSmoothing{ "lblSmoothing", "SMOOTHING" };
-    juce::Label lblMasking{ "lblMasking", "MASKING PROTECT" };
-    juce::Label lblWhitening{ "lblWhitening", "WHITENING" };
-    juce::Label lblSuppression{ "lblSuppression", "SUPPRESSION" };
+  juce::Label lblMethod{"lblMethod", "ESTIMATION METHOD"};
+  juce::Label lblHpssQuality{"lblHpssQuality", "HPSS QUALITY"};
+  juce::Label lblAggressiveness{"lblAggressiveness", "AGGRESSIVENESS"};
+  juce::Label lblSmoothing{"lblSmoothing", "SMOOTHING"};
+  juce::Label lblMasking{"lblMasking", "MASKING PROTECT"};
+  juce::Label lblWhitening{"lblWhitening", "WHITENING"};
+  juce::Label lblSuppression{"lblSuppression", "SUPPRESSION"};
 
-    // Footer Tooltip Bar
-    juce::Label footerTooltipLabel;
+  // Footer Tooltip Bar
+  juce::Label footerTooltipLabel;
 
-    // Parameter Attachments
-    using ButtonAttachment = juce::AudioProcessorValueTreeState::ButtonAttachment;
-    using SliderAttachment = juce::AudioProcessorValueTreeState::SliderAttachment;
-    using ComboBoxAttachment = juce::AudioProcessorValueTreeState::ComboBoxAttachment;
+  // Parameter Attachments
+  using ButtonAttachment = juce::AudioProcessorValueTreeState::ButtonAttachment;
+  using SliderAttachment = juce::AudioProcessorValueTreeState::SliderAttachment;
+  using ComboBoxAttachment =
+      juce::AudioProcessorValueTreeState::ComboBoxAttachment;
 
-    std::unique_ptr<ComboBoxAttachment> attachAlgoMode;
-    std::unique_ptr<ButtonAttachment> attachLearn;
-    std::unique_ptr<ButtonAttachment> attachAdaptive;
-    std::unique_ptr<ButtonAttachment> attachLink;
-    std::unique_ptr<ButtonAttachment> attachCurveToggle;
-    std::unique_ptr<ButtonAttachment> attachDelta;
-    std::unique_ptr<ButtonAttachment> attachBypass;
-    std::unique_ptr<ButtonAttachment> attachShowAdvanced;
+  std::unique_ptr<ComboBoxAttachment> attachAlgoMode;
+  std::unique_ptr<ButtonAttachment> attachLearn;
+  std::unique_ptr<ButtonAttachment> attachAdaptive;
+  std::unique_ptr<ButtonAttachment> attachLink;
+  std::unique_ptr<ButtonAttachment> attachCurveToggle;
+  std::unique_ptr<ButtonAttachment> attachDelta;
+  std::unique_ptr<ButtonAttachment> attachBypass;
+  std::unique_ptr<ButtonAttachment> attachShowAdvanced;
 
-    std::unique_ptr<ComboBoxAttachment> attachMethod;
+  std::unique_ptr<ComboBoxAttachment> attachMethod;
+  std::unique_ptr<ComboBoxAttachment> attachHpssQuality;
 
-    std::unique_ptr<SliderAttachment> attachMasterRed;
-    std::unique_ptr<SliderAttachment> attachTonalRed;
-    std::unique_ptr<SliderAttachment> attachOffset;
-    std::unique_ptr<SliderAttachment> attachAggressiveness;
-    std::unique_ptr<SliderAttachment> attachSmoothing;
-    std::unique_ptr<SliderAttachment> attachMasking;
-    std::unique_ptr<SliderAttachment> attachWhitening;
-    std::unique_ptr<SliderAttachment> attachSuppression;
+  std::unique_ptr<SliderAttachment> attachMasterRed;
+  std::unique_ptr<SliderAttachment> attachTonalRed;
+  std::unique_ptr<SliderAttachment> attachOffset;
+  std::unique_ptr<SliderAttachment> attachAggressiveness;
+  std::unique_ptr<SliderAttachment> attachSmoothing;
+  std::unique_ptr<SliderAttachment> attachMasking;
+  std::unique_ptr<SliderAttachment> attachWhitening;
+  std::unique_ptr<SliderAttachment> attachSuppression;
 
-    bool isAdvancedVisible = true;
+  bool isAdvancedVisible = true;
 
-    void updateLayout();
-    void updateSliderLabels();
-    void updateProfileStatus();
+  void updateLayout();
+  void updateSliderLabels();
+  void updateProfileStatus();
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(NoiseRepellentAudioProcessorEditor)
+  JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(
+      NoiseRepellentAudioProcessorEditor)
 };
