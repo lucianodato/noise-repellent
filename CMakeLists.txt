@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(NoiseRepellent VERSION 0.3.1 LANGUAGES C CXX)
+project(NoiseRepellent VERSION 0.3.2 LANGUAGES C CXX)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -20,12 +20,13 @@ set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 option(USE_SYSTEM_FFTW       "Use system-installed FFTW3 library"       OFF)
 option(USE_SYSTEM_FREETYPE   "Use system-installed FreeType library"   OFF)
 option(USE_SYSTEM_SPECBLEACH "Use system-installed libspecbleach"      OFF)
+option(USE_SYSTEM_JUCE       "Use system-installed JUCE library"       OFF)
 
 if(UNIX AND NOT APPLE)
     # Statically link GCC runtimes AND hide all symbols inside static archives (-Wl,--exclude-libs,ALL)
     # This prevents host DAWs (like Ardour) from experiencing FreeType/FFTW dynamic linker symbol collisions
     # Only apply for portable builds (when NOT using system dependencies)
-    if(NOT USE_SYSTEM_FFTW AND NOT USE_SYSTEM_FREETYPE AND NOT USE_SYSTEM_SPECBLEACH)
+    if(NOT USE_SYSTEM_FFTW AND NOT USE_SYSTEM_FREETYPE AND NOT USE_SYSTEM_SPECBLEACH AND NOT USE_SYSTEM_JUCE)
         add_link_options(-static-libgcc -static-libstdc++ -Wl,--exclude-libs,ALL)
     endif()
 endif()
@@ -42,7 +43,7 @@ include(FetchContent)
 # ==============================================================================
 # 1. FreeType Handling (Portable Static Build via FetchContent)
 # ==============================================================================
-if(UNIX AND NOT APPLE AND NOT USE_SYSTEM_FREETYPE)
+if(UNIX AND NOT APPLE AND NOT USE_SYSTEM_FREETYPE AND NOT USE_SYSTEM_JUCE)
     message(STATUS "Building static FreeType 2.13.2 via FetchContent...")
     
     set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
@@ -103,13 +104,24 @@ endif()
 # ==============================================================================
 # 2. JUCE Framework
 # ==============================================================================
-message(STATUS "Fetching JUCE framework...")
-FetchContent_Declare(
-    JUCE
-    GIT_REPOSITORY https://github.com/juce-framework/JUCE.git
-    GIT_TAG        8.0.4
-)
-FetchContent_MakeAvailable(JUCE)
+if(USE_SYSTEM_JUCE)
+    message(STATUS "Using system-installed JUCE library...")
+    find_package(JUCE CONFIG REQUIRED)
+elseif(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../JUCE/CMakeLists.txt")
+    message(STATUS "Using local JUCE from ../JUCE")
+    add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/../JUCE" "${CMAKE_CURRENT_BINARY_DIR}/juce_build")
+elseif(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/subprojects/JUCE/CMakeLists.txt")
+    message(STATUS "Using local JUCE from subprojects/JUCE")
+    add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/subprojects/JUCE" "${CMAKE_CURRENT_BINARY_DIR}/juce_build")
+else()
+    message(STATUS "Fetching JUCE framework...")
+    FetchContent_Declare(
+        JUCE
+        GIT_REPOSITORY https://github.com/juce-framework/JUCE.git
+        GIT_TAG        8.0.4
+    )
+    FetchContent_MakeAvailable(JUCE)
+endif()
 
 # ==============================================================================
 # 3. Bind Static FreeType to JUCE
@@ -120,7 +132,7 @@ if(UNIX AND NOT APPLE)
         unset(PKG_CONFIG_EXECUTABLE CACHE)
         # Discover system FreeType package
         find_package(Freetype REQUIRED)
-    elseif(NOT USE_SYSTEM_FREETYPE)
+    elseif(NOT USE_SYSTEM_JUCE)
         # The interceptor gave JUCE an empty PkgConfig target.
         # Now we inject our static freetype build directly into JUCE's graphics module.
         if(TARGET juce_graphics)
@@ -290,7 +302,7 @@ target_link_libraries(NoiseRepellent PRIVATE
 if(UNIX AND NOT APPLE)
     if(USE_SYSTEM_FREETYPE)
         target_link_libraries(NoiseRepellent PRIVATE Freetype::Freetype)
-    else()
+    elseif(NOT USE_SYSTEM_JUCE)
         target_link_libraries(NoiseRepellent PRIVATE freetype)
     endif()
 endif()

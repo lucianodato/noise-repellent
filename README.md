@@ -104,9 +104,9 @@ sudo cmake --install build
 ```
 
 #### 2. Downstream Linux Packaging Build (Shared System Libraries)
-Linux distribution packagers (Arch, Debian, Fedora, etc.) can configure the build to dynamically link against host system libraries (`libfftw3f`, `libfreetype`, `libspecbleach`) using CMake build options.
+Linux distribution packagers (Arch, Debian, Fedora, etc.) can configure the build to dynamically link against host system libraries (`libfftw3f`, `libfreetype`, `libspecbleach`, `JUCE`) using CMake build options.
 
-> **Note:** Requires system development packages installed on the host (e.g., `libfftw3-dev`, `libfreetype6-dev`, `libspecbleach-dev`).
+> **Note:** Requires system development packages installed on the host (e.g., `libfftw3-dev`, `libfreetype6-dev`, `libspecbleach-dev`, `juce`).
 
 ```bash
 # Configure build using system-installed shared libraries
@@ -115,7 +115,8 @@ cmake -B build -G "Ninja" \
   -DCMAKE_INSTALL_PREFIX=/usr \
   -DUSE_SYSTEM_FFTW=ON \
   -DUSE_SYSTEM_FREETYPE=ON \
-  -DUSE_SYSTEM_SPECBLEACH=ON
+  -DUSE_SYSTEM_SPECBLEACH=ON \
+  -DUSE_SYSTEM_JUCE=ON
 
 # Compile all plugin formats
 cmake --build build --config Release --parallel
