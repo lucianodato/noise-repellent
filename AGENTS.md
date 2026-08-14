@@ -71,7 +71,7 @@ To balance portable DAW binary compatibility for release artifacts with downstre
      * On Linux, static GCC runtimes (`-static-libgcc -static-libstdc++`) must be linked for release builds.
      * On Windows, static MSVC runtimes (`/MT`) must be configured (`set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")`).
    * **Downstream Packaging Mode (`USE_SYSTEM_*=ON`)**:
-     * Provide CMake build toggles (`USE_SYSTEM_FFTW`, `USE_SYSTEM_FREETYPE`, `USE_SYSTEM_SPECBLEACH`) defaulting to `OFF`.
+     * Provide CMake build toggles (`USE_SYSTEM_FFTW`, `USE_SYSTEM_FREETYPE`, `USE_SYSTEM_SPECBLEACH`, `USE_SYSTEM_JUCE`) defaulting to `OFF`.
      * When set to `ON` by Linux distro packagers, CMake uses `find_package()` / `pkg_check_modules()` to dynamically link against system shared libraries (`.so`).
 2. **Package Metadata Requirements**:
    * Standard prebuilt release package configurations (`.deb` / CPack) declare core desktop system dependencies (`libasound2`, `libgl1`, `libx11-6`, `libxext6`, `libxcursor1`, `libxinerama1`, `libxrandr2`). Distro-packaged builds managed by package maintainers will handle full dynamic dependency trees via `dpkg-shlibdeps`.
