@@ -734,18 +734,15 @@ void NoiseRepellentAudioProcessor::processBlock(
       curveEnabled ? interpolatedCurveBias.data() : nullptr;
 
   // Update latency dynamically, sync profiles, and start smooth crossfade when
-  // algorithm mode or HPSS quality mode changes
-  if (algoMode != currentAlgoMode || hpssQuality != currentHpssQuality) {
-    if (algoMode != currentAlgoMode) {
-      juce::SpinLock::ScopedTryLockType tryLock(profileLock);
-      if (tryLock.isLocked()) {
-        syncNoiseProfiles(currentAlgoMode);
-      }
+  // algorithm mode changes
+  if (algoMode != currentAlgoMode) {
+    juce::SpinLock::ScopedTryLockType tryLock(profileLock);
+    if (tryLock.isLocked()) {
+      syncNoiseProfiles(currentAlgoMode);
     }
     sourceAlgoMode = currentAlgoMode;
     targetAlgoMode = algoMode;
     currentAlgoMode = algoMode;
-    currentHpssQuality = hpssQuality;
 
     if (specbleach1D_L)
       specbleach_load_parameters(specbleach1D_L, p);
@@ -776,6 +773,18 @@ void NoiseRepellentAudioProcessor::processBlock(
       delaySlewProgress = 1.0f;
       delaySlewStep = 0.0f;
     }
+  }
+
+  if (hpssQuality != currentHpssQuality) {
+    currentHpssQuality = hpssQuality;
+    if (specbleach1D_L)
+      specbleach_load_parameters(specbleach1D_L, p);
+    if (specbleach1D_R)
+      specbleach_load_parameters(specbleach1D_R, p);
+    if (specbleach2D_L)
+      specbleach_2d_load_parameters(specbleach2D_L, p2);
+    if (specbleach2D_R)
+      specbleach_2d_load_parameters(specbleach2D_R, p2);
   }
 
   // Save dry input copy for FFT visualization before processing
