@@ -50,6 +50,11 @@ NoiseRepellentAudioProcessor::createParameterLayout() {
       "algorithm_mode", "Algorithm",
       juce::StringArray{"1D Spectral", "2D NLM Patch HQ"}, 1));
 
+  params.push_back(std::make_unique<juce::AudioParameterChoice>(
+      "hpss_quality", "HPSS Quality",
+      juce::StringArray{"Off", "Low (Fast)", "Mid (Balanced)", "High (Ultra)"},
+      0));
+
   params.push_back(std::make_unique<juce::AudioParameterBool>(
       "learn_noise", "Learn Noise", false));
 
@@ -118,7 +123,7 @@ NoiseRepellentAudioProcessor::createParameterLayout() {
 
   params.push_back(std::make_unique<juce::AudioParameterFloat>(
       "noise_profile_offset", "Noise Profile Offset",
-      juce::NormalisableRange<float>(-6.0f, 6.0f, 0.1f), 0.0f));
+      juce::NormalisableRange<float>(-12.0f, 12.0f, 0.1f), 0.0f));
 
   params.push_back(std::make_unique<juce::AudioParameterBool>(
       "reduction_curve_enabled", "Reduction Curve", false));
@@ -126,153 +131,165 @@ NoiseRepellentAudioProcessor::createParameterLayout() {
   return {params.begin(), params.end()};
 }
 
-void NoiseRepellentAudioProcessor::setCurveNodes(const std::vector<CurveNode>& nodes) {
-    juce::SpinLock::ScopedLockType lock(curveLock);
-    curveNodes = nodes;
-    if (curveNodes.empty() || curveNodes.front().normX > 0.001f)
-        curveNodes.insert(curveNodes.begin(), {0.0f, 0.0f});
-    if (curveNodes.back().normX < 0.999f)
-        curveNodes.push_back({1.0f, 0.0f});
-    curveNodesDirty = true;
+void NoiseRepellentAudioProcessor::setCurveNodes(
+    const std::vector<CurveNode>& nodes) {
+  juce::SpinLock::ScopedLockType lock(curveLock);
+  curveNodes = nodes;
+  if (curveNodes.empty() || curveNodes.front().normX > 0.001f)
+    curveNodes.insert(curveNodes.begin(), {0.0f, 0.0f});
+  if (curveNodes.back().normX < 0.999f)
+    curveNodes.push_back({1.0f, 0.0f});
+  curveNodesDirty = true;
 }
 
 void NoiseRepellentAudioProcessor::resetCurveNodes() {
-    juce::SpinLock::ScopedLockType lock(curveLock);
-    curveNodes = {{0.0f, 0.0f}, {1.0f, 0.0f}};
-    curveNodesDirty = true;
+  juce::SpinLock::ScopedLockType lock(curveLock);
+  curveNodes = {{0.0f, 0.0f}, {1.0f, 0.0f}};
+  curveNodesDirty = true;
 }
 
 void NoiseRepellentAudioProcessor::addCurveNode(float normX, float biasDB) {
-    juce::SpinLock::ScopedLockType lock(curveLock);
-    normX = std::clamp(normX, 0.0f, 1.0f);
-    biasDB = std::clamp(biasDB, -24.0f, 24.0f);
-    curveNodes.push_back({normX, biasDB});
-    std::sort(curveNodes.begin(), curveNodes.end(),
-              [](const CurveNode& a, const CurveNode& b) { return a.normX < b.normX; });
-    curveNodesDirty = true;
+  juce::SpinLock::ScopedLockType lock(curveLock);
+  normX = std::clamp(normX, 0.0f, 1.0f);
+  biasDB = std::clamp(biasDB, -24.0f, 24.0f);
+  curveNodes.push_back({normX, biasDB});
+  std::sort(
+      curveNodes.begin(), curveNodes.end(),
+      [](const CurveNode& a, const CurveNode& b) { return a.normX < b.normX; });
+  curveNodesDirty = true;
 }
 
 void NoiseRepellentAudioProcessor::removeCurveNode(int index) {
-    juce::SpinLock::ScopedLockType lock(curveLock);
-    if (index > 0 && index < static_cast<int>(curveNodes.size()) - 1) {
-        curveNodes.erase(curveNodes.begin() + index);
-        curveNodesDirty = true;
-    }
+  juce::SpinLock::ScopedLockType lock(curveLock);
+  if (index > 0 && index < static_cast<int>(curveNodes.size()) - 1) {
+    curveNodes.erase(curveNodes.begin() + index);
+    curveNodesDirty = true;
+  }
 }
 
-void NoiseRepellentAudioProcessor::updateCurveNode(int index, float normX, float biasDB) {
-    juce::SpinLock::ScopedLockType lock(curveLock);
-    if (index >= 0 && index < static_cast<int>(curveNodes.size())) {
-        if (index == 0) {
-            curveNodes[index].normX = 0.0f;
-        } else if (index == static_cast<int>(curveNodes.size()) - 1) {
-            curveNodes[index].normX = 1.0f;
-        } else {
-            curveNodes[index].normX = std::clamp(normX, 0.001f, 0.999f);
-        }
-        curveNodes[index].biasDB = std::clamp(biasDB, -24.0f, 24.0f);
-        std::sort(curveNodes.begin(), curveNodes.end(),
-                  [](const CurveNode& a, const CurveNode& b) { return a.normX < b.normX; });
-        curveNodesDirty = true;
+void NoiseRepellentAudioProcessor::updateCurveNode(int index, float normX,
+                                                   float biasDB) {
+  juce::SpinLock::ScopedLockType lock(curveLock);
+  if (index >= 0 && index < static_cast<int>(curveNodes.size())) {
+    if (index == 0) {
+      curveNodes[index].normX = 0.0f;
+    } else if (index == static_cast<int>(curveNodes.size()) - 1) {
+      curveNodes[index].normX = 1.0f;
+    } else {
+      curveNodes[index].normX = std::clamp(normX, 0.001f, 0.999f);
     }
+    curveNodes[index].biasDB = std::clamp(biasDB, -24.0f, 24.0f);
+    std::sort(curveNodes.begin(), curveNodes.end(),
+              [](const CurveNode& a, const CurveNode& b) {
+                return a.normX < b.normX;
+              });
+    curveNodesDirty = true;
+  }
 }
 
 void NoiseRepellentAudioProcessor::interpolateCurve(uint32_t numBins) {
-    if (numBins == 0) return;
-    if (interpolatedCurveBias.size() != numBins)
-        interpolatedCurveBias.resize(numBins, 0.0f);
+  if (numBins == 0)
+    return;
+  if (interpolatedCurveBias.size() != numBins)
+    interpolatedCurveBias.resize(numBins, 0.0f);
 
-    if (curveNodes.empty()) {
-        std::fill(interpolatedCurveBias.begin(), interpolatedCurveBias.end(), 0.0f);
-        return;
+  if (curveNodes.empty()) {
+    std::fill(interpolatedCurveBias.begin(), interpolatedCurveBias.end(), 0.0f);
+    return;
+  }
+
+  auto sortedNodes = curveNodes;
+  std::sort(
+      sortedNodes.begin(), sortedNodes.end(),
+      [](const CurveNode& a, const CurveNode& b) { return a.normX < b.normX; });
+
+  size_t numNodes = sortedNodes.size();
+  if (numNodes == 1) {
+    std::fill(interpolatedCurveBias.begin(), interpolatedCurveBias.end(),
+              -sortedNodes.front().biasDB);
+    return;
+  }
+
+  double sr = getSampleRate();
+  if (sr <= 0.0)
+    sr = 48000.0;
+  float nyquist = static_cast<float>(sr * 0.5);
+
+  constexpr float minFreq = 20.0f;
+  constexpr float maxFreq = 20000.0f;
+  const float logMin = std::log10(minFreq);
+  const float logMax = std::log10(maxFreq);
+  const float logRange = logMax - logMin;
+
+  std::vector<float> dX(numNodes - 1);
+  std::vector<float> dY(numNodes - 1);
+  for (size_t i = 0; i < numNodes - 1; ++i) {
+    dX[i] = sortedNodes[i + 1].normX - sortedNodes[i].normX;
+    dY[i] = sortedNodes[i + 1].biasDB - sortedNodes[i].biasDB;
+  }
+
+  std::vector<float> m(numNodes, 0.0f);
+  if (numNodes > 2) {
+    m.front() = (dX.front() > 1e-5f) ? dY.front() / dX.front() : 0.0f;
+    m.back() = (dX.back() > 1e-5f) ? dY.back() / dX.back() : 0.0f;
+
+    for (size_t i = 1; i < numNodes - 1; ++i) {
+      float secant1 = (dX[i - 1] > 1e-5f) ? dY[i - 1] / dX[i - 1] : 0.0f;
+      float secant2 = (dX[i] > 1e-5f) ? dY[i] / dX[i] : 0.0f;
+      if (secant1 * secant2 <= 0.0f) {
+        m[i] = 0.0f;
+      } else {
+        m[i] = 0.5f * (secant1 + secant2);
+      }
     }
+  } else {
+    float secant = (dX.front() > 1e-5f) ? dY.front() / dX.front() : 0.0f;
+    m[0] = secant;
+    m[1] = secant;
+  }
 
-    auto sortedNodes = curveNodes;
-    std::sort(sortedNodes.begin(), sortedNodes.end(),
-              [](const CurveNode& a, const CurveNode& b) { return a.normX < b.normX; });
+  for (uint32_t k = 0; k < numBins; ++k) {
+    float freqHz =
+        (static_cast<float>(k) / static_cast<float>(numBins - 1)) * nyquist;
 
-    size_t numNodes = sortedNodes.size();
-    if (numNodes == 1) {
-        std::fill(interpolatedCurveBias.begin(), interpolatedCurveBias.end(), -sortedNodes.front().biasDB);
-        return;
-    }
-
-    double sr = getSampleRate();
-    if (sr <= 0.0) sr = 48000.0;
-    float nyquist = static_cast<float>(sr * 0.5);
-
-    constexpr float minFreq = 20.0f;
-    constexpr float maxFreq = 20000.0f;
-    const float logMin = std::log10(minFreq);
-    const float logMax = std::log10(maxFreq);
-    const float logRange = logMax - logMin;
-
-    std::vector<float> dX(numNodes - 1);
-    std::vector<float> dY(numNodes - 1);
-    for (size_t i = 0; i < numNodes - 1; ++i) {
-        dX[i] = sortedNodes[i + 1].normX - sortedNodes[i].normX;
-        dY[i] = sortedNodes[i + 1].biasDB - sortedNodes[i].biasDB;
-    }
-
-    std::vector<float> m(numNodes, 0.0f);
-    if (numNodes > 2) {
-        m.front() = (dX.front() > 1e-5f) ? dY.front() / dX.front() : 0.0f;
-        m.back() = (dX.back() > 1e-5f) ? dY.back() / dX.back() : 0.0f;
-
-        for (size_t i = 1; i < numNodes - 1; ++i) {
-            float secant1 = (dX[i - 1] > 1e-5f) ? dY[i - 1] / dX[i - 1] : 0.0f;
-            float secant2 = (dX[i] > 1e-5f) ? dY[i] / dX[i] : 0.0f;
-            if (secant1 * secant2 <= 0.0f) {
-                m[i] = 0.0f;
-            } else {
-                m[i] = 0.5f * (secant1 + secant2);
-            }
-        }
+    float binNormX = 0.0f;
+    if (freqHz <= minFreq) {
+      binNormX = 0.0f;
+    } else if (freqHz >= maxFreq) {
+      binNormX = 1.0f;
     } else {
-        float secant = (dX.front() > 1e-5f) ? dY.front() / dX.front() : 0.0f;
-        m[0] = secant;
-        m[1] = secant;
+      binNormX = (std::log10(freqHz) - logMin) / logRange;
     }
 
-    for (uint32_t k = 0; k < numBins; ++k) {
-        float freqHz = (static_cast<float>(k) / static_cast<float>(numBins - 1)) * nyquist;
-
-        float binNormX = 0.0f;
-        if (freqHz <= minFreq) {
-            binNormX = 0.0f;
-        } else if (freqHz >= maxFreq) {
-            binNormX = 1.0f;
-        } else {
-            binNormX = (std::log10(freqHz) - logMin) / logRange;
-        }
-
-        if (binNormX <= sortedNodes.front().normX) {
-            interpolatedCurveBias[k] = -sortedNodes.front().biasDB;
-            continue;
-        }
-        if (binNormX >= sortedNodes.back().normX) {
-            interpolatedCurveBias[k] = -sortedNodes.back().biasDB;
-            continue;
-        }
-
-        for (size_t i = 0; i < numNodes - 1; ++i) {
-            if (binNormX >= sortedNodes[i].normX && binNormX <= sortedNodes[i + 1].normX) {
-                float dx = dX[i];
-                float t = (dx > 1e-9f) ? (binNormX - sortedNodes[i].normX) / dx : 0.0f;
-                float t2 = t * t;
-                float t3 = t2 * t;
-
-                float h00 = 2.0f * t3 - 3.0f * t2 + 1.0f;
-                float h10 = t3 - 2.0f * t2 + t;
-                float h01 = -2.0f * t3 + 3.0f * t2;
-                float h11 = t3 - t2;
-
-                float val = h00 * sortedNodes[i].biasDB + h10 * dx * m[i] + h01 * sortedNodes[i + 1].biasDB + h11 * dx * m[i + 1];
-                interpolatedCurveBias[k] = -val;
-                break;
-            }
-        }
+    if (binNormX <= sortedNodes.front().normX) {
+      interpolatedCurveBias[k] = -sortedNodes.front().biasDB;
+      continue;
     }
+    if (binNormX >= sortedNodes.back().normX) {
+      interpolatedCurveBias[k] = -sortedNodes.back().biasDB;
+      continue;
+    }
+
+    for (size_t i = 0; i < numNodes - 1; ++i) {
+      if (binNormX >= sortedNodes[i].normX &&
+          binNormX <= sortedNodes[i + 1].normX) {
+        float dx = dX[i];
+        float t = (dx > 1e-9f) ? (binNormX - sortedNodes[i].normX) / dx : 0.0f;
+        float t2 = t * t;
+        float t3 = t2 * t;
+
+        float h00 = 2.0f * t3 - 3.0f * t2 + 1.0f;
+        float h10 = t3 - 2.0f * t2 + t;
+        float h01 = -2.0f * t3 + 3.0f * t2;
+        float h11 = t3 - t2;
+
+        float val = h00 * sortedNodes[i].biasDB + h10 * dx * m[i] +
+                    h01 * sortedNodes[i + 1].biasDB + h11 * dx * m[i + 1];
+        interpolatedCurveBias[k] = -val;
+        break;
+      }
+    }
+  }
 }
 
 template <typename SizeQueryFn, typename LoadProfileFn>
@@ -298,8 +315,7 @@ static bool loadProfileSafeHelper(SpectralBleachHandle h, const float* data,
     for (uint32_t i = 0; i < targetSize; ++i) {
       float normPos = static_cast<float>(i) / maxTargetIdx;
       float exactIdx = normPos * maxSrcIdx;
-      uint32_t idx0 =
-          std::clamp(static_cast<uint32_t>(exactIdx), 0u, size - 1);
+      uint32_t idx0 = std::clamp(static_cast<uint32_t>(exactIdx), 0u, size - 1);
       uint32_t idx1 = std::min(idx0 + 1, size - 1);
       float frac = exactIdx - static_cast<float>(idx0);
       resampled[i] = (1.0f - frac) * data[idx0] + frac * data[idx1];
@@ -341,14 +357,17 @@ void NoiseRepellentAudioProcessor::ensureEnginesInitialized(double sampleRate) {
   std::vector<SavedProfileData> profiles2D;
 
   auto backup1D = [&](SpectralBleachHandle h, int channel) {
-    if (!h) return;
+    if (!h)
+      return;
     for (int mode = 1; mode <= 4; ++mode) {
       if (specbleach_noise_profile_available_for_mode(h, mode)) {
         float* p = specbleach_get_noise_profile_for_mode(h, mode);
         uint32_t sz = specbleach_get_noise_profile_size(h);
-        uint32_t bc = specbleach_get_noise_profile_block_count_for_mode(h, mode);
+        uint32_t bc =
+            specbleach_get_noise_profile_block_count_for_mode(h, mode);
         if (p && sz > 0) {
-          profiles1D.push_back({channel, mode, sz, bc, std::vector<float>(p, p + sz)});
+          profiles1D.push_back(
+              {channel, mode, sz, bc, std::vector<float>(p, p + sz)});
         }
       }
     }
@@ -357,14 +376,17 @@ void NoiseRepellentAudioProcessor::ensureEnginesInitialized(double sampleRate) {
   backup1D(specbleach1D_R, 1);
 
   auto backup2D = [&](auto h, int channel) {
-    if (!h) return;
+    if (!h)
+      return;
     for (int mode = 1; mode <= 4; ++mode) {
       if (specbleach_2d_noise_profile_available_for_mode(h, mode)) {
         float* p = specbleach_2d_get_noise_profile_for_mode(h, mode);
         uint32_t sz = specbleach_2d_get_noise_profile_size(h);
-        uint32_t bc = specbleach_2d_get_noise_profile_block_count_for_mode(h, mode);
+        uint32_t bc =
+            specbleach_2d_get_noise_profile_block_count_for_mode(h, mode);
         if (p && sz > 0) {
-          profiles2D.push_back({channel, mode, sz, bc, std::vector<float>(p, p + sz)});
+          profiles2D.push_back(
+              {channel, mode, sz, bc, std::vector<float>(p, p + sz)});
         }
       }
     }
@@ -412,7 +434,8 @@ void NoiseRepellentAudioProcessor::ensureEnginesInitialized(double sampleRate) {
   // Restore state pending profiles if loaded before prepareToPlay
   bool hasCh1 = false;
   for (const auto& item : pendingProfiles) {
-    if (item.channel == 1) hasCh1 = true;
+    if (item.channel == 1)
+      hasCh1 = true;
     auto h1D = (item.channel == 1) ? specbleach1D_R : specbleach1D_L;
     auto h2D = (item.channel == 1) ? specbleach2D_R : specbleach2D_L;
     if (h1D)
@@ -524,6 +547,7 @@ void NoiseRepellentAudioProcessor::prepareToPlay(double sampleRate,
   // Set initial latency based on current algorithm mode
   currentAlgoMode = static_cast<int>(
       parameters.getRawParameterValue("algorithm_mode")->load());
+
   uint32_t latency = 0;
   if (currentAlgoMode == 0 && specbleach1D_L) {
     latency = specbleach_get_latency(specbleach1D_L);
@@ -532,23 +556,39 @@ void NoiseRepellentAudioProcessor::prepareToPlay(double sampleRate,
   }
   setLatencySamples(static_cast<int>(latency));
 
+  const int bufferCapacity = std::max(samplesPerBlock, 16384);
+  preparedBlockSize = static_cast<uint32_t>(bufferCapacity);
+  preparedNumChannels = static_cast<uint32_t>(
+      std::max({getTotalNumInputChannels(), getTotalNumOutputChannels(), 2}));
+
   juce::dsp::ProcessSpec spec;
   spec.sampleRate = sampleRate;
-  spec.maximumBlockSize = static_cast<juce::uint32>(samplesPerBlock);
-  spec.numChannels = static_cast<juce::uint32>(getTotalNumOutputChannels());
+  spec.maximumBlockSize = preparedBlockSize;
+  spec.numChannels = preparedNumChannels;
 
   dryWetMixer.prepare(spec);
   dryWetMixer.setMixingRule(juce::dsp::DryWetMixingRule::linear);
   dryWetMixer.setWetLatency(static_cast<float>(latency));
 
+  currentLatency = latency;
+  visualizerDelayBuffer.assign(std::max<size_t>(32768, latency + 8192), 0.0f);
+  visualizerDelayWritePos = 0;
+
   // Pre-allocate persistent buffers to prevent audio-thread allocations
-  const int bufferCapacity = std::max(samplesPerBlock, 8192);
   dryInputL.resize(static_cast<size_t>(bufferCapacity), 0.0f);
-  crossfadeBuffer.setSize(getTotalNumOutputChannels(), bufferCapacity, false,
-                          false, true);
+  crossfadeBuffer.setSize(static_cast<int>(preparedNumChannels), bufferCapacity,
+                          false, false, true);
+  crossfadeDelayBuffer.setSize(static_cast<int>(preparedNumChannels), 16384,
+                               false, false, true);
+  crossfadeDelayBuffer.clear();
+  crossfadeDelayWritePos = 0;
+  crossfadeLatencyDiff = 0;
+  delaySlewProgress = 1.0f;
+  delaySlewStep = 0.0f;
   jassert(dryInputL.size() >= static_cast<size_t>(samplesPerBlock));
   jassert(crossfadeBuffer.getNumSamples() >= samplesPerBlock);
   crossfadeProgress = 1.0f;
+  sourceAlgoMode = currentAlgoMode;
   targetAlgoMode = currentAlgoMode;
 
   // Reset FFT accumulation
@@ -579,10 +619,17 @@ void NoiseRepellentAudioProcessor::processBlock(
   if (numSamples == 0 || numChannels == 0)
     return;
 
+  const int safeNumChannels =
+      std::min(numChannels, static_cast<int>(preparedNumChannels));
+  const int safeNumSamples =
+      std::min(numSamples, static_cast<int>(preparedBlockSize));
+
   const bool isBypassed =
       parameters.getRawParameterValue("bypass")->load() > 0.5f;
   const int algoMode = static_cast<int>(
       parameters.getRawParameterValue("algorithm_mode")->load());
+  const int hpssQuality =
+      static_cast<int>(parameters.getRawParameterValue("hpss_quality")->load());
   const bool learnNoise =
       parameters.getRawParameterValue("learn_noise")->load() > 0.5f;
   const bool adaptiveNoise =
@@ -649,44 +696,6 @@ void NoiseRepellentAudioProcessor::processBlock(
   }
   wasLearning = learnNoise;
 
-  // Update latency dynamically, sync profiles, and start smooth crossfade when
-  // algorithm mode changes
-  if (algoMode != currentAlgoMode) {
-    {
-      juce::SpinLock::ScopedTryLockType tryLock(profileLock);
-      if (tryLock.isLocked()) {
-        syncNoiseProfiles(currentAlgoMode);
-      }
-    }
-    targetAlgoMode = algoMode;
-    currentAlgoMode = algoMode;
-
-    // Initiate 30 ms smooth crossfade transition to prevent clicks/pops
-    int crossfadeSamples = static_cast<int>(currentSampleRate * 0.030);
-    if (crossfadeSamples < 1)
-      crossfadeSamples = 1;
-    crossfadeProgress = 0.0f;
-    crossfadeStep = 1.0f / static_cast<float>(crossfadeSamples);
-
-    uint32_t latency = 0;
-    if (algoMode == 0 && specbleach1D_L) {
-      latency = specbleach_get_latency(specbleach1D_L);
-    } else if (algoMode == 1 && specbleach2D_L) {
-      latency = specbleach_2d_get_latency(specbleach2D_L);
-    }
-    setLatencySamples(static_cast<int>(latency));
-    dryWetMixer.setWetLatency(static_cast<float>(latency));
-  }
-
-  // Save dry input copy for FFT visualization before processing
-  const size_t copySamples = std::min(static_cast<size_t>(numSamples), dryInputL.size());
-  if (numChannels >= 1 && copySamples > 0)
-    std::copy_n(buffer.getReadPointer(0), copySamples, dryInputL.begin());
-
-  // Push dry samples into JUCE DryWetMixer before in-place DSP processing
-  juce::dsp::AudioBlock<float> audioBlock(buffer);
-  dryWetMixer.pushDrySamples(audioBlock);
-
   // Prepare parameters for DSP engines
   SpectralBleachDenoiserParameters p;
   p.learn_noise = learnNoise ? 1 : 0;
@@ -700,9 +709,11 @@ void NoiseRepellentAudioProcessor::processBlock(
   p.suppression_strength = suppression;
   p.aggressiveness = aggressiveness;
   p.tonal_reduction = tonalRed;
+  p.hpss_quality_mode = hpssQuality;
   p.noise_profile_offset_db = profileOffset;
   p.reduction_curve_enabled = curveEnabled;
-  p.reduction_curve_bias = curveEnabled ? interpolatedCurveBias.data() : nullptr;
+  p.reduction_curve_bias =
+      curveEnabled ? interpolatedCurveBias.data() : nullptr;
 
   SpectralBleach2DDenoiserParameters p2;
   p2.learn_noise = learnNoise ? 1 : 0;
@@ -716,14 +727,82 @@ void NoiseRepellentAudioProcessor::processBlock(
   p2.suppression_strength = suppression;
   p2.aggressiveness = aggressiveness;
   p2.tonal_reduction = tonalRed;
+  p2.hpss_quality_mode = hpssQuality;
   p2.noise_profile_offset_db = profileOffset;
   p2.reduction_curve_enabled = curveEnabled;
-  p2.reduction_curve_bias = curveEnabled ? interpolatedCurveBias.data() : nullptr;
+  p2.reduction_curve_bias =
+      curveEnabled ? interpolatedCurveBias.data() : nullptr;
+
+  // Update latency dynamically, sync profiles, and start smooth crossfade when
+  // algorithm mode changes
+  if (algoMode != currentAlgoMode) {
+    juce::SpinLock::ScopedTryLockType tryLock(profileLock);
+    if (tryLock.isLocked()) {
+      syncNoiseProfiles(currentAlgoMode);
+    }
+    sourceAlgoMode = currentAlgoMode;
+    targetAlgoMode = algoMode;
+    currentAlgoMode = algoMode;
+
+    if (specbleach1D_L)
+      specbleach_load_parameters(specbleach1D_L, p);
+    if (specbleach1D_R)
+      specbleach_load_parameters(specbleach1D_R, p);
+    if (specbleach2D_L)
+      specbleach_2d_load_parameters(specbleach2D_L, p2);
+    if (specbleach2D_R)
+      specbleach_2d_load_parameters(specbleach2D_R, p2);
+
+    uint32_t lat1D =
+        specbleach1D_L ? specbleach_get_latency(specbleach1D_L) : 0;
+    uint32_t lat2D =
+        specbleach2D_L ? specbleach_2d_get_latency(specbleach2D_L) : 0;
+    crossfadeLatencyDiff = (lat2D > lat1D) ? (lat2D - lat1D) : 0;
+
+    // Initiate 40 ms smooth crossfade transition to prevent clicks/pops
+    int crossfadeSamples = static_cast<int>(currentSampleRate * 0.040);
+    if (crossfadeSamples < 1)
+      crossfadeSamples = 1;
+    crossfadeProgress = 0.0f;
+    crossfadeStep = 1.0f / static_cast<float>(crossfadeSamples);
+
+    if (targetAlgoMode == 0) {
+      delaySlewProgress = 0.0f;
+      delaySlewStep = 1.0f / static_cast<float>(crossfadeSamples);
+    } else {
+      delaySlewProgress = 1.0f;
+      delaySlewStep = 0.0f;
+    }
+  }
+
+  if (hpssQuality != currentHpssQuality) {
+    currentHpssQuality = hpssQuality;
+    if (specbleach1D_L)
+      specbleach_load_parameters(specbleach1D_L, p);
+    if (specbleach1D_R)
+      specbleach_load_parameters(specbleach1D_R, p);
+    if (specbleach2D_L)
+      specbleach_2d_load_parameters(specbleach2D_L, p2);
+    if (specbleach2D_R)
+      specbleach_2d_load_parameters(specbleach2D_R, p2);
+  }
+
+  // Save dry input copy for FFT visualization before processing
+  const size_t copySamples =
+      std::min(static_cast<size_t>(numSamples), dryInputL.size());
+  if (numChannels >= 1 && copySamples > 0)
+    std::copy_n(buffer.getReadPointer(0), copySamples, dryInputL.begin());
+
+  // Push dry samples into JUCE DryWetMixer before in-place DSP processing
+  juce::dsp::AudioBlock<float> audioBlock(buffer);
+  dryWetMixer.pushDrySamples(audioBlock);
 
   if (crossfadeProgress < 1.0f) {
-    // Smooth crossfade mode: run both engines and blend sample-by-sample
+    // Smooth crossfade mode: run both engines and blend sample-by-sample with
+    // delay alignment
     jassert(numSamples <= crossfadeBuffer.getNumSamples());
-    const int maxChannels = std::min(numChannels, crossfadeBuffer.getNumChannels());
+    const int maxChannels =
+        std::min(numChannels, crossfadeBuffer.getNumChannels());
 
     for (int ch = 0; ch < maxChannels; ++ch)
       std::copy_n(buffer.getReadPointer(ch), numSamples,
@@ -757,27 +836,46 @@ void NoiseRepellentAudioProcessor::processBlock(
                             ch1, ch1);
     }
 
-    // Equal-power crossfade blend into buffer
+    // Equal-power crossfade blend with delay alignment:
+    // Delay 1D output by crossfadeLatencyDiff so it precisely matches 2D
+    // latency during crossfade
+    const size_t delayBufSize =
+        static_cast<size_t>(crossfadeDelayBuffer.getNumSamples());
+    size_t writePos = crossfadeDelayWritePos;
+
     for (int ch = 0; ch < maxChannels; ++ch) {
       float* out1D = buffer.getWritePointer(ch);
       const float* out2D = crossfadeBuffer.getReadPointer(ch);
+      float* delayLine = crossfadeDelayBuffer.getWritePointer(ch);
 
       float currentP = crossfadeProgress;
+      size_t wp = writePos;
+
       for (int s = 0; s < numSamples; ++s) {
+        float in1D = out1D[s];
+        delayLine[wp] = in1D;
+        size_t delay = crossfadeLatencyDiff % delayBufSize;
+        size_t readPos = (wp + delayBufSize - delay) % delayBufSize;
+        float aligned1D = delayLine[readPos];
+        wp = (wp + 1) % delayBufSize;
+
         float pVal = std::min(1.0f, currentP);
         float rad = pVal * juce::MathConstants<float>::halfPi;
+        // If transitioning 1D -> 2D (target == 1): fade from aligned 1D to 2D
+        // If transitioning 2D -> 1D (target == 0): fade from 2D to aligned 1D
         float w1D = (targetAlgoMode == 1) ? std::cos(rad) : std::sin(rad);
         float w2D = (targetAlgoMode == 1) ? std::sin(rad) : std::cos(rad);
 
-        out1D[s] = w1D * out1D[s] + w2D * out2D[s];
+        out1D[s] = w1D * aligned1D + w2D * out2D[s];
         currentP += crossfadeStep;
       }
     }
+    crossfadeDelayWritePos = (writePos + numSamples) % delayBufSize;
     crossfadeProgress += numSamples * crossfadeStep;
     if (crossfadeProgress > 1.0f)
       crossfadeProgress = 1.0f;
   } else if (algoMode == 0) {
-    // Steady-state 1D mode
+    // 1D Mode
     if (specbleach1D_L) {
       specbleach_load_parameters(specbleach1D_L, p);
       float* ch0 = buffer.getWritePointer(0);
@@ -789,6 +887,43 @@ void NoiseRepellentAudioProcessor::processBlock(
       float* ch1 = buffer.getWritePointer(1);
       specbleach_process(specbleach1D_R, static_cast<uint32_t>(numSamples), ch1,
                          ch1);
+    }
+
+    if (delaySlewProgress < 1.0f) {
+      const size_t delayBufSize =
+          static_cast<size_t>(crossfadeDelayBuffer.getNumSamples());
+      const int maxChannels =
+          std::min(numChannels, crossfadeDelayBuffer.getNumChannels());
+      size_t writePos = crossfadeDelayWritePos;
+
+      for (int ch = 0; ch < maxChannels; ++ch) {
+        float* out1D = buffer.getWritePointer(ch);
+        float* delayLine = crossfadeDelayBuffer.getWritePointer(ch);
+        float currentP = delaySlewProgress;
+        size_t wp = writePos;
+
+        for (int s = 0; s < numSamples; ++s) {
+          float undelayedSample = out1D[s];
+          delayLine[wp] = undelayedSample;
+          size_t delay = crossfadeLatencyDiff % delayBufSize;
+          size_t readPos = (wp + delayBufSize - delay) % delayBufSize;
+          float alignedSample = delayLine[readPos];
+          wp = (wp + 1) % delayBufSize;
+
+          float pVal = std::min(1.0f, currentP);
+          float rad = pVal * juce::MathConstants<float>::halfPi;
+          // Smoothly fade from aligned (delayed) to undelayed 1D
+          float wDelayed = std::cos(rad);
+          float wUndelayed = std::sin(rad);
+
+          out1D[s] = wDelayed * alignedSample + wUndelayed * undelayedSample;
+          currentP += delaySlewStep;
+        }
+      }
+      crossfadeDelayWritePos = (writePos + numSamples) % delayBufSize;
+      delaySlewProgress += numSamples * delaySlewStep;
+      if (delaySlewProgress > 1.0f)
+        delaySlewProgress = 1.0f;
     }
   } else if (algoMode == 1) {
     // Steady-state 2D mode
@@ -806,6 +941,23 @@ void NoiseRepellentAudioProcessor::processBlock(
     }
   }
 
+  // Update dynamic latency if changed by algorithm mode or HPSS quality mode
+  uint32_t activeLatency = 0;
+  if (algoMode == 0 && specbleach1D_L) {
+    activeLatency = specbleach_get_latency(specbleach1D_L);
+  } else if (algoMode == 1 && specbleach2D_L) {
+    activeLatency = specbleach_2d_get_latency(specbleach2D_L);
+  }
+
+  if (activeLatency != currentLatency) {
+    currentLatency = activeLatency;
+    setLatencySamples(static_cast<int>(activeLatency));
+    dryWetMixer.setWetLatency(static_cast<float>(activeLatency));
+    if (visualizerDelayBuffer.size() < activeLatency + 8192) {
+      visualizerDelayBuffer.resize(activeLatency + 8192, 0.0f);
+    }
+  }
+
   // Apply Soft Crossfade Bypass using JUCE DryWetMixer (with dry latency
   // compensation)
   dryWetMixer.setWetMixProportion(isBypassed ? 0.0f : 1.0f);
@@ -817,9 +969,21 @@ void NoiseRepellentAudioProcessor::processBlock(
   const float* outputSrc =
       (numChannels >= 1) ? buffer.getReadPointer(0) : nullptr;
 
+  const size_t vBufSize = visualizerDelayBuffer.size();
   for (size_t s = 0; s < copySamples; ++s) {
+    float inSample = inputSrc[s];
+    float alignedInputSample = inSample;
+
+    if (vBufSize > 0) {
+      visualizerDelayBuffer[visualizerDelayWritePos] = inSample;
+      size_t delay = currentLatency % vBufSize;
+      size_t readPos = (visualizerDelayWritePos + vBufSize - delay) % vBufSize;
+      alignedInputSample = visualizerDelayBuffer[readPos];
+      visualizerDelayWritePos = (visualizerDelayWritePos + 1) % vBufSize;
+    }
+
     if (fftAccumCount < kFftSize) {
-      fftAccumInput[fftAccumCount] = inputSrc[s];
+      fftAccumInput[fftAccumCount] = alignedInputSample;
       fftAccumOutput[fftAccumCount] = outputSrc ? outputSrc[s] : 0.0f;
       fftAccumCount++;
     }
@@ -868,43 +1032,55 @@ void NoiseRepellentAudioProcessor::processBlock(
         if (profileTryLock.isLocked()) {
           if (algoMode == 0 && specbleach1D_L) {
             for (int m = 1; m <= 4; ++m) {
-              if (specbleach_noise_profile_available_for_mode(specbleach1D_L, m)) {
+              if (specbleach_noise_profile_available_for_mode(specbleach1D_L,
+                                                              m)) {
                 profileHasAnyMode = true;
                 break;
               }
             }
             if (isAdaptive || profileHasAnyMode) {
-              actualNoiseProfile = specbleach_get_active_noise_profile(specbleach1D_L);
+              actualNoiseProfile =
+                  specbleach_get_active_noise_profile(specbleach1D_L);
               profileSize = specbleach_get_noise_profile_size(specbleach1D_L);
               if (!actualNoiseProfile && profileHasAnyMode) {
                 for (int m = 1; m <= 4; ++m) {
-                  if (specbleach_noise_profile_available_for_mode(specbleach1D_L, m)) {
-                    actualNoiseProfile = specbleach_get_noise_profile_for_mode(specbleach1D_L, m);
+                  if (specbleach_noise_profile_available_for_mode(
+                          specbleach1D_L, m)) {
+                    actualNoiseProfile = specbleach_get_noise_profile_for_mode(
+                        specbleach1D_L, m);
                     break;
                   }
                 }
               }
-              profileAvailable = (actualNoiseProfile != nullptr && profileSize > 0);
+              profileAvailable =
+                  (actualNoiseProfile != nullptr && profileSize > 0);
             }
           } else if (algoMode == 1 && specbleach2D_L) {
             for (int m = 1; m <= 4; ++m) {
-              if (specbleach_2d_noise_profile_available_for_mode(specbleach2D_L, m)) {
+              if (specbleach_2d_noise_profile_available_for_mode(specbleach2D_L,
+                                                                 m)) {
                 profileHasAnyMode = true;
                 break;
               }
             }
             if (isAdaptive || profileHasAnyMode) {
-              actualNoiseProfile = specbleach_2d_get_active_noise_profile(specbleach2D_L);
-              profileSize = specbleach_2d_get_noise_profile_size(specbleach2D_L);
+              actualNoiseProfile =
+                  specbleach_2d_get_active_noise_profile(specbleach2D_L);
+              profileSize =
+                  specbleach_2d_get_noise_profile_size(specbleach2D_L);
               if (!actualNoiseProfile && profileHasAnyMode) {
                 for (int m = 1; m <= 4; ++m) {
-                  if (specbleach_2d_noise_profile_available_for_mode(specbleach2D_L, m)) {
-                    actualNoiseProfile = specbleach_2d_get_noise_profile_for_mode(specbleach2D_L, m);
+                  if (specbleach_2d_noise_profile_available_for_mode(
+                          specbleach2D_L, m)) {
+                    actualNoiseProfile =
+                        specbleach_2d_get_noise_profile_for_mode(specbleach2D_L,
+                                                                 m);
                     break;
                   }
                 }
               }
-              profileAvailable = (actualNoiseProfile != nullptr && profileSize > 0);
+              profileAvailable =
+                  (actualNoiseProfile != nullptr && profileSize > 0);
             }
           }
         }
@@ -913,11 +1089,13 @@ void NoiseRepellentAudioProcessor::processBlock(
         frame.isLinked =
             (parameters.getRawParameterValue("link_reduction")->load() > 0.5f);
         frame.reductionCurveEnabled =
-            (parameters.getRawParameterValue("reduction_curve_enabled")->load() > 0.5f);
+            (parameters.getRawParameterValue("reduction_curve_enabled")
+                 ->load() > 0.5f);
         frame.tonalPeaksHz.clear();
 
         if (profileAvailable && actualNoiseProfile) {
-          // profileSize represents the unique spectrum from DC (0 Hz) to Nyquist (Fs/2)
+          // profileSize represents the unique spectrum from DC (0 Hz) to
+          // Nyquist (Fs/2)
           size_t realProfileBins = profileSize;
 
           const float maxProfileIdx = static_cast<float>(realProfileBins - 1);
@@ -1021,9 +1199,11 @@ void NoiseRepellentAudioProcessor::resetNoiseProfile() {
 
 bool NoiseRepellentAudioProcessor::hasNoiseProfile() const {
   for (int mode = 1; mode <= 4; ++mode) {
-    if (specbleach1D_L && specbleach_noise_profile_available_for_mode(specbleach1D_L, mode))
+    if (specbleach1D_L &&
+        specbleach_noise_profile_available_for_mode(specbleach1D_L, mode))
       return true;
-    if (specbleach2D_L && specbleach_2d_noise_profile_available_for_mode(specbleach2D_L, mode))
+    if (specbleach2D_L &&
+        specbleach_2d_noise_profile_available_for_mode(specbleach2D_L, mode))
       return true;
   }
   return false;
@@ -1056,11 +1236,14 @@ void NoiseRepellentAudioProcessor::getStateInformation(
       if (h1D && specbleach_noise_profile_available_for_mode(h1D, mode)) {
         profile = specbleach_get_noise_profile_for_mode(h1D, mode);
         profileSize = specbleach_get_noise_profile_size(h1D);
-        blockCount = specbleach_get_noise_profile_block_count_for_mode(h1D, mode);
-      } else if (h2D && specbleach_2d_noise_profile_available_for_mode(h2D, mode)) {
+        blockCount =
+            specbleach_get_noise_profile_block_count_for_mode(h1D, mode);
+      } else if (h2D &&
+                 specbleach_2d_noise_profile_available_for_mode(h2D, mode)) {
         profile = specbleach_2d_get_noise_profile_for_mode(h2D, mode);
         profileSize = specbleach_2d_get_noise_profile_size(h2D);
-        blockCount = specbleach_2d_get_noise_profile_block_count_for_mode(h2D, mode);
+        blockCount =
+            specbleach_2d_get_noise_profile_block_count_for_mode(h2D, mode);
       }
 
       if (profile && profileSize > 0) {
@@ -1101,7 +1284,8 @@ void NoiseRepellentAudioProcessor::setStateInformation(const void* data,
   std::unique_ptr<juce::XmlElement> xmlState(
       getXmlFromBinary(data, sizeInBytes));
   if (xmlState == nullptr && data != nullptr && sizeInBytes > 0) {
-    juce::String xmlString = juce::String::createStringFromData(data, sizeInBytes);
+    juce::String xmlString =
+        juce::String::createStringFromData(data, sizeInBytes);
     if (xmlString.trim().startsWith("<")) {
       xmlState = juce::XmlDocument::parse(xmlString);
     }
@@ -1126,13 +1310,15 @@ void NoiseRepellentAudioProcessor::setStateInformation(const void* data,
       for (int i = 0; i < curveTree.getNumChildren(); ++i) {
         juce::ValueTree nodeTree = curveTree.getChild(i);
         CurveNode cn;
-        cn.normX = static_cast<float>(static_cast<double>(nodeTree.getProperty("x", 0.0)));
-        cn.biasDB = static_cast<float>(static_cast<double>(nodeTree.getProperty("y", 0.0)));
+        cn.normX = static_cast<float>(
+            static_cast<double>(nodeTree.getProperty("x", 0.0)));
+        cn.biasDB = static_cast<float>(
+            static_cast<double>(nodeTree.getProperty("y", 0.0)));
         loadedNodes.push_back(cn);
       }
       setCurveNodes(loadedNodes);
     }
-    
+
     // Extract LEARNED_PROFILES before replaceState modifies state
     juce::ValueTree profilesTree;
     if (state.isValid()) {
@@ -1140,7 +1326,8 @@ void NoiseRepellentAudioProcessor::setStateInformation(const void* data,
     }
 
     if (!profilesTree.isValid()) {
-      juce::XmlElement* xmlProfiles = xmlState->getChildByName("LEARNED_PROFILES");
+      juce::XmlElement* xmlProfiles =
+          xmlState->getChildByName("LEARNED_PROFILES");
       if (xmlProfiles != nullptr) {
         profilesTree = juce::ValueTree::fromXml(*xmlProfiles);
       }
@@ -1155,7 +1342,8 @@ void NoiseRepellentAudioProcessor::setStateInformation(const void* data,
       for (int i = 0; i < profilesTree.getNumChildren(); ++i) {
         juce::ValueTree node = profilesTree.getChild(i);
         int channel = node.getProperty("channel", 0);
-        if (channel == 1) hasCh1 = true;
+        if (channel == 1)
+          hasCh1 = true;
 
         int mode = node.getProperty("mode", 0);
         uint32_t size = static_cast<uint32_t>(
@@ -1190,14 +1378,17 @@ void NoiseRepellentAudioProcessor::setStateInformation(const void* data,
         }
       }
 
-      // If legacy profile had no Channel 1 profile, copy Channel 0 to Channel 1 handles
+      // If legacy profile had no Channel 1 profile, copy Channel 0 to Channel 1
+      // handles
       if (!hasCh1) {
         for (const auto& pp : pendingProfiles) {
           if (pp.channel == 0) {
             if (specbleach1D_R)
-              loadProfile1DSafe(specbleach1D_R, pp.data.data(), pp.size, pp.blockCount, pp.mode);
+              loadProfile1DSafe(specbleach1D_R, pp.data.data(), pp.size,
+                                pp.blockCount, pp.mode);
             if (specbleach2D_R)
-              loadProfile2DSafe(specbleach2D_R, pp.data.data(), pp.size, pp.blockCount, pp.mode);
+              loadProfile2DSafe(specbleach2D_R, pp.data.data(), pp.size,
+                                pp.blockCount, pp.mode);
           }
         }
       }
