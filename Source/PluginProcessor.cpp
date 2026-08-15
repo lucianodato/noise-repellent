@@ -1124,17 +1124,15 @@ void NoiseRepellentAudioProcessor::processBlock(
 
           // Query libspecbleach directly for reported tonal peak frequencies
           // computed on this real noise profile
-          std::array<float, 16> peakBuf{};
+          std::array<float, 32> peakBuf{};
           uint32_t numPeaks = 0;
           if (algoMode == 0 && specbleach1D_L) {
-            numPeaks = specbleach_get_tonal_peaks_for_profile(
-                specbleach1D_L, actualNoiseProfile,
-                static_cast<uint32_t>(realProfileBins), peakBuf.data(),
+            numPeaks = specbleach_get_tonal_peaks(
+                specbleach1D_L, peakBuf.data(),
                 static_cast<uint32_t>(peakBuf.size()));
           } else if (algoMode == 1 && specbleach2D_L) {
-            numPeaks = specbleach_2d_get_tonal_peaks_for_profile(
-                specbleach2D_L, actualNoiseProfile,
-                static_cast<uint32_t>(realProfileBins), peakBuf.data(),
+            numPeaks = specbleach_2d_get_tonal_peaks(
+                specbleach2D_L, peakBuf.data(),
                 static_cast<uint32_t>(peakBuf.size()));
           }
 
