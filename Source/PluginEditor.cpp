@@ -482,9 +482,8 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(
   lblOffset.setTooltip(
       "Shift noise profile threshold up or down\nin decibels (-12 to +12 dB).");
   const juce::String aggrTip =
-      "Adjust noise profile aggressiveness by morphing between median, "
-      "average,\nand max noise statistics (-1.0: Median, 0.0: Average, +1.0: "
-      "Max).";
+      "Adjust noise profile aggressiveness using statistical variance.\n"
+      "(-1.0: Median, 0.0: Mean, +1.0: Mean + 2 Standard Deviations).";
   sliderAggressiveness.setTooltip(aggrTip);
   lblAggressiveness.setTooltip(aggrTip);
   btnDelta.setTooltip(
@@ -785,9 +784,8 @@ void NoiseRepellentAudioProcessorEditor::updateProfileStatus() {
 
   if (aggressivenessEnabled) {
     const juce::String aggrTip =
-        "Adjust noise profile aggressiveness by morphing between median, "
-        "average,\nand max noise statistics (-1.0: Median, 0.0: Average, +1.0: "
-        "Max).";
+        "Adjust noise profile aggressiveness using statistical variance.\n"
+        "(-1.0: Median, 0.0: Mean, +1.0: Mean + 2 Standard Deviations).";
     sliderAggressiveness.setTooltip(aggrTip);
     lblAggressiveness.setTooltip(aggrTip);
   } else {
