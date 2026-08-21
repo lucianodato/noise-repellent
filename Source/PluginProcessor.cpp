@@ -53,7 +53,11 @@ NoiseRepellentAudioProcessor::createParameterLayout() {
   params.push_back(std::make_unique<juce::AudioParameterChoice>(
       "hpss_quality", "HPSS Quality",
       juce::StringArray{"Off", "Low (Fast)", "Mid (Balanced)", "High (Ultra)"},
-      0));
+      2));
+
+  params.push_back(std::make_unique<juce::AudioParameterFloat>(
+      "hpss_sensitivity", "HPSS Sensitivity",
+      juce::NormalisableRange<float>(0.0f, 100.0f, 1.0f), 50.0f));
 
   params.push_back(std::make_unique<juce::AudioParameterBool>(
       "learn_noise", "Learn Noise", false));
@@ -594,6 +598,7 @@ void NoiseRepellentAudioProcessor::prepareToPlay(double sampleRate,
   // Reset FFT accumulation
   fftAccumInput.fill(0.0f);
   fftAccumOutput.fill(0.0f);
+  fftAccumTransient.fill(0.0f);
   fftAccumCount = 0;
 }
 
@@ -630,6 +635,8 @@ void NoiseRepellentAudioProcessor::processBlock(
       parameters.getRawParameterValue("algorithm_mode")->load());
   const int hpssQuality =
       static_cast<int>(parameters.getRawParameterValue("hpss_quality")->load());
+  const float hpssSensitivity =
+      parameters.getRawParameterValue("hpss_sensitivity")->load() / 100.0f;
   const bool learnNoise =
       parameters.getRawParameterValue("learn_noise")->load() > 0.5f;
   const bool adaptiveNoise =
@@ -710,6 +717,7 @@ void NoiseRepellentAudioProcessor::processBlock(
   p.aggressiveness = aggressiveness;
   p.tonal_reduction = tonalRed;
   p.hpss_quality_mode = hpssQuality;
+  p.hpss_sensitivity = hpssSensitivity;
   p.noise_profile_offset_db = profileOffset;
   p.reduction_curve_enabled = curveEnabled;
   p.reduction_curve_bias =
@@ -728,6 +736,7 @@ void NoiseRepellentAudioProcessor::processBlock(
   p2.aggressiveness = aggressiveness;
   p2.tonal_reduction = tonalRed;
   p2.hpss_quality_mode = hpssQuality;
+  p2.hpss_sensitivity = hpssSensitivity;
   p2.noise_profile_offset_db = profileOffset;
   p2.reduction_curve_enabled = curveEnabled;
   p2.reduction_curve_bias =
@@ -941,6 +950,27 @@ void NoiseRepellentAudioProcessor::processBlock(
     }
   }
 
+  // Query HPSS transient protection status
+  bool transientDetectedL = false;
+  bool transientDetectedR = false;
+  if (algoMode == 0) {
+    if (specbleach1D_L)
+      transientDetectedL = specbleach_is_transient_detected(specbleach1D_L);
+    if (numChannels >= 2 && specbleach1D_R)
+      transientDetectedR = specbleach_is_transient_detected(specbleach1D_R);
+  } else {
+    if (specbleach2D_L)
+      transientDetectedL = specbleach_2d_is_transient_detected(specbleach2D_L);
+    if (numChannels >= 2 && specbleach2D_R)
+      transientDetectedR = specbleach_2d_is_transient_detected(specbleach2D_R);
+  }
+  if (transientDetectedL || transientDetectedR) {
+    transientActivity.store(1.0f, std::memory_order_relaxed);
+  } else {
+    transientActivity.store(0.0f, std::memory_order_relaxed);
+  }
+  hpssActive.store(hpssQuality > 0, std::memory_order_relaxed);
+
   // Update dynamic latency if changed by algorithm mode or HPSS quality mode
   uint32_t activeLatency = 0;
   if (algoMode == 0 && specbleach1D_L) {
@@ -982,9 +1012,11 @@ void NoiseRepellentAudioProcessor::processBlock(
       visualizerDelayWritePos = (visualizerDelayWritePos + 1) % vBufSize;
     }
 
+    const float currentTransientVal = (transientDetectedL || transientDetectedR) ? 1.0f : 0.0f;
     if (fftAccumCount < kFftSize) {
       fftAccumInput[fftAccumCount] = alignedInputSample;
       fftAccumOutput[fftAccumCount] = outputSrc ? outputSrc[s] : 0.0f;
+      fftAccumTransient[fftAccumCount] = currentTransientVal;
       fftAccumCount++;
     }
 
@@ -1091,6 +1123,19 @@ void NoiseRepellentAudioProcessor::processBlock(
         frame.reductionCurveEnabled =
             (parameters.getRawParameterValue("reduction_curve_enabled")
                  ->load() > 0.5f);
+
+        // Sample-accurate alignment matching the center peak of the Hann FFT analysis window
+        bool windowHasTransient = false;
+        constexpr size_t centerStart = kFftSize / 4;
+        constexpr size_t centerEnd = (3 * kFftSize) / 4;
+        for (size_t t = centerStart; t < centerEnd; ++t) {
+          if (fftAccumTransient[t] > 0.5f) {
+            windowHasTransient = true;
+            break;
+          }
+        }
+        frame.isTransientProtected = windowHasTransient;
+        frame.isHpssActive = (hpssQuality > 0);
         frame.tonalPeaksHz.clear();
 
         if (profileAvailable && actualNoiseProfile) {
@@ -1151,6 +1196,8 @@ void NoiseRepellentAudioProcessor::processBlock(
       std::memmove(fftAccumInput.data(), fftAccumInput.data() + kHop,
                    (kFftSize - kHop) * sizeof(float));
       std::memmove(fftAccumOutput.data(), fftAccumOutput.data() + kHop,
+                   (kFftSize - kHop) * sizeof(float));
+      std::memmove(fftAccumTransient.data(), fftAccumTransient.data() + kHop,
                    (kFftSize - kHop) * sizeof(float));
       fftAccumCount = kFftSize - kHop;
     }
