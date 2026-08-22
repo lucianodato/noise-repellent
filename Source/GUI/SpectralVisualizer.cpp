@@ -639,11 +639,10 @@ void SpectralVisualizerComponent::mouseDown(const juce::MouseEvent& e) {
   juce::Rectangle<float> badgeBounds(badgeX, badgeY, badgeW, badgeH);
   if (badgeBounds.contains(e.position)) {
     auto* hpssParam =
-        processor.getAPVTS().getParameter("hpss_quality");
+        processor.getAPVTS().getParameter("hpss_enable");
     if (hpssParam != nullptr) {
       float currentVal = hpssParam->getValue();
-      // If active (> 0), turn Off (0.0). If Off (0), turn On to Mid (index 2 / 3.0 = 0.667)
-      float newVal = (currentVal > 0.05f) ? 0.0f : (2.0f / 3.0f);
+      float newVal = (currentVal > 0.5f) ? 0.0f : 1.0f;
       hpssParam->setValueNotifyingHost(newVal);
       repaint();
       return;

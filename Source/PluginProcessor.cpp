@@ -50,14 +50,8 @@ NoiseRepellentAudioProcessor::createParameterLayout() {
       "algorithm_mode", "Algorithm",
       juce::StringArray{"1D Spectral", "2D NLM Patch HQ"}, 1));
 
-  params.push_back(std::make_unique<juce::AudioParameterChoice>(
-      "hpss_quality", "HPSS Quality",
-      juce::StringArray{"Off", "Low (Fast)", "Mid (Balanced)", "High (Ultra)"},
-      2));
-
-  params.push_back(std::make_unique<juce::AudioParameterFloat>(
-      "hpss_sensitivity", "HPSS Sensitivity",
-      juce::NormalisableRange<float>(0.0f, 100.0f, 1.0f), 50.0f));
+  params.push_back(std::make_unique<juce::AudioParameterBool>(
+      "hpss_enable", "HPSS Protection", true));
 
   params.push_back(std::make_unique<juce::AudioParameterBool>(
       "learn_noise", "Learn Noise", false));
@@ -633,10 +627,8 @@ void NoiseRepellentAudioProcessor::processBlock(
       parameters.getRawParameterValue("bypass")->load() > 0.5f;
   const int algoMode = static_cast<int>(
       parameters.getRawParameterValue("algorithm_mode")->load());
-  const int hpssQuality =
-      static_cast<int>(parameters.getRawParameterValue("hpss_quality")->load());
-  const float hpssSensitivity =
-      parameters.getRawParameterValue("hpss_sensitivity")->load() / 100.0f;
+  const bool hpssEnable =
+      parameters.getRawParameterValue("hpss_enable")->load() > 0.5f;
   const bool learnNoise =
       parameters.getRawParameterValue("learn_noise")->load() > 0.5f;
   const bool adaptiveNoise =
@@ -716,8 +708,7 @@ void NoiseRepellentAudioProcessor::processBlock(
   p.suppression_strength = suppression;
   p.aggressiveness = aggressiveness;
   p.tonal_reduction = tonalRed;
-  p.hpss_quality_mode = hpssQuality;
-  p.hpss_sensitivity = hpssSensitivity;
+  p.hpss_enable = hpssEnable ? 1 : 0;
   p.noise_profile_offset_db = profileOffset;
   p.reduction_curve_enabled = curveEnabled;
   p.reduction_curve_bias =
@@ -735,8 +726,7 @@ void NoiseRepellentAudioProcessor::processBlock(
   p2.suppression_strength = suppression;
   p2.aggressiveness = aggressiveness;
   p2.tonal_reduction = tonalRed;
-  p2.hpss_quality_mode = hpssQuality;
-  p2.hpss_sensitivity = hpssSensitivity;
+  p2.hpss_enable = hpssEnable ? 1 : 0;
   p2.noise_profile_offset_db = profileOffset;
   p2.reduction_curve_enabled = curveEnabled;
   p2.reduction_curve_bias =
@@ -784,8 +774,8 @@ void NoiseRepellentAudioProcessor::processBlock(
     }
   }
 
-  if (hpssQuality != currentHpssQuality) {
-    currentHpssQuality = hpssQuality;
+  if (hpssEnable != currentHpssEnable) {
+    currentHpssEnable = hpssEnable;
     if (specbleach1D_L)
       specbleach_load_parameters(specbleach1D_L, p);
     if (specbleach1D_R)
@@ -969,7 +959,7 @@ void NoiseRepellentAudioProcessor::processBlock(
   } else {
     transientActivity.store(0.0f, std::memory_order_relaxed);
   }
-  hpssActive.store(hpssQuality > 0, std::memory_order_relaxed);
+  hpssActive.store(hpssEnable, std::memory_order_relaxed);
 
   // Update dynamic latency if changed by algorithm mode or HPSS quality mode
   uint32_t activeLatency = 0;
@@ -1135,7 +1125,7 @@ void NoiseRepellentAudioProcessor::processBlock(
           }
         }
         frame.isTransientProtected = windowHasTransient;
-        frame.isHpssActive = (hpssQuality > 0);
+        frame.isHpssActive = hpssEnable;
         frame.tonalPeaksHz.clear();
 
         if (profileAvailable && actualNoiseProfile) {

@@ -162,7 +162,7 @@ private:
 
   double currentSampleRate = 44100.0;
   int currentAlgoMode = 1;    // Track for dynamic latency updates
-  int currentHpssQuality = 0; // Track for dynamic HPSS quality updates
+  bool currentHpssEnable = true; // Track for dynamic HPSS enable updates
   std::atomic<float> transientActivity{0.0f};
   std::atomic<bool> hpssActive{false};
   bool wasLearning =
