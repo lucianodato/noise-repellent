@@ -115,6 +115,8 @@ public:
     bool hasNoiseProfile = false;
     bool isLinked = true;
     bool reductionCurveEnabled = false;
+    bool isTransientProtected = false;
+    bool isHpssActive = false;
   };
 
   bool getNextSpectralFrame(SpectralFrame& frame);
@@ -124,6 +126,14 @@ public:
 
   double getSampleRate() const {
     return currentSampleRate;
+  }
+
+  float consumeTransientActivity() {
+    return transientActivity.exchange(0.0f, std::memory_order_relaxed);
+  }
+
+  bool isHpssActive() const {
+    return hpssActive.load(std::memory_order_relaxed);
   }
 
 private:
@@ -151,8 +161,10 @@ private:
   juce::dsp::DryWetMixer<float> dryWetMixer;
 
   double currentSampleRate = 44100.0;
-  int currentAlgoMode = 1;    // Track for dynamic latency updates
-  int currentHpssQuality = 0; // Track for dynamic HPSS quality updates
+  int currentAlgoMode = 1;       // Track for dynamic latency updates
+  bool currentHpssEnable = true; // Track for dynamic HPSS enable updates
+  std::atomic<float> transientActivity{0.0f};
+  std::atomic<bool> hpssActive{false};
   bool wasLearning =
       false; // Track learn mode state transition to sync profiles
 
@@ -207,6 +219,7 @@ private:
   // Accumulation buffer for FFT (collects samples across processBlock calls)
   std::array<float, kFftSize> fftAccumInput{};
   std::array<float, kFftSize> fftAccumOutput{};
+  std::array<float, kFftSize> fftAccumTransient{};
   size_t fftAccumCount = 0;
 
   // Latency-compensated delay line for input FFT visualization

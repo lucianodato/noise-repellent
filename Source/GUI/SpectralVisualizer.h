@@ -19,40 +19,49 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 #pragma once
 
-#include <juce_gui_basics/juce_gui_basics.h>
 #include "../PluginProcessor.h"
+#include <juce_gui_basics/juce_gui_basics.h>
 
 class SpectralVisualizerComponent : public juce::Component,
-                                    public juce::Timer
-{
+                                    public juce::Timer,
+                                    public juce::TooltipClient {
 public:
-    explicit SpectralVisualizerComponent(NoiseRepellentAudioProcessor& processorToUse);
-    ~SpectralVisualizerComponent() override;
+  explicit SpectralVisualizerComponent(
+      NoiseRepellentAudioProcessor& processorToUse);
+  ~SpectralVisualizerComponent() override;
 
-    void paint(juce::Graphics& g) override;
-    void resized() override;
-    void timerCallback() override;
+  void paint(juce::Graphics& g) override;
+  void resized() override;
+  void timerCallback() override;
 
-    void mouseDown(const juce::MouseEvent& e) override;
-    void mouseDrag(const juce::MouseEvent& e) override;
-    void mouseUp(const juce::MouseEvent& e) override;
-    void mouseDoubleClick(const juce::MouseEvent& e) override;
+  void mouseDown(const juce::MouseEvent& e) override;
+  void mouseDrag(const juce::MouseEvent& e) override;
+  void mouseUp(const juce::MouseEvent& e) override;
+  void mouseDoubleClick(const juce::MouseEvent& e) override;
+  void mouseMove(const juce::MouseEvent& e) override;
+  void mouseExit(const juce::MouseEvent& e) override;
+
+  juce::String getTooltip() override;
 
 private:
-    NoiseRepellentAudioProcessor& processor;
-    NoiseRepellentAudioProcessor::SpectralFrame currentFrame;
+  NoiseRepellentAudioProcessor& processor;
+  NoiseRepellentAudioProcessor::SpectralFrame currentFrame;
 
-    std::array<float, NoiseRepellentAudioProcessor::kFftBins> smoothedInputDB;
-    std::array<float, NoiseRepellentAudioProcessor::kFftBins> smoothedOutputDB;
-    bool isSmoothedInitialized = false;
+  std::array<float, NoiseRepellentAudioProcessor::kFftBins> smoothedInputDB;
+  std::array<float, NoiseRepellentAudioProcessor::kFftBins> smoothedOutputDB;
+  bool isSmoothedInitialized = false;
 
-    // Mouse Interaction
-    enum class DragTarget { None, CurveNode };
-    DragTarget activeDragTarget = DragTarget::None;
-    int activeNodeIndex = -1;
-    juce::Point<float> dragStartPos;
-    float dragStartNormX = 0.0f;
-    float dragStartBiasDB = 0.0f;
+  float ledBrightness = 0.0f;
+  int transientHoldTicks = 0;
+  bool hpssActive = false;
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SpectralVisualizerComponent)
+  // Mouse Interaction
+  enum class DragTarget { None, CurveNode };
+  DragTarget activeDragTarget = DragTarget::None;
+  int activeNodeIndex = -1;
+  juce::Point<float> dragStartPos;
+  float dragStartNormX = 0.0f;
+  float dragStartBiasDB = 0.0f;
+
+  JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SpectralVisualizerComponent)
 };

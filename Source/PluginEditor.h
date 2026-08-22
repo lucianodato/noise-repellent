@@ -88,7 +88,6 @@ private:
   // Module 3: Advanced Controls Panel (Collapsible)
   juce::GroupComponent groupAdvanced{"groupAdvanced", "ADVANCED CONTROLS"};
   juce::ComboBox comboMethod;
-  juce::ComboBox comboHpssQuality;
   juce::Slider sliderAggressiveness{juce::Slider::LinearHorizontal,
                                     juce::Slider::NoTextBox};
   juce::Slider sliderSmoothing{juce::Slider::LinearHorizontal,
@@ -101,7 +100,6 @@ private:
                                  juce::Slider::NoTextBox};
 
   juce::Label lblMethod{"lblMethod", "ESTIMATION METHOD"};
-  juce::Label lblHpssQuality{"lblHpssQuality", "HPSS QUALITY"};
   juce::Label lblAggressiveness{"lblAggressiveness", "AGGRESSIVENESS"};
   juce::Label lblSmoothing{"lblSmoothing", "SMOOTHING"};
   juce::Label lblMasking{"lblMasking", "MASKING PROTECT"};
@@ -127,7 +125,6 @@ private:
   std::unique_ptr<ButtonAttachment> attachShowAdvanced;
 
   std::unique_ptr<ComboBoxAttachment> attachMethod;
-  std::unique_ptr<ComboBoxAttachment> attachHpssQuality;
 
   std::unique_ptr<SliderAttachment> attachMasterRed;
   std::unique_ptr<SliderAttachment> attachTonalRed;

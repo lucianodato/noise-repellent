@@ -304,23 +304,12 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(
                           1);
   addAndMakeVisible(comboMethod);
 
-  comboHpssQuality.addItemList(
-      {"Off", "Low (Fast)", "Mid (Balanced)", "High (Ultra)"}, 1);
-  addAndMakeVisible(comboHpssQuality);
-
   lblMethod.setFont(juce::FontOptions(NoiseRepellentLookAndFeel::kFontSizeLabel,
                                       juce::Font::bold));
   lblMethod.setColour(juce::Label::textColourId,
                       NoiseRepellentLookAndFeel::kColorDenoising);
   lblMethod.setJustificationType(juce::Justification::left);
   addAndMakeVisible(lblMethod);
-
-  lblHpssQuality.setFont(juce::FontOptions(
-      NoiseRepellentLookAndFeel::kFontSizeLabel, juce::Font::bold));
-  lblHpssQuality.setColour(juce::Label::textColourId,
-                           NoiseRepellentLookAndFeel::kColorDenoising);
-  lblHpssQuality.setJustificationType(juce::Justification::centred);
-  addAndMakeVisible(lblHpssQuality);
 
   lblOffset.setFont(juce::FontOptions(NoiseRepellentLookAndFeel::kFontSizeLabel,
                                       juce::Font::bold));
@@ -417,8 +406,6 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(
 
   attachMethod = std::make_unique<ComboBoxAttachment>(apvts, "adaptive_method",
                                                       comboMethod);
-  attachHpssQuality = std::make_unique<ComboBoxAttachment>(
-      apvts, "hpss_quality", comboHpssQuality);
 
   attachMasterRed = std::make_unique<SliderAttachment>(
       apvts, "reduction_amount", sliderMasterRed);
@@ -445,14 +432,6 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(
   lblAlgoHeader.setTooltip(
       "Select denoising algorithm: 1D STFT (fast & low latency)\nor 2D NLM "
       "Patch (high quality non-local means processing).");
-  comboHpssQuality.setTooltip(
-      "Select transient protection algorithm quality. Separates transient "
-      "attacks from \nstationary components to preserve plucks and percussive "
-      "clarity.");
-  lblHpssQuality.setTooltip(
-      "Select transient protection algorithm quality. Separates transient "
-      "attacks from \nstationary components to preserve plucks and percussive "
-      "clarity.");
   btnAdvancedToggle.setTooltip("Toggle Advanced DSP Controls");
   btnLearn.setTooltip(
       "Capture static noise profile from current audio input\n(supports "
@@ -646,8 +625,6 @@ void NoiseRepellentAudioProcessorEditor::updateLayout() {
   btnResetProfile.setVisible(true);
   comboMethod.setVisible(false);
   lblMethod.setVisible(false);
-  comboHpssQuality.setVisible(isAdvancedVisible);
-  lblHpssQuality.setVisible(isAdvancedVisible);
   sliderSmoothing.setVisible(isAdvancedVisible);
   lblSmoothing.setVisible(isAdvancedVisible);
   sliderMasking.setVisible(isAdvancedVisible);
@@ -926,26 +903,21 @@ void NoiseRepellentAudioProcessorEditor::paint(juce::Graphics& g) {
     float topY = (float)groupAdvanced.getY() + 22.0f;
     float bottomY = (float)groupAdvanced.getBottom() - 10.0f;
 
-    // 4 Separator lines between 5 controls in Advanced Controls
-    if (comboHpssQuality.getWidth() > 0 && sliderSmoothing.getWidth() > 0) {
+    // 3 Separator lines between 4 controls in Advanced Controls
+    if (sliderSmoothing.getWidth() > 0 && sliderMasking.getWidth() > 0) {
       float x0 =
-          (float)(comboHpssQuality.getRight() + sliderSmoothing.getX()) / 2.0f;
+          (float)(sliderSmoothing.getRight() + sliderMasking.getX()) / 2.0f;
       g.drawVerticalLine(juce::roundToInt(x0), topY, bottomY);
     }
-    if (sliderSmoothing.getWidth() > 0 && sliderMasking.getWidth() > 0) {
+    if (sliderMasking.getWidth() > 0 && sliderWhitening.getWidth() > 0) {
       float x1 =
-          (float)(sliderSmoothing.getRight() + sliderMasking.getX()) / 2.0f;
+          (float)(sliderMasking.getRight() + sliderWhitening.getX()) / 2.0f;
       g.drawVerticalLine(juce::roundToInt(x1), topY, bottomY);
     }
-    if (sliderMasking.getWidth() > 0 && sliderWhitening.getWidth() > 0) {
-      float x2 =
-          (float)(sliderMasking.getRight() + sliderWhitening.getX()) / 2.0f;
-      g.drawVerticalLine(juce::roundToInt(x2), topY, bottomY);
-    }
     if (sliderWhitening.getWidth() > 0 && sliderSuppression.getWidth() > 0) {
-      float x3 =
+      float x2 =
           (float)(sliderWhitening.getRight() + sliderSuppression.getX()) / 2.0f;
-      g.drawVerticalLine(juce::roundToInt(x3), topY, bottomY);
+      g.drawVerticalLine(juce::roundToInt(x2), topY, bottomY);
     }
   }
 }
@@ -1074,8 +1046,8 @@ void NoiseRepellentAudioProcessorEditor::resized() {
     }
   }
 
-  // Bottom Collapsible Advanced Panel (5 Controls: HPSS Quality, Smoothing,
-  // Masking, Whitening, Suppression)
+  // Bottom Collapsible Advanced Panel (4 Controls: Smoothing, Masking,
+  // Whitening, Suppression)
   if (isAdvancedVisible) {
     auto advArea = area.removeFromBottom(68);
     groupAdvanced.setBounds(advArea);
@@ -1083,39 +1055,32 @@ void NoiseRepellentAudioProcessorEditor::resized() {
     auto advInner = advArea.reduced(10, 4);
     advInner.removeFromTop(12);
 
-    constexpr int kNumGaps = 4;
-    constexpr int kGapW = 10;
+    constexpr int kNumGaps = 3;
+    constexpr int kGapW = 14;
     int totalAvailWidth = advInner.getWidth() - (kNumGaps * kGapW);
-    int itemW = totalAvailWidth / 5;
+    int itemW = totalAvailWidth / 4;
 
-    // 1. HPSS Quality Combo Box
-    auto c0 = advInner.removeFromLeft(itemW);
-    lblHpssQuality.setBounds(c0.removeFromTop(16));
-    c0.removeFromTop(2);
-    comboHpssQuality.setBounds(c0.removeFromTop(20));
-
-    // 2. Smoothing Slider
-    advInner.removeFromLeft(kGapW);
+    // 1. Smoothing Slider
     auto s1 = advInner.removeFromLeft(itemW);
     lblSmoothing.setBounds(s1.removeFromTop(16));
     s1.removeFromTop(2);
     sliderSmoothing.setBounds(s1.removeFromTop(20));
 
-    // 3. Masking Slider
+    // 2. Masking Slider
     advInner.removeFromLeft(kGapW);
     auto s2 = advInner.removeFromLeft(itemW);
     lblMasking.setBounds(s2.removeFromTop(16));
     s2.removeFromTop(2);
     sliderMasking.setBounds(s2.removeFromTop(20));
 
-    // 4. Whitening Slider
+    // 3. Whitening Slider
     advInner.removeFromLeft(kGapW);
     auto s3 = advInner.removeFromLeft(itemW);
     lblWhitening.setBounds(s3.removeFromTop(16));
     s3.removeFromTop(2);
     sliderWhitening.setBounds(s3.removeFromTop(20));
 
-    // 5. Suppression Slider
+    // 4. Suppression Slider
     advInner.removeFromLeft(kGapW);
     auto s4 = advInner;
     lblSuppression.setBounds(s4.removeFromTop(16));
