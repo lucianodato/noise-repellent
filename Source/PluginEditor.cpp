@@ -890,6 +890,12 @@ void NoiseRepellentAudioProcessorEditor::timerCallback() {
     triggerAsyncUpdate();
   }
 
+  bool isOffline = audioProcessor.isNonRealtime();
+  if (isOffline != wasOfflineRendering) {
+    wasOfflineRendering = isOffline;
+    repaint();
+  }
+
   updateSliderLabels();
   updateProfileStatus();
 }
@@ -920,6 +926,46 @@ void NoiseRepellentAudioProcessorEditor::paint(juce::Graphics& g) {
       g.drawVerticalLine(juce::roundToInt(x2), topY, bottomY);
     }
   }
+}
+
+void NoiseRepellentAudioProcessorEditor::paintOverChildren(juce::Graphics& g) {
+  if (!audioProcessor.isNonRealtime())
+    return;
+
+  // Darken UI overlay
+  auto bounds = getLocalBounds();
+  g.setColour(juce::Colour(0xd0161a22));
+  g.fillRect(bounds);
+
+  // Center badge card
+  constexpr int cardW = 320;
+  constexpr int cardH = 96;
+  auto cardRect = bounds.withSizeKeepingCentre(cardW, cardH).toFloat();
+
+  g.setColour(juce::Colour(0xee212630));
+  g.fillRoundedRectangle(cardRect, 8.0f);
+
+  g.setColour(NoiseRepellentLookAndFeel::kColorPanelBorder);
+  g.drawRoundedRectangle(cardRect, 8.0f, 1.5f);
+
+  auto contentArea = cardRect.toNearestInt().reduced(12);
+
+  // Status title
+  g.setColour(NoiseRepellentLookAndFeel::kColorDenoising);
+  g.setFont(juce::FontOptions(NoiseRepellentLookAndFeel::kFontSizeBrand,
+                              juce::Font::bold));
+  g.drawText("OFFLINE RENDERING", contentArea.removeFromTop(24),
+             juce::Justification::centred, false);
+
+  contentArea.removeFromTop(4);
+
+  // Subtitle explanation
+  g.setColour(juce::Colour(0xff94a3b8));
+  g.setFont(juce::FontOptions(NoiseRepellentLookAndFeel::kFontSizeLabel,
+                              juce::Font::plain));
+  g.drawText(
+      "DSP processing in progress...\nVisualizer and UI disabled for maximum speed.",
+      contentArea, juce::Justification::centred, false);
 }
 
 void NoiseRepellentAudioProcessorEditor::resized() {

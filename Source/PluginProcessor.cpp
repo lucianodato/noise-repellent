@@ -983,6 +983,12 @@ void NoiseRepellentAudioProcessor::processBlock(
   dryWetMixer.setWetMixProportion(isBypassed ? 0.0f : 1.0f);
   dryWetMixer.mixWetSamples(audioBlock);
 
+  // Skip FFT analysis and FIFO writes during offline rendering or if the GUI is closed
+  if (isNonRealtime() || getActiveEditor() == nullptr) {
+    fftAccumCount = 0;
+    return;
+  }
+
   // ── FFT-based spectral frame for GUI visualization ──
   // Accumulate samples until we have a full FFT window (kFftSize samples)
   const float* inputSrc = dryInputL.data();

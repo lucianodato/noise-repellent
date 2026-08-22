@@ -35,6 +35,7 @@ public:
   ~NoiseRepellentAudioProcessorEditor() override;
 
   void paint(juce::Graphics&) override;
+  void paintOverChildren(juce::Graphics&) override;
   void resized() override;
   void timerCallback() override;
   void mouseEnter(const juce::MouseEvent&) override;
@@ -136,6 +137,7 @@ private:
   std::unique_ptr<SliderAttachment> attachSuppression;
 
   bool isAdvancedVisible = true;
+  bool wasOfflineRendering = false;
 
   void updateLayout();
   void updateSliderLabels();
