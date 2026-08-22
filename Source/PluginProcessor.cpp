@@ -1049,6 +1049,7 @@ void NoiseRepellentAudioProcessor::processBlock(
         bool profileAvailable = false;
 
         bool isAdaptive = adaptiveNoise;
+        bool isLearning = learnNoise;
         bool profileHasAnyMode = false;
 
         juce::SpinLock::ScopedTryLockType profileTryLock(profileLock);
@@ -1061,7 +1062,13 @@ void NoiseRepellentAudioProcessor::processBlock(
                 break;
               }
             }
-            if (isAdaptive || profileHasAnyMode) {
+            if (isLearning) {
+              actualNoiseProfile =
+                  specbleach_get_noise_profile_for_mode(specbleach1D_L, 1);
+              profileSize = specbleach_get_noise_profile_size(specbleach1D_L);
+              profileAvailable =
+                  (actualNoiseProfile != nullptr && profileSize > 0);
+            } else if (isAdaptive || profileHasAnyMode) {
               actualNoiseProfile =
                   specbleach_get_active_noise_profile(specbleach1D_L);
               profileSize = specbleach_get_noise_profile_size(specbleach1D_L);
@@ -1071,7 +1078,8 @@ void NoiseRepellentAudioProcessor::processBlock(
                           specbleach1D_L, m)) {
                     actualNoiseProfile = specbleach_get_noise_profile_for_mode(
                         specbleach1D_L, m);
-                    break;
+                    if (actualNoiseProfile)
+                      break;
                   }
                 }
               }
@@ -1086,7 +1094,14 @@ void NoiseRepellentAudioProcessor::processBlock(
                 break;
               }
             }
-            if (isAdaptive || profileHasAnyMode) {
+            if (isLearning) {
+              actualNoiseProfile =
+                  specbleach_2d_get_noise_profile_for_mode(specbleach2D_L, 1);
+              profileSize =
+                  specbleach_2d_get_noise_profile_size(specbleach2D_L);
+              profileAvailable =
+                  (actualNoiseProfile != nullptr && profileSize > 0);
+            } else if (isAdaptive || profileHasAnyMode) {
               actualNoiseProfile =
                   specbleach_2d_get_active_noise_profile(specbleach2D_L);
               profileSize =
@@ -1098,7 +1113,8 @@ void NoiseRepellentAudioProcessor::processBlock(
                     actualNoiseProfile =
                         specbleach_2d_get_noise_profile_for_mode(specbleach2D_L,
                                                                  m);
-                    break;
+                    if (actualNoiseProfile)
+                      break;
                   }
                 }
               }
@@ -1106,78 +1122,80 @@ void NoiseRepellentAudioProcessor::processBlock(
                   (actualNoiseProfile != nullptr && profileSize > 0);
             }
           }
-        }
 
-        frame.hasNoiseProfile = profileAvailable;
-        frame.isLinked =
-            (parameters.getRawParameterValue("link_reduction")->load() > 0.5f);
-        frame.reductionCurveEnabled =
-            (parameters.getRawParameterValue("reduction_curve_enabled")
-                 ->load() > 0.5f);
+          frame.hasNoiseProfile = profileAvailable;
+          frame.isLinked =
+              (parameters.getRawParameterValue("link_reduction")->load() >
+               0.5f);
+          frame.reductionCurveEnabled =
+              (parameters.getRawParameterValue("reduction_curve_enabled")
+                   ->load() > 0.5f);
 
-        // Sample-accurate alignment matching the center peak of the Hann FFT
-        // analysis window
-        bool windowHasTransient = false;
-        constexpr size_t centerStart = kFftSize / 4;
-        constexpr size_t centerEnd = (3 * kFftSize) / 4;
-        for (size_t t = centerStart; t < centerEnd; ++t) {
-          if (fftAccumTransient[t] > 0.5f) {
-            windowHasTransient = true;
-            break;
+          // Sample-accurate alignment matching the center peak of the Hann FFT
+          // analysis window
+          bool windowHasTransient = false;
+          constexpr size_t centerStart = kFftSize / 4;
+          constexpr size_t centerEnd = (3 * kFftSize) / 4;
+          for (size_t t = centerStart; t < centerEnd; ++t) {
+            if (fftAccumTransient[t] > 0.5f) {
+              windowHasTransient = true;
+              break;
+            }
           }
-        }
-        frame.isTransientProtected = windowHasTransient;
-        frame.isHpssActive = hpssEnable;
-        frame.tonalPeaksHz.clear();
+          frame.isTransientProtected = windowHasTransient;
+          frame.isHpssActive = hpssEnable;
+          frame.tonalPeaksHz.clear();
 
-        if (profileAvailable && actualNoiseProfile) {
-          // profileSize represents the unique spectrum from DC (0 Hz) to
-          // Nyquist (Fs/2)
-          size_t realProfileBins = profileSize;
+          if (profileAvailable && actualNoiseProfile) {
+            // profileSize represents the unique spectrum from DC (0 Hz) to
+            // Nyquist (Fs/2)
+            size_t realProfileBins = profileSize;
 
-          const float maxProfileIdx = static_cast<float>(realProfileBins - 1);
-          const float maxFftIdx = static_cast<float>(kFftBins - 1);
-          // FFTW unnormalized power scaling offset: 20 * log10(N/2)
-          const float dbOffset = (maxProfileIdx > 0.0f)
-                                     ? (20.0f * std::log10(maxProfileIdx))
-                                     : 0.0f;
+            const float maxProfileIdx = static_cast<float>(realProfileBins - 1);
+            const float maxFftIdx = static_cast<float>(kFftBins - 1);
+            // FFTW unnormalized power scaling offset: 20 * log10(N/2)
+            const float dbOffset = (maxProfileIdx > 0.0f)
+                                       ? (20.0f * std::log10(maxProfileIdx))
+                                       : 0.0f;
 
-          for (size_t i = 0; i < kFftBins; ++i) {
-            float normPos = static_cast<float>(i) / maxFftIdx;
-            float exactP = normPos * maxProfileIdx;
+            for (size_t i = 0; i < kFftBins; ++i) {
+              float normPos = static_cast<float>(i) / maxFftIdx;
+              float exactP = normPos * maxProfileIdx;
 
-            size_t p0 = std::clamp(static_cast<size_t>(exactP),
-                                   static_cast<size_t>(0), realProfileBins - 1);
-            size_t p1 = std::min(p0 + 1, realProfileBins - 1);
-            float frac = exactP - static_cast<float>(p0);
+              size_t p0 = std::clamp(static_cast<size_t>(exactP),
+                                     static_cast<size_t>(0),
+                                     realProfileBins - 1);
+              size_t p1 = std::min(p0 + 1, realProfileBins - 1);
+              float frac = exactP - static_cast<float>(p0);
 
-            float val0 = actualNoiseProfile[p0];
-            float val1 = actualNoiseProfile[p1];
-            float interpVal = (1.0f - frac) * val0 + frac * val1;
+              float val0 = actualNoiseProfile[p0];
+              float val1 = actualNoiseProfile[p1];
+              float interpVal = (1.0f - frac) * val0 + frac * val1;
 
-            float rawDb = 10.0f * std::log10(std::max(interpVal, 1e-12f));
-            frame.noiseFloorDB[i] = rawDb - dbOffset;
+              float rawDb = 10.0f * std::log10(std::max(interpVal, 1e-12f));
+              frame.noiseFloorDB[i] = rawDb - dbOffset;
+            }
+
+            // Query libspecbleach directly for reported tonal peak frequencies
+            // computed on this real noise profile
+            std::array<float, 32> peakBuf{};
+            uint32_t numPeaks = 0;
+            if (algoMode == 0 && specbleach1D_L) {
+              numPeaks = specbleach_get_tonal_peaks(
+                  specbleach1D_L, peakBuf.data(),
+                  static_cast<uint32_t>(peakBuf.size()));
+            } else if (algoMode == 1 && specbleach2D_L) {
+              numPeaks = specbleach_2d_get_tonal_peaks(
+                  specbleach2D_L, peakBuf.data(),
+                  static_cast<uint32_t>(peakBuf.size()));
+            }
+
+            for (uint32_t i = 0; i < numPeaks; ++i) {
+              frame.tonalPeaksHz.push_back(peakBuf[i]);
+            }
+          } else {
+            frame.noiseFloorDB.fill(-120.0f);
           }
-
-          // Query libspecbleach directly for reported tonal peak frequencies
-          // computed on this real noise profile
-          std::array<float, 32> peakBuf{};
-          uint32_t numPeaks = 0;
-          if (algoMode == 0 && specbleach1D_L) {
-            numPeaks = specbleach_get_tonal_peaks(
-                specbleach1D_L, peakBuf.data(),
-                static_cast<uint32_t>(peakBuf.size()));
-          } else if (algoMode == 1 && specbleach2D_L) {
-            numPeaks = specbleach_2d_get_tonal_peaks(
-                specbleach2D_L, peakBuf.data(),
-                static_cast<uint32_t>(peakBuf.size()));
-          }
-
-          for (uint32_t i = 0; i < numPeaks; ++i) {
-            frame.tonalPeaksHz.push_back(peakBuf[i]);
-          }
-        } else {
-          frame.noiseFloorDB.fill(-120.0f);
         }
 
         spectralFifo.finishedWrite(1);
