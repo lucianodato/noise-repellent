@@ -43,9 +43,17 @@ public:
 
   juce::String getTooltip() override;
 
+  void setAdvancedControlsVisible(bool visible) {
+    if (isAdvancedVisible != visible) {
+      isAdvancedVisible = visible;
+      repaint();
+    }
+  }
+
 private:
   NoiseRepellentAudioProcessor& processor;
   NoiseRepellentAudioProcessor::SpectralFrame currentFrame;
+  bool isAdvancedVisible = false;
 
   std::array<float, NoiseRepellentAudioProcessor::kFftBins> smoothedInputDB;
   std::array<float, NoiseRepellentAudioProcessor::kFftBins> smoothedOutputDB;

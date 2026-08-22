@@ -289,8 +289,8 @@ void SpectralVisualizerComponent::paint(juce::Graphics& g) {
     g.strokePath(noisePath, juce::PathStrokeType(2.0f));
   }
 
-  // 3b. Reduction Curve Bias Overlay & Nodes
-  if (currentFrame.reductionCurveEnabled) {
+  // 3b. Reduction Curve Bias Overlay & Nodes (Only shown in Advanced mode)
+  if (isAdvancedVisible && currentFrame.reductionCurveEnabled) {
     const auto& nodes = processor.getCurveNodes();
     if (nodes.size() >= 2) {
       auto nodeToPoint = [&](const NoiseRepellentAudioProcessor::CurveNode& n)
@@ -386,9 +386,9 @@ void SpectralVisualizerComponent::paint(juce::Graphics& g) {
   }
 
   // 4. Tonal Peak Markers (Dashed vertical lines with staggered multi-tier
-  // frequency tags; shown ONLY when Reduction is UNLINKED)
-  if (!currentFrame.isLinked && currentFrame.hasNoiseProfile &&
-      !currentFrame.tonalPeaksHz.empty()) {
+  // frequency tags; shown ONLY in Advanced mode when Reduction is UNLINKED)
+  if (isAdvancedVisible && !currentFrame.isLinked &&
+      currentFrame.hasNoiseProfile && !currentFrame.tonalPeaksHz.empty()) {
     // 3 Y-tiers starting at Y = 42.0f to guarantee zero collision with top HUD
     // overlay bar
     constexpr float kStartTagY = 42.0f;
@@ -449,8 +449,9 @@ void SpectralVisualizerComponent::paint(juce::Graphics& g) {
   // 5. HUD Color Legend (Top-Right Overlay, positioned to the left of Advanced
   // Controls button)
   {
-    const bool showTonalSwatch = !currentFrame.isLinked;
-    const bool showCurveSwatch = currentFrame.reductionCurveEnabled;
+    const bool showTonalSwatch = isAdvancedVisible && !currentFrame.isLinked;
+    const bool showCurveSwatch =
+        isAdvancedVisible && currentFrame.reductionCurveEnabled;
     const float padding = 10.0f;
     const float swatch1W = 10.0f + 4.0f + 32.0f + 14.0f; // Input (60)
     const float swatch2W = 12.0f + 4.0f + 38.0f + 14.0f; // Profile (68)
@@ -539,8 +540,8 @@ void SpectralVisualizerComponent::paint(juce::Graphics& g) {
     }
   }
 
-  // 6. HPSS Dual-Path LED Indicator (Top-Right Corner: click to toggle ON/OFF)
-  {
+  // 6. HPSS Dual-Path LED Indicator (Top-Right Corner: click to toggle ON/OFF, visible in Advanced mode)
+  if (isAdvancedVisible) {
     const bool isTransient = hpssActive && (ledBrightness > 0.35f);
     const float badgeW = 92.0f;
     const float badgeH = 24.0f;
@@ -632,25 +633,27 @@ void SpectralVisualizerComponent::mouseDown(const juce::MouseEvent& e) {
   const float w = static_cast<float>(getWidth());
   const float h = static_cast<float>(getHeight());
 
-  // Check HPSS Toggle Badge click (Top-Right corner)
-  const float badgeW = 92.0f;
-  const float badgeH = 24.0f;
-  const float badgeX = w - badgeW - 10.0f;
-  const float badgeY = 10.0f;
-  juce::Rectangle<float> badgeBounds(badgeX, badgeY, badgeW, badgeH);
-  if (badgeBounds.contains(e.position)) {
-    auto* hpssParam = processor.getAPVTS().getParameter("hpss_enable");
-    if (hpssParam != nullptr) {
-      float currentVal = hpssParam->getValue();
-      float newVal = (currentVal > 0.5f) ? 0.0f : 1.0f;
-      hpssParam->setValueNotifyingHost(newVal);
-      repaint();
-      return;
+  // Check HPSS Toggle Badge click (Top-Right corner, only active when advanced controls are visible)
+  if (isAdvancedVisible) {
+    const float badgeW = 92.0f;
+    const float badgeH = 24.0f;
+    const float badgeX = w - badgeW - 10.0f;
+    const float badgeY = 10.0f;
+    juce::Rectangle<float> badgeBounds(badgeX, badgeY, badgeW, badgeH);
+    if (badgeBounds.contains(e.position)) {
+      auto* hpssParam = processor.getAPVTS().getParameter("hpss_enable");
+      if (hpssParam != nullptr) {
+        float currentVal = hpssParam->getValue();
+        float newVal = (currentVal > 0.5f) ? 0.0f : 1.0f;
+        hpssParam->setValueNotifyingHost(newVal);
+        repaint();
+        return;
+      }
     }
   }
 
-  // Check Reduction Curve nodes (if enabled)
-  if (currentFrame.reductionCurveEnabled) {
+  // Check Reduction Curve nodes (if enabled and in Advanced mode)
+  if (isAdvancedVisible && currentFrame.reductionCurveEnabled) {
     const auto& nodes = processor.getCurveNodes();
     for (size_t i = 0; i < nodes.size(); ++i) {
       float nx = std::clamp(nodes[i].normX, 0.0f, 1.0f);
@@ -690,20 +693,19 @@ void SpectralVisualizerComponent::mouseUp(const juce::MouseEvent&) {
 }
 
 void SpectralVisualizerComponent::mouseDoubleClick(const juce::MouseEvent& e) {
-  if (!currentFrame.reductionCurveEnabled)
-    return;
+  if (isAdvancedVisible && currentFrame.reductionCurveEnabled) {
+    const auto& nodes = processor.getCurveNodes();
+    const float w = static_cast<float>(getWidth());
+    const float h = static_cast<float>(getHeight());
 
-  const float w = static_cast<float>(getWidth());
-  const float h = static_cast<float>(getHeight());
-  const auto& nodes = processor.getCurveNodes();
-
-  for (size_t i = 1; i < nodes.size() - 1; ++i) {
-    float nx = std::clamp(nodes[i].normX, 0.0f, 1.0f);
-    float ny = h * 0.5f - (nodes[i].biasDB / 24.0f) * (h * 0.4f);
-    if (e.position.getDistanceFrom({nx * w, ny}) <= 12.0f) {
-      processor.removeCurveNode(static_cast<int>(i));
-      repaint();
-      return;
+    for (size_t i = 1; i < nodes.size() - 1; ++i) {
+      float nx = std::clamp(nodes[i].normX, 0.0f, 1.0f);
+      float ny = h * 0.5f - (nodes[i].biasDB / 24.0f) * (h * 0.4f);
+      if (e.position.getDistanceFrom({nx * w, ny}) <= 12.0f) {
+        processor.removeCurveNode(static_cast<int>(i));
+        repaint();
+        return;
+      }
     }
   }
 }
@@ -716,7 +718,7 @@ void SpectralVisualizerComponent::mouseMove(const juce::MouseEvent& e) {
   const float badgeY = 10.0f;
   juce::Rectangle<float> badgeBounds(badgeX, badgeY, badgeW, badgeH);
 
-  if (badgeBounds.contains(e.position)) {
+  if (isAdvancedVisible && badgeBounds.contains(e.position)) {
     setMouseCursor(juce::MouseCursor::PointingHandCursor);
   } else {
     setMouseCursor(juce::MouseCursor::NormalCursor);
@@ -728,17 +730,19 @@ void SpectralVisualizerComponent::mouseExit(const juce::MouseEvent&) {
 }
 
 juce::String SpectralVisualizerComponent::getTooltip() {
-  const float w = static_cast<float>(getWidth());
-  const float badgeW = 92.0f;
-  const float badgeH = 24.0f;
-  const float badgeX = w - badgeW - 10.0f;
-  const float badgeY = 10.0f;
-  juce::Rectangle<float> badgeBounds(badgeX, badgeY, badgeW, badgeH);
+  if (isAdvancedVisible) {
+    const float w = static_cast<float>(getWidth());
+    const float badgeW = 92.0f;
+    const float badgeH = 24.0f;
+    const float badgeX = w - badgeW - 10.0f;
+    const float badgeY = 10.0f;
+    juce::Rectangle<float> badgeBounds(badgeX, badgeY, badgeW, badgeH);
 
-  auto mousePos = getMouseXYRelative().toFloat();
-  if (badgeBounds.contains(mousePos)) {
-    return "Toggle Harmonic-Percussive transient protection.\nPreserves "
-           "attack clarity on percussive and plucked sounds.";
+    auto mousePos = getMouseXYRelative().toFloat();
+    if (badgeBounds.contains(mousePos)) {
+      return "Toggle Harmonic-Percussive transient protection.\nPreserves "
+             "attack clarity on percussive and plucked sounds.";
+    }
   }
   return {};
 }

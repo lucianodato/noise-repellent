@@ -48,7 +48,7 @@ NoiseRepellentAudioProcessor::createParameterLayout() {
 
   params.push_back(std::make_unique<juce::AudioParameterChoice>(
       "algorithm_mode", "Algorithm",
-      juce::StringArray{"1D Spectral", "2D NLM Patch HQ"}, 1));
+      juce::StringArray{"1D Spectral", "2D NLM Patch HQ"}, 0));
 
   params.push_back(std::make_unique<juce::AudioParameterBool>(
       "hpss_enable", "HPSS Protection", true));
@@ -67,7 +67,7 @@ NoiseRepellentAudioProcessor::createParameterLayout() {
 
   params.push_back(std::make_unique<juce::AudioParameterFloat>(
       "aggressiveness", "Aggressiveness",
-      juce::NormalisableRange<float>(-1.0f, 1.0f, 0.1f), 0.0f));
+      juce::NormalisableRange<float>(-1.0f, 1.0f, 0.1f), 0.5f));
 
   params.push_back(std::make_unique<juce::AudioParameterBool>(
       "link_reduction", "Link Reduction", true,
@@ -76,11 +76,11 @@ NoiseRepellentAudioProcessor::createParameterLayout() {
 
   params.push_back(std::make_unique<juce::AudioParameterFloat>(
       "reduction_amount", "Master Reduction",
-      juce::NormalisableRange<float>(0.0f, 40.0f, 0.1f), 15.0f));
+      juce::NormalisableRange<float>(0.0f, 40.0f, 0.1f), 12.0f));
 
   params.push_back(std::make_unique<juce::AudioParameterFloat>(
       "tonal_reduction", "Tonal Reduction",
-      juce::NormalisableRange<float>(0.0f, 40.0f, 0.1f), 15.0f));
+      juce::NormalisableRange<float>(0.0f, 40.0f, 0.1f), 12.0f));
 
   params.push_back(std::make_unique<juce::AudioParameterFloat>(
       "smoothing_factor", "Smoothing",
@@ -96,7 +96,7 @@ NoiseRepellentAudioProcessor::createParameterLayout() {
 
   params.push_back(std::make_unique<juce::AudioParameterFloat>(
       "suppression_strength", "Suppression",
-      juce::NormalisableRange<float>(0.0f, 100.0f, 1.0f), 50.0f));
+      juce::NormalisableRange<float>(0.0f, 100.0f, 1.0f), 100.0f));
 
   params.push_back(std::make_unique<juce::AudioParameterBool>(
       "residual_listen", "Residual Listen", false));
@@ -693,23 +693,29 @@ void NoiseRepellentAudioProcessor::processBlock(
       syncNoiseProfiles(currentAlgoMode);
     }
   }
-  wasLearning = learnNoise;
+  // Compute linear parameters for libspecbleach
+  const float reductionGain = juce::Decibels::decibelsToGain(-masterRed);
+  const float tonalReductionGain = juce::Decibels::decibelsToGain(-tonalRed);
+  const float smoothingNorm = smoothing / 100.0f;
+  const float whiteningNorm = whitening / 100.0f;
+  const float suppressionNorm = suppression / 100.0f;
+  const float profileScale = std::pow(10.0f, profileOffset / 10.0f);
 
   // Prepare parameters for DSP engines
   SpectralBleachDenoiserParameters p;
   p.learn_noise = learnNoise ? 1 : 0;
   p.residual_listen = residualListen;
-  p.reduction_amount = masterRed;
-  p.smoothing_factor = smoothing;
-  p.whitening_factor = whitening;
+  p.reduction_gain = reductionGain;
+  p.smoothing_factor = smoothingNorm;
+  p.whitening_factor = whiteningNorm;
   p.adaptive_noise = adaptiveNoise ? 1 : 0;
   p.noise_estimation_method = adaptiveMethod;
   p.masking_depth = masking;
-  p.suppression_strength = suppression;
+  p.suppression_strength = suppressionNorm;
   p.aggressiveness = aggressiveness;
-  p.tonal_reduction = tonalRed;
+  p.tonal_reduction_gain = tonalReductionGain;
   p.hpss_enable = hpssEnable ? 1 : 0;
-  p.noise_profile_offset_db = profileOffset;
+  p.noise_profile_scale = profileScale;
   p.reduction_curve_enabled = curveEnabled;
   p.reduction_curve_bias =
       curveEnabled ? interpolatedCurveBias.data() : nullptr;
@@ -717,17 +723,17 @@ void NoiseRepellentAudioProcessor::processBlock(
   SpectralBleach2DDenoiserParameters p2;
   p2.learn_noise = learnNoise ? 1 : 0;
   p2.residual_listen = residualListen;
-  p2.reduction_amount = masterRed;
-  p2.smoothing_factor = smoothing;
-  p2.whitening_factor = whitening;
+  p2.reduction_gain = reductionGain;
+  p2.smoothing_factor = smoothingNorm;
+  p2.whitening_factor = whiteningNorm;
   p2.adaptive_noise = adaptiveNoise ? 1 : 0;
   p2.noise_estimation_method = adaptiveMethod;
   p2.nlm_masking_protection = masking;
-  p2.suppression_strength = suppression;
+  p2.suppression_strength = suppressionNorm;
   p2.aggressiveness = aggressiveness;
-  p2.tonal_reduction = tonalRed;
+  p2.tonal_reduction_gain = tonalReductionGain;
   p2.hpss_enable = hpssEnable ? 1 : 0;
-  p2.noise_profile_offset_db = profileOffset;
+  p2.noise_profile_scale = profileScale;
   p2.reduction_curve_enabled = curveEnabled;
   p2.reduction_curve_bias =
       curveEnabled ? interpolatedCurveBias.data() : nullptr;
