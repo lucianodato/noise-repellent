@@ -63,7 +63,8 @@ void SpectralVisualizerComponent::timerCallback() {
     }
   }
 
-  // Update transient protection LED activity synchronized with the displayed frame
+  // Update transient protection LED activity synchronized with the displayed
+  // frame
   hpssActive = currentFrame.isHpssActive;
   bool isProtected = currentFrame.isTransientProtected;
 
@@ -638,8 +639,7 @@ void SpectralVisualizerComponent::mouseDown(const juce::MouseEvent& e) {
   const float badgeY = 10.0f;
   juce::Rectangle<float> badgeBounds(badgeX, badgeY, badgeW, badgeH);
   if (badgeBounds.contains(e.position)) {
-    auto* hpssParam =
-        processor.getAPVTS().getParameter("hpss_enable");
+    auto* hpssParam = processor.getAPVTS().getParameter("hpss_enable");
     if (hpssParam != nullptr) {
       float currentVal = hpssParam->getValue();
       float newVal = (currentVal > 0.5f) ? 0.0f : 1.0f;

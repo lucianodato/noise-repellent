@@ -1002,7 +1002,8 @@ void NoiseRepellentAudioProcessor::processBlock(
       visualizerDelayWritePos = (visualizerDelayWritePos + 1) % vBufSize;
     }
 
-    const float currentTransientVal = (transientDetectedL || transientDetectedR) ? 1.0f : 0.0f;
+    const float currentTransientVal =
+        (transientDetectedL || transientDetectedR) ? 1.0f : 0.0f;
     if (fftAccumCount < kFftSize) {
       fftAccumInput[fftAccumCount] = alignedInputSample;
       fftAccumOutput[fftAccumCount] = outputSrc ? outputSrc[s] : 0.0f;
@@ -1114,7 +1115,8 @@ void NoiseRepellentAudioProcessor::processBlock(
             (parameters.getRawParameterValue("reduction_curve_enabled")
                  ->load() > 0.5f);
 
-        // Sample-accurate alignment matching the center peak of the Hann FFT analysis window
+        // Sample-accurate alignment matching the center peak of the Hann FFT
+        // analysis window
         bool windowHasTransient = false;
         constexpr size_t centerStart = kFftSize / 4;
         constexpr size_t centerEnd = (3 * kFftSize) / 4;

@@ -161,7 +161,7 @@ private:
   juce::dsp::DryWetMixer<float> dryWetMixer;
 
   double currentSampleRate = 44100.0;
-  int currentAlgoMode = 1;    // Track for dynamic latency updates
+  int currentAlgoMode = 1;       // Track for dynamic latency updates
   bool currentHpssEnable = true; // Track for dynamic HPSS enable updates
   std::atomic<float> transientActivity{0.0f};
   std::atomic<bool> hpssActive{false};
