@@ -432,7 +432,9 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(
   lblAlgoHeader.setTooltip(
       "Select denoising algorithm: 1D STFT (fast & low latency)\nor 2D NLM "
       "Patch (high quality non-local means processing).");
-  btnAdvancedToggle.setTooltip("Toggle Advanced DSP Controls");
+  btnAdvancedToggle.setTooltip(
+      "Show Advanced DSP Controls (Smoothing, Masking Protect, Whitening,\n "
+      "Suppression, Bias Curve, Tonal Split & Aggressiveness).");
   btnLearn.setTooltip(
       "Capture static noise profile from current audio input\n(supports "
       "multi-section accumulation).");
@@ -605,13 +607,14 @@ void NoiseRepellentAudioProcessorEditor::updateLayout() {
   bool isCurveOn = btnCurveToggle.getToggleState();
 
   sliderMasterRed.setVisible(true);
-  sliderTonalRed.setVisible(!isLinked);
+  sliderTonalRed.setVisible(isAdvancedVisible && !isLinked);
 
-  lblMasterRed.setVisible(!isLinked);
-  lblTonalRed.setVisible(!isLinked);
+  lblMasterRed.setVisible(isAdvancedVisible && !isLinked);
+  lblTonalRed.setVisible(isAdvancedVisible && !isLinked);
 
-  btnCurveToggle.setVisible(true);
-  btnResetCurve.setVisible(isCurveOn);
+  btnLink.setVisible(isAdvancedVisible);
+  btnCurveToggle.setVisible(isAdvancedVisible);
+  btnResetCurve.setVisible(isAdvancedVisible && isCurveOn);
 
   sliderOffset.setVisible(true);
   lblOffset.setVisible(true);
@@ -621,7 +624,7 @@ void NoiseRepellentAudioProcessorEditor::updateLayout() {
   groupAdvanced.setVisible(isAdvancedVisible);
   btnLearn.setVisible(true);
   btnAdaptiveNoise.setVisible(true);
-  btnAdaptiveArrow.setVisible(true);
+  btnAdaptiveArrow.setVisible(isAdvancedVisible);
   btnResetProfile.setVisible(true);
   comboMethod.setVisible(false);
   lblMethod.setVisible(false);
@@ -633,6 +636,8 @@ void NoiseRepellentAudioProcessorEditor::updateLayout() {
   lblWhitening.setVisible(isAdvancedVisible);
   sliderSuppression.setVisible(isAdvancedVisible);
   lblSuppression.setVisible(isAdvancedVisible);
+
+  spectralVisualizer.setAdvancedControlsVisible(isAdvancedVisible);
 
   btnAdvancedToggle.setButtonText(juce::CharPointer_UTF8(
       isAdvancedVisible ? "ADVANCED \xe2\x96\xb2" : "ADVANCED \xe2\x96\xbc"));
@@ -964,7 +969,8 @@ void NoiseRepellentAudioProcessorEditor::paintOverChildren(juce::Graphics& g) {
   g.setFont(juce::FontOptions(NoiseRepellentLookAndFeel::kFontSizeLabel,
                               juce::Font::plain));
   g.drawText(
-      "DSP processing in progress...\nVisualizer and UI disabled for maximum speed.",
+      "DSP processing in progress...\nVisualizer and UI disabled for maximum "
+      "speed.",
       contentArea, juce::Justification::centred, false);
 }
 
@@ -998,7 +1004,10 @@ void NoiseRepellentAudioProcessorEditor::resized() {
   constexpr int kArrowW = 18;
   constexpr int kResetW = 22;
   constexpr int kBtnGap = 4;
-  int buttonsWidth = kLearnW + kBtnGap + kAdaptW + kArrowW + kBtnGap + kResetW;
+  int buttonsWidth =
+      isAdvancedVisible
+          ? (kLearnW + kBtnGap + kAdaptW + kArrowW + kBtnGap + kResetW)
+          : (kLearnW + kBtnGap + kAdaptW + kBtnGap + kResetW);
 
   constexpr int kAlgoWidth = 210;
   int kProfileWidth =
@@ -1036,8 +1045,10 @@ void NoiseRepellentAudioProcessorEditor::resized() {
   auto bAdapt = profileRow.removeFromLeft(kAdaptW);
   btnAdaptiveNoise.setBounds(bAdapt.withSizeKeepingCentre(kAdaptW, 24));
 
-  auto bAdaptArrow = profileRow.removeFromLeft(kArrowW);
-  btnAdaptiveArrow.setBounds(bAdaptArrow.withSizeKeepingCentre(kArrowW, 24));
+  if (isAdvancedVisible) {
+    auto bAdaptArrow = profileRow.removeFromLeft(kArrowW);
+    btnAdaptiveArrow.setBounds(bAdaptArrow.withSizeKeepingCentre(kArrowW, 24));
+  }
   profileRow.removeFromLeft(kBtnGap);
 
   auto bReset = profileRow.removeFromLeft(kResetW);
@@ -1142,27 +1153,30 @@ void NoiseRepellentAudioProcessorEditor::resized() {
   auto denoiseInner = area.reduced(10);
   denoiseInner.removeFromTop(10);
 
-  bool isLinked = btnLink.getToggleState();
+  bool isLinked = !isAdvancedVisible || btnLink.getToggleState();
   int faderBankWidth = isLinked ? 95 : 155;
 
   auto faderBankArea = denoiseInner.removeFromLeft(faderBankWidth);
   lblReductionHeader.setBounds(faderBankArea.removeFromTop(16));
   faderBankArea.removeFromTop(2);
-  btnLink.setBounds(faderBankArea.removeFromTop(22));
-  faderBankArea.removeFromTop(6);
 
-  // Carve bottom area of faderBankArea for Curve split button [ Curve ][ ↺ ]
-  bool isCurveOn = btnCurveToggle.getToggleState();
-  auto faderBottomArea = faderBankArea.removeFromBottom(22);
-  faderBankArea.removeFromBottom(6);
+  if (isAdvancedVisible) {
+    btnLink.setBounds(faderBankArea.removeFromTop(22));
+    faderBankArea.removeFromTop(6);
 
-  if (isCurveOn) {
-    btnCurveToggle.setBounds(
-        faderBottomArea.removeFromLeft(faderBottomArea.getWidth() - 22));
-    faderBottomArea.removeFromLeft(2);
-    btnResetCurve.setBounds(faderBottomArea);
-  } else {
-    btnCurveToggle.setBounds(faderBottomArea);
+    // Carve bottom area of faderBankArea for Curve split button [ Curve ][ ↺ ]
+    bool isCurveOn = btnCurveToggle.getToggleState();
+    auto faderBottomArea = faderBankArea.removeFromBottom(22);
+    faderBankArea.removeFromBottom(6);
+
+    if (isCurveOn) {
+      btnCurveToggle.setBounds(
+          faderBottomArea.removeFromLeft(faderBottomArea.getWidth() - 22));
+      faderBottomArea.removeFromLeft(2);
+      btnResetCurve.setBounds(faderBottomArea);
+    } else {
+      btnCurveToggle.setBounds(faderBottomArea);
+    }
   }
 
   if (isLinked) {
