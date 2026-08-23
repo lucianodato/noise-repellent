@@ -51,7 +51,7 @@ NoiseRepellentAudioProcessor::createParameterLayout() {
       juce::StringArray{"1D Spectral", "2D NLM Patch HQ"}, 0));
 
   params.push_back(std::make_unique<juce::AudioParameterBool>(
-      "hpss_enable", "HPSS Protection", true));
+      "transient_protection_enable", "Transient Protection", false));
 
   params.push_back(std::make_unique<juce::AudioParameterBool>(
       "learn_noise", "Learn Noise", false));
@@ -204,7 +204,7 @@ void NoiseRepellentAudioProcessor::interpolateCurve(uint32_t numBins) {
   size_t numNodes = sortedNodes.size();
   if (numNodes == 1) {
     std::fill(interpolatedCurveBias.begin(), interpolatedCurveBias.end(),
-              -sortedNodes.front().biasDB);
+              sortedNodes.front().biasDB);
     return;
   }
 
@@ -260,11 +260,11 @@ void NoiseRepellentAudioProcessor::interpolateCurve(uint32_t numBins) {
     }
 
     if (binNormX <= sortedNodes.front().normX) {
-      interpolatedCurveBias[k] = -sortedNodes.front().biasDB;
+      interpolatedCurveBias[k] = sortedNodes.front().biasDB;
       continue;
     }
     if (binNormX >= sortedNodes.back().normX) {
-      interpolatedCurveBias[k] = -sortedNodes.back().biasDB;
+      interpolatedCurveBias[k] = sortedNodes.back().biasDB;
       continue;
     }
 
@@ -283,7 +283,7 @@ void NoiseRepellentAudioProcessor::interpolateCurve(uint32_t numBins) {
 
         float val = h00 * sortedNodes[i].biasDB + h10 * dx * m[i] +
                     h01 * sortedNodes[i + 1].biasDB + h11 * dx * m[i + 1];
-        interpolatedCurveBias[k] = -val;
+        interpolatedCurveBias[k] = val;
         break;
       }
     }
@@ -627,8 +627,9 @@ void NoiseRepellentAudioProcessor::processBlock(
       parameters.getRawParameterValue("bypass")->load() > 0.5f;
   const int algoMode = static_cast<int>(
       parameters.getRawParameterValue("algorithm_mode")->load());
-  const bool hpssEnable =
-      parameters.getRawParameterValue("hpss_enable")->load() > 0.5f;
+  const bool transientProtectionEnable =
+      parameters.getRawParameterValue("transient_protection_enable")->load() >
+      0.5f;
   const bool learnNoise =
       parameters.getRawParameterValue("learn_noise")->load() > 0.5f;
   const bool adaptiveNoise =
@@ -714,7 +715,7 @@ void NoiseRepellentAudioProcessor::processBlock(
   p.suppression_strength = suppressionNorm;
   p.aggressiveness = aggressiveness;
   p.tonal_reduction_gain = tonalReductionGain;
-  p.hpss_enable = hpssEnable ? 1 : 0;
+  p.hpss_enable = transientProtectionEnable ? 1 : 0;
   p.noise_profile_scale = profileScale;
   p.reduction_curve_enabled = curveEnabled;
   p.reduction_curve_bias =
@@ -732,7 +733,7 @@ void NoiseRepellentAudioProcessor::processBlock(
   p2.suppression_strength = suppressionNorm;
   p2.aggressiveness = aggressiveness;
   p2.tonal_reduction_gain = tonalReductionGain;
-  p2.hpss_enable = hpssEnable ? 1 : 0;
+  p2.hpss_enable = transientProtectionEnable ? 1 : 0;
   p2.noise_profile_scale = profileScale;
   p2.reduction_curve_enabled = curveEnabled;
   p2.reduction_curve_bias =
@@ -780,8 +781,8 @@ void NoiseRepellentAudioProcessor::processBlock(
     }
   }
 
-  if (hpssEnable != currentHpssEnable) {
-    currentHpssEnable = hpssEnable;
+  if (transientProtectionEnable != currentTransientProtectionEnable) {
+    currentTransientProtectionEnable = transientProtectionEnable;
     if (specbleach1D_L)
       specbleach_load_parameters(specbleach1D_L, p);
     if (specbleach1D_R)
@@ -946,28 +947,40 @@ void NoiseRepellentAudioProcessor::processBlock(
     }
   }
 
-  // Query HPSS transient protection status
+  // Query transient protection status and intensity
   bool transientDetectedL = false;
   bool transientDetectedR = false;
+  float transientIntensityL = 0.0f;
+  float transientIntensityR = 0.0f;
   if (algoMode == 0) {
-    if (specbleach1D_L)
+    if (specbleach1D_L) {
       transientDetectedL = specbleach_is_transient_detected(specbleach1D_L);
-    if (numChannels >= 2 && specbleach1D_R)
+      transientIntensityL = specbleach_get_transient_intensity(specbleach1D_L);
+    }
+    if (numChannels >= 2 && specbleach1D_R) {
       transientDetectedR = specbleach_is_transient_detected(specbleach1D_R);
+      transientIntensityR = specbleach_get_transient_intensity(specbleach1D_R);
+    }
   } else {
-    if (specbleach2D_L)
+    if (specbleach2D_L) {
       transientDetectedL = specbleach_2d_is_transient_detected(specbleach2D_L);
-    if (numChannels >= 2 && specbleach2D_R)
+      transientIntensityL =
+          specbleach_2d_get_transient_intensity(specbleach2D_L);
+    }
+    if (numChannels >= 2 && specbleach2D_R) {
       transientDetectedR = specbleach_2d_is_transient_detected(specbleach2D_R);
+      transientIntensityR =
+          specbleach_2d_get_transient_intensity(specbleach2D_R);
+    }
   }
-  if (transientDetectedL || transientDetectedR) {
-    transientActivity.store(1.0f, std::memory_order_relaxed);
-  } else {
-    transientActivity.store(0.0f, std::memory_order_relaxed);
-  }
-  hpssActive.store(hpssEnable, std::memory_order_relaxed);
+  float maxTransientIntensity =
+      std::max(transientIntensityL, transientIntensityR);
+  transientActivity.store(maxTransientIntensity, std::memory_order_relaxed);
+  transientProtectionActive.store(transientProtectionEnable,
+                                  std::memory_order_relaxed);
 
-  // Update dynamic latency if changed by algorithm mode or HPSS quality mode
+  // Update dynamic latency if changed by algorithm mode or transient protection
+  // quality mode
   uint32_t activeLatency = 0;
   if (algoMode == 0 && specbleach1D_L) {
     activeLatency = specbleach_get_latency(specbleach1D_L);
@@ -989,7 +1002,8 @@ void NoiseRepellentAudioProcessor::processBlock(
   dryWetMixer.setWetMixProportion(isBypassed ? 0.0f : 1.0f);
   dryWetMixer.mixWetSamples(audioBlock);
 
-  // Skip FFT analysis and FIFO writes during offline rendering or if the GUI is closed
+  // Skip FFT analysis and FIFO writes during offline rendering or if the GUI is
+  // closed
   if (isNonRealtime() || getActiveEditor() == nullptr) {
     fftAccumCount = 0;
     return;
@@ -1014,8 +1028,7 @@ void NoiseRepellentAudioProcessor::processBlock(
       visualizerDelayWritePos = (visualizerDelayWritePos + 1) % vBufSize;
     }
 
-    const float currentTransientVal =
-        (transientDetectedL || transientDetectedR) ? 1.0f : 0.0f;
+    const float currentTransientVal = maxTransientIntensity;
     if (fftAccumCount < kFftSize) {
       fftAccumInput[fftAccumCount] = alignedInputSample;
       fftAccumOutput[fftAccumCount] = outputSrc ? outputSrc[s] : 0.0f;
@@ -1145,17 +1158,17 @@ void NoiseRepellentAudioProcessor::processBlock(
 
           // Sample-accurate alignment matching the center peak of the Hann FFT
           // analysis window
-          bool windowHasTransient = false;
+          float maxWindowTransient = 0.0f;
           constexpr size_t centerStart = kFftSize / 4;
           constexpr size_t centerEnd = (3 * kFftSize) / 4;
           for (size_t t = centerStart; t < centerEnd; ++t) {
-            if (fftAccumTransient[t] > 0.5f) {
-              windowHasTransient = true;
-              break;
+            if (fftAccumTransient[t] > maxWindowTransient) {
+              maxWindowTransient = fftAccumTransient[t];
             }
           }
-          frame.isTransientProtected = windowHasTransient;
-          frame.isHpssActive = hpssEnable;
+          frame.transientIntensity = maxWindowTransient;
+          frame.isTransientProtected = (maxWindowTransient > 0.05f);
+          frame.isTransientProtectionActive = transientProtectionEnable;
           frame.tonalPeaksHz.clear();
 
           if (profileAvailable && actualNoiseProfile) {
@@ -1174,9 +1187,9 @@ void NoiseRepellentAudioProcessor::processBlock(
               float normPos = static_cast<float>(i) / maxFftIdx;
               float exactP = normPos * maxProfileIdx;
 
-              size_t p0 = std::clamp(static_cast<size_t>(exactP),
-                                     static_cast<size_t>(0),
-                                     realProfileBins - 1);
+              size_t p0 =
+                  std::clamp(static_cast<size_t>(exactP),
+                             static_cast<size_t>(0), realProfileBins - 1);
               size_t p1 = std::min(p0 + 1, realProfileBins - 1);
               float frac = exactP - static_cast<float>(p0);
 

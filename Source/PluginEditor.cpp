@@ -236,12 +236,17 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(
   addAndMakeVisible(lblReductionHeader);
 
   addAndMakeVisible(btnLink);
+  // Attachment must be created before onClick is assigned: ButtonAttachment
+  // calls setToggleState(sendNotification) during construction to sync from
+  // APVTS, which would fire onClick and reset reduction params to default.
+  attachLink = std::make_unique<ButtonAttachment>(audioProcessor.getAPVTS(),
+                                                  "link_reduction", btnLink);
   btnLink.setButtonText(btnLink.getToggleState() ? "Linked" : "Unlinked");
   btnLink.onClick = [this]() {
     bool isLinked = btnLink.getToggleState();
     btnLink.setButtonText(isLinked ? "Linked" : "Unlinked");
     if (isLinked) {
-      // Reset reduction parameters to default (15.0 dB) when relinked
+      // Reset reduction parameters to default when relinked
       if (auto* pMaster =
               audioProcessor.getAPVTS().getParameter("reduction_amount"))
         pMaster->setValueNotifyingHost(pMaster->getDefaultValue());
@@ -394,8 +399,6 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(
       std::make_unique<ButtonAttachment>(apvts, "learn_noise", btnLearn);
   attachAdaptive = std::make_unique<ButtonAttachment>(apvts, "adaptive_noise",
                                                       btnAdaptiveNoise);
-  attachLink =
-      std::make_unique<ButtonAttachment>(apvts, "link_reduction", btnLink);
   attachCurveToggle = std::make_unique<ButtonAttachment>(
       apvts, "reduction_curve_enabled", btnCurveToggle);
   attachDelta =
@@ -968,10 +971,8 @@ void NoiseRepellentAudioProcessorEditor::paintOverChildren(juce::Graphics& g) {
   g.setColour(juce::Colour(0xff94a3b8));
   g.setFont(juce::FontOptions(NoiseRepellentLookAndFeel::kFontSizeLabel,
                               juce::Font::plain));
-  g.drawText(
-      "DSP processing in progress...\nVisualizer and UI disabled for maximum "
-      "speed.",
-      contentArea, juce::Justification::centred, false);
+  g.drawText("Processing in progress. UI disabled for speed.", contentArea,
+             juce::Justification::centred, false);
 }
 
 void NoiseRepellentAudioProcessorEditor::resized() {

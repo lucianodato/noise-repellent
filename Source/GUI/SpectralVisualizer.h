@@ -61,7 +61,7 @@ private:
 
   float ledBrightness = 0.0f;
   int transientHoldTicks = 0;
-  bool hpssActive = false;
+  bool transientProtectionActive = false;
 
   // Mouse Interaction
   enum class DragTarget { None, CurveNode };
