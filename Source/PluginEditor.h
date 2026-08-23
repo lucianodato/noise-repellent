@@ -89,23 +89,20 @@ private:
   // Module 3: Advanced Controls Panel (Collapsible)
   juce::GroupComponent groupAdvanced{"groupAdvanced", "ADVANCED CONTROLS"};
   juce::ComboBox comboMethod;
-  juce::Slider sliderAggressiveness{juce::Slider::LinearHorizontal,
-                                    juce::Slider::NoTextBox};
   juce::Slider sliderSmoothing{juce::Slider::LinearHorizontal,
                                juce::Slider::NoTextBox};
   juce::Slider sliderMasking{juce::Slider::LinearHorizontal,
                              juce::Slider::NoTextBox};
   juce::Slider sliderWhitening{juce::Slider::LinearHorizontal,
                                juce::Slider::NoTextBox};
-  juce::Slider sliderSuppression{juce::Slider::LinearHorizontal,
-                                 juce::Slider::NoTextBox};
+  juce::Slider sliderAggressiveness{juce::Slider::LinearHorizontal,
+                                    juce::Slider::NoTextBox};
 
   juce::Label lblMethod{"lblMethod", "ESTIMATION METHOD"};
-  juce::Label lblAggressiveness{"lblAggressiveness", "AGGRESSIVENESS"};
   juce::Label lblSmoothing{"lblSmoothing", "SMOOTHING"};
   juce::Label lblMasking{"lblMasking", "MASKING PROTECT"};
   juce::Label lblWhitening{"lblWhitening", "WHITENING"};
-  juce::Label lblSuppression{"lblSuppression", "SUPPRESSION"};
+  juce::Label lblAggressiveness{"lblAggressiveness", "AGGRESSIVENESS"};
 
   // Footer Tooltip Bar
   juce::Label footerTooltipLabel;
@@ -130,11 +127,10 @@ private:
   std::unique_ptr<SliderAttachment> attachMasterRed;
   std::unique_ptr<SliderAttachment> attachTonalRed;
   std::unique_ptr<SliderAttachment> attachOffset;
-  std::unique_ptr<SliderAttachment> attachAggressiveness;
   std::unique_ptr<SliderAttachment> attachSmoothing;
   std::unique_ptr<SliderAttachment> attachMasking;
   std::unique_ptr<SliderAttachment> attachWhitening;
-  std::unique_ptr<SliderAttachment> attachSuppression;
+  std::unique_ptr<SliderAttachment> attachAggressiveness;
 
   bool isAdvancedVisible = true;
   bool wasOfflineRendering = false;

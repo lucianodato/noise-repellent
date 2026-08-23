@@ -342,13 +342,10 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(
                           NoiseRepellentLookAndFeel::kColorDenoising);
   sliderWhitening.setColour(juce::Slider::rotarySliderFillColourId,
                             NoiseRepellentLookAndFeel::kColorDenoising);
-  sliderSuppression.setColour(juce::Slider::rotarySliderFillColourId,
-                              NoiseRepellentLookAndFeel::kColorDenoising);
 
   addAndMakeVisible(sliderSmoothing);
   addAndMakeVisible(sliderMasking);
   addAndMakeVisible(sliderWhitening);
-  addAndMakeVisible(sliderSuppression);
 
   lblSmoothing.setFont(juce::FontOptions(
       NoiseRepellentLookAndFeel::kFontSizeLabel, juce::Font::bold));
@@ -360,7 +357,7 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(
   lblMasking.setFont(juce::FontOptions(
       NoiseRepellentLookAndFeel::kFontSizeLabel, juce::Font::bold));
   lblMasking.setColour(juce::Label::textColourId,
-                       NoiseRepellentLookAndFeel::kColorDenoising);
+                         NoiseRepellentLookAndFeel::kColorDenoising);
   lblMasking.setJustificationType(juce::Justification::centred);
   addAndMakeVisible(lblMasking);
 
@@ -371,19 +368,12 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(
   lblWhitening.setJustificationType(juce::Justification::centred);
   addAndMakeVisible(lblWhitening);
 
-  lblSuppression.setFont(juce::FontOptions(
-      NoiseRepellentLookAndFeel::kFontSizeLabel, juce::Font::bold));
-  lblSuppression.setColour(juce::Label::textColourId,
-                           NoiseRepellentLookAndFeel::kColorDenoising);
-  lblSuppression.setJustificationType(juce::Justification::centred);
-  addAndMakeVisible(lblSuppression);
-
   // Advanced Controls Toggle Button
   btnAdvancedToggle.setClickingTogglesState(true);
   btnAdvancedToggle.setButtonText("ADVANCED");
   btnAdvancedToggle.setTooltip(
       "Toggle Advanced DSP Controls (Smoothing, Masking, Whitening, "
-      "Suppression, Profile Morphing).");
+      "Aggressiveness).");
   addAndMakeVisible(btnAdvancedToggle);
   btnAdvancedToggle.onClick = [this]() {
     isAdvancedVisible = btnAdvancedToggle.getToggleState();
@@ -416,16 +406,14 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(
                                                       sliderTonalRed);
   attachOffset = std::make_unique<SliderAttachment>(
       apvts, "noise_profile_offset", sliderOffset);
-  attachAggressiveness = std::make_unique<SliderAttachment>(
-      apvts, "aggressiveness", sliderAggressiveness);
   attachSmoothing = std::make_unique<SliderAttachment>(
       apvts, "smoothing_factor", sliderSmoothing);
   attachMasking =
       std::make_unique<SliderAttachment>(apvts, "masking_depth", sliderMasking);
   attachWhitening = std::make_unique<SliderAttachment>(
       apvts, "whitening_factor", sliderWhitening);
-  attachSuppression = std::make_unique<SliderAttachment>(
-      apvts, "suppression_strength", sliderSuppression);
+  attachAggressiveness = std::make_unique<SliderAttachment>(
+      apvts, "aggressiveness", sliderAggressiveness);
 
   // Control Tooltip Descriptions
   btnPreferences.setTooltip("Plugin preferences menu.");
@@ -437,7 +425,7 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(
       "Patch (high quality non-local means processing).");
   btnAdvancedToggle.setTooltip(
       "Show Advanced DSP Controls (Smoothing, Masking Protect, Whitening,\n "
-      "Suppression, Bias Curve, Tonal Split & Aggressiveness).");
+      "Bias Curve, Tonal Split & Aggressiveness).");
   btnLearn.setTooltip(
       "Capture static noise profile from current audio input\n(supports "
       "multi-section accumulation).");
@@ -484,9 +472,6 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(
   sliderWhitening.setTooltip(
       "Spectral whitening factor to equalize\nthe residual noise floor "
       "spectrum.");
-  sliderSuppression.setTooltip(
-      "Maximum noise suppression floor (-dB)\nto prevent over-attenuation "
-      "artifacts.");
   btnLink.setTooltip(
       "Link broadband and tonal reduction controls together\nfor unified "
       "adjustment.");
@@ -637,8 +622,6 @@ void NoiseRepellentAudioProcessorEditor::updateLayout() {
   lblMasking.setVisible(isAdvancedVisible);
   sliderWhitening.setVisible(isAdvancedVisible);
   lblWhitening.setVisible(isAdvancedVisible);
-  sliderSuppression.setVisible(isAdvancedVisible);
-  lblSuppression.setVisible(isAdvancedVisible);
 
   spectralVisualizer.setAdvancedControlsVisible(isAdvancedVisible);
 
@@ -681,10 +664,6 @@ void NoiseRepellentAudioProcessorEditor::updateSliderLabels() {
   lblWhitening.setText(
       "WHITENING: " +
           juce::String(static_cast<int>(sliderWhitening.getValue())) + "%",
-      juce::dontSendNotification);
-  lblSuppression.setText(
-      "SUPPRESSION: " +
-          juce::String(static_cast<int>(sliderSuppression.getValue())) + "%",
       juce::dontSendNotification);
 }
 
@@ -834,11 +813,9 @@ void NoiseRepellentAudioProcessorEditor::updateProfileStatus() {
   sliderSmoothing.setEnabled(pluginActive);
   sliderMasking.setEnabled(pluginActive);
   sliderWhitening.setEnabled(pluginActive);
-  sliderSuppression.setEnabled(pluginActive);
   lblSmoothing.setEnabled(pluginActive);
   lblMasking.setEnabled(pluginActive);
   lblWhitening.setEnabled(pluginActive);
-  lblSuppression.setEnabled(pluginActive);
   comboMethod.setEnabled(pluginActive);
   lblMethod.setEnabled(pluginActive);
   groupAdvanced.setEnabled(pluginActive);
@@ -928,9 +905,10 @@ void NoiseRepellentAudioProcessorEditor::paint(juce::Graphics& g) {
           (float)(sliderMasking.getRight() + sliderWhitening.getX()) / 2.0f;
       g.drawVerticalLine(juce::roundToInt(x1), topY, bottomY);
     }
-    if (sliderWhitening.getWidth() > 0 && sliderSuppression.getWidth() > 0) {
+    if (sliderWhitening.getWidth() > 0 && sliderAggressiveness.getWidth() > 0) {
       float x2 =
-          (float)(sliderWhitening.getRight() + sliderSuppression.getX()) / 2.0f;
+          (float)(sliderWhitening.getRight() + sliderAggressiveness.getX()) /
+          2.0f;
       g.drawVerticalLine(juce::roundToInt(x2), topY, bottomY);
     }
   }
@@ -1011,8 +989,7 @@ void NoiseRepellentAudioProcessorEditor::resized() {
           : (kLearnW + kBtnGap + kAdaptW + kBtnGap + kResetW);
 
   constexpr int kAlgoWidth = 210;
-  int kProfileWidth =
-      isAdvancedVisible ? (buttonsWidth + 12 + 130) : (buttonsWidth + 12);
+  int kProfileWidth = buttonsWidth + 12;
   int combinedHeaderWidth = kAlgoWidth + kHeaderGap + kProfileWidth;
 
   if (availMiddleWidth > combinedHeaderWidth) {
@@ -1054,20 +1031,6 @@ void NoiseRepellentAudioProcessorEditor::resized() {
 
   auto bReset = profileRow.removeFromLeft(kResetW);
   btnResetProfile.setBounds(bReset.withSizeKeepingCentre(kResetW, 24));
-  profileRow.removeFromLeft(8);
-
-  if (isAdvancedVisible) {
-    // Aggressiveness Slider Stack (Vertically Centered on right side of Noise
-    // Profile box)
-    auto aggrCol = profileRow;
-    constexpr int kStackHeight = 14 + 3 + 16;
-    int aggrYPad = std::max(0, (aggrCol.getHeight() - kStackHeight) / 2);
-    aggrCol.removeFromTop(aggrYPad);
-
-    lblAggressiveness.setBounds(aggrCol.removeFromTop(14));
-    aggrCol.removeFromTop(3);
-    sliderAggressiveness.setBounds(aggrCol.removeFromTop(16));
-  }
 
   area.removeFromTop(8);
 
@@ -1105,7 +1068,7 @@ void NoiseRepellentAudioProcessorEditor::resized() {
   }
 
   // Bottom Collapsible Advanced Panel (4 Controls: Smoothing, Masking,
-  // Whitening, Suppression)
+  // Whitening, Aggressiveness)
   if (isAdvancedVisible) {
     auto advArea = area.removeFromBottom(68);
     groupAdvanced.setBounds(advArea);
@@ -1138,12 +1101,12 @@ void NoiseRepellentAudioProcessorEditor::resized() {
     s3.removeFromTop(2);
     sliderWhitening.setBounds(s3.removeFromTop(20));
 
-    // 4. Suppression Slider
+    // 4. Aggressiveness Slider
     advInner.removeFromLeft(kGapW);
     auto s4 = advInner;
-    lblSuppression.setBounds(s4.removeFromTop(16));
+    lblAggressiveness.setBounds(s4.removeFromTop(16));
     s4.removeFromTop(2);
-    sliderSuppression.setBounds(s4.removeFromTop(20));
+    sliderAggressiveness.setBounds(s4.removeFromTop(20));
 
     area.removeFromBottom(8);
   }
