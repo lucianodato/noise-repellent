@@ -94,10 +94,6 @@ NoiseRepellentAudioProcessor::createParameterLayout() {
       "whitening_factor", "Whitening",
       juce::NormalisableRange<float>(0.0f, 100.0f, 1.0f), 0.0f));
 
-  params.push_back(std::make_unique<juce::AudioParameterFloat>(
-      "suppression_strength", "Suppression",
-      juce::NormalisableRange<float>(0.0f, 100.0f, 1.0f), 100.0f));
-
   params.push_back(std::make_unique<juce::AudioParameterBool>(
       "residual_listen", "Residual Listen", false));
 
@@ -659,10 +655,6 @@ void NoiseRepellentAudioProcessor::processBlock(
   const float whitening =
       parameters.getRawParameterValue("whitening_factor")->load();
 
-  // Suppression: pass raw 0-100 value — libspecbleach divides by 100 internally
-  const float suppression =
-      parameters.getRawParameterValue("suppression_strength")->load();
-
   const bool residualListen =
       parameters.getRawParameterValue("residual_listen")->load() > 0.5f;
   const float profileOffset =
@@ -699,7 +691,6 @@ void NoiseRepellentAudioProcessor::processBlock(
   const float tonalReductionGain = juce::Decibels::decibelsToGain(-tonalRed);
   const float smoothingNorm = smoothing / 100.0f;
   const float whiteningNorm = whitening / 100.0f;
-  const float suppressionNorm = suppression / 100.0f;
   const float profileScale = std::pow(10.0f, profileOffset / 10.0f);
 
   // Prepare parameters for DSP engines
@@ -712,7 +703,7 @@ void NoiseRepellentAudioProcessor::processBlock(
   p.adaptive_noise = adaptiveNoise ? 1 : 0;
   p.noise_estimation_method = adaptiveMethod;
   p.masking_depth = masking;
-  p.suppression_strength = suppressionNorm;
+  p.suppression_strength = 1.0f;
   p.aggressiveness = aggressiveness;
   p.tonal_reduction_gain = tonalReductionGain;
   p.hpss_enable = transientProtectionEnable ? 1 : 0;
@@ -730,7 +721,7 @@ void NoiseRepellentAudioProcessor::processBlock(
   p2.adaptive_noise = adaptiveNoise ? 1 : 0;
   p2.noise_estimation_method = adaptiveMethod;
   p2.nlm_masking_protection = masking;
-  p2.suppression_strength = suppressionNorm;
+  p2.suppression_strength = 1.0f;
   p2.aggressiveness = aggressiveness;
   p2.tonal_reduction_gain = tonalReductionGain;
   p2.hpss_enable = transientProtectionEnable ? 1 : 0;
