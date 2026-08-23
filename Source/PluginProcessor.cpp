@@ -204,7 +204,7 @@ void NoiseRepellentAudioProcessor::interpolateCurve(uint32_t numBins) {
   size_t numNodes = sortedNodes.size();
   if (numNodes == 1) {
     std::fill(interpolatedCurveBias.begin(), interpolatedCurveBias.end(),
-              -sortedNodes.front().biasDB);
+              sortedNodes.front().biasDB);
     return;
   }
 
@@ -260,11 +260,11 @@ void NoiseRepellentAudioProcessor::interpolateCurve(uint32_t numBins) {
     }
 
     if (binNormX <= sortedNodes.front().normX) {
-      interpolatedCurveBias[k] = -sortedNodes.front().biasDB;
+      interpolatedCurveBias[k] = sortedNodes.front().biasDB;
       continue;
     }
     if (binNormX >= sortedNodes.back().normX) {
-      interpolatedCurveBias[k] = -sortedNodes.back().biasDB;
+      interpolatedCurveBias[k] = sortedNodes.back().biasDB;
       continue;
     }
 
@@ -283,7 +283,7 @@ void NoiseRepellentAudioProcessor::interpolateCurve(uint32_t numBins) {
 
         float val = h00 * sortedNodes[i].biasDB + h10 * dx * m[i] +
                     h01 * sortedNodes[i + 1].biasDB + h11 * dx * m[i + 1];
-        interpolatedCurveBias[k] = -val;
+        interpolatedCurveBias[k] = val;
         break;
       }
     }

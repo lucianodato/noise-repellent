@@ -968,10 +968,8 @@ void NoiseRepellentAudioProcessorEditor::paintOverChildren(juce::Graphics& g) {
   g.setColour(juce::Colour(0xff94a3b8));
   g.setFont(juce::FontOptions(NoiseRepellentLookAndFeel::kFontSizeLabel,
                               juce::Font::plain));
-  g.drawText(
-      "DSP processing in progress...\nVisualizer and UI disabled for maximum "
-      "speed.",
-      contentArea, juce::Justification::centred, false);
+  g.drawText("Processing in progress. UI disabled for speed.", contentArea,
+             juce::Justification::centred, false);
 }
 
 void NoiseRepellentAudioProcessorEditor::resized() {

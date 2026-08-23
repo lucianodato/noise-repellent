@@ -376,7 +376,7 @@ void SpectralVisualizerComponent::paint(juce::Graphics& g) {
 
         g.setColour(NoiseRepellentLookAndFeel::kColorReductionCurve);
         g.setFont(juce::FontOptions(10.0f, juce::Font::bold));
-        int reductionVal = -biasVal;
+        int reductionVal = biasVal;
         juce::String labelStr =
             (reductionVal > 0 ? "+" : "") + juce::String(reductionVal) + "dB";
         g.drawText(labelStr, static_cast<int>(textX), static_cast<int>(ny) - 7,
@@ -540,87 +540,31 @@ void SpectralVisualizerComponent::paint(juce::Graphics& g) {
     }
   }
 
-  // 6. HPSS Dual-Path LED Indicator (Top-Right Corner: click to toggle ON/OFF, visible in Advanced mode)
+  // 6. HPSS Toggle Button Badge (Top-Right Corner: click to toggle ON/OFF, visible in Advanced mode)
   if (isAdvancedVisible) {
-    const bool isTransient = hpssActive && (ledBrightness > 0.35f);
-    const float badgeW = 92.0f;
+    const float badgeW = 78.0f;
     const float badgeH = 24.0f;
     const float badgeX = w - badgeW - 10.0f;
     const float badgeY = 10.0f;
 
     if (badgeX > 10.0f) {
-      // Semi-transparent dark glass badge container
-      g.setColour(juce::Colour(0xeb252a35));
+      // Container background
+      g.setColour(hpssActive ? juce::Colour(0xeb2b3342)
+                             : juce::Colour(0xeb20242c));
       g.fillRoundedRectangle(badgeX, badgeY, badgeW, badgeH, 4.0f);
-      g.setColour(hpssActive ? juce::Colour(0xff4c566a)
+
+      g.setColour(hpssActive ? NoiseRepellentLookAndFeel::kColorDenoising
                              : juce::Colour(0xff3a414e));
-      g.drawRoundedRectangle(badgeX, badgeY, badgeW, badgeH, 4.0f, 1.0f);
+      g.drawRoundedRectangle(badgeX, badgeY, badgeW, badgeH, 4.0f,
+                             hpssActive ? 1.5f : 1.0f);
 
-      const float ledCenterX = badgeX + 13.0f;
-      const float ledCenterY = badgeY + badgeH * 0.5f;
-      const float ledRadius = 4.5f;
-
-      if (!hpssActive) {
-        // Off State: Dim inactive LED
-        const juce::Colour offColor = juce::Colour(0xff555e70);
-        g.setColour(offColor);
-        g.fillEllipse(ledCenterX - ledRadius, ledCenterY - ledRadius,
-                      ledRadius * 2.0f, ledRadius * 2.0f);
-        g.setColour(offColor.withAlpha(0.4f));
-        g.drawEllipse(ledCenterX - ledRadius, ledCenterY - ledRadius,
-                      ledRadius * 2.0f, ledRadius * 2.0f, 1.0f);
-
-        // Label: HPSS OFF
-        g.setFont(juce::FontOptions(NoiseRepellentLookAndFeel::kFontSizeLabel,
-                                    juce::Font::bold));
-        g.setColour(juce::Colour(0xff808896));
-        g.drawText("HPSS OFF", static_cast<int>(badgeX + 22.0f),
-                   static_cast<int>(badgeY), static_cast<int>(badgeW - 24.0f),
-                   static_cast<int>(badgeH), juce::Justification::centredLeft);
-      } else if (isTransient) {
-        // Transient Path: Vivid Bright Cyan LED with outer glow
-        g.setColour(NoiseRepellentLookAndFeel::kColorDenoising.withAlpha(
-            0.5f * ledBrightness));
-        g.fillEllipse(ledCenterX - 9.0f, ledCenterY - 9.0f, 18.0f, 18.0f);
-
-        juce::Colour litColor =
-            NoiseRepellentLookAndFeel::kColorDenoising.interpolatedWith(
-                juce::Colours::white, 0.5f);
-        g.setColour(litColor);
-        g.fillEllipse(ledCenterX - ledRadius, ledCenterY - ledRadius,
-                      ledRadius * 2.0f, ledRadius * 2.0f);
-
-        g.setColour(juce::Colours::white);
-        g.drawEllipse(ledCenterX - ledRadius, ledCenterY - ledRadius,
-                      ledRadius * 2.0f, ledRadius * 2.0f, 1.0f);
-
-        // Label: TRANSIENT
-        g.setFont(juce::FontOptions(NoiseRepellentLookAndFeel::kFontSizeLabel,
-                                    juce::Font::bold));
-        g.setColour(juce::Colours::white);
-        g.drawText("TRANSIENT", static_cast<int>(badgeX + 22.0f),
-                   static_cast<int>(badgeY), static_cast<int>(badgeW - 24.0f),
-                   static_cast<int>(badgeH), juce::Justification::centredLeft);
-      } else {
-        // Harmonic Path: Steady Warm Amber/Gold LED
-        const juce::Colour harmColor =
-            NoiseRepellentLookAndFeel::kColorNoiseProfile;
-        g.setColour(harmColor);
-        g.fillEllipse(ledCenterX - ledRadius, ledCenterY - ledRadius,
-                      ledRadius * 2.0f, ledRadius * 2.0f);
-
-        g.setColour(harmColor.withAlpha(0.6f));
-        g.drawEllipse(ledCenterX - ledRadius, ledCenterY - ledRadius,
-                      ledRadius * 2.0f, ledRadius * 2.0f, 1.0f);
-
-        // Label: HARMONIC
-        g.setFont(juce::FontOptions(NoiseRepellentLookAndFeel::kFontSizeLabel,
-                                    juce::Font::bold));
-        g.setColour(juce::Colour(0xffd8e0ec));
-        g.drawText("HARMONIC", static_cast<int>(badgeX + 22.0f),
-                   static_cast<int>(badgeY), static_cast<int>(badgeW - 24.0f),
-                   static_cast<int>(badgeH), juce::Justification::centredLeft);
-      }
+      // Text label: HPSS ON or HPSS OFF
+      g.setFont(juce::FontOptions(NoiseRepellentLookAndFeel::kFontSizeLabel,
+                                  juce::Font::bold));
+      g.setColour(hpssActive ? juce::Colours::white : juce::Colour(0xff7a8494));
+      g.drawText(hpssActive ? "HPSS ON" : "HPSS OFF", static_cast<int>(badgeX),
+                 static_cast<int>(badgeY), static_cast<int>(badgeW),
+                 static_cast<int>(badgeH), juce::Justification::centred);
     }
   }
 }
@@ -635,7 +579,7 @@ void SpectralVisualizerComponent::mouseDown(const juce::MouseEvent& e) {
 
   // Check HPSS Toggle Badge click (Top-Right corner, only active when advanced controls are visible)
   if (isAdvancedVisible) {
-    const float badgeW = 92.0f;
+    const float badgeW = 78.0f;
     const float badgeH = 24.0f;
     const float badgeX = w - badgeW - 10.0f;
     const float badgeY = 10.0f;
@@ -712,7 +656,7 @@ void SpectralVisualizerComponent::mouseDoubleClick(const juce::MouseEvent& e) {
 
 void SpectralVisualizerComponent::mouseMove(const juce::MouseEvent& e) {
   const float w = static_cast<float>(getWidth());
-  const float badgeW = 92.0f;
+  const float badgeW = 78.0f;
   const float badgeH = 24.0f;
   const float badgeX = w - badgeW - 10.0f;
   const float badgeY = 10.0f;
