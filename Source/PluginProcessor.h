@@ -115,8 +115,9 @@ public:
     bool hasNoiseProfile = false;
     bool isLinked = true;
     bool reductionCurveEnabled = false;
+    float transientIntensity = 0.0f; // Detected transient intensity [0.0, 1.0]
     bool isTransientProtected = false;
-    bool isHpssActive = false;
+    bool isTransientProtectionActive = false;
   };
 
   bool getNextSpectralFrame(SpectralFrame& frame);
@@ -132,8 +133,8 @@ public:
     return transientActivity.exchange(0.0f, std::memory_order_relaxed);
   }
 
-  bool isHpssActive() const {
-    return hpssActive.load(std::memory_order_relaxed);
+  bool isTransientProtectionActive() const {
+    return transientProtectionActive.load(std::memory_order_relaxed);
   }
 
 private:
@@ -161,10 +162,11 @@ private:
   juce::dsp::DryWetMixer<float> dryWetMixer;
 
   double currentSampleRate = 44100.0;
-  int currentAlgoMode = 1;       // Track for dynamic latency updates
-  bool currentHpssEnable = true; // Track for dynamic HPSS enable updates
+  int currentAlgoMode = 1; // Track for dynamic latency updates
+  bool currentTransientProtectionEnable =
+      true; // Track for dynamic transient protection enable updates
   std::atomic<float> transientActivity{0.0f};
-  std::atomic<bool> hpssActive{false};
+  std::atomic<bool> transientProtectionActive{false};
   bool wasLearning =
       false; // Track learn mode state transition to sync profiles
 

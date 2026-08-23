@@ -63,22 +63,30 @@ void SpectralVisualizerComponent::timerCallback() {
     }
   }
 
-  // Update transient protection LED activity synchronized with the displayed
-  // frame
-  hpssActive = currentFrame.isHpssActive;
-  bool isProtected = currentFrame.isTransientProtected;
+  // Synchronize transient detection active state and LED activity
+  auto* transientParam =
+      processor.getAPVTS().getRawParameterValue("transient_protection_enable");
+  transientProtectionActive =
+      (transientParam != nullptr && transientParam->load() > 0.5f);
 
-  if (isProtected) {
-    transientHoldTicks = 2; // ~33ms hold at 60Hz
-    ledBrightness = 1.0f;
-  } else if (transientHoldTicks > 0) {
-    transientHoldTicks--;
-    ledBrightness = 1.0f;
-  } else if (ledBrightness > 0.0f) {
-    // Fast, crisp decay back to harmonic state (~35ms)
-    ledBrightness *= 0.40f;
-    if (ledBrightness < 0.01f)
-      ledBrightness = 0.0f;
+  if (!transientProtectionActive) {
+    ledBrightness = 0.0f;
+    transientHoldTicks = 0;
+  } else {
+    // Synchronize transient detection LED strictly with the displayed
+    // visualizer FFT frame
+    float targetIntensity = currentFrame.transientIntensity;
+
+    // Trigger LED strictly when high-confidence transient is present in the
+    // displayed frame
+    if (targetIntensity >= 0.35f) {
+      transientHoldTicks = 4; // ~65ms crisp hold at 60Hz
+      ledBrightness = 1.0f;   // Full crisp light
+    } else if (transientHoldTicks > 0) {
+      transientHoldTicks--;
+    } else {
+      ledBrightness = 0.0f; // Immediate clean turn-off
+    }
   }
 
   repaint();
@@ -540,31 +548,87 @@ void SpectralVisualizerComponent::paint(juce::Graphics& g) {
     }
   }
 
-  // 6. HPSS Toggle Button Badge (Top-Right Corner: click to toggle ON/OFF, visible in Advanced mode)
+  // 6. Transient Protection (TP) LED Indicator & Button (Top-Right Corner:
+  // click to toggle ON/OFF, only visible in Advanced mode)
   if (isAdvancedVisible) {
-    const float badgeW = 78.0f;
-    const float badgeH = 24.0f;
+    const float badgeW = 66.0f;
+    const float badgeH = 22.0f;
     const float badgeX = w - badgeW - 10.0f;
     const float badgeY = 10.0f;
 
     if (badgeX > 10.0f) {
-      // Container background
-      g.setColour(hpssActive ? juce::Colour(0xeb2b3342)
-                             : juce::Colour(0xeb20242c));
+      // Container background (dimmer when disabled)
+      g.setColour(transientProtectionActive ? juce::Colour(0xeb1a1e26)
+                                            : juce::Colour(0xeb14161c));
       g.fillRoundedRectangle(badgeX, badgeY, badgeW, badgeH, 4.0f);
+      g.setColour(transientProtectionActive ? juce::Colour(0xff2d3542)
+                                            : juce::Colour(0xff20242c));
+      g.drawRoundedRectangle(badgeX, badgeY, badgeW, badgeH, 4.0f, 1.0f);
 
-      g.setColour(hpssActive ? NoiseRepellentLookAndFeel::kColorDenoising
-                             : juce::Colour(0xff3a414e));
-      g.drawRoundedRectangle(badgeX, badgeY, badgeW, badgeH, 4.0f,
-                             hpssActive ? 1.5f : 1.0f);
+      // LED circle on the left of badge
+      const float ledRadius = 3.5f;
+      const float ledCenterX = badgeX + 11.0f;
+      const float ledCenterY = badgeY + (badgeH * 0.5f);
 
-      // Text label: HPSS ON or HPSS OFF
-      g.setFont(juce::FontOptions(NoiseRepellentLookAndFeel::kFontSizeLabel,
-                                  juce::Font::bold));
-      g.setColour(hpssActive ? juce::Colours::white : juce::Colour(0xff7a8494));
-      g.drawText(hpssActive ? "HPSS ON" : "HPSS OFF", static_cast<int>(badgeX),
-                 static_cast<int>(badgeY), static_cast<int>(badgeW),
-                 static_cast<int>(badgeH), juce::Justification::centred);
+      if (transientProtectionActive) {
+        // Map ledBrightness to LED glow and color
+        // Full bright for broadband transients (1.0), soft glow for localized
+        // clicks (0.2 - 0.5) Completely off (dark) when ledBrightness == 0.0f
+        juce::Colour activeLedColour =
+            juce::Colour(0xffff9933); // Amber-Orange transient light
+
+        if (ledBrightness > 0.05f) {
+          // Outer glow
+          g.setColour(activeLedColour.withAlpha(0.40f * ledBrightness));
+          g.fillEllipse(ledCenterX - ledRadius - 3.0f,
+                        ledCenterY - ledRadius - 3.0f,
+                        (ledRadius + 3.0f) * 2.0f, (ledRadius + 3.0f) * 2.0f);
+
+          juce::Colour ledFill =
+              activeLedColour.withAlpha(0.20f + 0.80f * ledBrightness);
+          g.setColour(ledFill);
+          g.fillEllipse(ledCenterX - ledRadius, ledCenterY - ledRadius,
+                        ledRadius * 2.0f, ledRadius * 2.0f);
+
+          g.setColour(activeLedColour.withAlpha(0.40f + 0.60f * ledBrightness));
+          g.drawEllipse(ledCenterX - ledRadius, ledCenterY - ledRadius,
+                        ledRadius * 2.0f, ledRadius * 2.0f, 1.0f);
+        } else {
+          // Off state while TP is active but no transient is present
+          g.setColour(juce::Colour(0xff2d3542));
+          g.fillEllipse(ledCenterX - ledRadius, ledCenterY - ledRadius,
+                        ledRadius * 2.0f, ledRadius * 2.0f);
+          g.setColour(juce::Colour(0xff3d4756));
+          g.drawEllipse(ledCenterX - ledRadius, ledCenterY - ledRadius,
+                        ledRadius * 2.0f, ledRadius * 2.0f, 1.0f);
+        }
+
+        // Text label: TP ON
+        g.setFont(
+            juce::FontOptions(NoiseRepellentLookAndFeel::kFontSizeLabel - 0.5f,
+                              juce::Font::bold));
+        g.setColour(
+            juce::Colour(0xffd8e0ec).withAlpha(0.65f + 0.35f * ledBrightness));
+        g.drawText("TP ON", static_cast<int>(badgeX + 19.0f),
+                   static_cast<int>(badgeY), static_cast<int>(badgeW - 22.0f),
+                   static_cast<int>(badgeH), juce::Justification::centred);
+      } else {
+        // Disabled state: dark off LED
+        g.setColour(juce::Colour(0xff333a46));
+        g.fillEllipse(ledCenterX - ledRadius, ledCenterY - ledRadius,
+                      ledRadius * 2.0f, ledRadius * 2.0f);
+        g.setColour(juce::Colour(0xff454f5e));
+        g.drawEllipse(ledCenterX - ledRadius, ledCenterY - ledRadius,
+                      ledRadius * 2.0f, ledRadius * 2.0f, 1.0f);
+
+        g.setFont(
+            juce::FontOptions(NoiseRepellentLookAndFeel::kFontSizeLabel - 0.5f,
+                              juce::Font::bold));
+        g.setColour(juce::Colour(0xff667080));
+        g.drawText("TP OFF", static_cast<int>(badgeX + 19.0f),
+                   static_cast<int>(badgeY), static_cast<int>(badgeW - 22.0f),
+                   static_cast<int>(badgeH), juce::Justification::centred);
+      }
     }
   }
 }
@@ -577,19 +641,36 @@ void SpectralVisualizerComponent::mouseDown(const juce::MouseEvent& e) {
   const float w = static_cast<float>(getWidth());
   const float h = static_cast<float>(getHeight());
 
-  // Check HPSS Toggle Badge click (Top-Right corner, only active when advanced controls are visible)
+  // Check Transient Protection (TP) Toggle Badge click (Top-Right corner: click
+  // to toggle ON/OFF in Advanced mode)
   if (isAdvancedVisible) {
-    const float badgeW = 78.0f;
-    const float badgeH = 24.0f;
+    const float badgeW = 66.0f;
+    const float badgeH = 22.0f;
     const float badgeX = w - badgeW - 10.0f;
     const float badgeY = 10.0f;
     juce::Rectangle<float> badgeBounds(badgeX, badgeY, badgeW, badgeH);
     if (badgeBounds.contains(e.position)) {
-      auto* hpssParam = processor.getAPVTS().getParameter("hpss_enable");
-      if (hpssParam != nullptr) {
-        float currentVal = hpssParam->getValue();
+      if (auto* transientParam = dynamic_cast<juce::AudioParameterBool*>(
+              processor.getAPVTS().getParameter(
+                  "transient_protection_enable"))) {
+        *transientParam = !transientParam->get();
+        transientProtectionActive = transientParam->get();
+        if (!transientProtectionActive) {
+          ledBrightness = 0.0f;
+          transientHoldTicks = 0;
+        }
+        repaint();
+        return;
+      } else if (auto* param = processor.getAPVTS().getParameter(
+                     "transient_protection_enable")) {
+        float currentVal = param->getValue();
         float newVal = (currentVal > 0.5f) ? 0.0f : 1.0f;
-        hpssParam->setValueNotifyingHost(newVal);
+        param->setValueNotifyingHost(newVal);
+        transientProtectionActive = (newVal > 0.5f);
+        if (!transientProtectionActive) {
+          ledBrightness = 0.0f;
+          transientHoldTicks = 0;
+        }
         repaint();
         return;
       }
@@ -656,8 +737,8 @@ void SpectralVisualizerComponent::mouseDoubleClick(const juce::MouseEvent& e) {
 
 void SpectralVisualizerComponent::mouseMove(const juce::MouseEvent& e) {
   const float w = static_cast<float>(getWidth());
-  const float badgeW = 78.0f;
-  const float badgeH = 24.0f;
+  const float badgeW = 66.0f;
+  const float badgeH = 22.0f;
   const float badgeX = w - badgeW - 10.0f;
   const float badgeY = 10.0f;
   juce::Rectangle<float> badgeBounds(badgeX, badgeY, badgeW, badgeH);
@@ -676,16 +757,16 @@ void SpectralVisualizerComponent::mouseExit(const juce::MouseEvent&) {
 juce::String SpectralVisualizerComponent::getTooltip() {
   if (isAdvancedVisible) {
     const float w = static_cast<float>(getWidth());
-    const float badgeW = 92.0f;
-    const float badgeH = 24.0f;
+    const float badgeW = 66.0f;
+    const float badgeH = 22.0f;
     const float badgeX = w - badgeW - 10.0f;
     const float badgeY = 10.0f;
     juce::Rectangle<float> badgeBounds(badgeX, badgeY, badgeW, badgeH);
 
     auto mousePos = getMouseXYRelative().toFloat();
     if (badgeBounds.contains(mousePos)) {
-      return "Toggle Harmonic-Percussive transient protection.\nPreserves "
-             "attack clarity on percussive and plucked sounds.";
+      return "Transient Protection (TP): Click to toggle.\n"
+             "Preserves sharp attack transients and plucked notes.";
     }
   }
   return {};
