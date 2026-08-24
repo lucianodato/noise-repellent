@@ -158,11 +158,20 @@ jobs:
             fi
 
             BAD_DEPS=$(otool -L "$BINARY" | tail -n +2 | sed -E 's/^[[:space:]]+//; s/[[:space:]]+\(compatibility.*//' | grep -vE "^/System/Library|^/usr/lib|^@loader_path|^@executable_path|^@rpath|Noise Repellent|staging/" || true)
+            # Positive check: libspecbleach must be embedded (check via nm or size)
+            BINARY_SIZE=$(stat -f%z "$BINARY" 2>/dev/null || stat -c%s "$BINARY" 2>/dev/null || wc -c < "$BINARY" 2>/dev/null | tr -d ' ')
+            HAS_SPECBLEACH=$(nm -a "$BINARY" 2>/dev/null | grep -i "specbleach" | head -n 1)
+            if [ -z "$HAS_SPECBLEACH" ] && [ "$BINARY_SIZE" -lt 8000000 ]; then
+              MISSING_SPECBLEACH=1
+            else
+              MISSING_SPECBLEACH=0
+            fi
 
-            if [ -n "$BAD_DEPS" ] || [ $ARCH_FAILED -ne 0 ]; then
+            if [ -n "$BAD_DEPS" ] || [ $ARCH_FAILED -ne 0 ] || [ "$MISSING_SPECBLEACH" -eq 1 ]; then
               echo "❌ [FAIL] $NAME"
               [ $ARCH_FAILED -ne 0 ] && echo "   └─ Architecture error: $LIPO_INFO"
               [ -n "$BAD_DEPS" ] && echo "   └─ Dynamic leaks: $(echo "$BAD_DEPS" | tr '\n' ' ')"
+              [ "$MISSING_SPECBLEACH" -eq 1 ] && echo "   └─ Missing libspecbleach embedding (size ${BINARY_SIZE} < 8M and no specbleach symbols)"
               HAS_ERRORS=1
             else
               echo "✔ [PASS] $NAME (Universal x86_64+arm64)"
@@ -311,12 +320,21 @@ jobs:
             UNEXPECTED_LIBS=$(ldd "$PLUGIN" 2>/dev/null | awk '/=>/ {print $1}' | grep -vE "$ALLOWED_LIBS")
             DEFINED_LEAKS=$(nm -D --defined-only "$PLUGIN" 2>/dev/null | grep -iE " (FT_|fftwf?_)")
             UNDEFINED_LEAKS=$(nm -D --undefined-only "$PLUGIN" 2>/dev/null | grep -iE " (FT_|fftwf?_)")
+            # Positive check: libspecbleach must be statically embedded (approx >5 MB when combined with FFTW)
+            PLUGIN_SIZE=$(stat -c%s "$PLUGIN" 2>/dev/null || stat -f%z "$PLUGIN" 2>/dev/null || echo 0)
+            HAS_SPECBLEACH=$(strings "$PLUGIN" 2>/dev/null | grep -i "specbleach" | head -n 1)
+            if [ -z "$HAS_SPECBLEACH" ] && [ "$PLUGIN_SIZE" -lt 8000000 ]; then
+              MISSING_SPECBLEACH=1
+            else
+              MISSING_SPECBLEACH=0
+            fi
 
-            if [ -n "$UNEXPECTED_LIBS" ] || [ -n "$DEFINED_LEAKS" ] || [ -n "$UNDEFINED_LEAKS" ]; then
+            if [ -n "$UNEXPECTED_LIBS" ] || [ -n "$DEFINED_LEAKS" ] || [ -n "$UNDEFINED_LEAKS" ] || [ "$MISSING_SPECBLEACH" -eq 1 ]; then
               echo "❌ [FAIL] Verification failed for $NAME"
               [ -n "$UNEXPECTED_LIBS" ] && echo "   └─ Dynamic library leaks: $(echo "$UNEXPECTED_LIBS" | tr '\n' ' ')"
               [ -n "$DEFINED_LEAKS" ] && echo "   └─ Exported static symbols: $(echo "$DEFINED_LEAKS" | tr '\n' ' ')"
               [ -n "$UNDEFINED_LEAKS" ] && echo "   └─ Undefined system symbols: $(echo "$UNDEFINED_LEAKS" | tr '\n' ' ')"
+              [ "$MISSING_SPECBLEACH" -eq 1 ] && echo "   └─ Missing libspecbleach embedding (size ${PLUGIN_SIZE} < 8M and no specbleach strings)"
               HAS_ERRORS=1
             else
               echo "✔ [PASS] $NAME (Dependencies clean & symbols fully isolated)"
@@ -518,10 +536,19 @@ jobs:
             fi
 
             UNEXPECTED_DLLS=$(echo "$DEPENDENTS" | grep -ivE "$ALLOWED_DLLS" || true)
+            # Positive check: libspecbleach must be statically embedded. Check strings OR file size (>7.5 MB)
+            BINARY_SIZE=$(stat -c%s "$BINARY" 2>/dev/null || stat -f%z "$BINARY" 2>/dev/null || wc -c < "$BINARY" 2>/dev/null | tr -d ' ')
+            HAS_SPECBLEACH=$(strings "$BINARY" 2>/dev/null | grep -i "specbleach" | head -n 1)
+            if [ -z "$HAS_SPECBLEACH" ] && [ "$BINARY_SIZE" -lt 7500000 ]; then
+              MISSING_SPECBLEACH=1
+            else
+              MISSING_SPECBLEACH=0
+            fi
 
-            if [ -n "$UNEXPECTED_DLLS" ]; then
+            if [ -n "$UNEXPECTED_DLLS" ] || [ "$MISSING_SPECBLEACH" -eq 1 ]; then
               echo "❌ [FAIL] $NAME"
-              echo "   └─ Dynamic leaks: $(echo "$UNEXPECTED_DLLS" | tr '\n' ' ')"
+              [ -n "$UNEXPECTED_DLLS" ] && echo "   └─ Dynamic leaks: $(echo "$UNEXPECTED_DLLS" | tr '\n' ' ')"
+              [ "$MISSING_SPECBLEACH" -eq 1 ] && echo "   └─ Missing libspecbleach embedding (size ${BINARY_SIZE} < 7.5M and no specbleach strings)"
               HAS_ERRORS=1
             else
               echo "✔ [PASS] $NAME"
