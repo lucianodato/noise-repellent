@@ -25,11 +25,12 @@ jobs:
       - name: Extract Version
         id: extract_version
         run: |
-          BASE_VER=$(sed -n -E 's/.*project\(NoiseRepellent VERSION ([0-9]+\.[0-9]+\.[0-9]+\).*/\1/p' CMakeLists.txt)
+          BASE_VER=$(sed -n -E 's/.*project\(NoiseRepellent VERSION ([0-9]+\.[0-9]+\.[0-9]+).*/\1/p' CMakeLists.txt)
           if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
             VERSION="${GITHUB_REF_NAME#v}"
           else
-            SHORT_SHA=$(git rev-parse --short HEAD)
+            SHORT_SHA=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+            if [ -z "$BASE_VER" ]; then BASE_VER="0.3.2"; fi
             VERSION="${BASE_VER}-${SHORT_SHA}"
           fi
           echo "PLUGIN_VERSION=${VERSION}" >> $GITHUB_ENV
@@ -251,11 +252,12 @@ jobs:
       - name: Extract Version
         id: extract_version
         run: |
-          BASE_VER=$(sed -n -E 's/.*project\(NoiseRepellent VERSION ([0-9]+\.[0-9]+\.[0-9]+\).*/\1/p' CMakeLists.txt)
+          BASE_VER=$(sed -n -E 's/.*project\(NoiseRepellent VERSION ([0-9]+\.[0-9]+\.[0-9]+).*/\1/p' CMakeLists.txt)
           if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
             VERSION="${GITHUB_REF_NAME#v}"
           else
-            SHORT_SHA=$(git rev-parse --short HEAD)
+            SHORT_SHA=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+            if [ -z "$BASE_VER" ]; then BASE_VER="0.3.2"; fi
             VERSION="${BASE_VER}-${SHORT_SHA}"
           fi
           echo "PLUGIN_VERSION=${VERSION}" >> $GITHUB_ENV
@@ -450,11 +452,12 @@ jobs:
         id: extract_version
         shell: bash
         run: |
-          BASE_VER=$(sed -n -E 's/.*project\(NoiseRepellent VERSION ([0-9]+\.[0-9]+\.[0-9]+\).*/\1/p' CMakeLists.txt)
+          BASE_VER=$(sed -n -E 's/.*project\(NoiseRepellent VERSION ([0-9]+\.[0-9]+\.[0-9]+).*/\1/p' CMakeLists.txt)
           if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
             VERSION="${GITHUB_REF_NAME#v}"
           else
-            SHORT_SHA=$(git rev-parse --short HEAD)
+            SHORT_SHA=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+            if [ -z "$BASE_VER" ]; then BASE_VER="0.3.2"; fi
             VERSION="${BASE_VER}-${SHORT_SHA}"
           fi
           echo "PLUGIN_VERSION=${VERSION}" >> $GITHUB_ENV
