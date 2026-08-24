@@ -114,6 +114,7 @@ public:
     std::vector<float> tonalPeaksHz{}; // Detected tonal peak frequencies in Hz
     bool hasNoiseProfile = false;
     bool isLinked = true;
+    bool isOffsetLinked = true;
     bool reductionCurveEnabled = false;
     float transientIntensity = 0.0f; // Detected transient intensity [0.0, 1.0]
     bool isTransientProtected = false;

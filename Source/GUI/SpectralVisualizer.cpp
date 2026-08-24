@@ -295,6 +295,60 @@ void SpectralVisualizerComponent::paint(juce::Graphics& g) {
         buildLogFreqPath(freqSmoothedProfile.data(), numBins);
     g.setColour(NoiseRepellentLookAndFeel::kColorNoiseProfile);
     g.strokePath(noisePath, juce::PathStrokeType(2.0f));
+
+    // When Threshold Offset is unlinked, redraw the profile segments around
+    // detected tonal peaks using the tonal colour so the tonal threshold
+    // offset is visually distinguished from the broadband noise profile.
+    if (isAdvancedVisible && !currentFrame.isOffsetLinked &&
+        !currentFrame.tonalPeaksHz.empty()) {
+      constexpr float kTonalRegionRatio = 0.05f;
+
+      std::vector<bool> tonalBin(numBins, false);
+      for (size_t i = 1; i < numBins; ++i) {
+        float freq = static_cast<float>(i) * binWidth;
+        for (float peakHz : currentFrame.tonalPeaksHz) {
+          if (freq >= peakHz * (1.0f - kTonalRegionRatio) &&
+              freq <= peakHz * (1.0f + kTonalRegionRatio)) {
+            tonalBin[i] = true;
+            break;
+          }
+        }
+      }
+
+      size_t i = 1;
+      while (i < numBins) {
+        if (!tonalBin[i]) {
+          ++i;
+          continue;
+        }
+
+        size_t runEnd = i;
+        while (runEnd + 1 < numBins && tonalBin[runEnd + 1])
+          ++runEnd;
+
+        juce::Path segment;
+        bool started = false;
+        for (size_t b = i; b <= runEnd + 1 && b < numBins; ++b) {
+          float freq = static_cast<float>(b) * binWidth;
+          if (freq < minFreq || freq > maxFreq)
+            continue;
+          float x = freqToX(freq, w, minFreq, maxFreq);
+          float y = dbToY(freqSmoothedProfile[b], h, minDB, maxDB);
+          if (!started) {
+            segment.startNewSubPath(x, y);
+            started = true;
+          } else {
+            segment.lineTo(x, y);
+          }
+        }
+        if (started) {
+          g.setColour(NoiseRepellentLookAndFeel::kColorTonalPeaks);
+          g.strokePath(segment, juce::PathStrokeType(2.6f));
+        }
+
+        i = runEnd + 1;
+      }
+    }
   }
 
   // 3b. Reduction Curve Bias Overlay & Nodes (Only shown in Advanced mode)
@@ -394,8 +448,10 @@ void SpectralVisualizerComponent::paint(juce::Graphics& g) {
   }
 
   // 4. Tonal Peak Markers (Dashed vertical lines with staggered multi-tier
-  // frequency tags; shown ONLY in Advanced mode when Reduction is UNLINKED)
-  if (isAdvancedVisible && !currentFrame.isLinked &&
+  // frequency tags; shown ONLY in Advanced mode when Reduction or Threshold
+  // Offset is UNLINKED)
+  if (isAdvancedVisible &&
+      (!currentFrame.isLinked || !currentFrame.isOffsetLinked) &&
       currentFrame.hasNoiseProfile && !currentFrame.tonalPeaksHz.empty()) {
     // 3 Y-tiers starting at Y = 42.0f to guarantee zero collision with top HUD
     // overlay bar
@@ -457,7 +513,9 @@ void SpectralVisualizerComponent::paint(juce::Graphics& g) {
   // 5. HUD Color Legend (Top-Right Overlay, positioned to the left of Advanced
   // Controls button)
   {
-    const bool showTonalSwatch = isAdvancedVisible && !currentFrame.isLinked;
+    const bool showTonalSwatch =
+        isAdvancedVisible &&
+        (!currentFrame.isLinked || !currentFrame.isOffsetLinked);
     const bool showCurveSwatch =
         isAdvancedVisible && currentFrame.reductionCurveEnabled;
     const float padding = 10.0f;
