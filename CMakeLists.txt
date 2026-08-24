@@ -13,8 +13,6 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 # Statically link MSVC C/C++ Runtime (/MT) on Windows
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
-message(STATUS "DEBUG: MSVC=${MSVC} WIN32=${WIN32} CMAKE_SYSTEM_NAME=${CMAKE_SYSTEM_NAME} CMAKE_VERSION=${CMAKE_VERSION} CMAKE_CXX_COMPILER_ID=${CMAKE_CXX_COMPILER_ID}")
-
 # ==============================================================================
 # Build Options (Default OFF for self-contained, portable release binaries)
 # Downstream distro packagers can pass -DUSE_SYSTEM_*=ON to use system libraries
@@ -318,7 +316,6 @@ target_link_libraries(NoiseRepellent PRIVATE
 # LINKER:/WHOLEARCHIVE on older CMake.
 if(NOT USE_SYSTEM_SPECBLEACH)
     if(MSVC)
-        message(STATUS "MSVC: wrapping ${SPECBLEACH_TARGET} with WHOLEARCHIVE (CMake ${CMAKE_VERSION})")
         if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.24")
             target_link_libraries(NoiseRepellent PRIVATE "$<LINK_LIBRARY:WHOLE_ARCHIVE,${SPECBLEACH_TARGET}>")
         else()
@@ -333,7 +330,6 @@ else()
 endif()
 if(NOT USE_SYSTEM_FFTW)
     if(MSVC)
-        message(STATUS "MSVC: wrapping ${FFTW_TARGET} with WHOLEARCHIVE (CMake ${CMAKE_VERSION})")
         if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.24")
             target_link_libraries(NoiseRepellent PRIVATE "$<LINK_LIBRARY:WHOLE_ARCHIVE,${FFTW_TARGET}>")
         else()

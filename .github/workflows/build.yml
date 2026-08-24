@@ -481,24 +481,7 @@ jobs:
 
       - name: Build Targets
         run: |
-          cmake --build build --config Release -j4 --verbose
-
-      - name: Debug CMake linking
-        shell: bash
-        run: |
-          echo "=== DEBUG: build.ninja WHOLEARCHIVE / specbleach ==="
-          grep -i "WHOLEARCHIVE\|WHOLE_ARCHIVE\|specbleach" build/build.ninja | head -n 100 || true
-          echo "=== DEBUG: LINK_LIBRARIES ==="
-          grep "LINK_LIBRARIES" build/build.ninja | head -n 100 || true
-          echo "=== DEBUG: VST3 link rule ==="
-          grep -A2 "NoiseRepellent_VST3" build/build.ninja | head -n 100 || true
-          echo "=== DEBUG: lib sizes ==="
-          ls -lh _deps/libspecbleach-build/specbleach.lib _deps/fftw3-build/fftw3f.lib 2>&1 | head -n 20 || true
-          ls -lh "NoiseRepellent_artefacts/Release/VST3/Noise Repellent.vst3/Contents/x86_64-win/Noise Repellent.vst3" "NoiseRepellent_artefacts/Release/LV2/Noise Repellent.lv2/Noise Repellent.dll" 2>&1 | head -n 20 || true
-          echo "=== DEBUG: dumpbin symbols ==="
-          dumpbin /SYMBOLS "NoiseRepellent_artefacts/Release/VST3/Noise Repellent.vst3/Contents/x86_64-win/Noise Repellent.vst3" 2>&1 | grep -i specbleach | head -n 20 || true
-          echo "=== DEBUG: strings ==="
-          strings "NoiseRepellent_artefacts/Release/VST3/Noise Repellent.vst3/Contents/x86_64-win/Noise Repellent.vst3" 2>&1 | grep -i specbleach | head -n 20 || true
+          cmake --build build --config Release -j4
 
       - name: CCache Statistics
         shell: bash
