@@ -148,19 +148,21 @@ jobs:
             fi
             
             set +e
+            set +o pipefail
             LIPO_INFO=$(lipo -info "$BINARY" 2>&1)
             LIPO_STATUS=$?
             set -e
+            set -o pipefail
 
             ARCH_FAILED=0
             if [ $LIPO_STATUS -ne 0 ] || [[ "$LIPO_INFO" != *"x86_64"* ]] || [[ "$LIPO_INFO" != *"arm64"* ]]; then
               ARCH_FAILED=1
             fi
 
-            BAD_DEPS=$(otool -L "$BINARY" | tail -n +2 | sed -E 's/^[[:space:]]+//; s/[[:space:]]+\(compatibility.*//' | grep -vE "^/System/Library|^/usr/lib|^@loader_path|^@executable_path|^@rpath|Noise Repellent|staging/" || true)
+            BAD_DEPS=$(otool -L "$BINARY" 2>/dev/null | tail -n +2 | sed -E 's/^[[:space:]]+//; s/[[:space:]]+\(compatibility.*//' | grep -vE "^/System/Library|^/usr/lib|^@loader_path|^@executable_path|^@rpath|Noise Repellent|staging/" || true)
             # Positive check: libspecbleach must be embedded (check via nm or size)
             BINARY_SIZE=$(stat -f%z "$BINARY" 2>/dev/null || stat -c%s "$BINARY" 2>/dev/null || wc -c < "$BINARY" 2>/dev/null | tr -d ' ')
-            HAS_SPECBLEACH=$(nm -a "$BINARY" 2>/dev/null | grep -i "specbleach" | head -n 1)
+            HAS_SPECBLEACH=$(nm -a "$BINARY" 2>/dev/null | grep -i "specbleach" | head -n 1 || true)
             if [ -z "$HAS_SPECBLEACH" ] && [ "$BINARY_SIZE" -lt 8000000 ]; then
               MISSING_SPECBLEACH=1
             else
@@ -317,12 +319,12 @@ jobs:
             NAME=$(basename "$PLUGIN")
             echo "Checking $NAME..."
 
-            UNEXPECTED_LIBS=$(ldd "$PLUGIN" 2>/dev/null | awk '/=>/ {print $1}' | grep -vE "$ALLOWED_LIBS")
-            DEFINED_LEAKS=$(nm -D --defined-only "$PLUGIN" 2>/dev/null | grep -iE " (FT_|fftwf?_)")
-            UNDEFINED_LEAKS=$(nm -D --undefined-only "$PLUGIN" 2>/dev/null | grep -iE " (FT_|fftwf?_)")
+            UNEXPECTED_LIBS=$(ldd "$PLUGIN" 2>/dev/null | awk '/=>/ {print $1}' | grep -vE "$ALLOWED_LIBS" || true)
+            DEFINED_LEAKS=$(nm -D --defined-only "$PLUGIN" 2>/dev/null | grep -iE " (FT_|fftwf?_) " || true)
+            UNDEFINED_LEAKS=$(nm -D --undefined-only "$PLUGIN" 2>/dev/null | grep -iE " (FT_|fftwf?_) " || true)
             # Positive check: libspecbleach must be statically embedded (approx >5 MB when combined with FFTW)
             PLUGIN_SIZE=$(stat -c%s "$PLUGIN" 2>/dev/null || stat -f%z "$PLUGIN" 2>/dev/null || echo 0)
-            HAS_SPECBLEACH=$(strings "$PLUGIN" 2>/dev/null | grep -i "specbleach" | head -n 1)
+            HAS_SPECBLEACH=$(strings "$PLUGIN" 2>/dev/null | grep -i "specbleach" | head -n 1 || true)
             if [ -z "$HAS_SPECBLEACH" ] && [ "$PLUGIN_SIZE" -lt 8000000 ]; then
               MISSING_SPECBLEACH=1
             else
@@ -514,6 +516,8 @@ jobs:
       - name: Verify Windows DLL Dependencies
         shell: bash
         run: |
+          set +e
+          set +o pipefail
           echo "🔍 Verifying Windows plugin binaries (.vst3 / .dll)..."
           IFS=$'\n'
           BINARIES=$(find staging -type f \( -name "*.vst3" -o -name "*.dll" \))
@@ -538,7 +542,7 @@ jobs:
             UNEXPECTED_DLLS=$(echo "$DEPENDENTS" | grep -ivE "$ALLOWED_DLLS" || true)
             # Positive check: libspecbleach must be statically embedded. Check strings OR file size (>7.5 MB)
             BINARY_SIZE=$(stat -c%s "$BINARY" 2>/dev/null || stat -f%z "$BINARY" 2>/dev/null || wc -c < "$BINARY" 2>/dev/null | tr -d ' ')
-            HAS_SPECBLEACH=$(strings "$BINARY" 2>/dev/null | grep -i "specbleach" | head -n 1)
+            HAS_SPECBLEACH=$(strings "$BINARY" 2>/dev/null | grep -i "specbleach" | head -n 1 || true)
             if [ -z "$HAS_SPECBLEACH" ] && [ "$BINARY_SIZE" -lt 7500000 ]; then
               MISSING_SPECBLEACH=1
             else
