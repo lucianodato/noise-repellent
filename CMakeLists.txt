@@ -13,6 +13,8 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 # Statically link MSVC C/C++ Runtime (/MT) on Windows
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
+message(STATUS "DEBUG: MSVC=${MSVC} WIN32=${WIN32} CMAKE_SYSTEM_NAME=${CMAKE_SYSTEM_NAME} CMAKE_VERSION=${CMAKE_VERSION} CMAKE_CXX_COMPILER_ID=${CMAKE_CXX_COMPILER_ID}")
+
 # ==============================================================================
 # Build Options (Default OFF for self-contained, portable release binaries)
 # Downstream distro packagers can pass -DUSE_SYSTEM_*=ON to use system libraries

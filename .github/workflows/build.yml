@@ -481,7 +481,17 @@ jobs:
 
       - name: Build Targets
         run: |
-          cmake --build build --config Release -j4
+          cmake --build build --config Release -j4 --verbose
+
+      - name: Debug CMake linking
+        shell: bash
+        run: |
+          echo "=== DEBUG: build.ninja WHOLEARCHIVE / specbleach ==="
+          grep -i "WHOLEARCHIVE\|WHOLE_ARCHIVE\|specbleach" build/build.ninja | head -n 100 || true
+          echo "=== DEBUG: LINK_LIBRARIES ==="
+          grep "LINK_LIBRARIES" build/build.ninja | head -n 100 || true
+          echo "=== DEBUG: VST3 link rule ==="
+          grep -A2 "NoiseRepellent_VST3" build/build.ninja | head -n 100 || true
 
       - name: CCache Statistics
         shell: bash
