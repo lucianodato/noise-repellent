@@ -120,6 +120,15 @@ NoiseRepellentAudioProcessor::createParameterLayout() {
       juce::NormalisableRange<float>(-12.0f, 12.0f, 0.1f), 0.0f));
 
   params.push_back(std::make_unique<juce::AudioParameterBool>(
+      "link_threshold_offset", "Link Threshold Offset", true,
+      juce::AudioParameterBoolAttributes().withAutomatable(false).withMeta(
+          true)));
+
+  params.push_back(std::make_unique<juce::AudioParameterFloat>(
+      "tonal_noise_profile_offset", "Tonal Noise Profile Offset",
+      juce::NormalisableRange<float>(-12.0f, 12.0f, 0.1f), 0.0f));
+
+  params.push_back(std::make_unique<juce::AudioParameterBool>(
       "reduction_curve_enabled", "Reduction Curve", false));
 
   return {params.begin(), params.end()};
@@ -659,6 +668,13 @@ void NoiseRepellentAudioProcessor::processBlock(
       parameters.getRawParameterValue("residual_listen")->load() > 0.5f;
   const float profileOffset =
       parameters.getRawParameterValue("noise_profile_offset")->load();
+  const bool linkThresholdOffset =
+      parameters.getRawParameterValue("link_threshold_offset")->load() > 0.5f;
+  const float tonalProfileOffsetDb =
+      linkThresholdOffset
+          ? profileOffset
+          : parameters.getRawParameterValue("tonal_noise_profile_offset")
+                ->load();
   const bool curveEnabled =
       parameters.getRawParameterValue("reduction_curve_enabled")->load() > 0.5f;
 
@@ -692,6 +708,7 @@ void NoiseRepellentAudioProcessor::processBlock(
   const float smoothingNorm = smoothing / 100.0f;
   const float whiteningNorm = whitening / 100.0f;
   const float profileScale = std::pow(10.0f, profileOffset / 10.0f);
+  const float tonalProfileScale = std::pow(10.0f, tonalProfileOffsetDb / 10.0f);
 
   // Prepare parameters for DSP engines
   SpectralBleachDenoiserParameters p;
@@ -708,6 +725,7 @@ void NoiseRepellentAudioProcessor::processBlock(
   p.tonal_reduction_gain = tonalReductionGain;
   p.hpss_enable = transientProtectionEnable ? 1 : 0;
   p.noise_profile_scale = profileScale;
+  p.tonal_noise_profile_scale = tonalProfileScale;
   p.reduction_curve_enabled = curveEnabled;
   p.reduction_curve_bias =
       curveEnabled ? interpolatedCurveBias.data() : nullptr;
@@ -726,6 +744,7 @@ void NoiseRepellentAudioProcessor::processBlock(
   p2.tonal_reduction_gain = tonalReductionGain;
   p2.hpss_enable = transientProtectionEnable ? 1 : 0;
   p2.noise_profile_scale = profileScale;
+  p2.tonal_noise_profile_scale = tonalProfileScale;
   p2.reduction_curve_enabled = curveEnabled;
   p2.reduction_curve_bias =
       curveEnabled ? interpolatedCurveBias.data() : nullptr;
@@ -1143,6 +1162,9 @@ void NoiseRepellentAudioProcessor::processBlock(
           frame.isLinked =
               (parameters.getRawParameterValue("link_reduction")->load() >
                0.5f);
+          frame.isOffsetLinked =
+              (parameters.getRawParameterValue("link_threshold_offset")
+                   ->load() > 0.5f);
           frame.reductionCurveEnabled =
               (parameters.getRawParameterValue("reduction_curve_enabled")
                    ->load() > 0.5f);

@@ -322,9 +322,52 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(
                       NoiseRepellentLookAndFeel::kColorDenoising);
   lblOffset.setJustificationType(juce::Justification::centred);
   sliderOffset.setColour(juce::Slider::rotarySliderFillColourId,
-                         NoiseRepellentLookAndFeel::kColorDenoising);
+                         NoiseRepellentLookAndFeel::kColorNoiseProfile);
   addAndMakeVisible(sliderOffset);
   addAndMakeVisible(lblOffset);
+
+  lblMasterOffset.setText("BROADBAND", juce::dontSendNotification);
+  lblMasterOffset.setFont(juce::FontOptions(
+      NoiseRepellentLookAndFeel::kFontSizeLabel, juce::Font::bold));
+  lblMasterOffset.setColour(juce::Label::textColourId,
+                            NoiseRepellentLookAndFeel::kColorNoiseProfile);
+  lblMasterOffset.setJustificationType(juce::Justification::centred);
+  addAndMakeVisible(lblMasterOffset);
+
+  lblTonalOffset.setText("TONAL", juce::dontSendNotification);
+  lblTonalOffset.setFont(juce::FontOptions(
+      NoiseRepellentLookAndFeel::kFontSizeLabel, juce::Font::bold));
+  lblTonalOffset.setColour(juce::Label::textColourId,
+                           NoiseRepellentLookAndFeel::kColorTonalPeaks);
+  lblTonalOffset.setJustificationType(juce::Justification::centred);
+  addAndMakeVisible(lblTonalOffset);
+
+  sliderTonalOffset.setColour(juce::Slider::rotarySliderFillColourId,
+                              NoiseRepellentLookAndFeel::kColorTonalPeaks);
+
+  addAndMakeVisible(sliderTonalOffset);
+
+  addAndMakeVisible(btnLinkOffset);
+  // Attachment must be created before onClick is assigned (same reasoning as
+  // the reduction link button above).
+  attachLinkOffset = std::make_unique<ButtonAttachment>(
+      audioProcessor.getAPVTS(), "link_threshold_offset", btnLinkOffset);
+  btnLinkOffset.setButtonText(btnLinkOffset.getToggleState() ? "Linked"
+                                                             : "Unlinked");
+  btnLinkOffset.onClick = [this]() {
+    bool isLinked = btnLinkOffset.getToggleState();
+    btnLinkOffset.setButtonText(isLinked ? "Linked" : "Unlinked");
+    if (isLinked) {
+      // Reset threshold offset parameters to default when relinked
+      if (auto* pMaster =
+              audioProcessor.getAPVTS().getParameter("noise_profile_offset"))
+        pMaster->setValueNotifyingHost(pMaster->getDefaultValue());
+      if (auto* pTonal = audioProcessor.getAPVTS().getParameter(
+              "tonal_noise_profile_offset"))
+        pTonal->setValueNotifyingHost(pTonal->getDefaultValue());
+    }
+    updateLayout();
+  };
 
   lblAggressiveness.setFont(juce::FontOptions(
       NoiseRepellentLookAndFeel::kFontSizeLabel, juce::Font::bold));
@@ -357,7 +400,7 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(
   lblMasking.setFont(juce::FontOptions(
       NoiseRepellentLookAndFeel::kFontSizeLabel, juce::Font::bold));
   lblMasking.setColour(juce::Label::textColourId,
-                         NoiseRepellentLookAndFeel::kColorDenoising);
+                       NoiseRepellentLookAndFeel::kColorDenoising);
   lblMasking.setJustificationType(juce::Justification::centred);
   addAndMakeVisible(lblMasking);
 
@@ -406,6 +449,8 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(
                                                       sliderTonalRed);
   attachOffset = std::make_unique<SliderAttachment>(
       apvts, "noise_profile_offset", sliderOffset);
+  attachTonalOffset = std::make_unique<SliderAttachment>(
+      apvts, "tonal_noise_profile_offset", sliderTonalOffset);
   attachSmoothing = std::make_unique<SliderAttachment>(
       apvts, "smoothing_factor", sliderSmoothing);
   attachMasking =
@@ -476,8 +521,8 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(
       "Link broadband and tonal reduction controls together\nfor unified "
       "adjustment.");
   btnCurveToggle.setTooltip(
-      "Enable per-frequency reduction bias curve\noverlay on spectral "
-      "display.");
+      "Enable per-frequency reduction bias curve overlay on spectral\n"
+      "display. Shapes both broadband and tonal reduction.");
   btnResetCurve.setTooltip("Reset reduction curve to flat 0 dB line.");
 
   // Initial Layout update
@@ -606,6 +651,13 @@ void NoiseRepellentAudioProcessorEditor::updateLayout() {
 
   sliderOffset.setVisible(true);
   lblOffset.setVisible(true);
+
+  bool isOffsetLinked = !isAdvancedVisible || btnLinkOffset.getToggleState();
+  sliderTonalOffset.setVisible(isAdvancedVisible && !isOffsetLinked);
+  lblMasterOffset.setVisible(isAdvancedVisible && !isOffsetLinked);
+  lblTonalOffset.setVisible(isAdvancedVisible && !isOffsetLinked);
+  btnLinkOffset.setVisible(isAdvancedVisible);
+
   sliderAggressiveness.setVisible(isAdvancedVisible);
   lblAggressiveness.setVisible(isAdvancedVisible);
 
@@ -735,10 +787,6 @@ void NoiseRepellentAudioProcessorEditor::updateProfileStatus() {
   btnResetProfile.setEnabled(profileEnabled && (hasProfile || isAdaptive));
   sliderOffset.setEnabled(pluginActive);
   lblOffset.setEnabled(pluginActive);
-  sliderOffset.setTooltip(
-      "Shift noise profile threshold up or down\nin decibels (-12 to +12 dB).");
-  lblOffset.setTooltip(
-      "Shift noise profile threshold up or down\nin decibels (-12 to +12 dB).");
 
   // Aggressiveness (Profile Morphing) enabled in Noise Profile box when a
   // manual profile exists and Advanced Controls is ON
@@ -805,6 +853,37 @@ void NoiseRepellentAudioProcessorEditor::updateProfileStatus() {
   lblMasterRed.setTooltip(masterRedTip);
   sliderTonalRed.setTooltip(tonalRedTip);
   lblTonalRed.setTooltip(tonalRedTip);
+
+  // Threshold Offset controls
+  btnLinkOffset.setEnabled(allowUnlink);
+
+  if (!canUnlink && !btnLinkOffset.getToggleState()) {
+    btnLinkOffset.setToggleState(true, juce::dontSendNotification);
+    btnLinkOffset.setButtonText("Linked");
+    if (auto* linkOffsetParam =
+            audioProcessor.getAPVTS().getParameter("link_threshold_offset"))
+      linkOffsetParam->setValueNotifyingHost(1.0f);
+  }
+
+  bool isOffsetLinked = btnLinkOffset.getToggleState();
+  bool tonalOffsetEnabled = pluginActive && !isOffsetLinked && allowUnlink;
+  sliderTonalOffset.setEnabled(tonalOffsetEnabled);
+  lblTonalOffset.setEnabled(tonalOffsetEnabled);
+
+  const juce::String masterOffsetTip =
+      isOffsetLinked ? "Shift noise profile threshold up or down\nin decibels "
+                       "(-12 to +12 dB)."
+                     : "Shift broadband noise threshold up or down\nin "
+                       "decibels (-12 to +12 dB).";
+  const juce::String tonalOffsetTip =
+      "Shift threshold for tonal noise components\nin decibels (-12 to +12 "
+      "dB).";
+
+  lblOffset.setTooltip(masterOffsetTip);
+  sliderOffset.setTooltip(masterOffsetTip);
+  lblMasterOffset.setTooltip(masterOffsetTip);
+  sliderTonalOffset.setTooltip(tonalOffsetTip);
+  lblTonalOffset.setTooltip(tonalOffsetTip);
 
   btnCurveToggle.setEnabled(pluginActive);
   btnResetCurve.setEnabled(pluginActive && btnCurveToggle.getToggleState());
@@ -1165,11 +1244,19 @@ void NoiseRepellentAudioProcessorEditor::resized() {
 
   // Right-side Threshold (Noise Profile Offset) vertical fader bank (symmetric
   // to reduction sliders on left)
-  auto offsetBankArea = denoiseInner.removeFromRight(95);
+  bool isOffsetLinked = !isAdvancedVisible || btnLinkOffset.getToggleState();
+  int offsetBankWidth = isOffsetLinked ? 95 : 155;
+
+  auto offsetBankArea = denoiseInner.removeFromRight(offsetBankWidth);
   denoiseInner.removeFromRight(10);
 
   lblOffset.setBounds(offsetBankArea.removeFromTop(16));
   offsetBankArea.removeFromTop(2);
+
+  if (isAdvancedVisible) {
+    btnLinkOffset.setBounds(offsetBankArea.removeFromTop(22));
+    offsetBankArea.removeFromTop(6);
+  }
 
   // Carve bottom area of offsetBankArea for Advanced Controls button below
   // threshold slider
@@ -1177,7 +1264,23 @@ void NoiseRepellentAudioProcessorEditor::resized() {
   offsetBankArea.removeFromBottom(6);
   btnAdvancedToggle.setBounds(offsetBottomArea);
 
-  sliderOffset.setBounds(offsetBankArea);
+  if (isOffsetLinked) {
+    sliderOffset.setBounds(offsetBankArea);
+  } else {
+    int colW = (offsetBankArea.getWidth() - 6) / 2;
+
+    auto leftCol = offsetBankArea.removeFromLeft(colW);
+    offsetBankArea.removeFromLeft(6);
+    auto rightCol = offsetBankArea;
+
+    lblMasterOffset.setBounds(leftCol.removeFromTop(16));
+    leftCol.removeFromTop(2);
+    sliderOffset.setBounds(leftCol);
+
+    lblTonalOffset.setBounds(rightCol.removeFromTop(16));
+    rightCol.removeFromTop(2);
+    sliderTonalOffset.setBounds(rightCol);
+  }
 
   spectralVisualizer.setBounds(denoiseInner);
 

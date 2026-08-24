@@ -70,6 +70,11 @@ private:
   juce::Slider sliderOffset{juce::Slider::LinearVertical,
                             juce::Slider::TextBoxBelow};
   juce::Label lblOffset{"lblOffset", "THRESHOLD"};
+  juce::ToggleButton btnLinkOffset{"Linked"};
+  juce::Label lblMasterOffset{"lblMasterOffset", "BROADBAND"};
+  juce::Label lblTonalOffset{"lblTonalOffset", "TONAL"};
+  juce::Slider sliderTonalOffset{juce::Slider::LinearVertical,
+                                 juce::Slider::TextBoxBelow};
   juce::Label lblProfileStatus;
 
   // Module 2: Denoising & Spectrum
@@ -117,6 +122,7 @@ private:
   std::unique_ptr<ButtonAttachment> attachLearn;
   std::unique_ptr<ButtonAttachment> attachAdaptive;
   std::unique_ptr<ButtonAttachment> attachLink;
+  std::unique_ptr<ButtonAttachment> attachLinkOffset;
   std::unique_ptr<ButtonAttachment> attachCurveToggle;
   std::unique_ptr<ButtonAttachment> attachDelta;
   std::unique_ptr<ButtonAttachment> attachBypass;
@@ -127,6 +133,7 @@ private:
   std::unique_ptr<SliderAttachment> attachMasterRed;
   std::unique_ptr<SliderAttachment> attachTonalRed;
   std::unique_ptr<SliderAttachment> attachOffset;
+  std::unique_ptr<SliderAttachment> attachTonalOffset;
   std::unique_ptr<SliderAttachment> attachSmoothing;
   std::unique_ptr<SliderAttachment> attachMasking;
   std::unique_ptr<SliderAttachment> attachWhitening;
