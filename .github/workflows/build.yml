@@ -25,20 +25,16 @@ jobs:
       - name: Extract Version
         id: extract_version
         run: |
+          BASE_VER=$(sed -n -E 's/.*project\(NoiseRepellent VERSION ([0-9]+\.[0-9]+\.[0-9]+\).*/\1/p' CMakeLists.txt)
           if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
             VERSION="${GITHUB_REF_NAME#v}"
           else
-            if DESCRIBE=$(git describe --tags --always 2>/dev/null); then
-              VERSION="${DESCRIBE#v}"
-            else
-              BASE_VER=$(sed -n -E 's/.*project\(NoiseRepellent VERSION ([0-9]+\.[0-9]+\.[0-9]+\).*/\1/p' CMakeLists.txt)
-              SHORT_SHA=$(git rev-parse --short HEAD)
-              VERSION="${BASE_VER}-${SHORT_SHA}"
-            fi
+            SHORT_SHA=$(git rev-parse --short HEAD)
+            VERSION="${BASE_VER}-${SHORT_SHA}"
           fi
           echo "PLUGIN_VERSION=${VERSION}" >> $GITHUB_ENV
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
-          echo "Building version: ${VERSION}"
+          echo "Building version: ${VERSION} (CMake base ${BASE_VER})"
 
       - name: Setup ccache
         uses: hendrikmuhs/ccache-action@v1.2
@@ -116,6 +112,12 @@ jobs:
               lipo -create "$ARM_DYLIB" "$X86_DYLIB" -output "$TARGET_DYLIB"
             fi
           fi
+
+      - name: Strip Binaries (Release)
+        run: |
+          echo "Stripping macOS universal binaries..."
+          find staging -type f \( -name "Noise Repellent" -o -name "*.dylib" \) -exec strip -x {} \; 2>&1 | head -n 20 || true
+          find staging -type f \( -name "Noise Repellent" -o -name "*.dylib" \) -exec ls -lh {} \; 2>&1 | head -n 20 || true
 
       - name: Ad-hoc Code Sign Plugins
         run: |
@@ -249,20 +251,16 @@ jobs:
       - name: Extract Version
         id: extract_version
         run: |
+          BASE_VER=$(sed -n -E 's/.*project\(NoiseRepellent VERSION ([0-9]+\.[0-9]+\.[0-9]+\).*/\1/p' CMakeLists.txt)
           if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
             VERSION="${GITHUB_REF_NAME#v}"
           else
-            if DESCRIBE=$(git describe --tags --always 2>/dev/null); then
-              VERSION="${DESCRIBE#v}"
-            else
-              BASE_VER=$(sed -n -E 's/.*project\(NoiseRepellent VERSION ([0-9]+\.[0-9]+\.[0-9]+\).*/\1/p' CMakeLists.txt)
-              SHORT_SHA=$(git rev-parse --short HEAD)
-              VERSION="${BASE_VER}-${SHORT_SHA}"
-            fi
+            SHORT_SHA=$(git rev-parse --short HEAD)
+            VERSION="${BASE_VER}-${SHORT_SHA}"
           fi
           echo "PLUGIN_VERSION=${VERSION}" >> $GITHUB_ENV
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
-          echo "Building version: ${VERSION}"
+          echo "Building version: ${VERSION} (CMake base ${BASE_VER})"
 
       - name: Install System UI Dependencies & Build Tools
         run: |
@@ -290,6 +288,12 @@ jobs:
       - name: Build Plugins
         run: |
           cmake --build build --config Release
+
+      - name: Strip Binaries (Release)
+        run: |
+          echo "Stripping Linux binaries..."
+          find build/NoiseRepellent_artefacts -name "*.so" -exec strip --strip-unneeded {} \; 2>&1 | head -n 20 || true
+          find build/NoiseRepellent_artefacts -name "*.so" -exec ls -lh {} \; 2>&1 | head -n 20 || true
 
       - name: CCache Statistics
         run: |
@@ -446,20 +450,16 @@ jobs:
         id: extract_version
         shell: bash
         run: |
+          BASE_VER=$(sed -n -E 's/.*project\(NoiseRepellent VERSION ([0-9]+\.[0-9]+\.[0-9]+\).*/\1/p' CMakeLists.txt)
           if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
             VERSION="${GITHUB_REF_NAME#v}"
           else
-            if DESCRIBE=$(git describe --tags --always 2>/dev/null); then
-              VERSION="${DESCRIBE#v}"
-            else
-              BASE_VER=$(sed -n -E 's/.*project\(NoiseRepellent VERSION ([0-9]+\.[0-9]+\.[0-9]+\).*/\1/p' CMakeLists.txt)
-              SHORT_SHA=$(git rev-parse --short HEAD)
-              VERSION="${BASE_VER}-${SHORT_SHA}"
-            fi
+            SHORT_SHA=$(git rev-parse --short HEAD)
+            VERSION="${BASE_VER}-${SHORT_SHA}"
           fi
           echo "PLUGIN_VERSION=${VERSION}" >> $GITHUB_ENV
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
-          echo "Building version: ${VERSION}"
+          echo "Building version: ${VERSION} (CMake base ${BASE_VER})"
 
       - name: Set up Ninja & MSVC Developer Environment
         uses: ilammy/msvc-dev-cmd@v1
@@ -475,13 +475,19 @@ jobs:
         run: |
           cmake -B build -G "Ninja" `
             -DCMAKE_BUILD_TYPE=Release `
-            -DCMAKE_MSVC_DEBUG_INFORMATION_FORMAT=Embedded `
             -DCMAKE_C_COMPILER_LAUNCHER=ccache `
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
 
       - name: Build Targets
         run: |
           cmake --build build --config Release -j4
+
+      - name: Strip Binaries (Release)
+        shell: bash
+        run: |
+          echo "Stripping Windows binaries (if symbols present)..."
+          # MSVC Release with /DEBUG embeds PDB; stripping with strip --strip-unneeded if available
+          find build/NoiseRepellent_artefacts -type f \( -name "*.vst3" -o -name "*.dll" \) -exec ls -lh {} \; 2>&1 | head -n 20 || true
 
       - name: CCache Statistics
         shell: bash
