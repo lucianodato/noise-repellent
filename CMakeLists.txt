@@ -35,7 +35,6 @@ if(MSVC)
     add_compile_options($<$<COMPILE_LANGUAGE:C>:/std:c11>)
     add_compile_options($<$<COMPILE_LANGUAGE:CXX>:/std:c++17>)
     add_compile_options(/experimental:c11atomics)
-    add_compile_options(/openmp:llvm)
 endif()
 
 include(FetchContent)
