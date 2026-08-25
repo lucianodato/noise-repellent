@@ -223,12 +223,12 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: noise-repellent-macOS-installer-${{ steps.extract_version.outputs.version }}.pkg
+          name: noise-repellent-macOS-installer-${{ steps.extract_version.outputs.version }}
           path: NoiseRepellent-macOS-Universal-${{ steps.extract_version.outputs.version }}.pkg
 
       - uses: actions/upload-artifact@v4
         with:
-          name: noise-repellent-macOS-zip-${{ steps.extract_version.outputs.version }}.zip
+          name: noise-repellent-macOS-zip-${{ steps.extract_version.outputs.version }}
           path: noise-repellent-macOS-Universal-${{ steps.extract_version.outputs.version }}.zip
 
       - name: Upload GitHub Release
@@ -415,12 +415,12 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: noise-repellent-linux-deb-${{ steps.extract_version.outputs.version }}.deb
+          name: noise-repellent-linux-deb-${{ steps.extract_version.outputs.version }}
           path: noise-repellent_${{ steps.extract_version.outputs.version }}_amd64.deb
 
       - uses: actions/upload-artifact@v4
         with:
-          name: noise-repellent-linux-tarball-${{ steps.extract_version.outputs.version }}.tar.gz
+          name: noise-repellent-linux-tarball-${{ steps.extract_version.outputs.version }}
           path: noise-repellent-linux-x86_64-${{ steps.extract_version.outputs.version }}.tar.gz
 
       - name: Upload GitHub Release
@@ -615,13 +615,13 @@ jobs:
       - name: Upload Installer Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: noise-repellent-win64-installer-${{ steps.extract_version.outputs.version }}.exe
+          name: noise-repellent-win64-installer-${{ steps.extract_version.outputs.version }}
           path: Output/NoiseRepellent-Win64-Installer-${{ steps.extract_version.outputs.version }}.exe
 
       - name: Upload Zip Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: noise-repellent-win64-zip-${{ steps.extract_version.outputs.version }}.zip
+          name: noise-repellent-win64-zip-${{ steps.extract_version.outputs.version }}
           path: noise-repellent-windows-x64-${{ steps.extract_version.outputs.version }}.zip
 
       - name: Upload GitHub Release
