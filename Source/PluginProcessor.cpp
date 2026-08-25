@@ -511,6 +511,7 @@ void NoiseRepellentAudioProcessor::prepareToPlay(double sampleRate,
   engineSyncFailed.store(false, std::memory_order_release);
   transitionArmed.store(false, std::memory_order_release);
   pendingSwitchFrom.store(-1, std::memory_order_release);
+  transitionArmEdge = false;
 
   // Reset FFT accumulation
   fftAccumInput.fill(0.0f);
@@ -678,10 +679,20 @@ void NoiseRepellentAudioProcessor::processBlock(
   p2.tonal_noise_profile_scale = tonalProfileScale;
 
   // Defer profile migration plus click-free engine switching to the sync
-  // worker; report the target latency immediately so host delay compensation
-  // stays consistent
+  // worker; latency is reported when the crossfade actually starts so host
+  // delay compensation never leads the rendered audio
   if (algoMode != currentAlgoMode) {
-    EngineSyncCommand cmd{kSyncSyncAndSwitch, currentAlgoMode, algoMode};
+    // Source family: the blend target if a transition is already running,
+    // otherwise whatever is currently being rendered
+    const int from =
+        transitionArmed.load(std::memory_order_acquire)
+            ? currentAlgoMode
+            : [&] {
+                const int pending =
+                    pendingSwitchFrom.load(std::memory_order_acquire);
+                return pending >= 0 ? pending : currentAlgoMode;
+              }();
+    EngineSyncCommand cmd{kSyncSyncAndSwitch, from, algoMode};
     int start1 = 0, size1 = 0, start2 = 0, size2 = 0;
     engineSyncFifo.prepareToWrite(1, start1, size1, start2, size2);
     if (size1 > 0) {
@@ -689,14 +700,8 @@ void NoiseRepellentAudioProcessor::processBlock(
       engineSyncFifo.finishedWrite(1);
     }
 
-    pendingSwitchFrom.store(currentAlgoMode, std::memory_order_relaxed);
+    pendingSwitchFrom.store(from, std::memory_order_release);
     currentAlgoMode = algoMode;
-
-    uint32_t targetLatency = 0;
-    if (auto* targetGroup = activeGroupFor(algoMode))
-      targetLatency = specbleach_stereo_get_latency(targetGroup);
-    setLatencySamples(static_cast<int>(targetLatency));
-    dryWetMixer.setWetLatency(static_cast<float>(targetLatency));
   }
 
   // Load parameters into both engine groups every block (RT-safe after the
@@ -717,10 +722,28 @@ void NoiseRepellentAudioProcessor::processBlock(
   dryWetMixer.pushDrySamples(audioBlock);
 
   // ── Wet rendering ──
-  auto* activeGroup = activeGroupFor(currentAlgoMode);
-  const bool transitioning = transitionArmed.load(std::memory_order_relaxed) &&
+  // Until the sync worker arms the transition, keep rendering the SOURCE
+  // family so the switch point is a crossfade rather than a hard cut
+  const int pendingFrom = pendingSwitchFrom.load(std::memory_order_acquire);
+  const int renderFamily = pendingFrom >= 0 ? pendingFrom : currentAlgoMode;
+  auto* activeGroup = activeGroupFor(renderFamily);
+  const bool transitioning = transitionArmed.load(std::memory_order_acquire) &&
                              !paused && spectralGroup != nullptr &&
                              nlmGroup != nullptr && engineTransition != nullptr;
+
+  // Host delay compensation must track the rendered path: report the target
+  // latency on the rising edge of the transition (when blending starts), not
+  // at parameter-change time
+  if (!paused && transitioning != transitionArmEdge) {
+    transitionArmEdge = transitioning;
+    if (transitioning) {
+      uint32_t targetLatency = 0;
+      if (auto* targetGroup = activeGroupFor(currentAlgoMode))
+        targetLatency = specbleach_stereo_get_latency(targetGroup);
+      setLatencySamples(static_cast<int>(targetLatency));
+      dryWetMixer.setWetLatency(static_cast<float>(targetLatency));
+    }
+  }
 
   if (!paused && activeGroup != nullptr) {
     const uint32_t groupChannels = std::min<uint32_t>(
@@ -1125,10 +1148,17 @@ void NoiseRepellentAudioProcessor::pumpEngineSyncQueue() {
     return;
   }
 
+  // Learn-finished commands migrate into the OTHER family so any later
+  // engine switch starts warm
+  const int toFamily = (cmd.request == kSyncLearnFinished && cmd.from >= 0 &&
+                        cmd.from <= 1)
+                           ? 1 - cmd.from
+                           : cmd.to;
+
   auto* sourceGroup =
       (cmd.from >= 0 && cmd.from <= 1) ? activeGroupFor(cmd.from) : nullptr;
   auto* targetGroup =
-      (cmd.to >= 0 && cmd.to <= 1) ? activeGroupFor(cmd.to) : nullptr;
+      (toFamily >= 0 && toFamily <= 1) ? activeGroupFor(toFamily) : nullptr;
 
   if (sourceGroup != nullptr && targetGroup != nullptr &&
       sourceGroup != targetGroup) {

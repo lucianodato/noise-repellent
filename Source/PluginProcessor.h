@@ -188,6 +188,7 @@ private:
   std::atomic<bool> transitionArmed{
       false}; // worker -> audio: blend via transition
   std::atomic<int> pendingSwitchFrom{-1}; // source family during a switch
+  bool transitionArmEdge{false};          // audio-thread-only edge tracker
 
   juce::AudioParameterBool* bypassParameter = nullptr;
   juce::dsp::DryWetMixer<float> dryWetMixer;
