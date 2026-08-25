@@ -25,20 +25,17 @@ jobs:
       - name: Extract Version
         id: extract_version
         run: |
+          BASE_VER=$(sed -n -E 's/.*project\(NoiseRepellent VERSION ([0-9]+\.[0-9]+\.[0-9]+).*/\1/p' CMakeLists.txt)
           if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
             VERSION="${GITHUB_REF_NAME#v}"
           else
-            if DESCRIBE=$(git describe --tags --always 2>/dev/null); then
-              VERSION="${DESCRIBE#v}"
-            else
-              BASE_VER=$(sed -n -E 's/.*project\(NoiseRepellent VERSION ([0-9]+\.[0-9]+\.[0-9]+\).*/\1/p' CMakeLists.txt)
-              SHORT_SHA=$(git rev-parse --short HEAD)
-              VERSION="${BASE_VER}-${SHORT_SHA}"
-            fi
+            SHORT_SHA=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+            if [ -z "$BASE_VER" ]; then echo "ERROR: failed to parse version from CMakeLists.txt" >&2; exit 1; fi
+            VERSION="${BASE_VER}-${SHORT_SHA}"
           fi
           echo "PLUGIN_VERSION=${VERSION}" >> $GITHUB_ENV
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
-          echo "Building version: ${VERSION}"
+          echo "Building version: ${VERSION} (CMake base ${BASE_VER})"
 
       - name: Setup ccache
         uses: hendrikmuhs/ccache-action@v1.2
@@ -117,6 +114,12 @@ jobs:
             fi
           fi
 
+      - name: Strip Binaries (Release)
+        run: |
+          echo "Stripping macOS universal binaries..."
+          find staging -type f \( -name "Noise Repellent" -o -name "*.dylib" \) -exec strip -x {} \; 2>&1 | head -n 20 || true
+          find staging -type f \( -name "Noise Repellent" -o -name "*.dylib" \) -exec ls -lh {} \; 2>&1 | head -n 20 || true
+
       - name: Ad-hoc Code Sign Plugins
         run: |
           codesign --force --deep --sign - staging/Noise\ Repellent.vst3
@@ -148,21 +151,31 @@ jobs:
             fi
             
             set +e
+            set +o pipefail
             LIPO_INFO=$(lipo -info "$BINARY" 2>&1)
             LIPO_STATUS=$?
             set -e
+            set -o pipefail
 
             ARCH_FAILED=0
             if [ $LIPO_STATUS -ne 0 ] || [[ "$LIPO_INFO" != *"x86_64"* ]] || [[ "$LIPO_INFO" != *"arm64"* ]]; then
               ARCH_FAILED=1
             fi
 
-            BAD_DEPS=$(otool -L "$BINARY" | tail -n +2 | sed -E 's/^[[:space:]]+//; s/[[:space:]]+\(compatibility.*//' | grep -vE "^/System/Library|^/usr/lib|^@loader_path|^@executable_path|^@rpath|Noise Repellent|staging/" || true)
+            BAD_DEPS=$(otool -L "$BINARY" 2>/dev/null | tail -n +2 | sed -E 's/^[[:space:]]+//; s/[[:space:]]+\(compatibility.*//' | grep -vE "^/System/Library|^/usr/lib|^@loader_path|^@executable_path|^@rpath|Noise Repellent|staging/" || true)
+            BINARY_SIZE=$(stat -f%z "$BINARY" 2>/dev/null || stat -c%s "$BINARY" 2>/dev/null || wc -c < "$BINARY" 2>/dev/null | tr -d ' ')
+            HAS_SPECBLEACH=$(nm -a "$BINARY" 2>/dev/null | grep -i "specbleach" | head -n 1 || true)
+            if [ -z "$HAS_SPECBLEACH" ] && [ "$BINARY_SIZE" -lt 8000000 ]; then
+              MISSING_SPECBLEACH=1
+            else
+              MISSING_SPECBLEACH=0
+            fi
 
-            if [ -n "$BAD_DEPS" ] || [ $ARCH_FAILED -ne 0 ]; then
+            if [ -n "$BAD_DEPS" ] || [ $ARCH_FAILED -ne 0 ] || [ "$MISSING_SPECBLEACH" -eq 1 ]; then
               echo "❌ [FAIL] $NAME"
               [ $ARCH_FAILED -ne 0 ] && echo "   └─ Architecture error: $LIPO_INFO"
               [ -n "$BAD_DEPS" ] && echo "   └─ Dynamic leaks: $(echo "$BAD_DEPS" | tr '\n' ' ')"
+              [ "$MISSING_SPECBLEACH" -eq 1 ] && echo "   └─ Missing libspecbleach embedding (size ${BINARY_SIZE} < 8M and no specbleach symbols)"
               HAS_ERRORS=1
             else
               echo "✔ [PASS] $NAME (Universal x86_64+arm64)"
@@ -238,20 +251,17 @@ jobs:
       - name: Extract Version
         id: extract_version
         run: |
+          BASE_VER=$(sed -n -E 's/.*project\(NoiseRepellent VERSION ([0-9]+\.[0-9]+\.[0-9]+).*/\1/p' CMakeLists.txt)
           if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
             VERSION="${GITHUB_REF_NAME#v}"
           else
-            if DESCRIBE=$(git describe --tags --always 2>/dev/null); then
-              VERSION="${DESCRIBE#v}"
-            else
-              BASE_VER=$(sed -n -E 's/.*project\(NoiseRepellent VERSION ([0-9]+\.[0-9]+\.[0-9]+\).*/\1/p' CMakeLists.txt)
-              SHORT_SHA=$(git rev-parse --short HEAD)
-              VERSION="${BASE_VER}-${SHORT_SHA}"
-            fi
+            SHORT_SHA=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+            if [ -z "$BASE_VER" ]; then echo "ERROR: failed to parse version from CMakeLists.txt" >&2; exit 1; fi
+            VERSION="${BASE_VER}-${SHORT_SHA}"
           fi
           echo "PLUGIN_VERSION=${VERSION}" >> $GITHUB_ENV
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
-          echo "Building version: ${VERSION}"
+          echo "Building version: ${VERSION} (CMake base ${BASE_VER})"
 
       - name: Install System UI Dependencies & Build Tools
         run: |
@@ -279,6 +289,12 @@ jobs:
       - name: Build Plugins
         run: |
           cmake --build build --config Release
+
+      - name: Strip Binaries (Release)
+        run: |
+          echo "Stripping Linux binaries..."
+          find build/NoiseRepellent_artefacts -name "*.so" -exec strip --strip-unneeded {} \; 2>&1 | head -n 20 || true
+          find build/NoiseRepellent_artefacts -name "*.so" -exec ls -lh {} \; 2>&1 | head -n 20 || true
 
       - name: CCache Statistics
         run: |
@@ -308,15 +324,23 @@ jobs:
             NAME=$(basename "$PLUGIN")
             echo "Checking $NAME..."
 
-            UNEXPECTED_LIBS=$(ldd "$PLUGIN" 2>/dev/null | awk '/=>/ {print $1}' | grep -vE "$ALLOWED_LIBS")
-            DEFINED_LEAKS=$(nm -D --defined-only "$PLUGIN" 2>/dev/null | grep -iE " (FT_|fftwf?_)")
-            UNDEFINED_LEAKS=$(nm -D --undefined-only "$PLUGIN" 2>/dev/null | grep -iE " (FT_|fftwf?_)")
+            UNEXPECTED_LIBS=$(ldd "$PLUGIN" 2>/dev/null | awk '/=>/ {print $1}' | grep -vE "$ALLOWED_LIBS" || true)
+            DEFINED_LEAKS=$(nm -D --defined-only "$PLUGIN" 2>/dev/null | grep -iE '[[:space:]](FT_|fftwf?_)' || true)
+            UNDEFINED_LEAKS=$(nm -D --undefined-only "$PLUGIN" 2>/dev/null | grep -iE '[[:space:]](FT_|fftwf?_)' || true)
+            PLUGIN_SIZE=$(stat -c%s "$PLUGIN" 2>/dev/null || stat -f%z "$PLUGIN" 2>/dev/null || echo 0)
+            HAS_SPECBLEACH=$(strings "$PLUGIN" 2>/dev/null | grep -i "specbleach" | head -n 1 || true)
+            if [ -z "$HAS_SPECBLEACH" ] && [ "$PLUGIN_SIZE" -lt 8000000 ]; then
+              MISSING_SPECBLEACH=1
+            else
+              MISSING_SPECBLEACH=0
+            fi
 
-            if [ -n "$UNEXPECTED_LIBS" ] || [ -n "$DEFINED_LEAKS" ] || [ -n "$UNDEFINED_LEAKS" ]; then
+            if [ -n "$UNEXPECTED_LIBS" ] || [ -n "$DEFINED_LEAKS" ] || [ -n "$UNDEFINED_LEAKS" ] || [ "$MISSING_SPECBLEACH" -eq 1 ]; then
               echo "❌ [FAIL] Verification failed for $NAME"
               [ -n "$UNEXPECTED_LIBS" ] && echo "   └─ Dynamic library leaks: $(echo "$UNEXPECTED_LIBS" | tr '\n' ' ')"
               [ -n "$DEFINED_LEAKS" ] && echo "   └─ Exported static symbols: $(echo "$DEFINED_LEAKS" | tr '\n' ' ')"
               [ -n "$UNDEFINED_LEAKS" ] && echo "   └─ Undefined system symbols: $(echo "$UNDEFINED_LEAKS" | tr '\n' ' ')"
+              [ "$MISSING_SPECBLEACH" -eq 1 ] && echo "   └─ Missing libspecbleach embedding (size ${PLUGIN_SIZE} < 8M and no specbleach strings)"
               HAS_ERRORS=1
             else
               echo "✔ [PASS] $NAME (Dependencies clean & symbols fully isolated)"
@@ -426,20 +450,17 @@ jobs:
         id: extract_version
         shell: bash
         run: |
+          BASE_VER=$(sed -n -E 's/.*project\(NoiseRepellent VERSION ([0-9]+\.[0-9]+\.[0-9]+).*/\1/p' CMakeLists.txt)
           if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
             VERSION="${GITHUB_REF_NAME#v}"
           else
-            if DESCRIBE=$(git describe --tags --always 2>/dev/null); then
-              VERSION="${DESCRIBE#v}"
-            else
-              BASE_VER=$(sed -n -E 's/.*project\(NoiseRepellent VERSION ([0-9]+\.[0-9]+\.[0-9]+\).*/\1/p' CMakeLists.txt)
-              SHORT_SHA=$(git rev-parse --short HEAD)
-              VERSION="${BASE_VER}-${SHORT_SHA}"
-            fi
+            SHORT_SHA=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+            if [ -z "$BASE_VER" ]; then echo "ERROR: failed to parse version from CMakeLists.txt" >&2; exit 1; fi
+            VERSION="${BASE_VER}-${SHORT_SHA}"
           fi
           echo "PLUGIN_VERSION=${VERSION}" >> $GITHUB_ENV
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
-          echo "Building version: ${VERSION}"
+          echo "Building version: ${VERSION} (CMake base ${BASE_VER})"
 
       - name: Set up Ninja & MSVC Developer Environment
         uses: ilammy/msvc-dev-cmd@v1
@@ -455,13 +476,19 @@ jobs:
         run: |
           cmake -B build -G "Ninja" `
             -DCMAKE_BUILD_TYPE=Release `
-            -DCMAKE_MSVC_DEBUG_INFORMATION_FORMAT=Embedded `
             -DCMAKE_C_COMPILER_LAUNCHER=ccache `
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
 
       - name: Build Targets
         run: |
           cmake --build build --config Release -j4
+
+      - name: Strip Binaries (Release)
+        shell: bash
+        run: |
+          echo "Stripping Windows binaries (if symbols present)..."
+          # MSVC Release with /DEBUG embeds PDB; stripping with strip --strip-unneeded if available
+          find build/NoiseRepellent_artefacts -type f \( -name "*.vst3" -o -name "*.dll" \) -exec ls -lh {} \; 2>&1 | head -n 20 || true
 
       - name: CCache Statistics
         shell: bash
@@ -496,6 +523,8 @@ jobs:
       - name: Verify Windows DLL Dependencies
         shell: bash
         run: |
+          set +e
+          set +o pipefail
           echo "🔍 Verifying Windows plugin binaries (.vst3 / .dll)..."
           IFS=$'\n'
           BINARIES=$(find staging -type f \( -name "*.vst3" -o -name "*.dll" \))
@@ -518,10 +547,23 @@ jobs:
             fi
 
             UNEXPECTED_DLLS=$(echo "$DEPENDENTS" | grep -ivE "$ALLOWED_DLLS" || true)
+            BINARY_SIZE=$(stat -c%s "$BINARY" 2>/dev/null || stat -f%z "$BINARY" 2>/dev/null || wc -c < "$BINARY" 2>/dev/null | tr -d ' ')
+            HAS_SPECBLEACH=$(nm -a "$BINARY" 2>/dev/null | grep -i "specbleach" | head -n 1 || true)
+            if [ -z "$HAS_SPECBLEACH" ]; then HAS_SPECBLEACH=$(llvm-nm "$BINARY" 2>/dev/null | grep -i "specbleach" | head -n 1 || true); fi
+            if [ -z "$HAS_SPECBLEACH" ]; then HAS_SPECBLEACH=$(strings "$BINARY" 2>/dev/null | grep -i "specbleach" | head -n 1 || true); fi
+            if [ -z "$HAS_SPECBLEACH" ]; then HAS_SPECBLEACH=$(dumpbin /SYMBOLS "$BINARY" 2>/dev/null | grep -i "specbleach" | head -n 1 || true); fi
+            if [ -z "$HAS_SPECBLEACH" ] && [ "$BINARY_SIZE" -lt 5000000 ]; then
+              echo "❌ $NAME missing libspecbleach embedding (size ${BINARY_SIZE} <5M and no specbleach symbols)"
+              MISSING_SPECBLEACH=1
+            else
+              MISSING_SPECBLEACH=0
+            fi
+            echo "   Size: ${BINARY_SIZE} bytes, specbleach found: $([ -n "$HAS_SPECBLEACH" ] && echo yes || echo no)"
 
-            if [ -n "$UNEXPECTED_DLLS" ]; then
+            if [ -n "$UNEXPECTED_DLLS" ] || [ "$MISSING_SPECBLEACH" -eq 1 ]; then
               echo "❌ [FAIL] $NAME"
-              echo "   └─ Dynamic leaks: $(echo "$UNEXPECTED_DLLS" | tr '\n' ' ')"
+              [ -n "$UNEXPECTED_DLLS" ] && echo "   └─ Dynamic leaks: $(echo "$UNEXPECTED_DLLS" | tr '\n' ' ')"
+              [ "$MISSING_SPECBLEACH" -eq 1 ] && echo "   └─ Missing libspecbleach embedding (size ${BINARY_SIZE} < 5M and no specbleach symbols)"
               HAS_ERRORS=1
             else
               echo "✔ [PASS] $NAME"

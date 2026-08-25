@@ -238,6 +238,16 @@ if(USE_SYSTEM_SPECBLEACH)
     pkg_check_modules(SPECBLEACH REQUIRED IMPORTED_TARGET specbleach)
     set(SPECBLEACH_TARGET PkgConfig::SPECBLEACH)
 else()
+    # Force static build of libspecbleach for portable plugins. This must be
+    # set BEFORE add_subdirectory/FetchContent so libspecbleach's
+    # option(BUILD_SHARED_LIBS ON) does not create a SHARED DLL on Windows.
+    set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+    # Disable libspecbleach's install targets when embedded (avoids
+    # packaging unrelated pc/cmake files inside the plugin build tree)
+    set(SPECBLEACH_INSTALL OFF CACHE BOOL "" FORCE)
+    set(ENABLE_TESTS OFF CACHE BOOL "" FORCE)
+    set(ENABLE_EXAMPLES OFF CACHE BOOL "" FORCE)
+
     if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../libspecbleach/CMakeLists.txt")
         message(STATUS "Using local libspecbleach from ../libspecbleach")
         set(SPECBLEACH_SRC "${CMAKE_CURRENT_SOURCE_DIR}/../libspecbleach")
@@ -247,7 +257,7 @@ else()
         set(SPECBLEACH_SRC "${CMAKE_CURRENT_SOURCE_DIR}/subprojects/libspecbleach")
         add_subdirectory("${SPECBLEACH_SRC}" "${CMAKE_CURRENT_BINARY_DIR}/libspecbleach_build")
     else()
-        message(STATUS "Fetching libspecbleach v0.3.1 remotely...")
+        message(STATUS "Fetching libspecbleach remotely (tracking main)...")
         FetchContent_Declare(
             libspecbleach
             GIT_REPOSITORY https://github.com/lucianodato/libspecbleach.git
@@ -287,9 +297,8 @@ set_target_properties(NoiseRepellent PROPERTIES
     VISIBILITY_INLINES_HIDDEN YES
 )
 
+# JUCE core modules (always)
 target_link_libraries(NoiseRepellent PRIVATE
-    ${SPECBLEACH_TARGET}
-    ${FFTW_TARGET}
     juce::juce_audio_utils
     juce::juce_audio_processors
     juce::juce_dsp
@@ -298,6 +307,109 @@ target_link_libraries(NoiseRepellent PRIVATE
     juce::juce_graphics
     juce::juce_core
 )
+
+# On MSVC, static archives linked into a SHARED module are pruned by
+# /OPT:REF unless wrapped in /WHOLEARCHIVE. Without this, libspecbleach
+# and FFTW objects are silently dropped from the final .vst3/.dll,
+# while import-table verification still passes.
+# Use LINK_LIBRARY:WHOLE_ARCHIVE on CMake >=3.24, fallback to
+# LINKER:/WHOLEARCHIVE on older CMake.
+if(NOT USE_SYSTEM_SPECBLEACH)
+    if(MSVC)
+        if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.24")
+            target_link_libraries(NoiseRepellent PRIVATE "$<LINK_LIBRARY:WHOLE_ARCHIVE,${SPECBLEACH_TARGET}>")
+        else()
+            target_link_libraries(NoiseRepellent PRIVATE ${SPECBLEACH_TARGET})
+            target_link_options(NoiseRepellent PRIVATE "LINKER:/WHOLEARCHIVE,$<TARGET_FILE:${SPECBLEACH_TARGET}>")
+        endif()
+    else()
+        target_link_libraries(NoiseRepellent PRIVATE ${SPECBLEACH_TARGET})
+    endif()
+else()
+    target_link_libraries(NoiseRepellent PRIVATE ${SPECBLEACH_TARGET})
+endif()
+if(NOT USE_SYSTEM_FFTW)
+    if(MSVC)
+        if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.24")
+            target_link_libraries(NoiseRepellent PRIVATE "$<LINK_LIBRARY:WHOLE_ARCHIVE,${FFTW_TARGET}>")
+        else()
+            target_link_libraries(NoiseRepellent PRIVATE ${FFTW_TARGET})
+            target_link_options(NoiseRepellent PRIVATE "LINKER:/WHOLEARCHIVE,$<TARGET_FILE:${FFTW_TARGET}>")
+        endif()
+    else()
+        target_link_libraries(NoiseRepellent PRIVATE ${FFTW_TARGET})
+    endif()
+else()
+    target_link_libraries(NoiseRepellent PRIVATE ${FFTW_TARGET})
+endif()
+
+# Explicitly propagate the static DSP libs to JUCE format targets.
+# juce_add_plugin creates NoiseRepellent_SharedCode + per-format modules
+# (VST3/LV2/AU/Standalone). Linking only to NoiseRepellent is not
+# sufficient on MSVC where SharedCode is a STATIC archive that does not
+# itself embed its PRIVATE dependencies.
+foreach(_fmt IN ITEMS VST3 LV2 AU Standalone)
+    if(TARGET NoiseRepellent_${_fmt})
+        if(NOT USE_SYSTEM_SPECBLEACH)
+            if(MSVC)
+                if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.24")
+                    target_link_libraries(NoiseRepellent_${_fmt} PRIVATE "$<LINK_LIBRARY:WHOLE_ARCHIVE,${SPECBLEACH_TARGET}>")
+                else()
+                    target_link_libraries(NoiseRepellent_${_fmt} PRIVATE ${SPECBLEACH_TARGET})
+                    target_link_options(NoiseRepellent_${_fmt} PRIVATE "LINKER:/WHOLEARCHIVE,$<TARGET_FILE:${SPECBLEACH_TARGET}>")
+                endif()
+            else()
+                target_link_libraries(NoiseRepellent_${_fmt} PRIVATE ${SPECBLEACH_TARGET})
+            endif()
+        else()
+            target_link_libraries(NoiseRepellent_${_fmt} PRIVATE ${SPECBLEACH_TARGET})
+        endif()
+        if(NOT USE_SYSTEM_FFTW)
+            if(MSVC)
+                if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.24")
+                    target_link_libraries(NoiseRepellent_${_fmt} PRIVATE "$<LINK_LIBRARY:WHOLE_ARCHIVE,${FFTW_TARGET}>")
+                else()
+                    target_link_libraries(NoiseRepellent_${_fmt} PRIVATE ${FFTW_TARGET})
+                    target_link_options(NoiseRepellent_${_fmt} PRIVATE "LINKER:/WHOLEARCHIVE,$<TARGET_FILE:${FFTW_TARGET}>")
+                endif()
+            else()
+                target_link_libraries(NoiseRepellent_${_fmt} PRIVATE ${FFTW_TARGET})
+            endif()
+        else()
+            target_link_libraries(NoiseRepellent_${_fmt} PRIVATE ${FFTW_TARGET})
+        endif()
+    endif()
+endforeach()
+if(TARGET NoiseRepellent_SharedCode)
+    if(NOT USE_SYSTEM_SPECBLEACH)
+        if(MSVC)
+            if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.24")
+                target_link_libraries(NoiseRepellent_SharedCode PRIVATE "$<LINK_LIBRARY:WHOLE_ARCHIVE,${SPECBLEACH_TARGET}>")
+            else()
+                target_link_libraries(NoiseRepellent_SharedCode PRIVATE ${SPECBLEACH_TARGET})
+                target_link_options(NoiseRepellent_SharedCode PRIVATE "LINKER:/WHOLEARCHIVE,$<TARGET_FILE:${SPECBLEACH_TARGET}>")
+            endif()
+        else()
+            target_link_libraries(NoiseRepellent_SharedCode PRIVATE ${SPECBLEACH_TARGET})
+        endif()
+    else()
+        target_link_libraries(NoiseRepellent_SharedCode PRIVATE ${SPECBLEACH_TARGET})
+    endif()
+    if(NOT USE_SYSTEM_FFTW)
+        if(MSVC)
+            if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.24")
+                target_link_libraries(NoiseRepellent_SharedCode PRIVATE "$<LINK_LIBRARY:WHOLE_ARCHIVE,${FFTW_TARGET}>")
+            else()
+                target_link_libraries(NoiseRepellent_SharedCode PRIVATE ${FFTW_TARGET})
+                target_link_options(NoiseRepellent_SharedCode PRIVATE "LINKER:/WHOLEARCHIVE,$<TARGET_FILE:${FFTW_TARGET}>")
+            endif()
+        else()
+            target_link_libraries(NoiseRepellent_SharedCode PRIVATE ${FFTW_TARGET})
+        endif()
+    else()
+        target_link_libraries(NoiseRepellent_SharedCode PRIVATE ${FFTW_TARGET})
+    endif()
+endif()
 
 if(UNIX AND NOT APPLE)
     if(USE_SYSTEM_FREETYPE)
