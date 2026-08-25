@@ -190,6 +190,14 @@ private:
   std::atomic<int> pendingSwitchFrom{-1}; // source family during a switch
   bool transitionArmEdge{false};          // audio-thread-only edge tracker
 
+  // Recent rendered output, used to prime the transition alignment delay so
+  // crossfades continue the audible stream instead of ducking from silence
+  static constexpr int kTransitionHistoryCapacity = 8192;
+  juce::AudioBuffer<float> transitionHistory;
+  int transitionHistoryWrite{0};
+  std::array<float, kTransitionHistoryCapacity> transitionHistScratch[2]{};
+  const float* transitionHistPtrs[2]{nullptr, nullptr};
+
   juce::AudioParameterBool* bypassParameter = nullptr;
   juce::dsp::DryWetMixer<float> dryWetMixer;
 
