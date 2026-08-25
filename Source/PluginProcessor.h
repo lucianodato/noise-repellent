@@ -30,8 +30,7 @@ extern "C" {
 #include "specbleach_transition.h"
 }
 
-class NoiseRepellentAudioProcessor : public juce::AudioProcessor,
-                                     private juce::Timer {
+class NoiseRepellentAudioProcessor : public juce::AudioProcessor {
 public:
   NoiseRepellentAudioProcessor();
   ~NoiseRepellentAudioProcessor() override;
@@ -143,8 +142,6 @@ public:
 
 private:
   void ensureEnginesInitialized(double sampleRate);
-  void pumpEngineSyncQueue();
-  void timerCallback() override;
   specbleach_stereo* activeGroupFor(int algoMode) const;
   void interpolateCurve(uint32_t numBins);
 
@@ -163,32 +160,6 @@ private:
   specbleach_stereo* spectralGroup = nullptr; // wraps 1D per-channel engines
   specbleach_stereo* nlmGroup = nullptr;      // wraps 2D per-channel engines
   specbleach_transition* engineTransition = nullptr;
-
-  // Off-audio-thread engine synchronization handshake (no locks)
-  enum EngineSyncRequest {
-    kSyncLearnFinished = 0, // Migrate profiles between groups after learning
-    kSyncSyncAndSwitch = 1  // Migrate profiles and begin engine transition
-  };
-
-  struct EngineSyncCommand {
-    EngineSyncRequest request = kSyncLearnFinished;
-    int from = -1; // Source engine family (0 = spectral, 1 = nlm)
-    int to = -1;   // Target engine family (SyncAndSwitch only)
-  };
-
-  static constexpr int kEngineSyncQueueSize = 16;
-  juce::AbstractFifo engineSyncFifo{kEngineSyncQueueSize};
-  std::array<EngineSyncCommand, kEngineSyncQueueSize> engineSyncCommands{};
-
-  std::atomic<bool> enginePauseGate{
-      false}; // worker -> audio: hands off engines
-  std::atomic<bool> enginePausedAck{
-      false}; // audio -> worker: engines untouched
-  std::atomic<bool> engineSyncFailed{false}; // worker -> anyone: timeout abort
-  std::atomic<bool> transitionArmed{
-      false}; // worker -> audio: blend via transition
-  std::atomic<int> pendingSwitchFrom{-1}; // source family during a switch
-  bool transitionArmEdge{false};          // audio-thread-only edge tracker
 
   juce::AudioParameterBool* bypassParameter = nullptr;
   juce::dsp::DryWetMixer<float> dryWetMixer;

@@ -32,13 +32,9 @@ NoiseRepellentAudioProcessor::NoiseRepellentAudioProcessor()
       dryWetMixer(16384) {
   bypassParameter = dynamic_cast<juce::AudioParameterBool*>(
       parameters.getParameter("bypass"));
-  startTimerHz(100); // Deferred engine synchronization worker
 }
 
 NoiseRepellentAudioProcessor::~NoiseRepellentAudioProcessor() {
-  stopTimer();
-  enginePauseGate.store(false, std::memory_order_release);
-
   specbleach_stereo_free(spectralGroup);
   spectralGroup = nullptr;
   specbleach_stereo_free(nlmGroup);
@@ -505,13 +501,13 @@ void NoiseRepellentAudioProcessor::prepareToPlay(double sampleRate,
   jassert(wetScratchA.getNumSamples() >= samplesPerBlock);
 
   // Reset deferred engine synchronization state
-  engineSyncFifo.reset();
-  enginePauseGate.store(false, std::memory_order_release);
-  enginePausedAck.store(false, std::memory_order_release);
-  engineSyncFailed.store(false, std::memory_order_release);
-  transitionArmed.store(false, std::memory_order_release);
-  pendingSwitchFrom.store(-1, std::memory_order_release);
-  transitionArmEdge = false;
+  if (engineTransition != nullptr && spectralGroup != nullptr &&
+      nlmGroup != nullptr) {
+    // Force the blender back to idle for a clean start (no allocation)
+    specbleach_transition_begin(engineTransition,
+                                specbleach_stereo_get_latency(spectralGroup),
+                                specbleach_stereo_get_latency(spectralGroup));
+  }
 
   // Reset FFT accumulation
   fftAccumInput.fill(0.0f);
@@ -541,15 +537,6 @@ void NoiseRepellentAudioProcessor::processBlock(
 
   if (numSamples == 0 || numChannels == 0)
     return;
-
-  // Off-thread worker synchronization handshake: acknowledge the pause gate
-  // and leave the buffer untouched (dry passthrough) while it is held
-  if (enginePauseGate.load(std::memory_order_acquire)) {
-    enginePausedAck.store(true, std::memory_order_release);
-  } else {
-    enginePausedAck.store(false, std::memory_order_relaxed);
-  }
-  const bool paused = enginePauseGate.load(std::memory_order_acquire);
 
   const bool isBypassed =
       parameters.getRawParameterValue("bypass")->load() > 0.5f;
@@ -616,15 +603,18 @@ void NoiseRepellentAudioProcessor::processBlock(
     }
   }
 
-  // Queue a profile migration between engine groups when manual learning was
-  // just turned off (performed off the audio thread by the sync worker)
-  if (wasLearning && !learnNoise) {
-    EngineSyncCommand cmd{kSyncLearnFinished, currentAlgoMode, -1};
-    int start1 = 0, size1 = 0, start2 = 0, size2 = 0;
-    engineSyncFifo.prepareToWrite(1, start1, size1, start2, size2);
-    if (size1 > 0) {
-      engineSyncCommands[static_cast<size_t>(start1)] = cmd;
-      engineSyncFifo.finishedWrite(1);
+  // Migrate profiles between engine groups when manual learning was just
+  // turned off. Inline on the audio thread like the original plugin: the
+  // migration is a bounded, allocation-free copy of small profile buffers.
+  if (wasLearning && !learnNoise && spectralGroup != nullptr &&
+      nlmGroup != nullptr) {
+    auto* sourceGroup = activeGroupFor(currentAlgoMode);
+    auto* otherGroup =
+        (currentAlgoMode == 1) ? spectralGroup : nlmGroup;
+    if (sourceGroup != nullptr && otherGroup != nullptr &&
+        sourceGroup != otherGroup) {
+      specbleach_stereo_migrate_profiles_from(otherGroup, sourceGroup);
+      specbleach_stereo_sync_profiles(otherGroup);
     }
   }
   wasLearning = learnNoise;
@@ -678,38 +668,33 @@ void NoiseRepellentAudioProcessor::processBlock(
   p2.reduction_curve_enabled = curveEnabled;
   p2.tonal_noise_profile_scale = tonalProfileScale;
 
-  // Defer profile migration plus click-free engine switching to the sync
-  // worker; latency is reported when the crossfade actually starts so host
-  // delay compensation never leads the rendered audio
-  if (algoMode != currentAlgoMode) {
-    // Source family: the blend target if a transition is already running,
-    // otherwise whatever is currently being rendered
-    const int from =
-        transitionArmed.load(std::memory_order_acquire)
-            ? currentAlgoMode
-            : [&] {
-                const int pending =
-                    pendingSwitchFrom.load(std::memory_order_acquire);
-                return pending >= 0 ? pending : currentAlgoMode;
-              }();
-    EngineSyncCommand cmd{kSyncSyncAndSwitch, from, algoMode};
-    int start1 = 0, size1 = 0, start2 = 0, size2 = 0;
-    engineSyncFifo.prepareToWrite(1, start1, size1, start2, size2);
-    if (size1 > 0) {
-      engineSyncCommands[static_cast<size_t>(start1)] = cmd;
-      engineSyncFifo.finishedWrite(1);
-    }
+  // Engine switch: migrate profiles into the target group and begin the
+  // equal-power crossfade, all inline (bounded, allocation-free). Latency is
+  // reported from this block so host delay compensation moves with the blend.
+  if (algoMode != currentAlgoMode && spectralGroup != nullptr &&
+      nlmGroup != nullptr && engineTransition != nullptr) {
+    auto* sourceGroup = activeGroupFor(currentAlgoMode);
+    auto* targetGroup = activeGroupFor(algoMode);
+    if (sourceGroup != nullptr && targetGroup != nullptr &&
+        sourceGroup != targetGroup) {
+      specbleach_stereo_migrate_profiles_from(targetGroup, sourceGroup);
+      specbleach_stereo_sync_profiles(targetGroup);
+      specbleach_transition_begin(
+          engineTransition, specbleach_stereo_get_latency(sourceGroup),
+          specbleach_stereo_get_latency(targetGroup));
 
-    pendingSwitchFrom.store(from, std::memory_order_release);
-    currentAlgoMode = algoMode;
+      const uint32_t targetLatency =
+          specbleach_stereo_get_latency(targetGroup);
+      setLatencySamples(static_cast<int>(targetLatency));
+      dryWetMixer.setWetLatency(static_cast<float>(targetLatency));
+      currentAlgoMode = algoMode;
+    }
   }
 
   // Load parameters into both engine groups every block (RT-safe after the
   // first curve-enabled allocation inside the library)
-  if (!paused) {
-    specbleach_stereo_load_parameters_1d(spectralGroup, &p, sizeof(p));
-    specbleach_stereo_load_parameters_2d(nlmGroup, &p2, sizeof(p2));
-  }
+  specbleach_stereo_load_parameters_1d(spectralGroup, &p, sizeof(p));
+  specbleach_stereo_load_parameters_2d(nlmGroup, &p2, sizeof(p2));
 
   // Save dry input copy for FFT visualization before processing
   const size_t copySamples =
@@ -722,30 +707,12 @@ void NoiseRepellentAudioProcessor::processBlock(
   dryWetMixer.pushDrySamples(audioBlock);
 
   // ── Wet rendering ──
-  // Until the sync worker arms the transition, keep rendering the SOURCE
-  // family so the switch point is a crossfade rather than a hard cut
-  const int pendingFrom = pendingSwitchFrom.load(std::memory_order_acquire);
-  const int renderFamily = pendingFrom >= 0 ? pendingFrom : currentAlgoMode;
-  auto* activeGroup = activeGroupFor(renderFamily);
-  const bool transitioning = transitionArmed.load(std::memory_order_acquire) &&
-                             !paused && spectralGroup != nullptr &&
-                             nlmGroup != nullptr && engineTransition != nullptr;
+  auto* activeGroup = activeGroupFor(currentAlgoMode);
+  const bool transitioning =
+      specbleach_transition_active(engineTransition) &&
+      spectralGroup != nullptr && nlmGroup != nullptr;
 
-  // Host delay compensation must track the rendered path: report the target
-  // latency on the rising edge of the transition (when blending starts), not
-  // at parameter-change time
-  if (!paused && transitioning != transitionArmEdge) {
-    transitionArmEdge = transitioning;
-    if (transitioning) {
-      auto* targetGroup = activeGroupFor(currentAlgoMode);
-      uint32_t targetLatency =
-          targetGroup ? specbleach_stereo_get_latency(targetGroup) : 0;
-      setLatencySamples(static_cast<int>(targetLatency));
-      dryWetMixer.setWetLatency(static_cast<float>(targetLatency));
-    }
-  }
-
-  if (!paused && activeGroup != nullptr) {
+  if (activeGroup != nullptr) {
     const uint32_t groupChannels = std::min<uint32_t>(
         specbleach_stereo_get_channel_count(activeGroup), 2u);
 
@@ -807,11 +774,6 @@ void NoiseRepellentAudioProcessor::processBlock(
       specbleach_transition_process(engineTransition,
                                     static_cast<uint32_t>(numSamples), fromPtrs,
                                     toPtrs, blended);
-
-      if (!specbleach_transition_active(engineTransition)) {
-        transitionArmed.store(false, std::memory_order_release);
-        pendingSwitchFrom.store(-1, std::memory_order_release);
-      }
     } else {
       // Single-group steady-state path (in place on the main buffer)
       float* outPtrs[2] = {nullptr, nullptr};
@@ -830,7 +792,7 @@ void NoiseRepellentAudioProcessor::processBlock(
   // Query transient protection status and intensity (aggregated max across
   // channels; report the TARGET group while a transition is running)
   float reportedTransientIntensity = 0.0f;
-  if (!paused) {
+  {
     auto* reportGroup =
         transitioning ? activeGroupFor(currentAlgoMode) : activeGroup;
     if (reportGroup != nullptr)
@@ -845,7 +807,7 @@ void NoiseRepellentAudioProcessor::processBlock(
   // Update dynamic latency if changed by algorithm mode or transient protection
   // quality mode
   uint32_t activeLatency = 0;
-  if (!paused && activeGroup != nullptr)
+  if (activeGroup != nullptr)
     activeLatency = specbleach_stereo_get_latency(activeGroup);
 
   if (activeLatency != currentLatency) {
@@ -1114,78 +1076,6 @@ bool NoiseRepellentAudioProcessor::hasNoiseProfile() const {
       return true;
   }
   return false;
-}
-
-void NoiseRepellentAudioProcessor::timerCallback() {
-  pumpEngineSyncQueue();
-}
-
-void NoiseRepellentAudioProcessor::pumpEngineSyncQueue() {
-  int start1 = 0, size1 = 0, start2 = 0, size2 = 0;
-  engineSyncFifo.prepareToRead(1, start1, size1, start2, size2);
-  if (size1 == 0)
-    return;
-
-  const EngineSyncCommand cmd = engineSyncCommands[static_cast<size_t>(start1)];
-
-  // Pause-gate dance: request the audio thread to stop touching the engines
-  // and wait for its acknowledgment. The gate is HELD until a block boundary
-  // observes it; a microsecond-scale spin would almost always be released
-  // between blocks and starve the switch for seconds. Bounded so a suspended
-  // host (no callbacks) aborts cleanly and retries on later ticks.
-  enginePauseGate.store(true, std::memory_order_release);
-  bool acknowledged = false;
-  for (int waitedMs = 0; waitedMs < 250 && !acknowledged; ++waitedMs) {
-    for (int spin = 0; spin < 50; ++spin) {
-      if (enginePausedAck.load(std::memory_order_acquire)) {
-        acknowledged = true;
-        break;
-      }
-      std::this_thread::yield();
-    }
-    if (!acknowledged) {
-      std::this_thread::sleep_for(std::chrono::milliseconds(1));
-    }
-  }
-
-  if (!acknowledged) {
-    // No audio callbacks running (host suspended). Abort cleanly WITHOUT
-    // migrating; the command stays queued and retries on the next tick
-    enginePauseGate.store(false, std::memory_order_release);
-    engineSyncFailed.store(true, std::memory_order_release);
-    return;
-  }
-
-  // Learn-finished commands migrate into the OTHER family so any later
-  // engine switch starts warm
-  const int toFamily = (cmd.request == kSyncLearnFinished && cmd.from >= 0 &&
-                        cmd.from <= 1)
-                           ? 1 - cmd.from
-                           : cmd.to;
-
-  auto* sourceGroup =
-      (cmd.from >= 0 && cmd.from <= 1) ? activeGroupFor(cmd.from) : nullptr;
-  auto* targetGroup =
-      (toFamily >= 0 && toFamily <= 1) ? activeGroupFor(toFamily) : nullptr;
-
-  if (sourceGroup != nullptr && targetGroup != nullptr &&
-      sourceGroup != targetGroup) {
-    // Migrate learned profiles between engine families, channel by channel
-    specbleach_stereo_migrate_profiles_from(targetGroup, sourceGroup);
-    specbleach_stereo_sync_profiles(targetGroup);
-
-    if (cmd.request == kSyncSyncAndSwitch && engineTransition != nullptr) {
-      specbleach_transition_begin(engineTransition,
-                                  specbleach_stereo_get_latency(sourceGroup),
-                                  specbleach_stereo_get_latency(targetGroup));
-      pendingSwitchFrom.store(cmd.from, std::memory_order_release);
-      transitionArmed.store(true, std::memory_order_release);
-    }
-  }
-
-  // Release the gate; the audio thread clears its ack next block
-  enginePauseGate.store(false, std::memory_order_release);
-  engineSyncFifo.finishedRead(1);
 }
 
 juce::AudioProcessorEditor* NoiseRepellentAudioProcessor::createEditor() {
