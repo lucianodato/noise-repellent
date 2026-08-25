@@ -19,16 +19,19 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 #pragma once
 
+#include <array>
+#include <atomic>
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_dsp/juce_dsp.h>
 #include <vector>
 
 extern "C" {
-#include "specbleach_2d_denoiser.h"
-#include "specbleach_denoiser.h"
+#include "specbleach_stereo.h"
+#include "specbleach_transition.h"
 }
 
-class NoiseRepellentAudioProcessor : public juce::AudioProcessor {
+class NoiseRepellentAudioProcessor : public juce::AudioProcessor,
+                                     private juce::Timer {
 public:
   NoiseRepellentAudioProcessor();
   ~NoiseRepellentAudioProcessor() override;
@@ -140,7 +143,9 @@ public:
 
 private:
   void ensureEnginesInitialized(double sampleRate);
-  void syncNoiseProfiles(int sourceAlgoMode);
+  void pumpEngineSyncQueue();
+  void timerCallback() override;
+  specbleach_stereo* activeGroupFor(int algoMode) const;
   void interpolateCurve(uint32_t numBins);
 
   // Thread-safe reduction curve data
@@ -153,19 +158,42 @@ private:
   static juce::AudioProcessorValueTreeState::ParameterLayout
   createParameterLayout();
 
-  // DSP Engines — one instance per channel for correct stereo processing
-  SpectralBleachHandle specbleach1D_L = nullptr;
-  SpectralBleachHandle specbleach1D_R = nullptr;
-  SpectralBleachHandle specbleach2D_L = nullptr;
-  SpectralBleachHandle specbleach2D_R = nullptr;
+  // DSP Engines — libspecbleach multi-channel groups wrapping per-channel
+  // engines for both families, plus the click-free transition blender
+  specbleach_stereo* spectralGroup = nullptr; // wraps 1D per-channel engines
+  specbleach_stereo* nlmGroup = nullptr;      // wraps 2D per-channel engines
+  specbleach_transition* engineTransition = nullptr;
+
+  // Off-audio-thread engine synchronization handshake (no locks)
+  enum EngineSyncRequest {
+    kSyncLearnFinished = 0, // Migrate profiles between groups after learning
+    kSyncSyncAndSwitch = 1  // Migrate profiles and begin engine transition
+  };
+
+  struct EngineSyncCommand {
+    EngineSyncRequest request = kSyncLearnFinished;
+    int from = -1; // Source engine family (0 = spectral, 1 = nlm)
+    int to = -1;   // Target engine family (SyncAndSwitch only)
+  };
+
+  static constexpr int kEngineSyncQueueSize = 16;
+  juce::AbstractFifo engineSyncFifo{kEngineSyncQueueSize};
+  std::array<EngineSyncCommand, kEngineSyncQueueSize> engineSyncCommands{};
+
+  std::atomic<bool> enginePauseGate{
+      false}; // worker -> audio: hands off engines
+  std::atomic<bool> enginePausedAck{
+      false}; // audio -> worker: engines untouched
+  std::atomic<bool> engineSyncFailed{false}; // worker -> anyone: timeout abort
+  std::atomic<bool> transitionArmed{
+      false}; // worker -> audio: blend via transition
+  std::atomic<int> pendingSwitchFrom{-1}; // source family during a switch
 
   juce::AudioParameterBool* bypassParameter = nullptr;
   juce::dsp::DryWetMixer<float> dryWetMixer;
 
   double currentSampleRate = 44100.0;
   int currentAlgoMode = 1; // Track for dynamic latency updates
-  bool currentTransientProtectionEnable =
-      true; // Track for dynamic transient protection enable updates
   std::atomic<float> transientActivity{0.0f};
   std::atomic<bool> transientProtectionActive{false};
   bool wasLearning =
@@ -190,21 +218,10 @@ private:
   uint32_t preparedBlockSize = 0;
   uint32_t preparedNumChannels = 0;
 
-  // Crossfading between 1D and 2D engines to prevent clicks/pops during mode
-  // changes
-  juce::AudioBuffer<float> crossfadeBuffer;
-  int sourceAlgoMode = 1;
-  int targetAlgoMode = 1;
-  float crossfadeProgress = 1.0f;
-  float crossfadeStep = 0.0f;
-
-  // Delay alignment buffer for clickless transitions between 1D and 2D
-  // latencies
-  juce::AudioBuffer<float> crossfadeDelayBuffer;
-  size_t crossfadeDelayWritePos = 0;
-  uint32_t crossfadeLatencyDiff = 0;
-  float delaySlewProgress = 1.0f;
-  float delaySlewStep = 0.0f;
+  // Preallocated wet scratch buffers for rendering both engine groups during
+  // transitions (also serve as overflow sinks for out-of-bus channels)
+  juce::AudioBuffer<float> wetScratchA; // spectralGroup wet output
+  juce::AudioBuffer<float> wetScratchB; // nlmGroup wet output
 
   // FFT analysis for visualization
   juce::dsp::FFT fftAnalyzer{kFftOrder};
