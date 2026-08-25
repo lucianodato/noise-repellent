@@ -30,7 +30,7 @@ jobs:
             VERSION="${GITHUB_REF_NAME#v}"
           else
             SHORT_SHA=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
-            if [ -z "$BASE_VER" ]; then BASE_VER="0.3.2"; fi
+            if [ -z "$BASE_VER" ]; then echo "ERROR: failed to parse version from CMakeLists.txt" >&2; exit 1; fi
             VERSION="${BASE_VER}-${SHORT_SHA}"
           fi
           echo "PLUGIN_VERSION=${VERSION}" >> $GITHUB_ENV
@@ -257,7 +257,7 @@ jobs:
             VERSION="${GITHUB_REF_NAME#v}"
           else
             SHORT_SHA=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
-            if [ -z "$BASE_VER" ]; then BASE_VER="0.3.2"; fi
+            if [ -z "$BASE_VER" ]; then echo "ERROR: failed to parse version from CMakeLists.txt" >&2; exit 1; fi
             VERSION="${BASE_VER}-${SHORT_SHA}"
           fi
           echo "PLUGIN_VERSION=${VERSION}" >> $GITHUB_ENV
@@ -326,8 +326,8 @@ jobs:
             echo "Checking $NAME..."
 
             UNEXPECTED_LIBS=$(ldd "$PLUGIN" 2>/dev/null | awk '/=>/ {print $1}' | grep -vE "$ALLOWED_LIBS" || true)
-            DEFINED_LEAKS=$(nm -D --defined-only "$PLUGIN" 2>/dev/null | grep -iE " (FT_|fftwf?_) " || true)
-            UNDEFINED_LEAKS=$(nm -D --undefined-only "$PLUGIN" 2>/dev/null | grep -iE " (FT_|fftwf?_) " || true)
+            DEFINED_LEAKS=$(nm -D --defined-only "$PLUGIN" 2>/dev/null | grep -iE '[[:space:]](FT_|fftwf?_)' || true)
+            UNDEFINED_LEAKS=$(nm -D --undefined-only "$PLUGIN" 2>/dev/null | grep -iE '[[:space:]](FT_|fftwf?_)' || true)
             # Positive check: libspecbleach must be statically embedded (approx >5 MB when combined with FFTW)
             PLUGIN_SIZE=$(stat -c%s "$PLUGIN" 2>/dev/null || stat -f%z "$PLUGIN" 2>/dev/null || echo 0)
             HAS_SPECBLEACH=$(strings "$PLUGIN" 2>/dev/null | grep -i "specbleach" | head -n 1 || true)
@@ -457,7 +457,7 @@ jobs:
             VERSION="${GITHUB_REF_NAME#v}"
           else
             SHORT_SHA=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
-            if [ -z "$BASE_VER" ]; then BASE_VER="0.3.2"; fi
+            if [ -z "$BASE_VER" ]; then echo "ERROR: failed to parse version from CMakeLists.txt" >&2; exit 1; fi
             VERSION="${BASE_VER}-${SHORT_SHA}"
           fi
           echo "PLUGIN_VERSION=${VERSION}" >> $GITHUB_ENV
@@ -553,10 +553,9 @@ jobs:
             # PE strings/nm are unreliable on stripped MSVC binaries; use size as hint only (informational).
             BINARY_SIZE=$(stat -c%s "$BINARY" 2>/dev/null || stat -f%z "$BINARY" 2>/dev/null || wc -c < "$BINARY" 2>/dev/null | tr -d ' ')
             HAS_SPECBLEACH=$(nm -a "$BINARY" 2>/dev/null | grep -i "specbleach" | head -n 1 || llvm-nm "$BINARY" 2>/dev/null | grep -i "specbleach" | head -n 1 || strings "$BINARY" 2>/dev/null | grep -i "specbleach" | head -n 1 || dumpbin /SYMBOLS "$BINARY" 2>/dev/null | grep -i "specbleach" | head -n 1 || true)
-            # Informational only until verified: require size >6M only if no symbols found
             if [ -z "$HAS_SPECBLEACH" ] && [ "$BINARY_SIZE" -lt 5000000 ]; then
-              echo "⚠️  Note: $NAME size ${BINARY_SIZE} <5M and no specbleach symbols (informational, not failing)"
-              MISSING_SPECBLEACH=0
+              echo "❌ $NAME missing libspecbleach embedding (size ${BINARY_SIZE} <5M and no specbleach symbols)"
+              MISSING_SPECBLEACH=1
             else
               MISSING_SPECBLEACH=0
             fi
