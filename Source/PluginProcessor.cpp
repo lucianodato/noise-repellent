@@ -21,7 +21,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "PluginEditor.h"
 #include <cmath>
 #include <cstring>
-#include <thread>
 
 NoiseRepellentAudioProcessor::NoiseRepellentAudioProcessor()
     : AudioProcessor(
