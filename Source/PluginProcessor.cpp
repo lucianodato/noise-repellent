@@ -408,8 +408,17 @@ void NoiseRepellentAudioProcessor::ensureEnginesInitialized(double sampleRate) {
       sampleRateUint, 50.0f, channels, SPECBLEACH_STEREO_ENGINE_SPECTRAL);
   nlmGroup = specbleach_stereo_initialize(sampleRateUint, 50.0f, channels,
                                           SPECBLEACH_STEREO_ENGINE_NLM_2D);
-  engineTransition =
-      specbleach_transition_initialize(sampleRateUint, 4096, channels);
+
+  // Headroom for aligning the two engines' latency difference
+  const uint32_t latSpectral =
+      spectralGroup ? specbleach_stereo_get_latency(spectralGroup) : 0;
+  const uint32_t latNlm =
+      nlmGroup ? specbleach_stereo_get_latency(nlmGroup) : 0;
+  const uint32_t maxAlignment =
+      latSpectral > latNlm ? latSpectral - latNlm : latNlm - latSpectral;
+
+  engineTransition = specbleach_transition_initialize(
+      sampleRateUint, 4096, channels, maxAlignment);
 
   currentSampleRate = sampleRate;
   preparedNumChannels = channels;
@@ -786,6 +795,15 @@ void NoiseRepellentAudioProcessor::processBlock(
       specbleach_stereo_process(activeGroup, static_cast<uint32_t>(numSamples),
                                 inPtrs, outPtrs);
     }
+  }
+
+  // Record what was actually emitted so alignment taps read true history
+  if (engineTransition != nullptr) {
+    const float* emitted[2] = {buffer.getReadPointer(0),
+                               numChannels > 1 ? buffer.getReadPointer(1)
+                                               : buffer.getReadPointer(0)};
+    specbleach_transition_feed(engineTransition, emitted,
+                               static_cast<uint32_t>(numSamples));
   }
 
   // Query transient protection status and intensity (aggregated max across
