@@ -802,15 +802,6 @@ void NoiseRepellentAudioProcessor::processBlock(
     }
   }
 
-  // Record what was actually emitted so alignment taps read true history
-  if (engineTransition != nullptr) {
-    const float* emitted[2] = {buffer.getReadPointer(0),
-                               numChannels > 1 ? buffer.getReadPointer(1)
-                                               : buffer.getReadPointer(0)};
-    specbleach_transition_feed(engineTransition, emitted,
-                               static_cast<uint32_t>(numSamples));
-  }
-
   // Query transient protection status and intensity (aggregated max across
   // channels; report the TARGET group while a transition is running)
   float reportedTransientIntensity = 0.0f;
