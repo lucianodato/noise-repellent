@@ -679,8 +679,13 @@ void NoiseRepellentAudioProcessor::processBlock(
   // Engine switch: migrate profiles into the target group and begin the
   // equal-power crossfade, all inline (bounded, allocation-free). Latency is
   // reported from this block so host delay compensation moves with the blend.
+  // A swap never starts while another fade is running: reversing mid-fade
+  // would jump the output timeline by the inter-engine latency offset and
+  // flap host PDC every few blocks. Waiting at most one fade duration keeps
+  // rapid toggling clean; the requested mode simply applies once idle.
   if (algoMode != currentAlgoMode && spectralGroup != nullptr &&
-      nlmGroup != nullptr && engineTransition != nullptr) {
+      nlmGroup != nullptr && engineTransition != nullptr &&
+      !specbleach_transition_active(engineTransition)) {
     auto* sourceGroup = activeGroupFor(currentAlgoMode);
     auto* targetGroup = activeGroupFor(algoMode);
     if (sourceGroup != nullptr && targetGroup != nullptr &&
