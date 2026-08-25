@@ -501,10 +501,6 @@ void NoiseRepellentAudioProcessor::prepareToPlay(double sampleRate,
                       false, false, true);
   wetScratchB.setSize(static_cast<int>(preparedNumChannels), bufferCapacity,
                       false, false, true);
-  transitionHistory.setSize(static_cast<int>(preparedNumChannels),
-                            kTransitionHistoryCapacity, false, false, true);
-  transitionHistory.clear();
-  transitionHistoryWrite = 0;
   jassert(dryInputL.size() >= static_cast<size_t>(samplesPerBlock));
   jassert(wetScratchA.getNumSamples() >= samplesPerBlock);
 
@@ -746,40 +742,6 @@ void NoiseRepellentAudioProcessor::processBlock(
           targetGroup ? specbleach_stereo_get_latency(targetGroup) : 0;
       setLatencySamples(static_cast<int>(targetLatency));
       dryWetMixer.setWetLatency(static_cast<float>(targetLatency));
-
-      // Prime the alignment delay with recent rendered output so the fade
-      // continues the audible stream rather than ducking from silence
-      if (engineTransition != nullptr && targetGroup != nullptr &&
-          pendingFrom >= 0) {
-        auto* sourceGroup = activeGroupFor(pendingFrom);
-        const uint32_t sourceLatency =
-            sourceGroup ? specbleach_stereo_get_latency(sourceGroup) : 0;
-        const uint32_t diff = targetLatency > sourceLatency
-                                  ? targetLatency - sourceLatency
-                                  : 0;
-        if (diff > 0) {
-          const int historyLen = static_cast<int>(
-              std::min<uint32_t>(diff, kTransitionHistoryCapacity));
-          const uint32_t historyChannels =
-              std::min<uint32_t>(preparedNumChannels, 2U);
-          for (uint32_t ch = 0; ch < historyChannels; ++ch) {
-            const float* ring = transitionHistory.getReadPointer(
-                std::min<uint32_t>(ch, static_cast<uint32_t>(
-                                           transitionHistory.getNumChannels() -
-                                           1)));
-            const int cap = transitionHistory.getNumSamples();
-            for (int i = 0; i < historyLen; ++i) {
-              const int idx =
-                  ((transitionHistoryWrite - historyLen + i) % cap + cap) % cap;
-              transitionHistScratch[ch][i] = ring[idx];
-            }
-            transitionHistPtrs[ch] = transitionHistScratch[ch].data();
-          }
-          specbleach_transition_prime(
-              engineTransition, transitionHistPtrs,
-              static_cast<uint32_t>(historyLen));
-        }
-      }
     }
   }
 
@@ -863,27 +825,6 @@ void NoiseRepellentAudioProcessor::processBlock(
       specbleach_stereo_process(activeGroup, static_cast<uint32_t>(numSamples),
                                 inPtrs, outPtrs);
     }
-  }
-
-  // Record rendered output so an engine switch can prime the transition
-  // alignment delay with recent audio (RT-safe: fixed preallocated ring)
-  if (!paused && numChannels >= 1 && transitionHistory.getNumSamples() > 0) {
-    const int captureLen =
-        std::min(static_cast<int>(numSamples), kTransitionHistoryCapacity);
-    const int cap = transitionHistory.getNumSamples();
-    const int historyChannels =
-        std::min(numChannels, transitionHistory.getNumChannels());
-    for (int ch = 0; ch < historyChannels; ++ch) {
-      float* ring = transitionHistory.getWritePointer(ch);
-      const float* src = buffer.getReadPointer(ch);
-      const int start =
-          (transitionHistoryWrite - captureLen + cap) % cap;
-      for (int i = 0; i < captureLen; ++i) {
-        ring[(start + i) % cap] = src[i];
-      }
-    }
-    transitionHistoryWrite =
-        (transitionHistoryWrite + captureLen) % cap;
   }
 
   // Query transient protection status and intensity (aggregated max across
