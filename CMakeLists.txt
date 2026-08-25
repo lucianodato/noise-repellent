@@ -246,13 +246,6 @@ else()
     set(SPECBLEACH_INSTALL OFF CACHE BOOL "" FORCE)
     set(ENABLE_TESTS OFF CACHE BOOL "" FORCE)
     set(ENABLE_EXAMPLES OFF CACHE BOOL "" FORCE)
-    # Disable OpenMP for embedded plugin builds: the MSVC LLVM OpenMP runtime
-    # (libomp140.x86_64.dll) is non-redistributable, ships only with Visual
-    # Studio, and is absent on end-user machines, breaking DLL load. OpenMP
-    # fork/join inside the audio callback is not real-time safe either.
-    # Must be set BEFORE add_subdirectory/FetchContent so libspecbleach's
-    # option(ENABLE_OPENMP ON) does not re-enable it.
-    set(ENABLE_OPENMP OFF CACHE BOOL "" FORCE)
 
     if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../libspecbleach/CMakeLists.txt")
         message(STATUS "Using local libspecbleach from ../libspecbleach")
