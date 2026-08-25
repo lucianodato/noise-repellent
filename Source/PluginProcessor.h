@@ -27,7 +27,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 extern "C" {
 #include "specbleach_stereo.h"
-#include "specbleach_transition.h"
 }
 
 class NoiseRepellentAudioProcessor : public juce::AudioProcessor {
@@ -156,10 +155,21 @@ private:
   createParameterLayout();
 
   // DSP Engines — libspecbleach multi-channel groups wrapping per-channel
-  // engines for both families, plus the click-free transition blender
+  // engines for both families
   specbleach_stereo* spectralGroup = nullptr; // wraps 1D per-channel engines
   specbleach_stereo* nlmGroup = nullptr;      // wraps 2D per-channel engines
-  specbleach_transition* engineTransition = nullptr;
+
+  // Permanent latency alignment: the shorter-latency (1D) family always
+  // runs through this ring so both families share one time origin. The
+  // plugin then reports max(latencies) constantly and engine switches are
+  // plain equal-power crossfades between aligned streams — no repeats,
+  // skips, or host re-anchoring in either direction.
+  juce::AudioBuffer<float> spectralAlignmentRing;
+  int alignmentWritePos = 0;
+  uint32_t spectralAlignmentDelay = 0; // latency diff in samples
+  uint32_t maxEngineLatency = 0;
+  float crossfadeProgress = 1.0f; // 0..1, 1 == settled on active family
+  int crossfadeDirection = 0;     // +1 toward NLM, -1 toward spectral
 
   juce::AudioParameterBool* bypassParameter = nullptr;
   juce::dsp::DryWetMixer<float> dryWetMixer;
