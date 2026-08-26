@@ -636,6 +636,8 @@ void NoiseRepellentAudioProcessor::processBlock(
   p.reduction_curve_bias =
       curveEnabled ? interpolatedCurveBias.data() : nullptr;
   p.reduction_curve_enabled = curveEnabled;
+  p.reduction_curve_size =
+      curveEnabled ? static_cast<uint32_t>(interpolatedCurveBias.size()) : 0;
   p.tonal_noise_profile_scale = tonalProfileScale;
 
   Specbleach2DDenoiserParameters p2{};
@@ -656,6 +658,8 @@ void NoiseRepellentAudioProcessor::processBlock(
   p2.reduction_curve_bias =
       curveEnabled ? interpolatedCurveBias.data() : nullptr;
   p2.reduction_curve_enabled = curveEnabled;
+  p2.reduction_curve_size =
+      curveEnabled ? static_cast<uint32_t>(interpolatedCurveBias.size()) : 0;
   p2.tonal_noise_profile_scale = tonalProfileScale;
 
   // ── Engine switch: fade out -> silent warm-up -> fade in ─────────────
