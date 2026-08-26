@@ -25,9 +25,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <juce_dsp/juce_dsp.h>
 #include <vector>
 
-extern "C" {
-#include "specbleach.hpp"
-}
+#include "specbleach.hpp" // self-guarding for C++; do NOT wrap in extern "C"
 
 class NoiseRepellentAudioProcessor : public juce::AudioProcessor,
                                      private juce::Timer {
