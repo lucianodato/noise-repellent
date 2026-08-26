@@ -19,16 +19,16 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 #pragma once
 
+#include <array>
+#include <atomic>
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_dsp/juce_dsp.h>
 #include <vector>
 
-extern "C" {
-#include "specbleach_2d_denoiser.h"
-#include "specbleach_denoiser.h"
-}
+#include "specbleach.hpp" // self-guarding for C++; do NOT wrap in extern "C"
 
-class NoiseRepellentAudioProcessor : public juce::AudioProcessor {
+class NoiseRepellentAudioProcessor : public juce::AudioProcessor,
+                                     private juce::Timer {
 public:
   NoiseRepellentAudioProcessor();
   ~NoiseRepellentAudioProcessor() override;
@@ -138,9 +138,19 @@ public:
     return transientProtectionActive.load(std::memory_order_relaxed);
   }
 
+  // Engine-switch feedback for the UI: 1.0 == no switch in progress;
+  // while switching, ramps 0..1 across warm-up + fade.
+  bool isEngineSwitching() const {
+    return uiSwitchProgress.load(std::memory_order_relaxed) < 1.0f;
+  }
+
+  float getEngineSwitchProgress() const {
+    return uiSwitchProgress.load(std::memory_order_relaxed);
+  }
+
 private:
   void ensureEnginesInitialized(double sampleRate);
-  void syncNoiseProfiles(int sourceAlgoMode);
+  specbleach_stereo* activeGroupFor(int algoMode) const;
   void interpolateCurve(uint32_t numBins);
 
   // Thread-safe reduction curve data
@@ -153,19 +163,45 @@ private:
   static juce::AudioProcessorValueTreeState::ParameterLayout
   createParameterLayout();
 
-  // DSP Engines — one instance per channel for correct stereo processing
-  SpectralBleachHandle specbleach1D_L = nullptr;
-  SpectralBleachHandle specbleach1D_R = nullptr;
-  SpectralBleachHandle specbleach2D_L = nullptr;
-  SpectralBleachHandle specbleach2D_R = nullptr;
+  // DSP Engines — libspecbleach multi-channel groups wrapping per-channel
+  // engines for both families
+  specbleach::StereoGroupPtr spectralGroup; // wraps 1D per-channel engines
+  specbleach::StereoGroupPtr nlmGroup;      // wraps 2D per-channel engines
+
+  // Engine-switch UX: on a switch request the wet output ramps down and is
+  // MUTED while the target family renders silently long enough to warm its
+  // internal buffers; reported latency moves to the target's native value
+  // immediately (hosts re-anchor against silence — no audible glitch). The
+  // editor shows a full-screen overlay and locks the dropdown.
+  enum class SwitchPhase { Steady, FadeOut, WarmSilent, FadeIn };
+  SwitchPhase switchPhase = SwitchPhase::Steady;
+  int switchFromMode = 0; // family heard during FadeOut
+  int stageSamplesRemaining = 0;
+  int warmSamplesTotal = 0;
+  int latencyAnnounceCountdown = -1;      // <0 == already announced
+  static constexpr int kWarmupMs = 700;   // >= NLM 64-frame history depth
+  static constexpr int kEdgeFadeMs = 250; // long soft mute/unmute edges
+  // Hosts (Reaper) splice their PDC buffer when latency DROPS; wait until
+  // the previously buffered tail has fully drained through them before
+  // announcing, so the splice lands in pure silence.
+  static constexpr int kLatencySettleMs = 250;
+  float muteGain = 1.0f;
+
+  // GUI feedback (progress 1 == idle)
+  std::atomic<float> uiSwitchProgress{1.0f};
+
+  // Latency reports are NEVER sent from the audio thread: hosts (notably
+  // Reaper via VST3 ioChanged) suspend/resume the plugin on latency
+  // changes, which must not happen mid-callback. The audio side stages the
+  // value here; the timer delivers it on the message thread.
+  std::atomic<int> pendingLatencyReport{-1};
+  void timerCallback() override;
 
   juce::AudioParameterBool* bypassParameter = nullptr;
   juce::dsp::DryWetMixer<float> dryWetMixer;
 
   double currentSampleRate = 44100.0;
   int currentAlgoMode = 1; // Track for dynamic latency updates
-  bool currentTransientProtectionEnable =
-      true; // Track for dynamic transient protection enable updates
   std::atomic<float> transientActivity{0.0f};
   std::atomic<bool> transientProtectionActive{false};
   bool wasLearning =
@@ -190,21 +226,10 @@ private:
   uint32_t preparedBlockSize = 0;
   uint32_t preparedNumChannels = 0;
 
-  // Crossfading between 1D and 2D engines to prevent clicks/pops during mode
-  // changes
-  juce::AudioBuffer<float> crossfadeBuffer;
-  int sourceAlgoMode = 1;
-  int targetAlgoMode = 1;
-  float crossfadeProgress = 1.0f;
-  float crossfadeStep = 0.0f;
-
-  // Delay alignment buffer for clickless transitions between 1D and 2D
-  // latencies
-  juce::AudioBuffer<float> crossfadeDelayBuffer;
-  size_t crossfadeDelayWritePos = 0;
-  uint32_t crossfadeLatencyDiff = 0;
-  float delaySlewProgress = 1.0f;
-  float delaySlewStep = 0.0f;
+  // Preallocated wet scratch buffers for rendering both engine groups during
+  // transitions (also serve as overflow sinks for out-of-bus channels)
+  juce::AudioBuffer<float> wetScratchA; // spectralGroup wet output
+  juce::AudioBuffer<float> wetScratchB; // nlmGroup wet output
 
   // FFT analysis for visualization
   juce::dsp::FFT fftAnalyzer{kFftOrder};
