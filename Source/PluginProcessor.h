@@ -179,8 +179,13 @@ private:
   int switchFromMode = 0;             // family heard during FadeOut
   int stageSamplesRemaining = 0;
   int warmSamplesTotal = 0;
-  static constexpr int kWarmupMs = 700; // >= NLM 64-frame history depth
+  int latencyAnnounceCountdown = -1;  // <0 == already announced
+  static constexpr int kWarmupMs = 700;   // >= NLM 64-frame history depth
   static constexpr int kEdgeFadeMs = 100; // long soft mute/unmute edges
+  // Hosts (Reaper) splice their PDC buffer when latency DROPS; wait until
+  // the previously buffered tail has fully drained through them before
+  // announcing, so the splice lands in pure silence.
+  static constexpr int kLatencySettleMs = 250;
   float muteGain = 1.0f;
 
   // GUI feedback (progress 1 == idle)

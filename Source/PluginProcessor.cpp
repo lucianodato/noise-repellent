@@ -497,6 +497,7 @@ void NoiseRepellentAudioProcessor::prepareToPlay(double sampleRate,
   switchPhase = SwitchPhase::Steady;
   stageSamplesRemaining = 0;
   warmSamplesTotal = 0;
+  latencyAnnounceCountdown = -1;
   muteGain = 1.0f;
   uiSwitchProgress.store(1.0f, std::memory_order_relaxed);
 
@@ -681,6 +682,8 @@ void NoiseRepellentAudioProcessor::processBlock(
       stageSamplesRemaining = edgeFadeSamples;
       warmSamplesTotal =
           static_cast<int>(currentSampleRate * (kWarmupMs / 1000.0));
+      latencyAnnounceCountdown =
+          static_cast<int>(currentSampleRate * (kLatencySettleMs / 1000.0));
       // NOTE: reported latency moves at the FadeOut->WarmSilent boundary,
       // once the output is fully silent. Announcing a latency DROP while
       // audio is still fading makes hosts truncate in-flight compensation
@@ -777,6 +780,21 @@ void NoiseRepellentAudioProcessor::processBlock(
         buffer.clear(); // nothing audible during the silent window
     }
 
+    // Latency handoff: only after the old tail drained through the host
+    if (switchPhase == SwitchPhase::WarmSilent &&
+        latencyAnnounceCountdown > 0) {
+      latencyAnnounceCountdown -= numSamples;
+      if (latencyAnnounceCountdown <= 0) {
+        latencyAnnounceCountdown = -1;
+        if (auto* targetGroup = activeGroupFor(currentAlgoMode)) {
+          const uint32_t targetLatency =
+              specbleach_stereo_get_latency(targetGroup);
+          setLatencySamples(static_cast<int>(targetLatency));
+          dryWetMixer.setWetLatency(static_cast<float>(targetLatency));
+        }
+      }
+    }
+
     // Gain envelope: linear toward the stage's destination across the edge
     const float gainTarget =
         (switchPhase == SwitchPhase::WarmSilent) ? 0.0f : 1.0f;
@@ -805,14 +823,6 @@ void NoiseRepellentAudioProcessor::processBlock(
       case SwitchPhase::FadeOut:
         switchPhase = SwitchPhase::WarmSilent;
         stageSamplesRemaining = warmSamplesTotal;
-        // Fully silent from here on: the safe moment for the host to
-        // re-anchor delay compensation to the target's native latency
-        if (auto* targetGroup = activeGroupFor(currentAlgoMode)) {
-          const uint32_t targetLatency =
-              specbleach_stereo_get_latency(targetGroup);
-          setLatencySamples(static_cast<int>(targetLatency));
-          dryWetMixer.setWetLatency(static_cast<float>(targetLatency));
-        }
         break;
       case SwitchPhase::WarmSilent:
         switchPhase = SwitchPhase::FadeIn;
