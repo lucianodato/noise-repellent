@@ -32,6 +32,7 @@ NoiseRepellentAudioProcessor::NoiseRepellentAudioProcessor()
   bypassParameter = dynamic_cast<juce::AudioParameterBool*>(
       parameters.getParameter("bypass"));
   startTimerHz(60); // deferred latency reporting to the message thread
+  juce::ignoreUnused(specbleach_get_version_string());
   DBG("libspecbleach " << specbleach_get_version_string());
 }
 

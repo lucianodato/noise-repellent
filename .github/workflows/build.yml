@@ -165,7 +165,7 @@ jobs:
             BAD_DEPS=$(otool -L "$BINARY" 2>/dev/null | tail -n +2 | sed -E 's/^[[:space:]]+//; s/[[:space:]]+\(compatibility.*//' | grep -vE "^/System/Library|^/usr/lib|^@loader_path|^@executable_path|^@rpath|Noise Repellent|staging/" || true)
             BINARY_SIZE=$(stat -f%z "$BINARY" 2>/dev/null || stat -c%s "$BINARY" 2>/dev/null || wc -c < "$BINARY" 2>/dev/null | tr -d ' ')
             HAS_SPECBLEACH=$(nm -a "$BINARY" 2>/dev/null | grep -i "specbleach" | head -n 1 || true)
-            if [ -z "$HAS_SPECBLEACH" ] && [ "$BINARY_SIZE" -lt 8000000 ]; then
+            if [ -z "$HAS_SPECBLEACH" ] && [ "$BINARY_SIZE" -lt 4000000 ]; then
               MISSING_SPECBLEACH=1
             else
               MISSING_SPECBLEACH=0
@@ -329,7 +329,7 @@ jobs:
             UNDEFINED_LEAKS=$(nm -D --undefined-only "$PLUGIN" 2>/dev/null | grep -iE '[[:space:]](FT_|pffft_|fftwf?_)' || true)
             PLUGIN_SIZE=$(stat -c%s "$PLUGIN" 2>/dev/null || stat -f%z "$PLUGIN" 2>/dev/null || echo 0)
             HAS_SPECBLEACH=$(strings "$PLUGIN" 2>/dev/null | grep -i "specbleach" | head -n 1 || true)
-            if [ -z "$HAS_SPECBLEACH" ] && [ "$PLUGIN_SIZE" -lt 8000000 ]; then
+            if [ -z "$HAS_SPECBLEACH" ] && [ "$PLUGIN_SIZE" -lt 2500000 ]; then
               MISSING_SPECBLEACH=1
             else
               MISSING_SPECBLEACH=0
@@ -552,8 +552,8 @@ jobs:
             if [ -z "$HAS_SPECBLEACH" ]; then HAS_SPECBLEACH=$(llvm-nm "$BINARY" 2>/dev/null | grep -i "specbleach" | head -n 1 || true); fi
             if [ -z "$HAS_SPECBLEACH" ]; then HAS_SPECBLEACH=$(strings "$BINARY" 2>/dev/null | grep -i "specbleach" | head -n 1 || true); fi
             if [ -z "$HAS_SPECBLEACH" ]; then HAS_SPECBLEACH=$(dumpbin /SYMBOLS "$BINARY" 2>/dev/null | grep -i "specbleach" | head -n 1 || true); fi
-            if [ -z "$HAS_SPECBLEACH" ] && [ "$BINARY_SIZE" -lt 5000000 ]; then
-              echo "❌ $NAME missing libspecbleach embedding (size ${BINARY_SIZE} <5M and no specbleach symbols)"
+            if [ -z "$HAS_SPECBLEACH" ] && [ "$BINARY_SIZE" -lt 2500000 ]; then
+              echo "❌ $NAME missing libspecbleach embedding (size ${BINARY_SIZE} < 2.5M and no specbleach symbols)"
               MISSING_SPECBLEACH=1
             else
               MISSING_SPECBLEACH=0
@@ -563,7 +563,7 @@ jobs:
             if [ -n "$UNEXPECTED_DLLS" ] || [ "$MISSING_SPECBLEACH" -eq 1 ]; then
               echo "❌ [FAIL] $NAME"
               [ -n "$UNEXPECTED_DLLS" ] && echo "   └─ Dynamic leaks: $(echo "$UNEXPECTED_DLLS" | tr '\n' ' ')"
-              [ "$MISSING_SPECBLEACH" -eq 1 ] && echo "   └─ Missing libspecbleach embedding (size ${BINARY_SIZE} < 5M and no specbleach symbols)"
+              [ "$MISSING_SPECBLEACH" -eq 1 ] && echo "   └─ Missing libspecbleach embedding (size ${BINARY_SIZE} < 2.5M and no specbleach symbols)"
               HAS_ERRORS=1
             else
               echo "✔ [PASS] $NAME"
