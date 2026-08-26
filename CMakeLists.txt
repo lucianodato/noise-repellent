@@ -17,16 +17,15 @@ set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 # Build Options (Default OFF for self-contained, portable release binaries)
 # Downstream distro packagers can pass -DUSE_SYSTEM_*=ON to use system libraries
 # ==============================================================================
-option(USE_SYSTEM_FFTW       "Use system-installed FFTW3 library"       OFF)
 option(USE_SYSTEM_FREETYPE   "Use system-installed FreeType library"   OFF)
 option(USE_SYSTEM_SPECBLEACH "Use system-installed libspecbleach"      OFF)
 option(USE_SYSTEM_JUCE       "Use system-installed JUCE library"       OFF)
 
 if(UNIX AND NOT APPLE)
     # Statically link GCC runtimes AND hide all symbols inside static archives (-Wl,--exclude-libs,ALL)
-    # This prevents host DAWs (like Ardour) from experiencing FreeType/FFTW dynamic linker symbol collisions
+    # This prevents host DAWs (like Ardour) from experiencing FreeType dynamic linker symbol collisions
     # Only apply for portable builds (when NOT using system dependencies)
-    if(NOT USE_SYSTEM_FFTW AND NOT USE_SYSTEM_FREETYPE AND NOT USE_SYSTEM_SPECBLEACH AND NOT USE_SYSTEM_JUCE)
+    if(NOT USE_SYSTEM_FREETYPE AND NOT USE_SYSTEM_SPECBLEACH AND NOT USE_SYSTEM_JUCE)
         add_link_options(-static-libgcc -static-libstdc++ -Wl,--exclude-libs,ALL)
     endif()
 endif()
@@ -190,46 +189,7 @@ set(ENABLE_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(BUILD_TESTS OFF CACHE BOOL "" FORCE)
 
 # ==============================================================================
-# 5. FFTW3 Dependency
-# ==============================================================================
-# Disable AVX on Apple platforms BEFORE fetching/configuring FFTW3
-if(APPLE)
-    set(ENABLE_AVX OFF CACHE BOOL "" FORCE)
-    set(USE_AVX OFF CACHE BOOL "" FORCE)
-endif()
-
-if(USE_SYSTEM_FFTW)
-    message(STATUS "Using system-installed FFTW3 library")
-    find_package(PkgConfig REQUIRED)
-    pkg_check_modules(FFTW3F REQUIRED IMPORTED_TARGET fftw3f)
-    set(FFTW_TARGET PkgConfig::FFTW3F)
-else()
-    message(STATUS "Building static FFTW3 via FetchContent...")
-    set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
-    set(ENABLE_FLOAT ON CACHE BOOL "" FORCE)
-    set(ENABLE_THREADS ON CACHE BOOL "" FORCE)
-
-    set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
-
-    FetchContent_Declare(
-        fftw3
-        URL https://www.fftw.org/fftw-3.3.10.tar.gz
-        DOWNLOAD_EXTRACT_TIMESTAMP TRUE
-    )
-    FetchContent_MakeAvailable(fftw3)
-
-    set(FFTW3F_LIB fftw3f CACHE STRING "Path to fftw3f library" FORCE)
-    set(FFTW3_LIB fftw3f CACHE STRING "Path to fftw3 library" FORCE)
-
-    include_directories(
-        ${fftw3_SOURCE_DIR}/api
-        ${fftw3_BINARY_DIR}
-    )
-    set(FFTW_TARGET fftw3f)
-endif()
-
-# ==============================================================================
-# 6. libspecbleach Dependency
+# 5. libspecbleach Dependency
 # ==============================================================================
 if(USE_SYSTEM_SPECBLEACH)
     message(STATUS "Using system-installed libspecbleach library")
@@ -311,7 +271,7 @@ target_link_libraries(NoiseRepellent PRIVATE
 
 # On MSVC, static archives linked into a SHARED module are pruned by
 # /OPT:REF unless wrapped in /WHOLEARCHIVE. Without this, libspecbleach
-# and FFTW objects are silently dropped from the final .vst3/.dll,
+# objects are silently dropped from the final .vst3/.dll,
 # while import-table verification still passes.
 # Use LINK_LIBRARY:WHOLE_ARCHIVE on CMake >=3.24, fallback to
 # LINKER:/WHOLEARCHIVE on older CMake.
@@ -328,20 +288,6 @@ if(NOT USE_SYSTEM_SPECBLEACH)
     endif()
 else()
     target_link_libraries(NoiseRepellent PRIVATE ${SPECBLEACH_TARGET} ${SPECBLEACH_EXTRAS_TARGET})
-endif()
-if(NOT USE_SYSTEM_FFTW)
-    if(MSVC)
-        if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.24")
-            target_link_libraries(NoiseRepellent PRIVATE "$<LINK_LIBRARY:WHOLE_ARCHIVE,${FFTW_TARGET}>")
-        else()
-            target_link_libraries(NoiseRepellent PRIVATE ${FFTW_TARGET})
-            target_link_options(NoiseRepellent PRIVATE "LINKER:/WHOLEARCHIVE,$<TARGET_FILE:${FFTW_TARGET}>")
-        endif()
-    else()
-        target_link_libraries(NoiseRepellent PRIVATE ${FFTW_TARGET})
-    endif()
-else()
-    target_link_libraries(NoiseRepellent PRIVATE ${FFTW_TARGET})
 endif()
 
 # Explicitly propagate the static DSP libs to JUCE format targets.
@@ -365,20 +311,6 @@ foreach(_fmt IN ITEMS VST3 LV2 AU Standalone)
         else()
             target_link_libraries(NoiseRepellent_${_fmt} PRIVATE ${SPECBLEACH_TARGET} ${SPECBLEACH_EXTRAS_TARGET})
         endif()
-        if(NOT USE_SYSTEM_FFTW)
-            if(MSVC)
-                if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.24")
-                    target_link_libraries(NoiseRepellent_${_fmt} PRIVATE "$<LINK_LIBRARY:WHOLE_ARCHIVE,${FFTW_TARGET}>")
-                else()
-                    target_link_libraries(NoiseRepellent_${_fmt} PRIVATE ${FFTW_TARGET})
-                    target_link_options(NoiseRepellent_${_fmt} PRIVATE "LINKER:/WHOLEARCHIVE,$<TARGET_FILE:${FFTW_TARGET}>")
-                endif()
-            else()
-                target_link_libraries(NoiseRepellent_${_fmt} PRIVATE ${FFTW_TARGET})
-            endif()
-        else()
-            target_link_libraries(NoiseRepellent_${_fmt} PRIVATE ${FFTW_TARGET})
-        endif()
     endif()
 endforeach()
 if(TARGET NoiseRepellent_SharedCode)
@@ -395,20 +327,6 @@ if(TARGET NoiseRepellent_SharedCode)
         endif()
     else()
         target_link_libraries(NoiseRepellent_SharedCode PRIVATE ${SPECBLEACH_TARGET} ${SPECBLEACH_EXTRAS_TARGET})
-    endif()
-    if(NOT USE_SYSTEM_FFTW)
-        if(MSVC)
-            if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.24")
-                target_link_libraries(NoiseRepellent_SharedCode PRIVATE "$<LINK_LIBRARY:WHOLE_ARCHIVE,${FFTW_TARGET}>")
-            else()
-                target_link_libraries(NoiseRepellent_SharedCode PRIVATE ${FFTW_TARGET})
-                target_link_options(NoiseRepellent_SharedCode PRIVATE "LINKER:/WHOLEARCHIVE,$<TARGET_FILE:${FFTW_TARGET}>")
-            endif()
-        else()
-            target_link_libraries(NoiseRepellent_SharedCode PRIVATE ${FFTW_TARGET})
-        endif()
-    else()
-        target_link_libraries(NoiseRepellent_SharedCode PRIVATE ${FFTW_TARGET})
     endif()
 endif()
 

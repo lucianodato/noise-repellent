@@ -67,11 +67,11 @@ To balance portable DAW binary compatibility for release artifacts with downstre
 
 1. **Dual-Mode Dependency Linking**:
    * **Default Portable Release Mode (`USE_SYSTEM_*=OFF`)**:
-     * Third-party libraries (`FFTW3`, `FreeType`, `libspecbleach`) **must be statically embedded** by default into plugin targets to ensure zero host DAW crashes or symbol conflicts (e.g., in Ardour, Bitwig, or REAPER).
+     * Third-party libraries (`FreeType`, `libspecbleach`) **must be statically embedded** by default into plugin targets to ensure zero host DAW crashes or symbol conflicts (e.g., in Ardour, Bitwig, or REAPER).
      * On Linux, static GCC runtimes (`-static-libgcc -static-libstdc++`) must be linked for release builds.
      * On Windows, static MSVC runtimes (`/MT`) must be configured (`set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")`).
    * **Downstream Packaging Mode (`USE_SYSTEM_*=ON`)**:
-     * Provide CMake build toggles (`USE_SYSTEM_FFTW`, `USE_SYSTEM_FREETYPE`, `USE_SYSTEM_SPECBLEACH`, `USE_SYSTEM_JUCE`) defaulting to `OFF`.
+     * Provide CMake build toggles (`USE_SYSTEM_FREETYPE`, `USE_SYSTEM_SPECBLEACH`, `USE_SYSTEM_JUCE`) defaulting to `OFF`.
      * When set to `ON` by Linux distro packagers, CMake uses `find_package()` / `pkg_check_modules()` to dynamically link against system shared libraries (`.so`).
 2. **Package Metadata Requirements**:
    * Standard prebuilt release package configurations (`.deb` / CPack) declare core desktop system dependencies (`libasound2`, `libgl1`, `libx11-6`, `libxext6`, `libxcursor1`, `libxinerama1`, `libxrandr2`). Distro-packaged builds managed by package maintainers will handle full dynamic dependency trees via `dpkg-shlibdeps`.
@@ -87,7 +87,7 @@ To balance portable DAW binary compatibility for release artifacts with downstre
 
 The GitHub Actions workflow enforces strict post-build binary verification steps across all OS targets:
 
-* **Linux**: For standard release builds, runs `ldd` against a strict whitelist of core OS/desktop runtimes (`libc`, `libm`, `libpthread`, `libdl`, `librt`, `ld-linux`, `libasound`, `libGL`, `libX11`, `libXext`, `libXcursor`, `libXinerama`, `libXrandr`, `libXrender`, `libXi`, `libgomp`). Fails if unexpected dynamic libraries (`libfreetype.so`, `libfftw3.so`) or dynamic C++ runtimes (`libstdc++.so`, `libgcc_s.so`) leak into the prebuilt release binaries.
+* **Linux**: For standard release builds, runs `ldd` against a strict whitelist of core OS/desktop runtimes (`libc`, `libm`, `libpthread`, `libdl`, `librt`, `ld-linux`, `libasound`, `libGL`, `libX11`, `libXext`, `libXcursor`, `libXinerama`, `libXrandr`, `libXrender`, `libXi`, `libgomp`). Fails if unexpected dynamic libraries (`libfreetype.so`, etc.) or dynamic C++ runtimes (`libstdc++.so`, `libgcc_s.so`) leak into the prebuilt release binaries.
 * **macOS**: Uses `lipo` to verify fat universal binaries (`arm64` + `x86_64`) and `otool -L` to ensure zero Homebrew or non-system dynamic library leaks.
 * **Windows**: Parses PE import tables via `objdump -p` to guarantee only standard system DLLs (`KERNEL32.dll`, `VCRUNTIME140.dll`, `ucrtbase.dll`, `d2d1.dll`, etc.) are imported.
 

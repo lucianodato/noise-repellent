@@ -1026,7 +1026,7 @@ void NoiseRepellentAudioProcessor::processBlock(
 
             const float maxProfileIdx = static_cast<float>(realProfileBins - 1);
             const float maxFftIdx = static_cast<float>(kFftBins - 1);
-            // FFTW unnormalized power scaling offset: 20 * log10(N/2)
+            // Unnormalized power scaling offset: 20 * log10(N/2)
             const float dbOffset = (maxProfileIdx > 0.0f)
                                        ? (20.0f * std::log10(maxProfileIdx))
                                        : 0.0f;
