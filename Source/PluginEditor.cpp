@@ -23,6 +23,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(
     NoiseRepellentAudioProcessor& p)
     : AudioProcessorEditor(&p), audioProcessor(p), spectralVisualizer(p) {
+  engineSwitchBar.setVisible(false);
+  addAndMakeVisible(engineSwitchBar);
   setLookAndFeel(&customLookAndFeel);
 
   // 1. Native Resizable Window Settings
@@ -954,6 +956,21 @@ void NoiseRepellentAudioProcessorEditor::timerCallback() {
     triggerAsyncUpdate();
   }
 
+  // Engine-switch progress strip visibility
+  const bool switching = audioProcessor.isEngineSwitching();
+  if (switching != engineSwitchWasVisible) {
+    engineSwitchWasVisible = switching;
+    engineSwitchBar.setVisible(switching);
+    // While switching the dropdown is locked to the pending target; the
+    // bypass update path restores its enabled state afterwards
+    comboAlgoMode.setEnabled(!switching && !btnBypass.getToggleState());
+  }
+  if (switching) {
+    engineSwitchValue =
+        static_cast<double>(audioProcessor.getEngineSwitchProgress());
+    engineSwitchBar.repaint();
+  }
+
   bool isOffline = audioProcessor.isNonRealtime();
   if (isOffline != wasOfflineRendering) {
     wasOfflineRendering = isOffline;
@@ -1083,6 +1100,8 @@ void NoiseRepellentAudioProcessorEditor::resized() {
   lblAlgoHeader.setBounds(algoCol.removeFromTop(15));
   algoCol.removeFromTop(3);
   comboAlgoMode.setBounds(algoCol.removeFromTop(26));
+  algoCol.removeFromTop(2);
+  engineSwitchBar.setBounds(algoCol.removeFromTop(4));
 
   headerArea.removeFromLeft(kHeaderGap);
 

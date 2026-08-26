@@ -139,6 +139,16 @@ public:
     return transientProtectionActive.load(std::memory_order_relaxed);
   }
 
+  // Engine-switch feedback for the UI: 1.0 == no switch in progress;
+  // while switching, ramps 0..1 across warm-up + fade.
+  bool isEngineSwitching() const {
+    return uiSwitchProgress.load(std::memory_order_relaxed) < 1.0f;
+  }
+
+  float getEngineSwitchProgress() const {
+    return uiSwitchProgress.load(std::memory_order_relaxed);
+  }
+
 private:
   void ensureEnginesInitialized(double sampleRate);
   specbleach_stereo* activeGroupFor(int algoMode) const;
@@ -159,17 +169,31 @@ private:
   specbleach_stereo* spectralGroup = nullptr; // wraps 1D per-channel engines
   specbleach_stereo* nlmGroup = nullptr;      // wraps 2D per-channel engines
 
-  // Permanent latency alignment: the shorter-latency (1D) family always
-  // runs through this ring so both families share one time origin. The
-  // plugin then reports max(latencies) constantly and engine switches are
-  // plain equal-power crossfades between aligned streams — no repeats,
-  // skips, or host re-anchoring in either direction.
+  // Permanent latency alignment constants: the shorter-latency (1D) family
+  // runs through this ring ONLY during engine transitions so both streams
+  // share one time origin while blending. Steady-state output stays native,
+  // preserving each engine's own latency and CPU profile.
   juce::AudioBuffer<float> spectralAlignmentRing;
   int alignmentWritePos = 0;
-  uint32_t spectralAlignmentDelay = 0; // latency diff in samples
-  uint32_t maxEngineLatency = 0;
-  float crossfadeProgress = 1.0f; // 0..1, 1 == settled on active family
-  int crossfadeDirection = 0;     // +1 toward NLM, -1 toward spectral
+  uint32_t spectralAlignmentDelay = 0;
+
+  // Deferred engine-switch state machine:
+  // Warming: target renders in parallel until its internal buffers fill;
+  //          output still comes from the source family.
+  // Fading:  aligned equal-power blend toward the warmed target.
+  // Slewing: after landing on the shorter-latency family, slide the
+  //          alignment tap back out between delayed/direct copies.
+  enum class SwitchPhase { Steady, Warming, Fading, Slewing };
+  SwitchPhase switchPhase = SwitchPhase::Steady;
+  int fadeFromMode = 0;               // family being blended away from
+  float fadeProgress = 1.0f;          // 0..1 toward target family
+  float slewProgress = 1.0f;          // 0..1 ramp-out of alignment delay
+  int warmupSamplesRemaining = 0;
+  static constexpr int kFadeMs = 40;
+  static constexpr int kWarmupMs = 700; // >= NLM 64-frame history depth
+
+  // GUI feedback for the ongoing switch (progress 1 == idle)
+  std::atomic<float> uiSwitchProgress{1.0f};
 
   juce::AudioParameterBool* bypassParameter = nullptr;
   juce::dsp::DryWetMixer<float> dryWetMixer;

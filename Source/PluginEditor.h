@@ -57,6 +57,11 @@ private:
   juce::TextButton btnPreferences{juce::CharPointer_UTF8("\xe2\x96\xbc")};
   juce::Label lblAlgoHeader{"lblAlgoHeader", "PROCESSING ENGINE"};
   juce::ComboBox comboAlgoMode;
+  // Thin switch progress strip under the engine dropdown; visible only
+  // while a warm-up/fade between engines is running
+  double engineSwitchValue = 1.0; // 1 == idle
+  juce::ProgressBar engineSwitchBar{engineSwitchValue};
+  bool engineSwitchWasVisible = false;
   juce::TextButton btnAdvancedToggle{"ADVANCED"};
   juce::ToggleButton btnDelta{"Delta"};
   juce::ToggleButton btnBypass{"Bypass"};
