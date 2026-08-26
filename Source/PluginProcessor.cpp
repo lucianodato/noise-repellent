@@ -32,15 +32,11 @@ NoiseRepellentAudioProcessor::NoiseRepellentAudioProcessor()
   bypassParameter = dynamic_cast<juce::AudioParameterBool*>(
       parameters.getParameter("bypass"));
   startTimerHz(60); // deferred latency reporting to the message thread
+  DBG("libspecbleach " << specbleach_get_version_string());
 }
 
 NoiseRepellentAudioProcessor::~NoiseRepellentAudioProcessor() {
   stopTimer();
-  specbleach_stereo_free(spectralGroup);
-  spectralGroup = nullptr;
-  specbleach_stereo_free(nlmGroup);
-  nlmGroup = nullptr;
-
   releaseResources();
 }
 
@@ -340,7 +336,7 @@ static bool loadProfileGroupSafe(specbleach_stereo* group, uint32_t channel,
 
 specbleach_stereo* NoiseRepellentAudioProcessor::activeGroupFor(
     int algoMode) const {
-  return (algoMode == 1) ? nlmGroup : spectralGroup;
+  return (algoMode == 1) ? nlmGroup.get() : spectralGroup.get();
 }
 
 void NoiseRepellentAudioProcessor::ensureEnginesInitialized(double sampleRate) {
@@ -386,14 +382,12 @@ void NoiseRepellentAudioProcessor::ensureEnginesInitialized(double sampleRate) {
     }
   };
 
-  backupGroup(spectralGroup, profilesSpectral);
-  backupGroup(nlmGroup, profilesNLM);
+  backupGroup(spectralGroup.get(), profilesSpectral);
+  backupGroup(nlmGroup.get(), profilesNLM);
 
-  // Free existing groups and transition machinery
-  specbleach_stereo_free(spectralGroup);
-  spectralGroup = nullptr;
-  specbleach_stereo_free(nlmGroup);
-  nlmGroup = nullptr;
+  // Free existing groups before allocating replacements
+  spectralGroup.reset();
+  nlmGroup.reset();
 
   uint32_t channels = preparedNumChannels;
   if (channels < 2) {
@@ -402,23 +396,23 @@ void NoiseRepellentAudioProcessor::ensureEnginesInitialized(double sampleRate) {
   }
 
   const uint32_t sampleRateUint = static_cast<uint32_t>(sampleRate);
-  spectralGroup = specbleach_stereo_initialize(
+  spectralGroup = specbleach::make_stereo_group(
       sampleRateUint, 50.0f, channels, SPECBLEACH_STEREO_ENGINE_SPECTRAL);
-  nlmGroup = specbleach_stereo_initialize(sampleRateUint, 50.0f, channels,
-                                          SPECBLEACH_STEREO_ENGINE_NLM_2D);
+  nlmGroup = specbleach::make_stereo_group(sampleRateUint, 50.0f, channels,
+                                           SPECBLEACH_STEREO_ENGINE_NLM_2D);
 
   currentSampleRate = sampleRate;
   preparedNumChannels = channels;
 
   // Restore backed-up profiles into the new groups
   for (const auto& item : profilesSpectral) {
-    loadProfileGroupSafe(spectralGroup, static_cast<uint32_t>(item.channel),
-                         item.data.data(), item.size, item.blockCount,
-                         item.mode);
+    loadProfileGroupSafe(spectralGroup.get(),
+                         static_cast<uint32_t>(item.channel), item.data.data(),
+                         item.size, item.blockCount, item.mode);
   }
 
   for (const auto& item : profilesNLM) {
-    loadProfileGroupSafe(nlmGroup, static_cast<uint32_t>(item.channel),
+    loadProfileGroupSafe(nlmGroup.get(), static_cast<uint32_t>(item.channel),
                          item.data.data(), item.size, item.blockCount,
                          item.mode);
   }
@@ -429,10 +423,10 @@ void NoiseRepellentAudioProcessor::ensureEnginesInitialized(double sampleRate) {
     if (item.channel == 1)
       hasCh1 = true;
 
-    loadProfileGroupSafe(spectralGroup, static_cast<uint32_t>(item.channel),
-                         item.data.data(), item.size, item.blockCount,
-                         item.mode);
-    loadProfileGroupSafe(nlmGroup, static_cast<uint32_t>(item.channel),
+    loadProfileGroupSafe(spectralGroup.get(),
+                         static_cast<uint32_t>(item.channel), item.data.data(),
+                         item.size, item.blockCount, item.mode);
+    loadProfileGroupSafe(nlmGroup.get(), static_cast<uint32_t>(item.channel),
                          item.data.data(), item.size, item.blockCount,
                          item.mode);
   }
@@ -441,9 +435,9 @@ void NoiseRepellentAudioProcessor::ensureEnginesInitialized(double sampleRate) {
   if (!hasCh1) {
     for (const auto& item : pendingProfiles) {
       if (item.channel == 0) {
-        loadProfileGroupSafe(spectralGroup, 1u, item.data.data(), item.size,
-                             item.blockCount, item.mode);
-        loadProfileGroupSafe(nlmGroup, 1u, item.data.data(), item.size,
+        loadProfileGroupSafe(spectralGroup.get(), 1u, item.data.data(),
+                             item.size, item.blockCount, item.mode);
+        loadProfileGroupSafe(nlmGroup.get(), 1u, item.data.data(), item.size,
                              item.blockCount, item.mode);
       }
     }
@@ -451,12 +445,12 @@ void NoiseRepellentAudioProcessor::ensureEnginesInitialized(double sampleRate) {
   pendingProfiles.clear();
 
   // Fill any remaining per-channel/per-mode gaps within each group
-  specbleach_stereo_sync_profiles(spectralGroup);
-  specbleach_stereo_sync_profiles(nlmGroup);
+  specbleach_stereo_sync_profiles(spectralGroup.get());
+  specbleach_stereo_sync_profiles(nlmGroup.get());
 }
 
 void NoiseRepellentAudioProcessor::prepareToPlay(double sampleRate,
-                                                  int samplesPerBlock) {
+                                                 int samplesPerBlock) {
   ensureEnginesInitialized(sampleRate);
 
   currentAlgoMode = static_cast<int>(
@@ -483,8 +477,7 @@ void NoiseRepellentAudioProcessor::prepareToPlay(double sampleRate,
 
   currentLatency = static_cast<int>(nativeLatency);
   visualizerDelayBuffer.assign(
-      std::max<size_t>(32768, static_cast<size_t>(nativeLatency) + 8192),
-      0.0f);
+      std::max<size_t>(32768, static_cast<size_t>(nativeLatency) + 8192), 0.0f);
   visualizerDelayWritePos = 0;
 
   // Pre-allocate persistent buffers to prevent audio-thread allocations
@@ -607,7 +600,7 @@ void NoiseRepellentAudioProcessor::processBlock(
       nlmGroup != nullptr) {
     auto* sourceGroup = activeGroupFor(currentAlgoMode);
     auto* otherGroup =
-        (currentAlgoMode == 1) ? spectralGroup : nlmGroup;
+        (currentAlgoMode == 1) ? spectralGroup.get() : nlmGroup.get();
     if (sourceGroup != nullptr && otherGroup != nullptr &&
         sourceGroup != otherGroup) {
       specbleach_stereo_migrate_profiles_from(otherGroup, sourceGroup);
@@ -692,7 +685,6 @@ void NoiseRepellentAudioProcessor::processBlock(
       // and glitch the tail (the 2D->1D artifact). The handoff itself is
       // staged to the message thread (see pendingLatencyReport): hosts like
       // Reaper suspend/resume the plugin on synchronous latency changes.
-
     }
   }
 
@@ -720,8 +712,7 @@ void NoiseRepellentAudioProcessor::processBlock(
                          : nullptr;
       for (uint32_t ch = 0; ch < groupChannels; ++ch)
         inPtrs[ch] = buffer.getReadPointer(
-            ch < static_cast<uint32_t>(numChannels) ? static_cast<int>(ch)
-                                                    : 0);
+            ch < static_cast<uint32_t>(numChannels) ? static_cast<int>(ch) : 0);
 
       float* outPtrs[2] = {nullptr, nullptr};
       for (uint32_t ch = 0; ch < groupChannels; ++ch) {
@@ -731,14 +722,14 @@ void NoiseRepellentAudioProcessor::processBlock(
                 : ((sinkA != nullptr) ? sinkA : buffer.getWritePointer(0));
       }
 
-      if (currentAlgoMode == 0 && activeGroup == spectralGroup) {
-        specbleach_stereo_load_parameters_1d(spectralGroup, &p, sizeof(p));
-      } else if (currentAlgoMode == 1 && activeGroup == nlmGroup) {
-        specbleach_stereo_load_parameters_2d(nlmGroup, &p2, sizeof(p2));
+      if (currentAlgoMode == 0 && activeGroup == spectralGroup.get()) {
+        specbleach_stereo_load_parameters_1d(spectralGroup.get(), &p,
+                                             sizeof(p));
+      } else if (currentAlgoMode == 1 && activeGroup == nlmGroup.get()) {
+        specbleach_stereo_load_parameters_2d(nlmGroup.get(), &p2, sizeof(p2));
       }
-      specbleach_stereo_process(activeGroup,
-                                static_cast<uint32_t>(numSamples), inPtrs,
-                                outPtrs);
+      specbleach_stereo_process(activeGroup, static_cast<uint32_t>(numSamples),
+                                inPtrs, outPtrs);
     }
   } else {
     // Switching stages: FadeOut keeps the CURRENT family audible while its
@@ -757,8 +748,7 @@ void NoiseRepellentAudioProcessor::processBlock(
       const float* inPtrs[2] = {nullptr, nullptr};
       for (uint32_t ch = 0; ch < groupChannels; ++ch)
         inPtrs[ch] = buffer.getReadPointer(
-            ch < static_cast<uint32_t>(numChannels) ? static_cast<int>(ch)
-                                                    : 0);
+            ch < static_cast<uint32_t>(numChannels) ? static_cast<int>(ch) : 0);
 
       float* sinkA = wetScratchA.getNumChannels() > 1
                          ? wetScratchA.getWritePointer(1)
@@ -771,14 +761,14 @@ void NoiseRepellentAudioProcessor::processBlock(
                 : ((sinkA != nullptr) ? sinkA : buffer.getWritePointer(0));
       }
 
-      if (renderMode == 0 && renderGroup == spectralGroup) {
-        specbleach_stereo_load_parameters_1d(spectralGroup, &p, sizeof(p));
-      } else if (renderMode == 1 && renderGroup == nlmGroup) {
-        specbleach_stereo_load_parameters_2d(nlmGroup, &p2, sizeof(p2));
+      if (renderMode == 0 && renderGroup == spectralGroup.get()) {
+        specbleach_stereo_load_parameters_1d(spectralGroup.get(), &p,
+                                             sizeof(p));
+      } else if (renderMode == 1 && renderGroup == nlmGroup.get()) {
+        specbleach_stereo_load_parameters_2d(nlmGroup.get(), &p2, sizeof(p2));
       }
-      specbleach_stereo_process(renderGroup,
-                                static_cast<uint32_t>(numSamples), inPtrs,
-                                outPtrs);
+      specbleach_stereo_process(renderGroup, static_cast<uint32_t>(numSamples),
+                                inPtrs, outPtrs);
 
       if (switchPhase == SwitchPhase::WarmSilent)
         buffer.clear(); // nothing audible during the silent window
@@ -802,8 +792,7 @@ void NoiseRepellentAudioProcessor::processBlock(
     // Gain envelope: linear toward the stage's destination across the edge
     const float gainTarget =
         (switchPhase == SwitchPhase::WarmSilent) ? 0.0f : 1.0f;
-    const float step = 1.0f / static_cast<float>(
-                                 std::max(1, edgeFadeSamples));
+    const float step = 1.0f / static_cast<float>(std::max(1, edgeFadeSamples));
     const int nsamp = numSamples;
     if (muteGain != gainTarget || gainTarget == 0.0f) {
       for (int chI = 0; chI < buffer.getNumChannels(); ++chI) {
@@ -824,19 +813,19 @@ void NoiseRepellentAudioProcessor::processBlock(
     stageSamplesRemaining -= numSamples;
     if (stageSamplesRemaining <= 0) {
       switch (switchPhase) {
-      case SwitchPhase::FadeOut:
-        switchPhase = SwitchPhase::WarmSilent;
-        stageSamplesRemaining = warmSamplesTotal;
-        break;
-      case SwitchPhase::WarmSilent:
-        switchPhase = SwitchPhase::FadeIn;
-        stageSamplesRemaining = edgeFadeSamples;
-        break;
-      case SwitchPhase::FadeIn:
-        switchPhase = SwitchPhase::Steady;
-        break;
-      default:
-        break;
+        case SwitchPhase::FadeOut:
+          switchPhase = SwitchPhase::WarmSilent;
+          stageSamplesRemaining = warmSamplesTotal;
+          break;
+        case SwitchPhase::WarmSilent:
+          switchPhase = SwitchPhase::FadeIn;
+          stageSamplesRemaining = edgeFadeSamples;
+          break;
+        case SwitchPhase::FadeIn:
+          switchPhase = SwitchPhase::Steady;
+          break;
+        default:
+          break;
       }
     }
   }
@@ -1117,8 +1106,8 @@ bool NoiseRepellentAudioProcessor::getNextSpectralFrame(SpectralFrame& frame) {
 }
 
 void NoiseRepellentAudioProcessor::resetNoiseProfile() {
-  specbleach_stereo_reset_profiles(spectralGroup);
-  specbleach_stereo_reset_profiles(nlmGroup);
+  specbleach_stereo_reset_profiles(spectralGroup.get());
+  specbleach_stereo_reset_profiles(nlmGroup.get());
   pendingProfiles.clear();
 }
 
@@ -1126,19 +1115,19 @@ bool NoiseRepellentAudioProcessor::hasNoiseProfile() const {
   for (int mode = SPECBLEACH_PROFILE_MODE_FIRST;
        mode <= SPECBLEACH_PROFILE_MODE_LAST; ++mode) {
     if (spectralGroup != nullptr &&
-        specbleach_stereo_profile_available_for_channel(spectralGroup, 0u,
+        specbleach_stereo_profile_available_for_channel(spectralGroup.get(), 0u,
                                                         mode))
       return true;
-    if (nlmGroup != nullptr &&
-        specbleach_stereo_profile_available_for_channel(nlmGroup, 0u, mode))
+    if (nlmGroup != nullptr && specbleach_stereo_profile_available_for_channel(
+                                   nlmGroup.get(), 0u, mode))
       return true;
   }
   return false;
 }
 
 void NoiseRepellentAudioProcessor::timerCallback() {
-  const int staged = pendingLatencyReport.exchange(-1,
-                                                   std::memory_order_acq_rel);
+  const int staged =
+      pendingLatencyReport.exchange(-1, std::memory_order_acq_rel);
   if (staged >= 0) {
     setLatencySamples(staged);
     dryWetMixer.setWetLatency(static_cast<float>(staged));
@@ -1154,8 +1143,8 @@ void NoiseRepellentAudioProcessor::getStateInformation(
   juce::SpinLock::ScopedLockType lock(profileLock);
 
   // Fill per-channel/per-mode gaps before serialization
-  specbleach_stereo_sync_profiles(spectralGroup);
-  specbleach_stereo_sync_profiles(nlmGroup);
+  specbleach_stereo_sync_profiles(spectralGroup.get());
+  specbleach_stereo_sync_profiles(nlmGroup.get());
 
   auto state = parameters.copyState();
 
@@ -1163,9 +1152,9 @@ void NoiseRepellentAudioProcessor::getStateInformation(
 
   const uint32_t channelCount =
       (spectralGroup != nullptr)
-          ? specbleach_stereo_get_channel_count(spectralGroup)
+          ? specbleach_stereo_get_channel_count(spectralGroup.get())
           : ((nlmGroup != nullptr)
-                 ? specbleach_stereo_get_channel_count(nlmGroup)
+                 ? specbleach_stereo_get_channel_count(nlmGroup.get())
                  : 0);
 
   for (uint32_t channel = 0; channel < channelCount; ++channel) {
@@ -1188,8 +1177,8 @@ void NoiseRepellentAudioProcessor::getStateInformation(
         }
       };
 
-      collectFrom(spectralGroup);
-      collectFrom(nlmGroup);
+      collectFrom(spectralGroup.get());
+      collectFrom(nlmGroup.get());
 
       if (profile != nullptr && profileSize > 0) {
         juce::MemoryBlock mb(profile, profileSize * sizeof(float));
@@ -1313,9 +1302,9 @@ void NoiseRepellentAudioProcessor::setStateInformation(const void* data,
             pendingProfiles.push_back(pp);
 
             const uint32_t channelUint = static_cast<uint32_t>(channel);
-            loadProfileGroupSafe(spectralGroup, channelUint, floatArray, size,
-                                 blockCount, mode);
-            loadProfileGroupSafe(nlmGroup, channelUint, floatArray, size,
+            loadProfileGroupSafe(spectralGroup.get(), channelUint, floatArray,
+                                 size, blockCount, mode);
+            loadProfileGroupSafe(nlmGroup.get(), channelUint, floatArray, size,
                                  blockCount, mode);
           }
         }
@@ -1326,17 +1315,17 @@ void NoiseRepellentAudioProcessor::setStateInformation(const void* data,
       if (!hasCh1) {
         for (const auto& pp : pendingProfiles) {
           if (pp.channel == 0) {
-            loadProfileGroupSafe(spectralGroup, 1u, pp.data.data(), pp.size,
-                                 pp.blockCount, pp.mode);
-            loadProfileGroupSafe(nlmGroup, 1u, pp.data.data(), pp.size,
+            loadProfileGroupSafe(spectralGroup.get(), 1u, pp.data.data(),
+                                 pp.size, pp.blockCount, pp.mode);
+            loadProfileGroupSafe(nlmGroup.get(), 1u, pp.data.data(), pp.size,
                                  pp.blockCount, pp.mode);
           }
         }
       }
 
       // Fill any remaining per-channel/per-mode gaps within each group
-      specbleach_stereo_sync_profiles(spectralGroup);
-      specbleach_stereo_sync_profiles(nlmGroup);
+      specbleach_stereo_sync_profiles(spectralGroup.get());
+      specbleach_stereo_sync_profiles(nlmGroup.get());
 
       if (spectralGroup != nullptr && nlmGroup != nullptr) {
         pendingProfiles.clear();

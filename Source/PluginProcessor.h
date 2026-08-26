@@ -26,7 +26,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <vector>
 
 extern "C" {
-#include "specbleach_stereo.h"
+#include "specbleach.hpp"
 }
 
 class NoiseRepellentAudioProcessor : public juce::AudioProcessor,
@@ -167,8 +167,8 @@ private:
 
   // DSP Engines — libspecbleach multi-channel groups wrapping per-channel
   // engines for both families
-  specbleach_stereo* spectralGroup = nullptr; // wraps 1D per-channel engines
-  specbleach_stereo* nlmGroup = nullptr;      // wraps 2D per-channel engines
+  specbleach::StereoGroupPtr spectralGroup; // wraps 1D per-channel engines
+  specbleach::StereoGroupPtr nlmGroup;      // wraps 2D per-channel engines
 
   // Engine-switch UX: on a switch request the wet output ramps down and is
   // MUTED while the target family renders silently long enough to warm its
@@ -177,10 +177,10 @@ private:
   // editor shows a full-screen overlay and locks the dropdown.
   enum class SwitchPhase { Steady, FadeOut, WarmSilent, FadeIn };
   SwitchPhase switchPhase = SwitchPhase::Steady;
-  int switchFromMode = 0;             // family heard during FadeOut
+  int switchFromMode = 0; // family heard during FadeOut
   int stageSamplesRemaining = 0;
   int warmSamplesTotal = 0;
-  int latencyAnnounceCountdown = -1;  // <0 == already announced
+  int latencyAnnounceCountdown = -1;      // <0 == already announced
   static constexpr int kWarmupMs = 700;   // >= NLM 64-frame history depth
   static constexpr int kEdgeFadeMs = 250; // long soft mute/unmute edges
   // Hosts (Reaper) splice their PDC buffer when latency DROPS; wait until
