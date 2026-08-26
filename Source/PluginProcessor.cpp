@@ -405,13 +405,12 @@ void NoiseRepellentAudioProcessor::ensureEnginesInitialized(double sampleRate) {
   nlmGroup = specbleach_stereo_initialize(sampleRateUint, 50.0f, channels,
                                           SPECBLEACH_STEREO_ENGINE_NLM_2D);
 
-  // Alignment headroom covers the engines' latency difference; steady-state
-  // latency stays native per family (see prepareToPlay)
   const uint32_t latSpectral =
       spectralGroup ? specbleach_stereo_get_latency(spectralGroup) : 0;
   const uint32_t latNlm =
       nlmGroup ? specbleach_stereo_get_latency(nlmGroup) : 0;
   spectralAlignmentDelay = latNlm > latSpectral ? latNlm - latSpectral : 0;
+  reportedLatency = latSpectral > latNlm ? latSpectral : latNlm;
 
   currentSampleRate = sampleRate;
   preparedNumChannels = channels;
@@ -465,15 +464,11 @@ void NoiseRepellentAudioProcessor::prepareToPlay(double sampleRate,
                                                   int samplesPerBlock) {
   ensureEnginesInitialized(sampleRate);
 
-  // Native per-family latency: each engine reports its own cost. The only
-  // moment latency moves is a completed engine switch (fade start).
+  // Constant reported latency (max across families): hosts never re-anchor,
+  // which is what makes switches artifact-free
   currentAlgoMode = static_cast<int>(
       parameters.getRawParameterValue("algorithm_mode")->load());
-
-  uint32_t nativeLatency = 0;
-  if (auto* activeGroup = activeGroupFor(currentAlgoMode))
-    nativeLatency = specbleach_stereo_get_latency(activeGroup);
-  setLatencySamples(static_cast<int>(nativeLatency));
+  setLatencySamples(static_cast<int>(reportedLatency));
 
   const int bufferCapacity = std::max(samplesPerBlock, 16384);
   preparedBlockSize = static_cast<uint32_t>(bufferCapacity);
@@ -487,11 +482,11 @@ void NoiseRepellentAudioProcessor::prepareToPlay(double sampleRate,
 
   dryWetMixer.prepare(spec);
   dryWetMixer.setMixingRule(juce::dsp::DryWetMixingRule::linear);
-  dryWetMixer.setWetLatency(static_cast<float>(nativeLatency));
+  dryWetMixer.setWetLatency(static_cast<float>(reportedLatency));
 
-  currentLatency = static_cast<int>(nativeLatency);
+  currentLatency = static_cast<int>(reportedLatency);
   visualizerDelayBuffer.assign(
-      std::max<size_t>(32768, static_cast<size_t>(nativeLatency) + 8192),
+      std::max<size_t>(32768, static_cast<size_t>(reportedLatency) + 8192),
       0.0f);
   visualizerDelayWritePos = 0;
 
@@ -514,12 +509,11 @@ void NoiseRepellentAudioProcessor::prepareToPlay(double sampleRate,
   alignmentWritePos = 0;
   switchPhase = SwitchPhase::Steady;
   fadeProgress = 1.0f;
-  slewProgress = 1.0f;
   warmupSamplesRemaining = 0;
   uiSwitchProgress.store(1.0f, std::memory_order_relaxed);
 
-  currentLatency = static_cast<int>(nativeLatency);
-  dryWetMixer.setWetLatency(static_cast<float>(nativeLatency));
+  currentLatency = static_cast<int>(reportedLatency);
+  dryWetMixer.setWetLatency(static_cast<float>(reportedLatency));
 
   // Reset FFT accumulation
   fftAccumInput.fill(0.0f);
@@ -682,10 +676,9 @@ void NoiseRepellentAudioProcessor::processBlock(
 
   // ── Engine-switch state machine ──────────────────────────────────────
   // Warming: target renders in parallel, output stays on the source family.
-  // Fading:  aligned equal-power blend toward the warmed target; host
-  //          latency moves to the target's native value exactly here.
-  // Slewing: after landing on the shorter family, slide the alignment tap
-  //          back out so its native (lower) latency timeline is restored.
+  // Fading:  equal-power blend between the two permanently aligned streams.
+  // Reported latency is constant (max across families), so hosts never
+  // re-anchor and switches cannot produce host-side artifacts.
   const int fadeLengthSamples =
       static_cast<int>(currentSampleRate * (kFadeMs / 1000.0));
   const float fadeStep = fadeLengthSamples > 0
@@ -708,7 +701,6 @@ void NoiseRepellentAudioProcessor::processBlock(
         switchPhase = SwitchPhase::Warming;
         warmupSamplesRemaining = warmupTotalSamples;
         fadeProgress = 0.0f;
-        slewProgress = 1.0f;
         currentAlgoMode = algoMode;
       }
       break;
@@ -721,43 +713,27 @@ void NoiseRepellentAudioProcessor::processBlock(
         warmupSamplesRemaining = 0;
         fadeProgress = 1.0f;
       }
-      // else: already heading to the requested family; keep warming
       break;
     case SwitchPhase::Fading:
       if (algoMode == fadeFromMode) {
-        // Mirror the weights so output continues exactly where it was:
-        // swapping roles with progress' = 1 - progress keeps every weight
-        // identical at the toggle instant.
+        // Mirror the weights so output continues exactly where it was
         const int prevTarget = currentAlgoMode;
         currentAlgoMode = fadeFromMode;
         fadeFromMode = prevTarget;
         fadeProgress = 1.0f - fadeProgress;
-      } // else already going there
-      break;
-    case SwitchPhase::Slewing:
-      // Let the slew finish; it converges on the family we're leaving.
-      // A request for the other family will start fresh once Steady.
+      }
       break;
     }
   }
 
-  // Phase advancement
   if (switchPhase == SwitchPhase::Warming &&
       spectralGroup != nullptr && nlmGroup != nullptr) {
-    const int renderable = std::min(numSamples, warmupSamplesRemaining);
-    warmupSamplesRemaining -= renderable;
-    if (warmupSamplesRemaining <= 0) {
-      switchPhase = SwitchPhase::Fading;
-      // Host delay compensation moves with the blend, not before it
-      if (auto* targetGroup = activeGroupFor(currentAlgoMode)) {
-        const uint32_t targetLatency =
-            specbleach_stereo_get_latency(targetGroup);
-        setLatencySamples(static_cast<int>(targetLatency));
-        dryWetMixer.setWetLatency(static_cast<float>(targetLatency));
-      }
-    }
+    warmupSamplesRemaining -= std::min(numSamples, warmupSamplesRemaining);
+    if (warmupSamplesRemaining <= 0)
+      switchPhase = SwitchPhase::Fading; // latency already constant
   }
 
+  const bool fadingNow = (switchPhase == SwitchPhase::Fading);
   const bool dualRendering = switchPhase != SwitchPhase::Steady;
 
   // Save dry input copy for FFT visualization before processing
@@ -771,7 +747,7 @@ void NoiseRepellentAudioProcessor::processBlock(
   dryWetMixer.pushDrySamples(audioBlock);
 
   // ── Wet rendering ──
-  if (dualRendering) {
+  if (spectralGroup != nullptr && nlmGroup != nullptr) {
     const uint32_t groupChannels = std::min<uint32_t>(
         specbleach_stereo_get_channel_count(spectralGroup), 2u);
 
@@ -779,145 +755,104 @@ void NoiseRepellentAudioProcessor::processBlock(
     float* sinkA = wetScratchA.getNumChannels() > 1
                        ? wetScratchA.getWritePointer(1)
                        : nullptr;
-    float* sinkB = wetScratchB.getNumChannels() > 1
-                       ? wetScratchB.getWritePointer(1)
-                       : nullptr;
 
     for (uint32_t ch = 0; ch < groupChannels; ++ch)
       inPtrs[ch] = buffer.getReadPointer(
           ch < static_cast<uint32_t>(numChannels) ? static_cast<int>(ch) : 0);
 
+    float specOut[2] = {0.0f, 0.0f};
+    float nlmOut[2] = {0.0f, 0.0f};
+
+    // Steady state renders exactly ONE engine; transitions render both so
+    // the target is warm when the fade reaches it.
     jassert(wetScratchA.getNumSamples() >= numSamples);
     jassert(wetScratchB.getNumSamples() >= numSamples);
-
-    float* specOut[2] = {nullptr, nullptr};
-    float* nlmOut[2] = {nullptr, nullptr};
+    float* spP[2] = {nullptr, nullptr};
+    float* nlP[2] = {nullptr, nullptr};
     for (uint32_t ch = 0; ch < groupChannels; ++ch) {
       const int scratchCh = std::min<uint32_t>(
           ch, static_cast<uint32_t>(wetScratchA.getNumChannels() - 1));
-      specOut[ch] = wetScratchA.getWritePointer(scratchCh);
-      nlmOut[ch] = wetScratchB.getWritePointer(scratchCh);
+      spP[ch] = wetScratchA.getWritePointer(scratchCh);
+      nlP[ch] = wetScratchB.getWritePointer(scratchCh);
     }
 
-    specbleach_stereo_load_parameters_1d(spectralGroup, &p, sizeof(p));
-    specbleach_stereo_process(spectralGroup,
-                              static_cast<uint32_t>(numSamples), inPtrs,
-                              specOut);
-    specbleach_stereo_load_parameters_2d(nlmGroup, &p2, sizeof(p2));
-    specbleach_stereo_process(nlmGroup, static_cast<uint32_t>(numSamples),
-                              inPtrs, nlmOut);
-
-    // ── Emission stage ──
-    const bool towardNlm = (currentAlgoMode == 1);
-    const bool fadingNow = (switchPhase == SwitchPhase::Fading);
-    const bool slewingNow = (switchPhase == SwitchPhase::Slewing);
-    float endFade = fadeProgress;
-    float endSlew = slewProgress;
-
-    for (uint32_t ch = 0; ch < groupChannels; ++ch) {
-      const int scratchCh = std::min<uint32_t>(
-          ch, static_cast<uint32_t>(wetScratchA.getNumChannels() - 1));
-      const float* specStream = wetScratchA.getReadPointer(scratchCh);
-      const float* nlmStream = wetScratchB.getReadPointer(scratchCh);
-      float* dst = (ch < static_cast<uint32_t>(numChannels))
-                       ? buffer.getWritePointer(static_cast<int>(ch))
-                       : ((sinkA != nullptr) ? sinkA
-                                             : buffer.getWritePointer(0));
-
-      if (!fadingNow && !slewingNow) {
-        // Warming: pure source family, untouched timelines
-        const float* src = (fadeFromMode == 0) ? specStream : nlmStream;
-        std::copy_n(src, static_cast<size_t>(numSamples), dst);
-        continue;
+    if (!dualRendering && currentAlgoMode == 1) {
+      specbleach_stereo_load_parameters_2d(nlmGroup, &p2, sizeof(p2));
+      specbleach_stereo_process(nlmGroup, static_cast<uint32_t>(numSamples),
+                                inPtrs, nlP);
+      for (uint32_t ch = 0; ch < groupChannels; ++ch) {
+        float* dst = (ch < static_cast<uint32_t>(numChannels))
+                         ? buffer.getWritePointer(static_cast<int>(ch))
+                         : ((sinkA != nullptr) ? sinkA
+                                               : buffer.getWritePointer(0));
+        std::copy_n(nlP[ch], static_cast<size_t>(numSamples), dst);
       }
+    } else {
+      specbleach_stereo_load_parameters_1d(spectralGroup, &p, sizeof(p));
+      specbleach_stereo_process(spectralGroup,
+                                static_cast<uint32_t>(numSamples), inPtrs,
+                                spP);
+      specbleach_stereo_load_parameters_2d(nlmGroup, &p2, sizeof(p2));
+      specbleach_stereo_process(nlmGroup, static_cast<uint32_t>(numSamples),
+                                inPtrs, nlP);
 
-      float* ring = spectralAlignmentRing.getWritePointer(
-          std::min<uint32_t>(
-              ch, static_cast<uint32_t>(
-                      spectralAlignmentRing.getNumChannels() - 1)));
-      const size_t ringCap =
-          static_cast<size_t>(spectralAlignmentRing.getNumSamples());
+      // Spectral always passes through the alignment ring; emission blends
+      // during fades or selects the active stream in steady state.
+      const bool towardNlm = (currentAlgoMode == 1);
+      const int cap = spectralAlignmentRing.getNumSamples();
+      const size_t ringCap = static_cast<size_t>(cap);
       const size_t tap = std::min<uint32_t>(spectralAlignmentDelay,
                                             static_cast<uint32_t>(ringCap));
-      size_t wp = static_cast<size_t>(alignmentWritePos);
-      float fpr = fadeProgress;
-      float spr = slewProgress;
+      float endProgress = fadeProgress;
 
-      for (int smp = 0; smp < numSamples; ++smp) {
-        ring[wp] = specStream[smp];
-        const size_t readPos = (wp + ringCap - tap) % ringCap;
-
-        if (fadingNow) {
-          const float clamped = fpr > 1.0f ? 1.0f : fpr;
-          const float rad = clamped * juce::MathConstants<float>::halfPi;
-          const float wSpec = towardNlm ? std::cos(rad) : std::sin(rad);
-          const float wNlm = towardNlm ? std::sin(rad) : std::cos(rad);
-          dst[smp] = wSpec * ring[readPos] + wNlm * nlmStream[smp];
-          fpr += fadeStep;
-        } else { // slewing: slide the alignment tap out of the 1D path
-          const float clamped = spr > 1.0f ? 1.0f : spr;
-          const float rad = clamped * juce::MathConstants<float>::halfPi;
-          dst[smp] = std::cos(rad) * ring[readPos] +
-                     std::sin(rad) * specStream[smp];
-          spr += fadeStep;
-        }
-        wp = (wp + 1U) % ringCap;
-      }
-      endFade = fpr;
-      endSlew = spr;
-    }
-
-    alignmentWritePos = static_cast<int>(
-        (static_cast<size_t>(alignmentWritePos) +
-         static_cast<size_t>(numSamples)) %
-        static_cast<size_t>(spectralAlignmentRing.getNumSamples()));
-
-    if (fadingNow) {
-      fadeProgress = endFade > 1.0f ? 1.0f : endFade;
-      if (fadeProgress >= 1.0f) {
-        if ((currentAlgoMode == 0) && spectralAlignmentDelay > 0) {
-          switchPhase = SwitchPhase::Slewing;
-          slewProgress = 0.0f;
-        } else {
-          switchPhase = SwitchPhase::Steady;
-        }
-      }
-    } else if (slewingNow) {
-      slewProgress = endSlew > 1.0f ? 1.0f : endSlew;
-      if (slewProgress >= 1.0f)
-        switchPhase = SwitchPhase::Steady;
-    }
-  } else {
-    // Single-family steady state (in place, native latency)
-    auto* activeGroup = activeGroupFor(currentAlgoMode);
-    if (activeGroup != nullptr) {
-      const uint32_t groupChannels = std::min<uint32_t>(
-          specbleach_stereo_get_channel_count(activeGroup), 2u);
-      const float* inPtrs[2] = {nullptr, nullptr};
-      float* sinkA = wetScratchA.getNumChannels() > 1
-                         ? wetScratchA.getWritePointer(1)
-                         : nullptr;
-      for (uint32_t ch = 0; ch < groupChannels; ++ch)
-        inPtrs[ch] = buffer.getReadPointer(
-            ch < static_cast<uint32_t>(numChannels) ? static_cast<int>(ch)
-                                                    : 0);
-
-      float* outPtrs[2] = {nullptr, nullptr};
       for (uint32_t ch = 0; ch < groupChannels; ++ch) {
-        outPtrs[ch] =
-            (ch < static_cast<uint32_t>(numChannels))
-                ? buffer.getWritePointer(static_cast<int>(ch))
-                : ((sinkA != nullptr) ? sinkA : buffer.getWritePointer(0));
+        float* dst = (ch < static_cast<uint32_t>(numChannels))
+                         ? buffer.getWritePointer(static_cast<int>(ch))
+                         : ((sinkA != nullptr) ? sinkA
+                                               : buffer.getWritePointer(0));
+        float* ring = spectralAlignmentRing.getWritePointer(
+            std::min<uint32_t>(
+                ch, static_cast<uint32_t>(
+                        spectralAlignmentRing.getNumChannels() - 1)));
+
+        size_t wp = static_cast<size_t>(alignmentWritePos);
+        float progress = fadeProgress;
+
+        for (int smp = 0; smp < numSamples; ++smp) {
+          ring[wp] = spP[ch][smp];
+          const size_t readPos = (wp + ringCap - tap) % ringCap;
+          const float alignedSpec = ring[readPos];
+
+          if (switchPhase == SwitchPhase::Warming) {
+            // Output stays on the source family while the target warms up
+            dst[smp] =
+                (fadeFromMode == 0) ? alignedSpec : nlP[ch][smp];
+          } else if (fadingNow) {
+            const float clamped =
+                progress > 1.0f ? 1.0f : (progress < 0.0f ? 0.0f : progress);
+            const float rad = clamped * juce::MathConstants<float>::halfPi;
+            const float wSpec = towardNlm ? std::cos(rad) : std::sin(rad);
+            const float wNlm = towardNlm ? std::sin(rad) : std::cos(rad);
+            dst[smp] = wSpec * alignedSpec + wNlm * nlP[ch][smp];
+            progress += fadeStep;
+          } else {
+            dst[smp] = (currentAlgoMode == 0) ? alignedSpec : nlP[ch][smp];
+          }
+          wp = (wp + 1U) % ringCap;
+        }
+        endProgress = progress;
       }
 
-      if (currentAlgoMode == 0 && activeGroup == spectralGroup) {
-        specbleach_stereo_load_parameters_1d(spectralGroup, &p, sizeof(p));
-      } else if (currentAlgoMode == 1 && activeGroup == nlmGroup) {
-        specbleach_stereo_load_parameters_2d(nlmGroup, &p2, sizeof(p2));
+      alignmentWritePos = static_cast<int>(
+          (static_cast<size_t>(alignmentWritePos) +
+           static_cast<size_t>(numSamples)) %
+          ringCap);
+
+      if (fadingNow) {
+        fadeProgress = endProgress > 1.0f ? 1.0f : endProgress;
+        if (fadeProgress >= 1.0f)
+          switchPhase = SwitchPhase::Steady;
       }
-      specbleach_stereo_process(activeGroup,
-                                static_cast<uint32_t>(numSamples), inPtrs,
-                                outPtrs);
     }
   }
 
@@ -929,8 +864,6 @@ void NoiseRepellentAudioProcessor::processBlock(
                            static_cast<float>(warmupTotalSamples));
     else if (switchPhase == SwitchPhase::Fading)
       uiP = 0.8f + 0.2f * fadeProgress;
-    else if (switchPhase == SwitchPhase::Slewing)
-      uiP = 0.99f;
     uiSwitchProgress.store(uiP, std::memory_order_relaxed);
   }
 

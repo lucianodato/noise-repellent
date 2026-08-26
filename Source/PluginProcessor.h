@@ -170,9 +170,12 @@ private:
   specbleach_stereo* nlmGroup = nullptr;      // wraps 2D per-channel engines
 
   // Permanent latency alignment constants: the shorter-latency (1D) family
-  // runs through this ring ONLY during engine transitions so both streams
-  // share one time origin while blending. Steady-state output stays native,
-  // preserving each engine's own latency and CPU profile.
+  // ALWAYS runs through this ring, so both families share one time origin
+  // permanently. The plugin reports max(family latencies) for its whole
+  // life, so hosts never re-anchor delay compensation — engine switches
+  // are then plain crossfades between aligned streams. Cost: 1D mode
+  // carries the 2D family's latency; benefit: zero switching artifacts,
+  // and steady state still renders exactly one engine.
   juce::AudioBuffer<float> spectralAlignmentRing;
   int alignmentWritePos = 0;
   uint32_t spectralAlignmentDelay = 0;
@@ -183,12 +186,12 @@ private:
   // Fading:  aligned equal-power blend toward the warmed target.
   // Slewing: after landing on the shorter-latency family, slide the
   //          alignment tap back out between delayed/direct copies.
-  enum class SwitchPhase { Steady, Warming, Fading, Slewing };
+  enum class SwitchPhase { Steady, Warming, Fading };
   SwitchPhase switchPhase = SwitchPhase::Steady;
   int fadeFromMode = 0;               // family being blended away from
   float fadeProgress = 1.0f;          // 0..1 toward target family
-  float slewProgress = 1.0f;          // 0..1 ramp-out of alignment delay
   int warmupSamplesRemaining = 0;
+  uint32_t reportedLatency = 0;       // constant: max across families
   static constexpr int kFadeMs = 40;
   static constexpr int kWarmupMs = 700; // >= NLM 64-frame history depth
 
