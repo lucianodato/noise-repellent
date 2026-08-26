@@ -26,6 +26,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <vector>
 
 #include "specbleach.hpp" // self-guarding for C++; do NOT wrap in extern "C"
+#include "specbleach_version.h"
 
 class NoiseRepellentAudioProcessor : public juce::AudioProcessor,
                                      private juce::Timer {

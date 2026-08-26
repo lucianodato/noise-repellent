@@ -32,6 +32,7 @@ NoiseRepellentAudioProcessor::NoiseRepellentAudioProcessor()
   bypassParameter = dynamic_cast<juce::AudioParameterBool*>(
       parameters.getParameter("bypass"));
   startTimerHz(60); // deferred latency reporting to the message thread
+  juce::ignoreUnused(specbleach_get_version_string());
   DBG("libspecbleach " << specbleach_get_version_string());
 }
 
@@ -1026,7 +1027,7 @@ void NoiseRepellentAudioProcessor::processBlock(
 
             const float maxProfileIdx = static_cast<float>(realProfileBins - 1);
             const float maxFftIdx = static_cast<float>(kFftBins - 1);
-            // FFTW unnormalized power scaling offset: 20 * log10(N/2)
+            // Unnormalized power scaling offset: 20 * log10(N/2)
             const float dbOffset = (maxProfileIdx > 0.0f)
                                        ? (20.0f * std::log10(maxProfileIdx))
                                        : 0.0f;

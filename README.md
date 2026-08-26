@@ -86,7 +86,7 @@ Pre-built installers and packages for Linux, macOS, and Windows are available on
 ---
 
 #### 1. Standard Portable Build (Self-Contained)
-By default, CMake fetches and statically embeds dependencies (`FFTW3`, `FreeType`, `libspecbleach`) to produce standalone, portable release binaries that prevent symbol conflicts across different DAWs and Linux distributions.
+By default, CMake bundles dependencies (`FreeType`, `libspecbleach`) to produce standalone, portable release binaries that prevent symbol conflicts across different DAWs and Linux distributions.
 
 ```bash
 # Clone the repository including submodules
@@ -104,16 +104,15 @@ sudo cmake --install build
 ```
 
 #### 2. Downstream Linux Packaging Build (Shared System Libraries)
-Linux distribution packagers (Arch, Debian, Fedora, etc.) can configure the build to dynamically link against host system libraries (`libfftw3f`, `libfreetype`, `libspecbleach`, `JUCE`) using CMake build options.
+Linux distribution packagers (Arch, Debian, Fedora, etc.) can configure the build to dynamically link against host system libraries (`libfreetype`, `libspecbleach`, `JUCE`) using CMake build options.
 
-> **Note:** Requires system development packages installed on the host (e.g., `libfftw3-dev`, `libfreetype6-dev`, `libspecbleach-dev`, `juce`).
+> **Note:** Requires system development packages installed on the host (e.g., `libfreetype6-dev`, `libspecbleach-dev`, `juce`).
 
 ```bash
 # Configure build using system-installed shared libraries
 cmake -B build -G "Ninja" \
   -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_INSTALL_PREFIX=/usr \
-  -DUSE_SYSTEM_FFTW=ON \
   -DUSE_SYSTEM_FREETYPE=ON \
   -DUSE_SYSTEM_SPECBLEACH=ON \
   -DUSE_SYSTEM_JUCE=ON
