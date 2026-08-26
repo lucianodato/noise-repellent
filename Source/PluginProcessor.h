@@ -182,7 +182,7 @@ private:
   int warmSamplesTotal = 0;
   int latencyAnnounceCountdown = -1;  // <0 == already announced
   static constexpr int kWarmupMs = 700;   // >= NLM 64-frame history depth
-  static constexpr int kEdgeFadeMs = 100; // long soft mute/unmute edges
+  static constexpr int kEdgeFadeMs = 250; // long soft mute/unmute edges
   // Hosts (Reaper) splice their PDC buffer when latency DROPS; wait until
   // the previously buffered tail has fully drained through them before
   // announcing, so the splice lands in pure silence.
