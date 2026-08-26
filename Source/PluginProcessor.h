@@ -29,7 +29,9 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "specbleach_version.h"
 
 class NoiseRepellentAudioProcessor : public juce::AudioProcessor,
-                                     private juce::Timer {
+                                     private juce::Timer,
+                                     private juce::AudioProcessorValueTreeState::Listener,
+                                     private juce::AsyncUpdater {
 public:
   NoiseRepellentAudioProcessor();
   ~NoiseRepellentAudioProcessor() override;
@@ -169,24 +171,23 @@ private:
   specbleach::StereoGroupPtr spectralGroup; // wraps 1D per-channel engines
   specbleach::StereoGroupPtr nlmGroup;      // wraps 2D per-channel engines
 
-  // Engine-switch UX: on a switch request the wet output ramps down and is
-  // MUTED while the target family renders silently long enough to warm its
-  // internal buffers; reported latency moves to the target's native value
-  // immediately (hosts re-anchor against silence — no audible glitch). The
-  // editor shows a full-screen overlay and locks the dropdown.
-  enum class SwitchPhase { Steady, FadeOut, WarmSilent, FadeIn };
+  // Engine-switch: gapless JUCE best practice for buffering/latency
+  // change (STFT+NLM). The source family stays audible while the target
+  // warms its history in a scratch buffer; then a short equal-power
+  // crossfade swaps to the target. No silence is inserted — the host PDC
+  // splice is deferred until after the crossfade. Previous
+  // FadeOut/WarmSilent/FadeIn with mute is replaced to avoid audible gap.
+  enum class SwitchPhase { Steady, Warming, XFade };
   SwitchPhase switchPhase = SwitchPhase::Steady;
-  int switchFromMode = 0; // family heard during FadeOut
+  int switchFromMode = 0; // family heard during Warming
   int stageSamplesRemaining = 0;
   int warmSamplesTotal = 0;
-  int latencyAnnounceCountdown = -1;      // <0 == already announced
+  int xfadeSamplesTotal = 0;
   static constexpr int kWarmupMs = 700;   // >= NLM 64-frame history depth
-  static constexpr int kEdgeFadeMs = 250; // long soft mute/unmute edges
-  // Hosts (Reaper) splice their PDC buffer when latency DROPS; wait until
-  // the previously buffered tail has fully drained through them before
-  // announcing, so the splice lands in pure silence.
-  static constexpr int kLatencySettleMs = 250;
-  float muteGain = 1.0f;
+  static constexpr int kXFadeMs = 30;     // short gapless crossfade
+  // Host PDC splice deferred until transport stopped (!isPlaying) for gapless
+  // A/B - effective during Warming+XFade is max(old,new) via wetCompDelay.
+  float xfadeProgress = 0.0f;
 
   // GUI feedback (progress 1 == idle)
   std::atomic<float> uiSwitchProgress{1.0f};
@@ -197,6 +198,18 @@ private:
   // value here; the timer delivers it on the message thread.
   std::atomic<int> pendingLatencyReport{-1};
   void timerCallback() override;
+
+  // JUCE best practice: engine switch (FFT-size-like) is driven from the
+  // message thread via APVTS listener + AsyncUpdater, with profile
+  // migration guarded by getCallbackLock() so the audio thread never
+  // performs non-RT-safe copies.
+  void parameterChanged(const juce::String& parameterID,
+                        float newValue) override;
+  void handleAsyncUpdate() override;
+  void initiateEngineSwitchOnMessageThread(int newMode);
+  void applyWetCompensationDelay(juce::AudioBuffer<float>& buffer,
+                                 uint32_t compDelay, int numSamples);
+  std::atomic<int> pendingEngineSwitchRequest{-1};
 
   juce::AudioParameterBool* bypassParameter = nullptr;
   juce::dsp::DryWetMixer<float> dryWetMixer;
@@ -255,6 +268,16 @@ private:
   std::vector<float> visualizerDelayBuffer;
   size_t visualizerDelayWritePos = 0;
   uint32_t currentLatency = 0;
+  uint32_t lastReportedLatency = 0; // variable, deferred until transport stop (gapless compare)
+
+  // Internal wet delay to pad to lastReportedLatency when engine switch is
+  // deferred (e.g. 2D->1D high->low while playing). Reported stays high,
+  // 1D wet is padded to high until stop, then reported drops to low.
+  // One circular buffer per channel, sized to maxDelta+blockSize.
+  std::vector<std::vector<float>> wetCompDelayBuffers;
+  std::vector<size_t> wetCompDelayWritePos;
+  uint32_t wetCompDelay1D = 0; // lastReported - spectralLatency
+  uint32_t wetCompDelay2D = 0; // lastReported - nlmLatency
 
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(NoiseRepellentAudioProcessor)
 };
