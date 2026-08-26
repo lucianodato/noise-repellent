@@ -174,14 +174,14 @@ private:
   // internal buffers; reported latency moves to the target's native value
   // immediately (hosts re-anchor against silence — no audible glitch). The
   // editor shows a full-screen overlay and locks the dropdown.
-  enum class SwitchPhase { Steady, Switching };
+  enum class SwitchPhase { Steady, FadeOut, WarmSilent, FadeIn };
   SwitchPhase switchPhase = SwitchPhase::Steady;
-  int switchSamplesRemaining = 0;
-  int switchSamplesTotal = 0;
-  static constexpr int kSwitchMs = 700;       // >= NLM 64-frame history depth
-  static constexpr int kMuteRampSamples = 256; // click-free mute edges
+  int switchFromMode = 0;             // family heard during FadeOut
+  int stageSamplesRemaining = 0;
+  int warmSamplesTotal = 0;
+  static constexpr int kWarmupMs = 700; // >= NLM 64-frame history depth
+  static constexpr int kEdgeFadeMs = 100; // long soft mute/unmute edges
   float muteGain = 1.0f;
-  float muteGainTarget = 1.0f;
 
   // GUI feedback (progress 1 == idle)
   std::atomic<float> uiSwitchProgress{1.0f};

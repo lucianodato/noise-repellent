@@ -495,10 +495,9 @@ void NoiseRepellentAudioProcessor::prepareToPlay(double sampleRate,
   jassert(wetScratchA.getNumSamples() >= samplesPerBlock);
 
   switchPhase = SwitchPhase::Steady;
-  switchSamplesRemaining = 0;
-  switchSamplesTotal = 0;
+  stageSamplesRemaining = 0;
+  warmSamplesTotal = 0;
   muteGain = 1.0f;
-  muteGainTarget = 1.0f;
   uiSwitchProgress.store(1.0f, std::memory_order_relaxed);
 
   currentLatency = static_cast<int>(nativeLatency);
@@ -663,7 +662,10 @@ void NoiseRepellentAudioProcessor::processBlock(
   p2.reduction_curve_enabled = curveEnabled;
   p2.tonal_noise_profile_scale = tonalProfileScale;
 
-  // ── Engine switch: mute, warm target silently, restore ───────────────
+  // ── Engine switch: fade out -> silent warm-up -> fade in ─────────────
+  const int edgeFadeSamples =
+      static_cast<int>(currentSampleRate * (kEdgeFadeMs / 1000.0));
+
   if (algoMode != currentAlgoMode && switchPhase == SwitchPhase::Steady &&
       spectralGroup != nullptr && nlmGroup != nullptr) {
     auto* sourceGroup = activeGroupFor(currentAlgoMode);
@@ -673,21 +675,21 @@ void NoiseRepellentAudioProcessor::processBlock(
       specbleach_stereo_migrate_profiles_from(targetGroup, sourceGroup);
       specbleach_stereo_sync_profiles(targetGroup);
 
+      switchFromMode = currentAlgoMode;
       currentAlgoMode = algoMode;
-      switchPhase = SwitchPhase::Switching;
-      switchSamplesTotal =
-          static_cast<int>(currentSampleRate * (kSwitchMs / 1000.0));
-      switchSamplesRemaining = switchSamplesTotal;
-      muteGainTarget = 0.0f;
+      switchPhase = SwitchPhase::FadeOut;
+      stageSamplesRemaining = edgeFadeSamples;
+      warmSamplesTotal =
+          static_cast<int>(currentSampleRate * (kWarmupMs / 1000.0));
 
-      // Host re-anchors while nothing is audible
+      // Host re-anchors while the output is fading into silence
       const uint32_t targetLatency =
           specbleach_stereo_get_latency(targetGroup);
       setLatencySamples(static_cast<int>(targetLatency));
     }
   }
 
-  const bool switchingNow = (switchPhase == SwitchPhase::Switching);
+  const bool switchingNow = (switchPhase != SwitchPhase::Steady);
 
   // Save dry input copy for FFT visualization before processing
   const size_t copySamples =
@@ -732,11 +734,19 @@ void NoiseRepellentAudioProcessor::processBlock(
                                 outPtrs);
     }
   } else {
-    // Switching: wet output is muted; render ONLY the target so it is
-    // warm (and its buffers filled) by the time audio returns.
-    if (auto* targetGroup = activeGroupFor(currentAlgoMode)) {
+    // Switching stages: FadeOut keeps the CURRENT family audible while its
+    // gain ramps to zero; WarmSilent renders only the target (discarded) so
+    // it is warm when audio returns; FadeIn ramps the new family up.
+    int renderMode;
+    if (switchPhase == SwitchPhase::FadeOut)
+      renderMode = switchFromMode;
+    else
+      renderMode = currentAlgoMode;
+
+    auto* renderGroup = activeGroupFor(renderMode);
+    if (renderGroup != nullptr) {
       const uint32_t groupChannels = std::min<uint32_t>(
-          specbleach_stereo_get_channel_count(targetGroup), 2u);
+          specbleach_stereo_get_channel_count(renderGroup), 2u);
       const float* inPtrs[2] = {nullptr, nullptr};
       for (uint32_t ch = 0; ch < groupChannels; ++ch)
         inPtrs[ch] = buffer.getReadPointer(
@@ -746,67 +756,90 @@ void NoiseRepellentAudioProcessor::processBlock(
       float* sinkA = wetScratchA.getNumChannels() > 1
                          ? wetScratchA.getWritePointer(1)
                          : nullptr;
-      float* warmPtrs[2] = {nullptr, nullptr};
+      float* outPtrs[2] = {nullptr, nullptr};
       for (uint32_t ch = 0; ch < groupChannels; ++ch) {
-        warmPtrs[ch] =
+        outPtrs[ch] =
             (ch < static_cast<uint32_t>(numChannels))
                 ? buffer.getWritePointer(static_cast<int>(ch))
                 : ((sinkA != nullptr) ? sinkA : buffer.getWritePointer(0));
       }
 
-      if (currentAlgoMode == 0 && targetGroup == spectralGroup) {
+      if (renderMode == 0 && renderGroup == spectralGroup) {
         specbleach_stereo_load_parameters_1d(spectralGroup, &p, sizeof(p));
-      } else if (currentAlgoMode == 1 && targetGroup == nlmGroup) {
+      } else if (renderMode == 1 && renderGroup == nlmGroup) {
         specbleach_stereo_load_parameters_2d(nlmGroup, &p2, sizeof(p2));
       }
-      specbleach_stereo_process(targetGroup,
+      specbleach_stereo_process(renderGroup,
                                 static_cast<uint32_t>(numSamples), inPtrs,
-                                warmPtrs);
+                                outPtrs);
 
-      // Muted: the listener hears nothing during the whole window
-      buffer.clear();
+      if (switchPhase == SwitchPhase::WarmSilent)
+        buffer.clear(); // nothing audible during the silent window
     }
 
-    switchSamplesRemaining -= std::min(numSamples, switchSamplesRemaining);
-    if (switchSamplesRemaining <= 0) {
-      switchPhase = SwitchPhase::Steady;
-      muteGainTarget = 1.0f; // short ramp back up, no unmute click
-    }
-  }
-
-  // Click-free mute edges: slew the wet gain toward its target
-  if (muteGain != muteGainTarget) {
-    const float step =
-        1.0f / static_cast<float>(std::max(1, kMuteRampSamples));
+    // Gain envelope: linear toward the stage's destination across the edge
+    const float gainTarget =
+        (switchPhase == SwitchPhase::WarmSilent) ? 0.0f : 1.0f;
+    const float step = 1.0f / static_cast<float>(
+                                 std::max(1, edgeFadeSamples));
     const int nsamp = numSamples;
-    for (int chI = 0; chI < buffer.getNumChannels(); ++chI) {
-      float* d = buffer.getWritePointer(chI);
-      float g = muteGain;
-      for (int smp = 0; smp < nsamp; ++smp) {
-        if (muteGainTarget < muteGain) {
-          g = std::max(0.0f, g - step);
-        } else {
-          g = std::min(1.0f, g + step);
+    if (muteGain != gainTarget || gainTarget == 0.0f) {
+      for (int chI = 0; chI < buffer.getNumChannels(); ++chI) {
+        float* d = buffer.getWritePointer(chI);
+        float g = muteGain;
+        for (int smp = 0; smp < nsamp; ++smp) {
+          if (gainTarget < g)
+            g = std::max(0.0f, g - step);
+          else
+            g = std::min(1.0f, g + step);
+          d[smp] *= g;
         }
-        d[smp] *= g;
+      }
+      muteGain = gainTarget;
+    }
+
+    // Stage advancement
+    stageSamplesRemaining -= numSamples;
+    if (stageSamplesRemaining <= 0) {
+      switch (switchPhase) {
+      case SwitchPhase::FadeOut:
+        switchPhase = SwitchPhase::WarmSilent;
+        stageSamplesRemaining = warmSamplesTotal;
+        break;
+      case SwitchPhase::WarmSilent:
+        switchPhase = SwitchPhase::FadeIn;
+        stageSamplesRemaining = edgeFadeSamples;
+        break;
+      case SwitchPhase::FadeIn:
+        switchPhase = SwitchPhase::Steady;
+        break;
+      default:
+        break;
       }
     }
-    muteGain = muteGainTarget < muteGain
-                   ? std::max(0.0f, muteGain - step * numSamples)
-                   : std::min(1.0f, muteGain + step * numSamples);
-    if ((muteGainTarget == 0.0f && muteGain <= 0.0f) ||
-        (muteGainTarget == 1.0f && muteGain >= 1.0f))
-      muteGain = muteGainTarget;
   }
 
-  // UI progress (1 == idle)
-  if (switchingNow && switchSamplesTotal > 0)
-    uiSwitchProgress.store(
-        1.0f - static_cast<float>(switchSamplesRemaining) /
-                   static_cast<float>(switchSamplesTotal),
-        std::memory_order_relaxed);
-  else
-    uiSwitchProgress.store(1.0f, std::memory_order_relaxed);
+  // UI progress across the three switch stages
+  {
+    float uiP = 1.0f;
+    if (switchPhase != SwitchPhase::Steady) {
+      const float total =
+          static_cast<float>(2 * edgeFadeSamples + warmSamplesTotal);
+      float elapsed = 0.0f;
+      if (switchPhase == SwitchPhase::FadeOut) {
+        elapsed = static_cast<float>(edgeFadeSamples - stageSamplesRemaining);
+      } else if (switchPhase == SwitchPhase::WarmSilent) {
+        elapsed = static_cast<float>(edgeFadeSamples) +
+                  static_cast<float>(warmSamplesTotal - stageSamplesRemaining);
+      } else {
+        elapsed = static_cast<float>(2 * edgeFadeSamples + warmSamplesTotal -
+                                     stageSamplesRemaining);
+      }
+      uiP = total > 0.0f ? elapsed / total : 1.0f;
+    }
+    uiSwitchProgress.store(juce::jlimit(0.0f, 1.0f, uiP),
+                           std::memory_order_relaxed);
+  }
 
   // Query transient protection status and intensity (aggregated max across
   // channels; report the TARGET family while a fade is running)
