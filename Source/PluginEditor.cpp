@@ -551,6 +551,12 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(
   // Register parameter listener for show_tooltips
   audioProcessor.getAPVTS().addParameterListener("show_tooltips", this);
 
+  // Blocker overlay to avoid clicks during engine switch (gapless but UI locked)
+  addChildComponent(switchBlocker);
+  switchBlocker.setInterceptsMouseClicks(true, true);
+  switchBlocker.setVisible(false);
+  switchBlocker.toFront(false);
+
   // Register mouse listener AFTER all child components are added
   addMouseListener(this, true);
 }
@@ -954,13 +960,20 @@ void NoiseRepellentAudioProcessorEditor::timerCallback() {
     triggerAsyncUpdate();
   }
 
-  // Engine-switch overlay: repaint while active; lock the dropdown so the
-  // request is deterministic
+  // Engine-switch overlay: full blocking overlay to avoid clicks during
+  // gapless Warming+XFade - audio stays gapless but UI is locked.
   const bool switching = audioProcessor.isEngineSwitching();
   if (switching != engineSwitchWasVisible) {
     engineSwitchWasVisible = switching;
     comboAlgoMode.setEnabled(!switching && !btnBypass.getToggleState());
+    switchBlocker.setVisible(switching);
+    if (switching) {
+      switchBlocker.setBounds(getLocalBounds());
+      switchBlocker.toFront(false);
+    }
     repaint();
+  } else if (switching) {
+    switchBlocker.setBounds(getLocalBounds());
   }
 
   bool isOffline = audioProcessor.isNonRealtime();
@@ -1006,8 +1019,8 @@ void NoiseRepellentAudioProcessorEditor::paintOverChildren(juce::Graphics& g) {
   const bool switching = audioProcessor.isEngineSwitching();
 
   if (switching) {
-    // Engine switch: same treatment as offline rendering. Audio is muted
-    // while the target engine warms up, so nothing can glitch.
+    // Full blocking overlay - prevents clicks during gapless Warming+XFade
+    // Audio stays gapless (crossfaded) but UI is locked to avoid re-entrancy.
     auto bounds = getLocalBounds();
     g.setColour(juce::Colour(0xd0161a22));
     g.fillRect(bounds);
@@ -1032,7 +1045,7 @@ void NoiseRepellentAudioProcessorEditor::paintOverChildren(juce::Graphics& g) {
     g.setColour(juce::Colour(0xff94a3b8));
     g.setFont(juce::FontOptions(NoiseRepellentLookAndFeel::kFontSizeLabel,
                                 juce::Font::plain));
-    g.drawText("Audio muted while engines change.", contentArea,
+    g.drawText("Warming & crossfading — please wait", contentArea,
                juce::Justification::centred, false);
 
     const float progress =
@@ -1084,6 +1097,8 @@ void NoiseRepellentAudioProcessorEditor::paintOverChildren(juce::Graphics& g) {
 }
 
 void NoiseRepellentAudioProcessorEditor::resized() {
+  if (switchBlocker.isVisible())
+    switchBlocker.setBounds(getLocalBounds());
   auto area = getLocalBounds().reduced(12);
 
   // Header (Fixed 54px with spacious headroom for profile controls)

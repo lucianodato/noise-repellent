@@ -31,14 +31,235 @@ NoiseRepellentAudioProcessor::NoiseRepellentAudioProcessor()
       dryWetMixer(16384) {
   bypassParameter = dynamic_cast<juce::AudioParameterBool*>(
       parameters.getParameter("bypass"));
+  parameters.addParameterListener("algorithm_mode", this);
   startTimerHz(60); // deferred latency reporting to the message thread
   juce::ignoreUnused(specbleach_get_version_string());
   DBG("libspecbleach " << specbleach_get_version_string());
 }
 
 NoiseRepellentAudioProcessor::~NoiseRepellentAudioProcessor() {
+  parameters.removeParameterListener("algorithm_mode", this);
+  cancelPendingUpdate();
   stopTimer();
   releaseResources();
+}
+
+void NoiseRepellentAudioProcessor::parameterChanged(
+    const juce::String& parameterID, float newValue) {
+  if (parameterID == "algorithm_mode") {
+    const int newMode = static_cast<int>(std::round(newValue));
+    pendingEngineSwitchRequest.store(newMode, std::memory_order_release);
+    triggerAsyncUpdate();
+  }
+}
+
+void NoiseRepellentAudioProcessor::handleAsyncUpdate() {
+  const int requested =
+      pendingEngineSwitchRequest.exchange(-1, std::memory_order_acq_rel);
+  int newMode = requested;
+  if (newMode < 0) {
+    // Fallback when triggered without a stored request (e.g. state restore)
+    if (auto* v = parameters.getRawParameterValue("algorithm_mode"))
+      newMode = static_cast<int>(v->load());
+    else
+      return;
+  }
+  if (newMode == currentAlgoMode)
+    return;
+  if (spectralGroup == nullptr || nlmGroup == nullptr)
+    return;
+
+  if (switchPhase != SwitchPhase::Steady)
+    return;
+  // Allow future 0-latency engine (mode 2) - keep check generic
+  if (newMode < 0 || newMode > 2)
+    return;
+  if (newMode == 2 && spectralGroup == nullptr) // 0-latency uses same 1D group for now
+    return;
+
+  // Any increase during playback (1D->2D, 0->high) needs host PDC re-buffer.
+  // Use suspendProcessing gap (standard JUCE oversampling pattern 58162)
+  // then stay at high max for gapless thereafter. Preserves 0/low benefit
+  // when started in that mode, one-time cost only.
+  uint32_t latSpectral = specbleach_stereo_get_latency(spectralGroup.get());
+  uint32_t latNLM = specbleach_stereo_get_latency(nlmGroup.get());
+  // Future 0-latency engine: native 0
+  uint32_t newNative = 0;
+  if (newMode == 0)
+    newNative = latSpectral;
+  else if (newMode == 1)
+    newNative = latNLM;
+  else if (newMode == 2)
+    newNative = 0;
+  bool isPlaying = false;
+  if (auto* head = getPlayHead()) {
+    if (auto pos = head->getPosition())
+      isPlaying = pos->getIsPlaying();
+  }
+  const bool isIncreaseDuringPlay = isPlaying && (newNative > lastReportedLatency);
+
+  if (isIncreaseDuringPlay) {
+    // Blunt but safe: host clears buffers and re-buffers at new latency.
+    // Gap is ~1 block, masks NLM cold start, then gapless Warming+XFade at high.
+    suspendProcessing(true);
+    auto* sourceGroup = activeGroupFor(currentAlgoMode);
+    auto* targetGroup = activeGroupFor(newMode);
+    if (sourceGroup != nullptr && targetGroup != nullptr &&
+        sourceGroup != targetGroup) {
+      specbleach_stereo_migrate_profiles_from(targetGroup, sourceGroup);
+      specbleach_stereo_sync_profiles(targetGroup);
+    }
+    {
+      const juce::ScopedLock sl(getCallbackLock());
+      lastReportedLatency = newNative;
+      currentLatency = newNative;
+      wetCompDelay1D = 0;
+      wetCompDelay2D = 0;
+      pendingLatencyReport.store(-1, std::memory_order_release);
+      // Flush visual FIFO so new window does not stitch
+      fftAccumInput.fill(0.0f);
+      fftAccumOutput.fill(0.0f);
+      fftAccumTransient.fill(0.0f);
+      fftAccumCount = 0;
+      for (auto& buf : wetCompDelayBuffers)
+        std::fill(buf.begin(), buf.end(), 0.0f);
+      std::fill(wetCompDelayWritePos.begin(), wetCompDelayWritePos.end(), 0);
+      switchFromMode = currentAlgoMode;
+      currentAlgoMode = newMode;
+      switchPhase = SwitchPhase::Warming;
+      warmSamplesTotal =
+          static_cast<int>(currentSampleRate * (kWarmupMs / 1000.0));
+      xfadeSamplesTotal =
+          static_cast<int>(currentSampleRate * (kXFadeMs / 1000.0));
+      stageSamplesRemaining = warmSamplesTotal;
+      xfadeProgress = 0.0f;
+    }
+    setLatencySamples(static_cast<int>(newNative));
+    dryWetMixer.setWetLatency(static_cast<float>(newNative));
+    updateHostDisplay(ChangeDetails().withLatencyChanged(true));
+    suspendProcessing(false);
+    return;
+  }
+
+  // Normal gapless path: block audio while migrating, then Warming+XFade
+  // with deferred host update until stop (transport-aware).
+  {
+    const juce::ScopedLock sl(getCallbackLock());
+    if (switchPhase != SwitchPhase::Steady)
+      return;
+    auto* sourceGroup = activeGroupFor(currentAlgoMode);
+    auto* targetGroup = activeGroupFor(newMode);
+    if (sourceGroup != nullptr && targetGroup != nullptr &&
+        sourceGroup != targetGroup) {
+      specbleach_stereo_migrate_profiles_from(targetGroup, sourceGroup);
+      specbleach_stereo_sync_profiles(targetGroup);
+    }
+    initiateEngineSwitchOnMessageThread(newMode);
+  }
+}
+
+void NoiseRepellentAudioProcessor::initiateEngineSwitchOnMessageThread(
+    int newMode) {
+  // Called with getCallbackLock held on the message thread
+  // JUCE best practice for buffering/latency change: flush visual FIFO
+  // so the new spectral window does not stitch stale spectra.
+  fftAccumInput.fill(0.0f);
+  fftAccumOutput.fill(0.0f);
+  fftAccumTransient.fill(0.0f);
+  fftAccumCount = 0;
+
+  // Compute native latencies for compensation (include future 0-latency)
+  uint32_t latSpectral = 0, latNLM = 0;
+  if (spectralGroup != nullptr)
+    latSpectral = specbleach_stereo_get_latency(spectralGroup.get());
+  if (nlmGroup != nullptr)
+    latNLM = specbleach_stereo_get_latency(nlmGroup.get());
+  uint32_t newNative = 0;
+  if (newMode == 0)
+    newNative = latSpectral;
+  else if (newMode == 1)
+    newNative = latNLM;
+  else if (newMode == 2)
+    newNative = 0; // future 0-latency engine
+
+  // Transport-aware: any latency change during playback is deferred
+  // until stop for gapless compare. Effective during Warming+XFade is
+  // max(old,new) so XFade is time-aligned, reported stays old.
+  bool isPlaying = false;
+  if (auto* head = getPlayHead()) {
+    if (auto pos = head->getPosition()) {
+      isPlaying = pos->getIsPlaying();
+    }
+  }
+  const bool shouldDefer = isPlaying && (newNative != lastReportedLatency);
+  uint32_t effectiveReported = shouldDefer
+                                   ? std::max(lastReportedLatency, newNative)
+                                   : newNative;
+
+  // Update compensation to pad to effectiveReported
+  wetCompDelay1D = (effectiveReported > latSpectral)
+                       ? (effectiveReported - latSpectral)
+                       : 0;
+  wetCompDelay2D = (effectiveReported > latNLM) ? (effectiveReported - latNLM) : 0;
+
+  if (shouldDefer) {
+    // Keep old reported, store pending for stop - gapless first 1D->2D and 2D->1D
+    pendingLatencyReport.store(static_cast<int>(newNative),
+                               std::memory_order_release);
+    // Flush target's delay when it needs padding and was stale (2D->1D)
+    if (newMode == 0 && wetCompDelay1D > 0) {
+      for (auto& buf : wetCompDelayBuffers)
+        std::fill(buf.begin(), buf.end(), 0.0f);
+      std::fill(wetCompDelayWritePos.begin(), wetCompDelayWritePos.end(), 0);
+    }
+    // For 1D->2D, source 1D delay must stay primed (do not flush)
+  } else {
+    // Not playing or no change - report immediately
+    if (newNative != lastReportedLatency) {
+      pendingLatencyReport.store(static_cast<int>(newNative),
+                                 std::memory_order_release);
+      lastReportedLatency = newNative; // effective immediately for DSP
+    } else {
+      pendingLatencyReport.store(-1, std::memory_order_release);
+    }
+    // For immediate increase, source (low) was padded to new high during XFade
+    // No extra flush needed - delay already primed via Warming
+  }
+
+  switchFromMode = currentAlgoMode;
+  currentAlgoMode = newMode;
+  switchPhase = SwitchPhase::Warming;
+  warmSamplesTotal =
+      static_cast<int>(currentSampleRate * (kWarmupMs / 1000.0));
+  xfadeSamplesTotal =
+      static_cast<int>(currentSampleRate * (kXFadeMs / 1000.0));
+  stageSamplesRemaining = warmSamplesTotal;
+  xfadeProgress = 0.0f;
+}
+
+void NoiseRepellentAudioProcessor::applyWetCompensationDelay(
+    juce::AudioBuffer<float>& buffer, uint32_t compDelay, int numSamples) {
+  if (compDelay == 0 || numSamples <= 0 || buffer.getNumChannels() == 0)
+    return;
+  const int numCh = std::min<int>(buffer.getNumChannels(),
+                                  static_cast<int>(wetCompDelayBuffers.size()));
+  for (int ch = 0; ch < numCh; ++ch) {
+    float* data = buffer.getWritePointer(ch);
+    auto& delayBuf = wetCompDelayBuffers[static_cast<size_t>(ch)];
+    size_t& pos = wetCompDelayWritePos[static_cast<size_t>(ch)];
+    const size_t delaySize = delayBuf.size();
+    if (delaySize == 0)
+      continue;
+    for (int s = 0; s < numSamples; ++s) {
+      const size_t readPos =
+          (pos + delaySize - compDelay) % delaySize;
+      const float delayed = delayBuf[readPos];
+      delayBuf[pos] = data[s];
+      data[s] = delayed;
+      pos = (pos + 1) % delaySize;
+    }
+  }
+  // For any extra channels beyond delay buffers (should not happen), leave as is
 }
 
 juce::AudioProcessorParameter*
@@ -337,7 +558,11 @@ static bool loadProfileGroupSafe(specbleach_stereo* group, uint32_t channel,
 
 specbleach_stereo* NoiseRepellentAudioProcessor::activeGroupFor(
     int algoMode) const {
-  return (algoMode == 1) ? nlmGroup.get() : spectralGroup.get();
+  if (algoMode == 1)
+    return nlmGroup.get();
+  if (algoMode == 0)
+    return spectralGroup.get();
+  return nullptr; // future 0-latency engine (mode 2) - no STFT, passthrough
 }
 
 void NoiseRepellentAudioProcessor::ensureEnginesInitialized(double sampleRate) {
@@ -457,10 +682,23 @@ void NoiseRepellentAudioProcessor::prepareToPlay(double sampleRate,
   currentAlgoMode = static_cast<int>(
       parameters.getRawParameterValue("algorithm_mode")->load());
 
+  // Variable latency with deferred host update: report native for current
+  // engine so 1D keeps low-latency benefit. Switch during playback keeps
+  // old reported and pads new engine internally until transport stops.
+  uint32_t latSpectral = 0, latNLM = 0;
+  if (spectralGroup != nullptr)
+    latSpectral = specbleach_stereo_get_latency(spectralGroup.get());
+  if (nlmGroup != nullptr)
+    latNLM = specbleach_stereo_get_latency(nlmGroup.get());
+  const uint32_t maxLatency = std::max(latSpectral, latNLM);
   uint32_t nativeLatency = 0;
   if (auto* activeGroup = activeGroupFor(currentAlgoMode))
     nativeLatency = specbleach_stereo_get_latency(activeGroup);
-  setLatencySamples(static_cast<int>(nativeLatency));
+  if (nativeLatency == 0)
+    nativeLatency = maxLatency;
+  lastReportedLatency = nativeLatency;
+  uint32_t reportedLatency = nativeLatency;
+  setLatencySamples(static_cast<int>(reportedLatency));
 
   const int bufferCapacity = std::max(samplesPerBlock, 16384);
   preparedBlockSize = static_cast<uint32_t>(bufferCapacity);
@@ -474,12 +712,28 @@ void NoiseRepellentAudioProcessor::prepareToPlay(double sampleRate,
 
   dryWetMixer.prepare(spec);
   dryWetMixer.setMixingRule(juce::dsp::DryWetMixingRule::linear);
-  dryWetMixer.setWetLatency(static_cast<float>(nativeLatency));
+  dryWetMixer.setWetLatency(static_cast<float>(reportedLatency));
 
-  currentLatency = static_cast<int>(nativeLatency);
+  currentLatency = reportedLatency;
   visualizerDelayBuffer.assign(
-      std::max<size_t>(32768, static_cast<size_t>(nativeLatency) + 8192), 0.0f);
+      std::max<size_t>(32768, static_cast<size_t>(reportedLatency) + 8192), 0.0f);
   visualizerDelayWritePos = 0;
+
+  // Compensation for deferred reporting: pad to lastReportedLatency, not max.
+  // At prepare lastReported==native so comp is 0, but allocate for worst
+  // case maxDelta so later 2D->1D defer (high->low) can pad.
+  wetCompDelay1D = (lastReportedLatency > latSpectral)
+                       ? (lastReportedLatency - latSpectral)
+                       : 0;
+  wetCompDelay2D = (lastReportedLatency > latNLM) ? (lastReportedLatency - latNLM) : 0;
+  const uint32_t worstComp =
+      (maxLatency > std::min(latSpectral, latNLM))
+          ? (maxLatency - std::min(latSpectral, latNLM))
+          : 0;
+  const uint32_t allocComp = std::max<uint32_t>(worstComp, std::max(wetCompDelay1D, wetCompDelay2D));
+  wetCompDelayBuffers.assign(preparedNumChannels,
+                             std::vector<float>(allocComp + bufferCapacity, 0.0f));
+  wetCompDelayWritePos.assign(preparedNumChannels, 0);
 
   // Pre-allocate persistent buffers to prevent audio-thread allocations
   dryInputL.resize(static_cast<size_t>(bufferCapacity), 0.0f);
@@ -487,18 +741,22 @@ void NoiseRepellentAudioProcessor::prepareToPlay(double sampleRate,
                       false, false, true);
   wetScratchB.setSize(static_cast<int>(preparedNumChannels), bufferCapacity,
                       false, false, true);
+  // Extra scratch for compensated wet (reuses wetScratch sizing)
   jassert(dryInputL.size() >= static_cast<size_t>(samplesPerBlock));
   jassert(wetScratchA.getNumSamples() >= samplesPerBlock);
 
   switchPhase = SwitchPhase::Steady;
   stageSamplesRemaining = 0;
   warmSamplesTotal = 0;
-  latencyAnnounceCountdown = -1;
-  muteGain = 1.0f;
+  xfadeSamplesTotal = 0;
+  xfadeProgress = 0.0f;
   uiSwitchProgress.store(1.0f, std::memory_order_relaxed);
+  pendingEngineSwitchRequest.store(-1, std::memory_order_release);
+  pendingLatencyReport.store(-1, std::memory_order_release);
+  cancelPendingUpdate();
 
-  currentLatency = static_cast<int>(nativeLatency);
-  dryWetMixer.setWetLatency(static_cast<float>(nativeLatency));
+  currentLatency = reportedLatency;
+  dryWetMixer.setWetLatency(static_cast<float>(reportedLatency));
 
   // Reset FFT accumulation
   fftAccumInput.fill(0.0f);
@@ -663,34 +921,15 @@ void NoiseRepellentAudioProcessor::processBlock(
       curveEnabled ? static_cast<uint32_t>(interpolatedCurveBias.size()) : 0;
   p2.tonal_noise_profile_scale = tonalProfileScale;
 
-  // ── Engine switch: fade out -> silent warm-up -> fade in ─────────────
-  const int edgeFadeSamples =
-      static_cast<int>(currentSampleRate * (kEdgeFadeMs / 1000.0));
-
+  // ── Engine switch: gapless Warming -> XFade (no silence)
+  // JUCE best practice for buffering/latency change: profile migration and
+  // phase initiation are performed on the message thread under
+  // getCallbackLock() (see handleAsyncUpdate()). The audio thread only
+  // detects a drift and coalesces it into an async request.
   if (algoMode != currentAlgoMode && switchPhase == SwitchPhase::Steady &&
       spectralGroup != nullptr && nlmGroup != nullptr) {
-    auto* sourceGroup = activeGroupFor(currentAlgoMode);
-    auto* targetGroup = activeGroupFor(algoMode);
-    if (sourceGroup != nullptr && targetGroup != nullptr &&
-        sourceGroup != targetGroup) {
-      specbleach_stereo_migrate_profiles_from(targetGroup, sourceGroup);
-      specbleach_stereo_sync_profiles(targetGroup);
-
-      switchFromMode = currentAlgoMode;
-      currentAlgoMode = algoMode;
-      switchPhase = SwitchPhase::FadeOut;
-      stageSamplesRemaining = edgeFadeSamples;
-      warmSamplesTotal =
-          static_cast<int>(currentSampleRate * (kWarmupMs / 1000.0));
-      latencyAnnounceCountdown =
-          static_cast<int>(currentSampleRate * (kLatencySettleMs / 1000.0));
-      // NOTE: reported latency moves at the FadeOut->WarmSilent boundary,
-      // once the output is fully silent. Announcing a latency DROP while
-      // audio is still fading makes hosts truncate in-flight compensation
-      // and glitch the tail (the 2D->1D artifact). The handoff itself is
-      // staged to the message thread (see pendingLatencyReport): hosts like
-      // Reaper suspend/resume the plugin on synchronous latency changes.
-    }
+    pendingEngineSwitchRequest.store(algoMode, std::memory_order_release);
+    triggerAsyncUpdate();
   }
 
   const bool switchingNow = (switchPhase != SwitchPhase::Steady);
@@ -706,7 +945,7 @@ void NoiseRepellentAudioProcessor::processBlock(
   dryWetMixer.pushDrySamples(audioBlock);
 
   if (!switchingNow) {
-    // Steady state: exactly one family, in place, native latency
+    // Steady state: gapless with deferred PDC (lastReported may be high)
     auto* activeGroup = activeGroupFor(currentAlgoMode);
     if (activeGroup != nullptr) {
       const uint32_t groupChannels = std::min<uint32_t>(
@@ -736,98 +975,204 @@ void NoiseRepellentAudioProcessor::processBlock(
       specbleach_stereo_process(activeGroup, static_cast<uint32_t>(numSamples),
                                 inPtrs, outPtrs);
     }
+    // Pad to lastReported for gapless deferred (0-latency => pad to high)
+    uint32_t comp = 0;
+    if (currentAlgoMode == 0)
+      comp = wetCompDelay1D;
+    else if (currentAlgoMode == 1)
+      comp = wetCompDelay2D;
+    else if (currentAlgoMode == 2)
+      comp = lastReportedLatency; // native 0
+    applyWetCompensationDelay(buffer, comp, numSamples);
   } else {
-    // Switching stages: FadeOut keeps the CURRENT family audible while its
-    // gain ramps to zero; WarmSilent renders only the target (discarded) so
-    // it is warm when audio returns; FadeIn ramps the new family up.
-    int renderMode;
-    if (switchPhase == SwitchPhase::FadeOut)
-      renderMode = switchFromMode;
-    else
-      renderMode = currentAlgoMode;
+    // Gapless switch: Warming keeps source audible while target warms in
+    // scratch; XFade runs both and equal-power crossfades to the target.
+    auto* sourceGroup = activeGroupFor(switchFromMode);
+    auto* targetGroup = activeGroupFor(currentAlgoMode);
 
-    auto* renderGroup = activeGroupFor(renderMode);
-    if (renderGroup != nullptr) {
-      const uint32_t groupChannels = std::min<uint32_t>(
-          specbleach_stereo_get_channel_count(renderGroup), 2u);
-      const float* inPtrs[2] = {nullptr, nullptr};
-      for (uint32_t ch = 0; ch < groupChannels; ++ch)
-        inPtrs[ch] = buffer.getReadPointer(
-            ch < static_cast<uint32_t>(numChannels) ? static_cast<int>(ch) : 0);
+    const uint32_t srcChannels =
+        sourceGroup ? specbleach_stereo_get_channel_count(sourceGroup) : 0;
+    const uint32_t tgtChannels =
+        targetGroup ? specbleach_stereo_get_channel_count(targetGroup) : 0;
+    const uint32_t procChannels =
+        std::min<uint32_t>(std::max(srcChannels, tgtChannels), 2u);
 
-      float* sinkA = wetScratchA.getNumChannels() > 1
-                         ? wetScratchA.getWritePointer(1)
-                         : nullptr;
-      float* outPtrs[2] = {nullptr, nullptr};
-      for (uint32_t ch = 0; ch < groupChannels; ++ch) {
-        outPtrs[ch] =
-            (ch < static_cast<uint32_t>(numChannels))
-                ? buffer.getWritePointer(static_cast<int>(ch))
-                : ((sinkA != nullptr) ? sinkA : buffer.getWritePointer(0));
-      }
+    // Capture dry input pointers before any in-place overwrite
+    const float* inPtrs[2] = {nullptr, nullptr};
+    for (uint32_t ch = 0; ch < procChannels; ++ch)
+      inPtrs[ch] = buffer.getReadPointer(
+          ch < static_cast<uint32_t>(numChannels) ? static_cast<int>(ch) : 0);
 
-      if (renderMode == 0 && renderGroup == spectralGroup.get()) {
-        specbleach_stereo_load_parameters_1d(spectralGroup.get(), &p,
-                                             sizeof(p));
-      } else if (renderMode == 1 && renderGroup == nlmGroup.get()) {
-        specbleach_stereo_load_parameters_2d(nlmGroup.get(), &p2, sizeof(p2));
-      }
-      specbleach_stereo_process(renderGroup, static_cast<uint32_t>(numSamples),
-                                inPtrs, outPtrs);
+    if (switchPhase == SwitchPhase::Warming) {
+      // Warm target in scratch (not audible) while source remains audible
+      if (targetGroup != nullptr) {
+        if (currentAlgoMode == 0)
+          specbleach_stereo_load_parameters_1d(targetGroup, &p, sizeof(p));
+        else
+          specbleach_stereo_load_parameters_2d(targetGroup, &p2, sizeof(p2));
 
-      if (switchPhase == SwitchPhase::WarmSilent)
-        buffer.clear(); // nothing audible during the silent window
-    }
-
-    // Latency handoff: only after the old tail drained through the host;
-    // delivered asynchronously by the timer
-    if (switchPhase == SwitchPhase::WarmSilent &&
-        latencyAnnounceCountdown > 0) {
-      latencyAnnounceCountdown -= numSamples;
-      if (latencyAnnounceCountdown <= 0) {
-        latencyAnnounceCountdown = -1;
-        if (auto* targetGroup = activeGroupFor(currentAlgoMode)) {
-          pendingLatencyReport.store(
-              static_cast<int>(specbleach_stereo_get_latency(targetGroup)),
-              std::memory_order_release);
+        float* tgtOut[2] = {nullptr, nullptr};
+        for (uint32_t ch = 0; ch < procChannels; ++ch)
+          tgtOut[ch] = wetScratchB.getWritePointer(static_cast<int>(ch));
+        // Extra channels sink to scratch
+        if (procChannels < 2 && wetScratchB.getNumChannels() > 1)
+          tgtOut[1] = wetScratchB.getWritePointer(1);
+        specbleach_stereo_process(targetGroup,
+                                  static_cast<uint32_t>(numSamples), inPtrs,
+                                  tgtOut);
+      } else if (currentAlgoMode == 2) {
+        // 0-latency passthrough: copy input to scratch for warming
+        for (uint32_t ch = 0; ch < procChannels; ++ch) {
+          const float* src = inPtrs[ch];
+          float* dst = wetScratchB.getWritePointer(static_cast<int>(ch));
+          std::memcpy(dst, src, static_cast<size_t>(numSamples) * sizeof(float));
         }
       }
-    }
+      // Pad to effective (max) for gapless - handles 0-latency (native 0)
+      uint32_t tgtComp = 0;
+      if (currentAlgoMode == 0)
+        tgtComp = wetCompDelay1D;
+      else if (currentAlgoMode == 1)
+        tgtComp = wetCompDelay2D;
+      else if (currentAlgoMode == 2)
+        tgtComp = lastReportedLatency;
+      applyWetCompensationDelay(wetScratchB, tgtComp, numSamples);
+      if (sourceGroup != nullptr) {
+        if (switchFromMode == 0)
+          specbleach_stereo_load_parameters_1d(sourceGroup, &p, sizeof(p));
+        else
+          specbleach_stereo_load_parameters_2d(sourceGroup, &p2, sizeof(p2));
 
-    // Gain envelope: linear toward the stage's destination across the edge
-    const float gainTarget =
-        (switchPhase == SwitchPhase::WarmSilent) ? 0.0f : 1.0f;
-    const float step = 1.0f / static_cast<float>(std::max(1, edgeFadeSamples));
-    const int nsamp = numSamples;
-    if (muteGain != gainTarget || gainTarget == 0.0f) {
-      for (int chI = 0; chI < buffer.getNumChannels(); ++chI) {
-        float* d = buffer.getWritePointer(chI);
-        float g = muteGain;
-        for (int smp = 0; smp < nsamp; ++smp) {
-          if (gainTarget < g)
-            g = std::max(0.0f, g - step);
-          else
-            g = std::min(1.0f, g + step);
-          d[smp] *= g;
+        float* srcOut[2] = {nullptr, nullptr};
+        float* sinkA = wetScratchA.getNumChannels() > 1
+                           ? wetScratchA.getWritePointer(1)
+                           : nullptr;
+        for (uint32_t ch = 0; ch < procChannels; ++ch)
+          srcOut[ch] =
+              (ch < static_cast<uint32_t>(numChannels))
+                  ? buffer.getWritePointer(static_cast<int>(ch))
+                  : ((sinkA != nullptr) ? sinkA : buffer.getWritePointer(0));
+        specbleach_stereo_process(sourceGroup,
+                                  static_cast<uint32_t>(numSamples), inPtrs,
+                                  srcOut);
+      } else if (switchFromMode == 2) {
+        // 0-latency source passthrough already in buffer (input) - no process needed
+      }
+      uint32_t srcComp = 0;
+      if (switchFromMode == 0)
+        srcComp = wetCompDelay1D;
+      else if (switchFromMode == 1)
+        srcComp = wetCompDelay2D;
+      else if (switchFromMode == 2)
+        srcComp = lastReportedLatency;
+      if (srcComp > 0) {
+        // srcOut points into buffer for the audible channels, so pad buffer
+        applyWetCompensationDelay(buffer, srcComp, numSamples);
+      }
+    } else { // XFade: both audible, short equal-power crossfade
+      // Ensure scratch buffers are sized for numSamples (prepared in prepareToPlay)
+      jassert(wetScratchA.getNumSamples() >= numSamples);
+      jassert(wetScratchB.getNumSamples() >= numSamples);
+
+      if (sourceGroup != nullptr) {
+        if (switchFromMode == 0)
+          specbleach_stereo_load_parameters_1d(sourceGroup, &p, sizeof(p));
+        else
+          specbleach_stereo_load_parameters_2d(sourceGroup, &p2, sizeof(p2));
+        float* srcOut[2] = {nullptr, nullptr};
+        for (uint32_t ch = 0; ch < procChannels; ++ch)
+          srcOut[ch] = wetScratchA.getWritePointer(static_cast<int>(ch));
+        if (procChannels < 2 && wetScratchA.getNumChannels() > 1)
+          srcOut[1] = wetScratchA.getWritePointer(1);
+        specbleach_stereo_process(sourceGroup,
+                                  static_cast<uint32_t>(numSamples), inPtrs,
+                                  srcOut);
+      } else if (switchFromMode == 2) {
+        for (uint32_t ch = 0; ch < procChannels; ++ch) {
+          const float* src = inPtrs[ch];
+          float* dst = wetScratchA.getWritePointer(static_cast<int>(ch));
+          std::memcpy(dst, src, static_cast<size_t>(numSamples) * sizeof(float));
         }
       }
-      muteGain = gainTarget;
+      {
+        uint32_t srcComp = 0;
+        if (switchFromMode == 0)
+          srcComp = wetCompDelay1D;
+        else if (switchFromMode == 1)
+          srcComp = wetCompDelay2D;
+        else if (switchFromMode == 2)
+          srcComp = lastReportedLatency;
+        applyWetCompensationDelay(wetScratchA, srcComp, numSamples);
+      }
+      if (targetGroup != nullptr) {
+        if (currentAlgoMode == 0)
+          specbleach_stereo_load_parameters_1d(targetGroup, &p, sizeof(p));
+        else
+          specbleach_stereo_load_parameters_2d(targetGroup, &p2, sizeof(p2));
+        float* tgtOut[2] = {nullptr, nullptr};
+        for (uint32_t ch = 0; ch < procChannels; ++ch)
+          tgtOut[ch] = wetScratchB.getWritePointer(static_cast<int>(ch));
+        if (procChannels < 2 && wetScratchB.getNumChannels() > 1)
+          tgtOut[1] = wetScratchB.getWritePointer(1);
+        specbleach_stereo_process(targetGroup,
+                                  static_cast<uint32_t>(numSamples), inPtrs,
+                                  tgtOut);
+      } else if (currentAlgoMode == 2) {
+        for (uint32_t ch = 0; ch < procChannels; ++ch) {
+          const float* src = inPtrs[ch];
+          float* dst = wetScratchB.getWritePointer(static_cast<int>(ch));
+          std::memcpy(dst, src, static_cast<size_t>(numSamples) * sizeof(float));
+        }
+      }
+      {
+        uint32_t tgtComp = 0;
+        if (currentAlgoMode == 0)
+          tgtComp = wetCompDelay1D;
+        else if (currentAlgoMode == 1)
+          tgtComp = wetCompDelay2D;
+        else if (currentAlgoMode == 2)
+          tgtComp = lastReportedLatency;
+        applyWetCompensationDelay(wetScratchB, tgtComp, numSamples);
+      }
+
+      // Equal-power crossfade: t in [0,1], gains = cos(t*pi/2), sin(t*pi/2)
+      const float step =
+          1.0f / static_cast<float>(std::max(1, xfadeSamplesTotal));
+      float prog = xfadeProgress;
+      for (int chI = 0; chI < numChannels; ++chI) {
+        float* dst = buffer.getWritePointer(chI);
+        const float* src = wetScratchA.getReadPointer(chI);
+        const float* tgt = wetScratchB.getReadPointer(chI);
+        float localProg = prog;
+        for (int smp = 0; smp < numSamples; ++smp) {
+          if (localProg < 1.0f) {
+            localProg = std::min(1.0f, localProg + step);
+          }
+          const float a = std::cos(localProg * juce::MathConstants<float>::halfPi);
+          const float b = std::sin(localProg * juce::MathConstants<float>::halfPi);
+          // When target not yet warmed early in switch, fallback to source only
+          dst[smp] = src[smp] * a + tgt[smp] * b;
+        }
+      }
+      // prog is shared across channels — update after first channel loop
+      // but keep per-block increment consistent: we advanced by numSamples*step
+      xfadeProgress = std::min(1.0f, prog + step * static_cast<float>(numSamples));
     }
+
+    // With constant maxReportedLatency, no host PDC handoff is needed.
 
     // Stage advancement
     stageSamplesRemaining -= numSamples;
     if (stageSamplesRemaining <= 0) {
       switch (switchPhase) {
-        case SwitchPhase::FadeOut:
-          switchPhase = SwitchPhase::WarmSilent;
-          stageSamplesRemaining = warmSamplesTotal;
+        case SwitchPhase::Warming:
+          switchPhase = SwitchPhase::XFade;
+          stageSamplesRemaining = xfadeSamplesTotal;
+          xfadeProgress = 0.0f;
           break;
-        case SwitchPhase::WarmSilent:
-          switchPhase = SwitchPhase::FadeIn;
-          stageSamplesRemaining = edgeFadeSamples;
-          break;
-        case SwitchPhase::FadeIn:
+        case SwitchPhase::XFade:
           switchPhase = SwitchPhase::Steady;
+          xfadeProgress = 1.0f;
           break;
         default:
           break;
@@ -835,21 +1180,18 @@ void NoiseRepellentAudioProcessor::processBlock(
     }
   }
 
-  // UI progress across the three switch stages
+  // UI progress across Warming+XFade
   {
     float uiP = 1.0f;
     if (switchPhase != SwitchPhase::Steady) {
       const float total =
-          static_cast<float>(2 * edgeFadeSamples + warmSamplesTotal);
+          static_cast<float>(xfadeSamplesTotal + warmSamplesTotal);
       float elapsed = 0.0f;
-      if (switchPhase == SwitchPhase::FadeOut) {
-        elapsed = static_cast<float>(edgeFadeSamples - stageSamplesRemaining);
-      } else if (switchPhase == SwitchPhase::WarmSilent) {
-        elapsed = static_cast<float>(edgeFadeSamples) +
-                  static_cast<float>(warmSamplesTotal - stageSamplesRemaining);
-      } else {
-        elapsed = static_cast<float>(2 * edgeFadeSamples + warmSamplesTotal -
-                                     stageSamplesRemaining);
+      if (switchPhase == SwitchPhase::Warming) {
+        elapsed = static_cast<float>(warmSamplesTotal - stageSamplesRemaining);
+      } else if (switchPhase == SwitchPhase::XFade) {
+        elapsed = static_cast<float>(warmSamplesTotal) +
+                  static_cast<float>(xfadeSamplesTotal - stageSamplesRemaining);
       }
       uiP = total > 0.0f ? elapsed / total : 1.0f;
     }
@@ -1131,11 +1473,50 @@ bool NoiseRepellentAudioProcessor::hasNoiseProfile() const {
 }
 
 void NoiseRepellentAudioProcessor::timerCallback() {
-  const int staged =
-      pendingLatencyReport.exchange(-1, std::memory_order_acq_rel);
-  if (staged >= 0) {
-    setLatencySamples(staged);
-    dryWetMixer.setWetLatency(static_cast<float>(staged));
+  const int pending = pendingLatencyReport.load(std::memory_order_acquire);
+  if (pending < 0)
+    return;
+
+  // Transport-aware: defer *any* latency change until stopped for gapless
+  // A/B compare - 1D->2D first time and 2D->1D both stay at old reported
+  // with internal max pad, host splices only when silent (stopped).
+  bool isPlaying = false;
+  if (auto* head = getPlayHead()) {
+    if (auto pos = head->getPosition())
+      isPlaying = pos->getIsPlaying();
+  }
+  if (isPlaying) {
+    // Keep old reported + internal max pad until stop
+    return;
+  }
+
+  const int staged = pendingLatencyReport.exchange(-1, std::memory_order_acq_rel);
+  if (staged < 0)
+    return;
+
+  {
+    const juce::ScopedLock sl(getCallbackLock());
+    lastReportedLatency = static_cast<uint32_t>(staged);
+    currentLatency = lastReportedLatency;
+    // Recompute compensation to new reported (now native, so no pad)
+    uint32_t latSpectral = 0, latNLM = 0;
+    if (spectralGroup != nullptr)
+      latSpectral = specbleach_stereo_get_latency(spectralGroup.get());
+    if (nlmGroup != nullptr)
+      latNLM = specbleach_stereo_get_latency(nlmGroup.get());
+    wetCompDelay1D = (lastReportedLatency > latSpectral)
+                         ? (lastReportedLatency - latSpectral)
+                         : 0;
+    wetCompDelay2D = (lastReportedLatency > latNLM) ? (lastReportedLatency - latNLM) : 0;
+  }
+
+  setLatencySamples(staged);
+  dryWetMixer.setWetLatency(static_cast<float>(staged));
+  // Ensure visualizer delay line remains sufficient for the new latency
+  const size_t needed = static_cast<size_t>(staged) + 8192;
+  if (visualizerDelayBuffer.size() < needed) {
+    visualizerDelayBuffer.assign(std::max<size_t>(32768, needed), 0.0f);
+    visualizerDelayWritePos = 0;
   }
 }
 
