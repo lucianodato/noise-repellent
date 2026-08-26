@@ -29,7 +29,8 @@ extern "C" {
 #include "specbleach_stereo.h"
 }
 
-class NoiseRepellentAudioProcessor : public juce::AudioProcessor {
+class NoiseRepellentAudioProcessor : public juce::AudioProcessor,
+                                     private juce::Timer {
 public:
   NoiseRepellentAudioProcessor();
   ~NoiseRepellentAudioProcessor() override;
@@ -190,6 +191,13 @@ private:
 
   // GUI feedback (progress 1 == idle)
   std::atomic<float> uiSwitchProgress{1.0f};
+
+  // Latency reports are NEVER sent from the audio thread: hosts (notably
+  // Reaper via VST3 ioChanged) suspend/resume the plugin on latency
+  // changes, which must not happen mid-callback. The audio side stages the
+  // value here; the timer delivers it on the message thread.
+  std::atomic<int> pendingLatencyReport{-1};
+  void timerCallback() override;
 
   juce::AudioParameterBool* bypassParameter = nullptr;
   juce::dsp::DryWetMixer<float> dryWetMixer;

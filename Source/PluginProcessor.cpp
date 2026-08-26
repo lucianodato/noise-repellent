@@ -31,9 +31,11 @@ NoiseRepellentAudioProcessor::NoiseRepellentAudioProcessor()
       dryWetMixer(16384) {
   bypassParameter = dynamic_cast<juce::AudioParameterBool*>(
       parameters.getParameter("bypass"));
+  startTimerHz(60); // deferred latency reporting to the message thread
 }
 
 NoiseRepellentAudioProcessor::~NoiseRepellentAudioProcessor() {
+  stopTimer();
   specbleach_stereo_free(spectralGroup);
   spectralGroup = nullptr;
   specbleach_stereo_free(nlmGroup);
@@ -687,7 +689,9 @@ void NoiseRepellentAudioProcessor::processBlock(
       // NOTE: reported latency moves at the FadeOut->WarmSilent boundary,
       // once the output is fully silent. Announcing a latency DROP while
       // audio is still fading makes hosts truncate in-flight compensation
-      // and glitch the tail (the 2D->1D artifact).
+      // and glitch the tail (the 2D->1D artifact). The handoff itself is
+      // staged to the message thread (see pendingLatencyReport): hosts like
+      // Reaper suspend/resume the plugin on synchronous latency changes.
 
     }
   }
@@ -780,17 +784,17 @@ void NoiseRepellentAudioProcessor::processBlock(
         buffer.clear(); // nothing audible during the silent window
     }
 
-    // Latency handoff: only after the old tail drained through the host
+    // Latency handoff: only after the old tail drained through the host;
+    // delivered asynchronously by the timer
     if (switchPhase == SwitchPhase::WarmSilent &&
         latencyAnnounceCountdown > 0) {
       latencyAnnounceCountdown -= numSamples;
       if (latencyAnnounceCountdown <= 0) {
         latencyAnnounceCountdown = -1;
         if (auto* targetGroup = activeGroupFor(currentAlgoMode)) {
-          const uint32_t targetLatency =
-              specbleach_stereo_get_latency(targetGroup);
-          setLatencySamples(static_cast<int>(targetLatency));
-          dryWetMixer.setWetLatency(static_cast<float>(targetLatency));
+          pendingLatencyReport.store(
+              static_cast<int>(specbleach_stereo_get_latency(targetGroup)),
+              std::memory_order_release);
         }
       }
     }
@@ -1130,6 +1134,15 @@ bool NoiseRepellentAudioProcessor::hasNoiseProfile() const {
       return true;
   }
   return false;
+}
+
+void NoiseRepellentAudioProcessor::timerCallback() {
+  const int staged = pendingLatencyReport.exchange(-1,
+                                                   std::memory_order_acq_rel);
+  if (staged >= 0) {
+    setLatencySamples(staged);
+    dryWetMixer.setWetLatency(static_cast<float>(staged));
+  }
 }
 
 juce::AudioProcessorEditor* NoiseRepellentAudioProcessor::createEditor() {
