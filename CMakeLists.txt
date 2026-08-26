@@ -231,7 +231,7 @@ else()
         set(SPECBLEACH_SRC "${libspecbleach_SOURCE_DIR}")
     endif()
 
-    if(TARGET libspecbleach)
+    if(TARGET libspecbleach AND NOT TARGET specbleach_avx)
         set(AVX_C_FILE "${SPECBLEACH_SRC}/src/shared/denoiser_logic/processing/nlm_filter_avx.c")
         if(EXISTS "${AVX_C_FILE}")
             if(CMAKE_SYSTEM_PROCESSOR MATCHES "(x86_64|amd64|AMD64|x86-64)" OR "x86_64" IN_LIST CMAKE_OSX_ARCHITECTURES)
