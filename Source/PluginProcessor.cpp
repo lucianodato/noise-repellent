@@ -681,11 +681,11 @@ void NoiseRepellentAudioProcessor::processBlock(
       stageSamplesRemaining = edgeFadeSamples;
       warmSamplesTotal =
           static_cast<int>(currentSampleRate * (kWarmupMs / 1000.0));
+      // NOTE: reported latency moves at the FadeOut->WarmSilent boundary,
+      // once the output is fully silent. Announcing a latency DROP while
+      // audio is still fading makes hosts truncate in-flight compensation
+      // and glitch the tail (the 2D->1D artifact).
 
-      // Host re-anchors while the output is fading into silence
-      const uint32_t targetLatency =
-          specbleach_stereo_get_latency(targetGroup);
-      setLatencySamples(static_cast<int>(targetLatency));
     }
   }
 
@@ -805,6 +805,14 @@ void NoiseRepellentAudioProcessor::processBlock(
       case SwitchPhase::FadeOut:
         switchPhase = SwitchPhase::WarmSilent;
         stageSamplesRemaining = warmSamplesTotal;
+        // Fully silent from here on: the safe moment for the host to
+        // re-anchor delay compensation to the target's native latency
+        if (auto* targetGroup = activeGroupFor(currentAlgoMode)) {
+          const uint32_t targetLatency =
+              specbleach_stereo_get_latency(targetGroup);
+          setLatencySamples(static_cast<int>(targetLatency));
+          dryWetMixer.setWetLatency(static_cast<float>(targetLatency));
+        }
         break;
       case SwitchPhase::WarmSilent:
         switchPhase = SwitchPhase::FadeIn;
