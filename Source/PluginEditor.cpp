@@ -23,8 +23,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(
     NoiseRepellentAudioProcessor& p)
     : AudioProcessorEditor(&p), audioProcessor(p), spectralVisualizer(p) {
-  engineSwitchBar.setVisible(false);
-  addAndMakeVisible(engineSwitchBar);
   setLookAndFeel(&customLookAndFeel);
 
   // 1. Native Resizable Window Settings
@@ -956,19 +954,13 @@ void NoiseRepellentAudioProcessorEditor::timerCallback() {
     triggerAsyncUpdate();
   }
 
-  // Engine-switch progress strip visibility
+  // Engine-switch overlay: repaint while active; lock the dropdown so the
+  // request is deterministic
   const bool switching = audioProcessor.isEngineSwitching();
   if (switching != engineSwitchWasVisible) {
     engineSwitchWasVisible = switching;
-    engineSwitchBar.setVisible(switching);
-    // While switching the dropdown is locked to the pending target; the
-    // bypass update path restores its enabled state afterwards
     comboAlgoMode.setEnabled(!switching && !btnBypass.getToggleState());
-  }
-  if (switching) {
-    engineSwitchValue =
-        static_cast<double>(audioProcessor.getEngineSwitchProgress());
-    engineSwitchBar.repaint();
+    repaint();
   }
 
   bool isOffline = audioProcessor.isNonRealtime();
@@ -1011,6 +1003,48 @@ void NoiseRepellentAudioProcessorEditor::paint(juce::Graphics& g) {
 }
 
 void NoiseRepellentAudioProcessorEditor::paintOverChildren(juce::Graphics& g) {
+  const bool switching = audioProcessor.isEngineSwitching();
+
+  if (switching) {
+    // Engine switch: same treatment as offline rendering. Audio is muted
+    // while the target engine warms up, so nothing can glitch.
+    auto bounds = getLocalBounds();
+    g.setColour(juce::Colour(0xd0161a22));
+    g.fillRect(bounds);
+
+    constexpr int cardW2 = 320;
+    constexpr int cardH2 = 96;
+    auto cardRect = bounds.withSizeKeepingCentre(cardW2, cardH2).toFloat();
+    g.setColour(juce::Colour(0xee212630));
+    g.fillRoundedRectangle(cardRect, 8.0f);
+    g.setColour(NoiseRepellentLookAndFeel::kColorPanelBorder);
+    g.drawRoundedRectangle(cardRect, 8.0f, 1.5f);
+
+    auto contentArea = cardRect.toNearestInt().reduced(12);
+    g.setColour(NoiseRepellentLookAndFeel::kColorDenoising);
+    g.setFont(juce::FontOptions(NoiseRepellentLookAndFeel::kFontSizeBrand,
+                                juce::Font::bold));
+    g.drawText("SWITCHING ENGINE", contentArea.removeFromTop(24),
+               juce::Justification::centred, false);
+    contentArea.removeFromTop(4);
+    auto barArea = contentArea.removeFromTop(10).reduced(24, 0);
+    contentArea.removeFromTop(6);
+    g.setColour(juce::Colour(0xff94a3b8));
+    g.setFont(juce::FontOptions(NoiseRepellentLookAndFeel::kFontSizeLabel,
+                                juce::Font::plain));
+    g.drawText("Audio muted while engines change.", contentArea,
+               juce::Justification::centred, false);
+
+    const float progress =
+        juce::jlimit(0.0f, 1.0f, audioProcessor.getEngineSwitchProgress());
+    g.setColour(juce::Colour(0xff334155));
+    g.fillRoundedRectangle(barArea.toFloat(), 3.0f);
+    g.setColour(NoiseRepellentLookAndFeel::kColorDenoising);
+    g.fillRoundedRectangle(
+        barArea.withWidth(barArea.getWidth() * progress).toFloat(), 3.0f);
+    return;
+  }
+
   if (!audioProcessor.isNonRealtime())
     return;
 
@@ -1100,8 +1134,6 @@ void NoiseRepellentAudioProcessorEditor::resized() {
   lblAlgoHeader.setBounds(algoCol.removeFromTop(15));
   algoCol.removeFromTop(3);
   comboAlgoMode.setBounds(algoCol.removeFromTop(26));
-  algoCol.removeFromTop(2);
-  engineSwitchBar.setBounds(algoCol.removeFromTop(4));
 
   headerArea.removeFromLeft(kHeaderGap);
 

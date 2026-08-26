@@ -169,33 +169,21 @@ private:
   specbleach_stereo* spectralGroup = nullptr; // wraps 1D per-channel engines
   specbleach_stereo* nlmGroup = nullptr;      // wraps 2D per-channel engines
 
-  // Permanent latency alignment constants: the shorter-latency (1D) family
-  // ALWAYS runs through this ring, so both families share one time origin
-  // permanently. The plugin reports max(family latencies) for its whole
-  // life, so hosts never re-anchor delay compensation — engine switches
-  // are then plain crossfades between aligned streams. Cost: 1D mode
-  // carries the 2D family's latency; benefit: zero switching artifacts,
-  // and steady state still renders exactly one engine.
-  juce::AudioBuffer<float> spectralAlignmentRing;
-  int alignmentWritePos = 0;
-  uint32_t spectralAlignmentDelay = 0;
-
-  // Deferred engine-switch state machine:
-  // Warming: target renders in parallel until its internal buffers fill;
-  //          output still comes from the source family.
-  // Fading:  aligned equal-power blend toward the warmed target.
-  // Slewing: after landing on the shorter-latency family, slide the
-  //          alignment tap back out between delayed/direct copies.
-  enum class SwitchPhase { Steady, Warming, Fading };
+  // Engine-switch UX: on a switch request the wet output ramps down and is
+  // MUTED while the target family renders silently long enough to warm its
+  // internal buffers; reported latency moves to the target's native value
+  // immediately (hosts re-anchor against silence — no audible glitch). The
+  // editor shows a full-screen overlay and locks the dropdown.
+  enum class SwitchPhase { Steady, Switching };
   SwitchPhase switchPhase = SwitchPhase::Steady;
-  int fadeFromMode = 0;               // family being blended away from
-  float fadeProgress = 1.0f;          // 0..1 toward target family
-  int warmupSamplesRemaining = 0;
-  uint32_t reportedLatency = 0;       // constant: max across families
-  static constexpr int kFadeMs = 40;
-  static constexpr int kWarmupMs = 700; // >= NLM 64-frame history depth
+  int switchSamplesRemaining = 0;
+  int switchSamplesTotal = 0;
+  static constexpr int kSwitchMs = 700;       // >= NLM 64-frame history depth
+  static constexpr int kMuteRampSamples = 256; // click-free mute edges
+  float muteGain = 1.0f;
+  float muteGainTarget = 1.0f;
 
-  // GUI feedback for the ongoing switch (progress 1 == idle)
+  // GUI feedback (progress 1 == idle)
   std::atomic<float> uiSwitchProgress{1.0f};
 
   juce::AudioParameterBool* bypassParameter = nullptr;
