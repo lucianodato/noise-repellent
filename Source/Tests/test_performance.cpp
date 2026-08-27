@@ -34,15 +34,25 @@ void pumpMessageLoop(int maxMillis = 50) {
   }
 }
 
-void generateNoiseBuffer(juce::AudioBuffer<float>& buffer, float rms = 0.05f) {
+std::vector<juce::AudioBuffer<float>> createNoiseBlocks(int numBlocks,
+                                                        int numChannels,
+                                                        int blockSize,
+                                                        float rms = 0.05f) {
+  std::vector<juce::AudioBuffer<float>> blocks;
+  blocks.reserve(numBlocks);
   std::mt19937 gen(1337);
   std::normal_distribution<float> dist(0.0f, rms);
-  for (int ch = 0; ch < buffer.getNumChannels(); ++ch) {
-    auto* channelData = buffer.getWritePointer(ch);
-    for (int s = 0; s < buffer.getNumSamples(); ++s) {
-      channelData[s] = dist(gen);
+  for (int b = 0; b < numBlocks; ++b) {
+    juce::AudioBuffer<float> buf(numChannels, blockSize);
+    for (int ch = 0; ch < numChannels; ++ch) {
+      auto* data = buf.getWritePointer(ch);
+      for (int s = 0; s < blockSize; ++s) {
+        data[s] = dist(gen);
+      }
     }
+    blocks.push_back(std::move(buf));
   }
+  return blocks;
 }
 
 void setParam(NoiseRepellentAudioProcessor& proc, const juce::String& paramId,
@@ -75,6 +85,8 @@ private:
     constexpr int blockSize = 512;
     constexpr int numBlocks = 600;
 
+    const auto noiseBlocks = createNoiseBlocks(numBlocks, 2, blockSize, 0.05f);
+
     // 1. Measure active denoising duration
     int64_t activeDurationUs = 0;
     {
@@ -88,7 +100,7 @@ private:
       // Learn profile
       setParam(proc, "learn_noise", 1.0f);
       for (int i = 0; i < 50; ++i) {
-        generateNoiseBuffer(buffer, 0.05f);
+        buffer.makeCopyOf(noiseBlocks[i % numBlocks]);
         proc.processBlock(buffer, midi);
       }
       setParam(proc, "learn_noise", 0.0f);
@@ -96,14 +108,14 @@ private:
 
       // Warmup
       for (int i = 0; i < 50; ++i) {
-        generateNoiseBuffer(buffer, 0.05f);
+        buffer.makeCopyOf(noiseBlocks[i % numBlocks]);
         proc.processBlock(buffer, midi);
       }
 
       // Timed active processing
       auto start = std::chrono::high_resolution_clock::now();
       for (int i = 0; i < numBlocks; ++i) {
-        generateNoiseBuffer(buffer, 0.05f);
+        buffer.makeCopyOf(noiseBlocks[i]);
         proc.processBlock(buffer, midi);
       }
       auto end = std::chrono::high_resolution_clock::now();
@@ -161,6 +173,8 @@ private:
     constexpr int blockSize = 512;
     constexpr int numBlocks = 600;
 
+    const auto noiseBlocks = createNoiseBlocks(numBlocks, 2, blockSize, 0.05f);
+
     int64_t activeDurationUs = 0;
     {
       NoiseRepellentAudioProcessor proc;
@@ -172,20 +186,20 @@ private:
 
       setParam(proc, "learn_noise", 1.0f);
       for (int i = 0; i < 50; ++i) {
-        generateNoiseBuffer(buffer, 0.05f);
+        buffer.makeCopyOf(noiseBlocks[i % numBlocks]);
         proc.processBlock(buffer, midi);
       }
       setParam(proc, "learn_noise", 0.0f);
       pumpMessageLoop(20);
 
       for (int i = 0; i < 50; ++i) {
-        generateNoiseBuffer(buffer, 0.05f);
+        buffer.makeCopyOf(noiseBlocks[i % numBlocks]);
         proc.processBlock(buffer, midi);
       }
 
       auto start = std::chrono::high_resolution_clock::now();
       for (int i = 0; i < numBlocks; ++i) {
-        generateNoiseBuffer(buffer, 0.05f);
+        buffer.makeCopyOf(noiseBlocks[i]);
         proc.processBlock(buffer, midi);
       }
       auto end = std::chrono::high_resolution_clock::now();
@@ -209,13 +223,13 @@ private:
       pumpMessageLoop(20);
 
       for (int i = 0; i < 50; ++i) {
-        generateNoiseBuffer(buffer, 0.05f);
+        buffer.makeCopyOf(noiseBlocks[i % numBlocks]);
         proc.processBlock(buffer, midi);
       }
 
       auto start = std::chrono::high_resolution_clock::now();
       for (int i = 0; i < numBlocks; ++i) {
-        generateNoiseBuffer(buffer, 0.05f);
+        buffer.makeCopyOf(noiseBlocks[i]);
         proc.processBlock(buffer, midi);
       }
       auto end = std::chrono::high_resolution_clock::now();
