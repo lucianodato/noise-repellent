@@ -1345,6 +1345,26 @@ void NoiseRepellentAudioProcessor::processBlock(
             std::array<float, 2048> morphed{};
             float* morphedPtr = morphed.data();
             // Replicate get_morphed_profile logic
+            // Fetch tonal mask for per-bin threshold blending (as in
+            // denoiser_profile_core). Use srcGroup's mask, fallback to other.
+            const float* tonalMask = nullptr;
+            bool tonalActive = tonalProfileScale != 1.0f;
+            if (tonalActive) {
+              auto* maskGroup = srcGroup;
+              if (maskGroup != nullptr)
+                tonalMask =
+                    specbleach_stereo_get_tonal_mask_for_channel(maskGroup, 0u);
+              if (tonalMask == nullptr) {
+                auto* other = (currentAlgoMode.load() == 0)
+                                  ? nlmGroup.get()
+                                  : spectralGroup.get();
+                if (other != nullptr && other != maskGroup)
+                  tonalMask =
+                      specbleach_stereo_get_tonal_mask_for_channel(other, 0u);
+              }
+              if (tonalMask == nullptr)
+                tonalActive = false;
+            }
             for (uint32_t i = 0; i < profileSize && i < morphed.size(); ++i) {
               if (aggressiveness < 0.0f) {
                 float t = -aggressiveness;
@@ -1355,10 +1375,13 @@ void NoiseRepellentAudioProcessor::processBlock(
                 morphedPtr[i] = meanProfile[i] + (stdProfile[i] * t * 2.0f);
               }
               morphedPtr[i] = std::max(morphedPtr[i], 0.0f);
-              // Apply threshold offsets (broadband + tonal) as in
-              // denoiser_profile_core
               float scale = profileScale;
-              // For silent display, tonal mask not critical, use broadband only
+              if (tonalActive && tonalMask != nullptr && tonalMask[i] > 0.0f) {
+                float mask = std::min(tonalMask[i], 1.0f);
+                mask = std::sqrt(std::sqrt(mask));
+                scale =
+                    (profileScale * (1.0f - mask)) + (tonalProfileScale * mask);
+              }
               morphedPtr[i] *= scale;
             }
             // Resample morphed profile to kFftBins and convert to dB
