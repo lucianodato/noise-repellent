@@ -970,33 +970,6 @@ void NoiseRepellentAudioProcessor::processBlock(
 
   if (isBypassed) {
     // Bypassed: skip all specbleach STFT+denoise
-  } else if (isSilent) {
-    // Silent (no playback) and not learning: skip heavy STFT+denoise but
-    // still advance engine-switch phases so the progress bar does not
-    // freeze at 0 when the user changes the engine while stopped.
-    if (switchingNow) {
-      stageSamplesRemaining -= numSamples;
-      if (stageSamplesRemaining <= 0) {
-        switch (switchPhase) {
-          case SwitchPhase::Warming:
-            switchPhase = SwitchPhase::XFade;
-            stageSamplesRemaining = xfadeSamplesTotal;
-            xfadeProgress = 0.0f;
-            break;
-          case SwitchPhase::XFade:
-            switchPhase = SwitchPhase::Steady;
-            xfadeProgress = 1.0f;
-            break;
-          default:
-            break;
-        }
-      } else if (switchPhase == SwitchPhase::XFade) {
-        const float step =
-            1.0f / static_cast<float>(std::max(1, xfadeSamplesTotal));
-        xfadeProgress = std::min(
-            1.0f, xfadeProgress + step * static_cast<float>(numSamples));
-      }
-    }
   } else if (!switchingNow) {
     // Steady state: gapless with deferred PDC (lastReported may be high)
     auto* activeGroup = activeGroupFor(currentAlgoMode);
