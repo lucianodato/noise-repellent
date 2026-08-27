@@ -6,7 +6,7 @@ on:
     tags:
       - "v*.*.*"
     branches:
-      - main
+      - master
   pull_request:
     branches:
       - "*"
@@ -51,7 +51,7 @@ jobs:
 
       - name: Build Test Executables
         run: |
-          cmake --build build-test --target test_ux_invariants test_performance -j4
+          cmake --build build-test --target test_ux_invariants test_performance test_stress test_integration test_ux -j4
 
       - name: Run Test Suite
         run: |

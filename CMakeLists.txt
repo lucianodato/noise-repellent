@@ -482,7 +482,128 @@ if(ENABLE_PLUGIN_TESTS OR BUILD_TESTING)
         endif()
     endif()
     add_test(NAME test_performance COMMAND test_performance)
+
+    add_executable(test_stress
+        Source/Tests/test_stress.cpp
+        Source/PluginProcessor.cpp
+        Source/PluginEditor.cpp
+        Source/GUI/LookAndFeel.cpp
+        Source/GUI/SpectralVisualizer.cpp
+    )
+    target_compile_definitions(test_stress PRIVATE
+        JUCE_MODAL_LOOPS_PERMITTED=1
+        JucePlugin_Name="Noise Repellent"
+        JUCE_WEB_BROWSER=0
+        JUCE_USE_CURL=0
+        JUCE_VST3_CAN_REPLACE_VST2=0
+    )
+    target_include_directories(test_stress PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/Source
+        ${SPECBLEACH_SRC}/include
+        ${SPECBLEACH_SRC}/extras/include
+    )
+    target_link_libraries(test_stress PRIVATE
+        ${SPECBLEACH_TARGET}
+        ${SPECBLEACH_EXTRAS_TARGET}
+        juce::juce_audio_utils
+        juce::juce_audio_processors
+        juce::juce_dsp
+        juce::juce_gui_extra
+        juce::juce_gui_basics
+        juce::juce_graphics
+        juce::juce_events
+        juce::juce_core
+    )
+    if(UNIX AND NOT APPLE)
+        if(USE_SYSTEM_FREETYPE)
+            target_link_libraries(test_stress PRIVATE Freetype::Freetype)
+        elseif(NOT USE_SYSTEM_JUCE)
+            target_link_libraries(test_stress PRIVATE freetype)
+        endif()
+    endif()
+    add_test(NAME test_stress COMMAND test_stress)
+
+    add_executable(test_integration
+        Source/Tests/test_integration.cpp
+        Source/PluginProcessor.cpp
+        Source/PluginEditor.cpp
+        Source/GUI/LookAndFeel.cpp
+        Source/GUI/SpectralVisualizer.cpp
+    )
+    target_compile_definitions(test_integration PRIVATE
+        JUCE_MODAL_LOOPS_PERMITTED=1
+        JucePlugin_Name="Noise Repellent"
+        JUCE_WEB_BROWSER=0
+        JUCE_USE_CURL=0
+        JUCE_VST3_CAN_REPLACE_VST2=0
+    )
+    target_include_directories(test_integration PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/Source
+        ${SPECBLEACH_SRC}/include
+        ${SPECBLEACH_SRC}/extras/include
+    )
+    target_link_libraries(test_integration PRIVATE
+        ${SPECBLEACH_TARGET}
+        ${SPECBLEACH_EXTRAS_TARGET}
+        juce::juce_audio_utils
+        juce::juce_audio_processors
+        juce::juce_dsp
+        juce::juce_gui_extra
+        juce::juce_gui_basics
+        juce::juce_graphics
+        juce::juce_events
+        juce::juce_core
+    )
+    if(UNIX AND NOT APPLE)
+        if(USE_SYSTEM_FREETYPE)
+            target_link_libraries(test_integration PRIVATE Freetype::Freetype)
+        elseif(NOT USE_SYSTEM_JUCE)
+            target_link_libraries(test_integration PRIVATE freetype)
+        endif()
+    endif()
+    add_test(NAME test_integration COMMAND test_integration)
+
+    add_executable(test_ux
+        Source/Tests/test_ux.cpp
+        Source/PluginProcessor.cpp
+        Source/PluginEditor.cpp
+        Source/GUI/LookAndFeel.cpp
+        Source/GUI/SpectralVisualizer.cpp
+    )
+    target_compile_definitions(test_ux PRIVATE
+        JUCE_MODAL_LOOPS_PERMITTED=1
+        JucePlugin_Name="Noise Repellent"
+        JUCE_WEB_BROWSER=0
+        JUCE_USE_CURL=0
+        JUCE_VST3_CAN_REPLACE_VST2=0
+    )
+    target_include_directories(test_ux PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/Source
+        ${SPECBLEACH_SRC}/include
+        ${SPECBLEACH_SRC}/extras/include
+    )
+    target_link_libraries(test_ux PRIVATE
+        ${SPECBLEACH_TARGET}
+        ${SPECBLEACH_EXTRAS_TARGET}
+        juce::juce_audio_utils
+        juce::juce_audio_processors
+        juce::juce_dsp
+        juce::juce_gui_extra
+        juce::juce_gui_basics
+        juce::juce_graphics
+        juce::juce_events
+        juce::juce_core
+    )
+    if(UNIX AND NOT APPLE)
+        if(USE_SYSTEM_FREETYPE)
+            target_link_libraries(test_ux PRIVATE Freetype::Freetype)
+        elseif(NOT USE_SYSTEM_JUCE)
+            target_link_libraries(test_ux PRIVATE freetype)
+        endif()
+    endif()
+    add_test(NAME test_ux COMMAND test_ux)
 endif()
+
 
 
 
