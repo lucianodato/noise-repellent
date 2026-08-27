@@ -1300,77 +1300,68 @@ void NoiseRepellentAudioProcessor::processBlock(
         }
         if (hasNoiseProfile()) {
           frame.hasNoiseProfile = true;
-          const float* actualNoiseProfile = nullptr;
+          // Directly compute morphed profile from static learned profiles and
+          // current aggressiveness/threshold so it stays frozen and responsive
+          // even when lib's active noise_spectrum hasn't been updated yet
+          // (e.g., first 1D->2D switch while stopped before next audio block).
+          const float* meanProfile = nullptr;
+          const float* medianProfile = nullptr;
+          const float* stdProfile = nullptr;
+          const float* cvProfile = nullptr;
           uint32_t profileSize = 0;
-          bool profileAvailable = false;
-          if (auto* vizGroup = activeGroupFor(currentAlgoMode.load())) {
-            bool isAdaptive = adaptiveNoise;
-            bool isLearning = learnNoise;
-            if (isLearning) {
-              actualNoiseProfile =
-                  specbleach_stereo_get_noise_profile_for_channel(vizGroup, 0u,
-                                                                  1);
-              profileSize = specbleach_stereo_get_noise_profile_size(vizGroup);
-              profileAvailable =
-                  (actualNoiseProfile != nullptr && profileSize > 0);
-            } else if (isAdaptive || true) {
-              actualNoiseProfile =
-                  specbleach_stereo_get_active_noise_profile_for_channel(
-                      vizGroup, 0u);
-              profileSize = specbleach_stereo_get_noise_profile_size(vizGroup);
-              profileAvailable =
-                  (actualNoiseProfile != nullptr && profileSize > 0);
-              if (!profileAvailable) {
-                for (int mode = SPECBLEACH_PROFILE_MODE_FIRST;
-                     mode <= SPECBLEACH_PROFILE_MODE_LAST; ++mode) {
-                  if (specbleach_stereo_profile_available_for_channel(
-                          vizGroup, 0u, mode)) {
-                    actualNoiseProfile =
-                        specbleach_stereo_get_noise_profile_for_channel(
-                            vizGroup, 0u, mode);
-                    if (actualNoiseProfile != nullptr)
-                      break;
-                  }
-                }
-                profileAvailable =
-                    (actualNoiseProfile != nullptr && profileSize > 0);
-              }
-              // Fallback to other group if vizGroup has no profile yet (e.g.,
-              // just switched 1D->2D while stopped before async migrate)
-              if (!profileAvailable) {
-                auto* otherGroup = (currentAlgoMode.load() == 0)
-                                       ? nlmGroup.get()
-                                       : spectralGroup.get();
-                if (otherGroup != nullptr) {
-                  actualNoiseProfile =
-                      specbleach_stereo_get_active_noise_profile_for_channel(
-                          otherGroup, 0u);
-                  profileSize =
-                      specbleach_stereo_get_noise_profile_size(otherGroup);
-                  profileAvailable =
-                      (actualNoiseProfile != nullptr && profileSize > 0);
-                  if (!profileAvailable) {
-                    for (int mode = SPECBLEACH_PROFILE_MODE_FIRST;
-                         mode <= SPECBLEACH_PROFILE_MODE_LAST; ++mode) {
-                      if (specbleach_stereo_profile_available_for_channel(
-                              otherGroup, 0u, mode)) {
-                        actualNoiseProfile =
-                            specbleach_stereo_get_noise_profile_for_channel(
-                                otherGroup, 0u, mode);
-                        profileSize = specbleach_stereo_get_noise_profile_size(
-                            otherGroup);
-                        if (actualNoiseProfile != nullptr && profileSize > 0) {
-                          profileAvailable = true;
-                          break;
-                        }
-                      }
-                    }
-                  }
-                }
-              }
+          bool haveProfiles = false;
+          // Prefer active group's static profiles, fallback to other group
+          auto* srcGroup = activeGroupFor(currentAlgoMode.load());
+          if (srcGroup == nullptr ||
+              !specbleach_stereo_profile_available_for_channel(srcGroup, 0u,
+                                                               1)) {
+            auto* otherGroup = (currentAlgoMode.load() == 0)
+                                   ? nlmGroup.get()
+                                   : spectralGroup.get();
+            if (otherGroup != nullptr &&
+                specbleach_stereo_profile_available_for_channel(otherGroup, 0u,
+                                                                1))
+              srcGroup = otherGroup;
+          }
+          if (srcGroup != nullptr) {
+            profileSize = specbleach_stereo_get_noise_profile_size(srcGroup);
+            if (profileSize > 0) {
+              meanProfile = specbleach_stereo_get_noise_profile_for_channel(
+                  srcGroup, 0u, 1);
+              medianProfile = specbleach_stereo_get_noise_profile_for_channel(
+                  srcGroup, 0u, 2);
+              stdProfile = specbleach_stereo_get_noise_profile_for_channel(
+                  srcGroup, 0u, 3);
+              cvProfile = specbleach_stereo_get_noise_profile_for_channel(
+                  srcGroup, 0u, 4);
+              haveProfiles =
+                  (meanProfile != nullptr && medianProfile != nullptr &&
+                   stdProfile != nullptr && cvProfile != nullptr);
             }
           }
-          if (profileAvailable && actualNoiseProfile != nullptr) {
+          if (haveProfiles) {
+            // Stack morphed profile for resampling (max 2048 bins, profile up
+            // to ~1201)
+            std::array<float, 2048> morphed{};
+            float* morphedPtr = morphed.data();
+            // Replicate get_morphed_profile logic
+            for (uint32_t i = 0; i < profileSize && i < morphed.size(); ++i) {
+              if (aggressiveness < 0.0f) {
+                float t = -aggressiveness;
+                morphedPtr[i] =
+                    (meanProfile[i] * (1.0f - t)) + (medianProfile[i] * t);
+              } else {
+                float t = aggressiveness;
+                morphedPtr[i] = meanProfile[i] + (stdProfile[i] * t * 2.0f);
+              }
+              morphedPtr[i] = std::max(morphedPtr[i], 0.0f);
+              // Apply threshold offsets (broadband + tonal) as in
+              // denoiser_profile_core
+              float scale = profileScale;
+              // For silent display, tonal mask not critical, use broadband only
+              morphedPtr[i] *= scale;
+            }
+            // Resample morphed profile to kFftBins and convert to dB
             size_t realProfileBins = profileSize;
             const float maxProfileIdx = static_cast<float>(realProfileBins - 1);
             const float maxFftIdx = static_cast<float>(kFftBins - 1);
@@ -1385,8 +1376,8 @@ void NoiseRepellentAudioProcessor::processBlock(
                              static_cast<size_t>(0), realProfileBins - 1);
               size_t p1 = std::min(p0 + 1, realProfileBins - 1);
               float frac = exactP - static_cast<float>(p0);
-              float interpVal = (1.0f - frac) * actualNoiseProfile[p0] +
-                                frac * actualNoiseProfile[p1];
+              float interpVal =
+                  (1.0f - frac) * morphedPtr[p0] + frac * morphedPtr[p1];
               float rawDb = 10.0f * std::log10(std::max(interpVal, 1e-12f));
               frame.noiseFloorDB[i] = rawDb - dbOffset;
             }
