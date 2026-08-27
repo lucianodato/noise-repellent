@@ -1384,6 +1384,33 @@ void NoiseRepellentAudioProcessor::processBlock(
           } else {
             frame.noiseFloorDB.fill(-120.0f);
           }
+          // Tonal peaks for silent when unlinked
+          if ((!frame.isLinked || !frame.isOffsetLinked) &&
+              frame.hasNoiseProfile) {
+            auto* peakGroup = srcGroup;
+            if (peakGroup == nullptr) {
+              peakGroup = activeGroupFor(currentAlgoMode.load());
+              if (peakGroup == nullptr ||
+                  !specbleach_stereo_profile_available_for_channel(peakGroup,
+                                                                   0u, 1)) {
+                auto* other = (currentAlgoMode.load() == 0)
+                                  ? nlmGroup.get()
+                                  : spectralGroup.get();
+                if (other != nullptr &&
+                    specbleach_stereo_profile_available_for_channel(other, 0u,
+                                                                    1))
+                  peakGroup = other;
+              }
+            }
+            if (peakGroup != nullptr) {
+              std::array<float, 32> peakBuf{};
+              uint32_t numPeaks = specbleach_stereo_get_tonal_peaks_for_channel(
+                  peakGroup, 0u, peakBuf.data(),
+                  static_cast<uint32_t>(peakBuf.size()));
+              for (uint32_t i = 0; i < numPeaks; ++i)
+                frame.tonalPeaksHz.push_back(peakBuf[i]);
+            }
+          }
         } else {
           frame.noiseFloorDB.fill(-120.0f);
           frame.hasNoiseProfile = false;
