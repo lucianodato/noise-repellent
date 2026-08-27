@@ -1345,26 +1345,6 @@ void NoiseRepellentAudioProcessor::processBlock(
             std::array<float, 2048> morphed{};
             float* morphedPtr = morphed.data();
             // Replicate get_morphed_profile logic
-            // Fetch tonal mask for per-bin threshold blending (as in
-            // denoiser_profile_core). Use srcGroup's mask, fallback to other.
-            const float* tonalMask = nullptr;
-            bool tonalActive = tonalProfileScale != 1.0f;
-            if (tonalActive) {
-              auto* maskGroup = srcGroup;
-              if (maskGroup != nullptr)
-                tonalMask =
-                    specbleach_stereo_get_tonal_mask_for_channel(maskGroup, 0u);
-              if (tonalMask == nullptr) {
-                auto* other = (currentAlgoMode.load() == 0)
-                                  ? nlmGroup.get()
-                                  : spectralGroup.get();
-                if (other != nullptr && other != maskGroup)
-                  tonalMask =
-                      specbleach_stereo_get_tonal_mask_for_channel(other, 0u);
-              }
-              if (tonalMask == nullptr)
-                tonalActive = false;
-            }
             for (uint32_t i = 0; i < profileSize && i < morphed.size(); ++i) {
               if (aggressiveness < 0.0f) {
                 float t = -aggressiveness;
@@ -1375,14 +1355,100 @@ void NoiseRepellentAudioProcessor::processBlock(
                 morphedPtr[i] = meanProfile[i] + (stdProfile[i] * t * 2.0f);
               }
               morphedPtr[i] = std::max(morphedPtr[i], 0.0f);
-              float scale = profileScale;
-              if (tonalActive && tonalMask != nullptr && tonalMask[i] > 0.0f) {
-                float mask = std::min(tonalMask[i], 1.0f);
-                mask = std::sqrt(std::sqrt(mask));
-                scale =
-                    (profileScale * (1.0f - mask)) + (tonalProfileScale * mask);
+            }
+            // Apply threshold offsets per-bin. When unlinked and silent, the
+            // new 2D engine's tonalMask is still empty (never run), so
+            // broadband only would hide tonal scaling. Build a mask from peaks
+            // instead.
+            {
+              bool tonalActive = tonalProfileScale != 1.0f;
+              const float* tonalMask = nullptr;
+              if (tonalActive) {
+                auto* maskGroup = srcGroup;
+                if (maskGroup != nullptr)
+                  tonalMask = specbleach_stereo_get_tonal_mask_for_channel(
+                      maskGroup, 0u);
+                if (tonalMask == nullptr) {
+                  auto* other = (currentAlgoMode.load() == 0)
+                                    ? nlmGroup.get()
+                                    : spectralGroup.get();
+                  if (other != nullptr && other != maskGroup)
+                    tonalMask =
+                        specbleach_stereo_get_tonal_mask_for_channel(other, 0u);
+                }
+                // If mask is present but all zeros (new engine never ran),
+                // treat as empty
+                if (tonalMask != nullptr) {
+                  float maxMask = 0.0f;
+                  for (uint32_t k = 0; k < profileSize; ++k)
+                    if (tonalMask[k] > maxMask)
+                      maxMask = tonalMask[k];
+                  if (maxMask < 1e-6f)
+                    tonalMask = nullptr;
+                }
+                if (tonalMask == nullptr)
+                  tonalActive = false;
               }
-              morphedPtr[i] *= scale;
+              // If tonal mask still empty but we have peaks and thresholds
+              // unlinked, synthesize a simple mask from peaks (first silent
+              // switch case)
+              std::array<float, 2048> synthMask{};
+              if (tonalActive && tonalMask == nullptr &&
+                  (!frame.isLinked || !frame.isOffsetLinked) && haveProfiles) {
+                // Try to get peaks from srcGroup/other and build mask
+                auto tryPeaksForMask = [&](auto* grp) -> bool {
+                  if (grp == nullptr)
+                    return false;
+                  std::array<float, 32> pb{};
+                  uint32_t n = specbleach_stereo_get_tonal_peaks_for_channel(
+                      grp, 0u, pb.data(), static_cast<uint32_t>(pb.size()));
+                  if (n == 0)
+                    return false;
+                  for (uint32_t pi = 0; pi < n; ++pi) {
+                    // Convert Hz to bin
+                    float freq = pb[pi];
+                    // Use profile's fftSize derived from profileSize
+                    uint32_t fftSize =
+                        profileSize > 1 ? (profileSize - 1) * 2 : 2048;
+                    float bin =
+                        freq * (float)fftSize / (float)currentSampleRate;
+                    int ibin = static_cast<int>(std::round(bin));
+                    for (int d = -2; d <= 2; ++d) {
+                      int b = ibin + d;
+                      if (b >= 0 && (uint32_t)b < profileSize)
+                        synthMask[b] = 1.0f;
+                    }
+                  }
+                  return true;
+                };
+                bool gotMask = false;
+                if (srcGroup != nullptr)
+                  gotMask = tryPeaksForMask(srcGroup);
+                if (!gotMask) {
+                  auto* other = (currentAlgoMode.load() == 0)
+                                    ? nlmGroup.get()
+                                    : spectralGroup.get();
+                  if (other != nullptr)
+                    gotMask = tryPeaksForMask(other);
+                }
+                if (gotMask) {
+                  tonalMask = synthMask.data();
+                  tonalActive = true;
+                } else {
+                  tonalActive = false;
+                }
+              }
+              for (uint32_t i = 0; i < profileSize && i < morphed.size(); ++i) {
+                float scale = profileScale;
+                if (tonalActive && tonalMask != nullptr &&
+                    tonalMask[i] > 0.0f) {
+                  float mask = std::min(tonalMask[i], 1.0f);
+                  mask = std::sqrt(std::sqrt(mask));
+                  scale = (profileScale * (1.0f - mask)) +
+                          (tonalProfileScale * mask);
+                }
+                morphedPtr[i] *= scale;
+              }
             }
             // Resample morphed profile to kFftBins and convert to dB
             size_t realProfileBins = profileSize;
