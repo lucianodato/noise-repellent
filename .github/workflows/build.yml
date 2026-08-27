@@ -60,11 +60,13 @@ jobs:
       - name: Generate Coverage Report
         run: |
           gcovr --xml build-test/coverage.xml -r . \
+            --filter 'Source/.*' \
             -e 'Source/Tests/.*' \
             -e 'subprojects/.*' \
             -e '_deps/.*' \
             -e 'build-test/.*' \
-            --gcov-ignore-parse-errors negative_hits.warn_once_per_file
+            --gcov-ignore-errors=no_working_dir_found \
+            --gcov-ignore-parse-errors=all
 
       - name: Upload Coverage to Codecov
         uses: codecov/codecov-action@v5
