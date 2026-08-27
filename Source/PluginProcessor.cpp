@@ -1250,11 +1250,51 @@ void NoiseRepellentAudioProcessor::processBlock(
   dryWetMixer.setWetMixProportion(isBypassed ? 0.0f : 1.0f);
   dryWetMixer.mixWetSamples(audioBlock);
 
-  // Skip FFT analysis and FIFO writes during offline rendering, if the GUI is
-  // closed, or when input is silent and not learning (saves ~4096 FFT per
-  // 1024 samples when no playback).
-  if (isNonRealtime() || getActiveEditor() == nullptr || isSilent) {
+  // Skip FFT analysis and FIFO writes during offline rendering or if the GUI
+  // is closed
+  if (isNonRealtime() || getActiveEditor() == nullptr) {
     fftAccumCount = 0;
+    return;
+  }
+
+  // When input is silent and not learning, skip heavy 4096 FFT but push a
+  // cheap silent frame so the display falls to -120 dB instead of freezing
+  // on the last non-silent spectrum.
+  if (isSilent) {
+    fftAccumCount = 0;
+    if ((++silenceVisualCounter % 4) == 0) {
+      int start1, size1, start2, size2;
+      spectralFifo.prepareToWrite(1, start1, size1, start2, size2);
+      if (size1 > 0) {
+        SpectralFrame& frame = spectralBuffer[static_cast<size_t>(start1)];
+        frame.inputMagnitudeDB.fill(-120.0f);
+        frame.outputMagnitudeDB.fill(-120.0f);
+        frame.noiseFloorDB.fill(-120.0f);
+        frame.hasNoiseProfile = false;
+        frame.isLinked =
+            (parameters.getRawParameterValue("link_reduction")->load() > 0.5f);
+        frame.isOffsetLinked =
+            (parameters.getRawParameterValue("link_threshold_offset")->load() >
+             0.5f);
+        frame.reductionCurveEnabled =
+            (parameters.getRawParameterValue("reduction_curve_enabled")
+                 ->load() > 0.5f);
+        frame.transientIntensity = 0.0f;
+        frame.isTransientProtected = false;
+        frame.isTransientProtectionActive = transientProtectionEnable;
+        frame.tonalPeaksHz.clear();
+        // Keep noise floor visible if a profile was learned: show it even
+        // when input is silent so the user still sees the captured curve
+        // falling behind the now -120 dB input/output.
+        if (hasNoiseProfile()) {
+          // Reuse last learned profile for noiseFloor display (optional)
+          // For now keep -120 to make all three fall; comment to keep profile:
+          // (visualizer will show -120 input/output vs -xx noiseFloor if
+          // hasNoiseProfile true, tonal peaks still cleared)
+        }
+        spectralFifo.finishedWrite(1);
+      }
+    }
     return;
   }
 

@@ -28,10 +28,11 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "specbleach.hpp" // self-guarding for C++; do NOT wrap in extern "C"
 #include "specbleach_version.h"
 
-class NoiseRepellentAudioProcessor : public juce::AudioProcessor,
-                                     private juce::Timer,
-                                     private juce::AudioProcessorValueTreeState::Listener,
-                                     private juce::AsyncUpdater {
+class NoiseRepellentAudioProcessor
+    : public juce::AudioProcessor,
+      private juce::Timer,
+      private juce::AudioProcessorValueTreeState::Listener,
+      private juce::AsyncUpdater {
 public:
   NoiseRepellentAudioProcessor();
   ~NoiseRepellentAudioProcessor() override;
@@ -183,8 +184,8 @@ private:
   int stageSamplesRemaining = 0;
   int warmSamplesTotal = 0;
   int xfadeSamplesTotal = 0;
-  static constexpr int kWarmupMs = 700;   // >= NLM 64-frame history depth
-  static constexpr int kXFadeMs = 30;     // short gapless crossfade
+  static constexpr int kWarmupMs = 700; // >= NLM 64-frame history depth
+  static constexpr int kXFadeMs = 30;   // short gapless crossfade
   // Host PDC splice deferred until transport stopped (!isPlaying) for gapless
   // A/B - effective during Warming+XFade is max(old,new) via wetCompDelay.
   float xfadeProgress = 0.0f;
@@ -263,12 +264,14 @@ private:
   std::array<float, kFftSize> fftAccumOutput{};
   std::array<float, kFftSize> fftAccumTransient{};
   size_t fftAccumCount = 0;
+  uint32_t silenceVisualCounter = 0;
 
   // Latency-compensated delay line for input FFT visualization
   std::vector<float> visualizerDelayBuffer;
   size_t visualizerDelayWritePos = 0;
   uint32_t currentLatency = 0;
-  uint32_t lastReportedLatency = 0; // variable, deferred until transport stop (gapless compare)
+  uint32_t lastReportedLatency =
+      0; // variable, deferred until transport stop (gapless compare)
 
   // Internal wet delay to pad to lastReportedLatency when engine switch is
   // deferred (e.g. 2D->1D high->low while playing). Reported stays high,
