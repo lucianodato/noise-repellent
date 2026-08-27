@@ -1258,8 +1258,8 @@ void NoiseRepellentAudioProcessor::processBlock(
   }
 
   // When input is silent and not learning, skip heavy 4096 FFT but push a
-  // cheap silent frame so the display falls to -120 dB instead of freezing
-  // on the last non-silent spectrum.
+  // cheap silent frame so input/output fall to -120 dB while the learned
+  // noise profile stays frozen (only reset clears it).
   if (isSilent) {
     fftAccumCount = 0;
     if ((++silenceVisualCounter % 4) == 0) {
@@ -1269,8 +1269,6 @@ void NoiseRepellentAudioProcessor::processBlock(
         SpectralFrame& frame = spectralBuffer[static_cast<size_t>(start1)];
         frame.inputMagnitudeDB.fill(-120.0f);
         frame.outputMagnitudeDB.fill(-120.0f);
-        frame.noiseFloorDB.fill(-120.0f);
-        frame.hasNoiseProfile = false;
         frame.isLinked =
             (parameters.getRawParameterValue("link_reduction")->load() > 0.5f);
         frame.isOffsetLinked =
@@ -1283,14 +1281,65 @@ void NoiseRepellentAudioProcessor::processBlock(
         frame.isTransientProtected = false;
         frame.isTransientProtectionActive = transientProtectionEnable;
         frame.tonalPeaksHz.clear();
-        // Keep noise floor visible if a profile was learned: show it even
-        // when input is silent so the user still sees the captured curve
-        // falling behind the now -120 dB input/output.
+        // Keep learned noise profile frozen while input/output fall
         if (hasNoiseProfile()) {
-          // Reuse last learned profile for noiseFloor display (optional)
-          // For now keep -120 to make all three fall; comment to keep profile:
-          // (visualizer will show -120 input/output vs -xx noiseFloor if
-          // hasNoiseProfile true, tonal peaks still cleared)
+          frame.hasNoiseProfile = true;
+          // Fill noiseFloor from learned profile (cheap vs 4096 FFT)
+          const float* actualNoiseProfile = nullptr;
+          uint32_t profileSize = 0;
+          bool profileAvailable = false;
+          if (auto* vizGroup = activeGroupFor(currentAlgoMode)) {
+            // Prefer any learned static profile for frozen display
+            for (int mode = SPECBLEACH_PROFILE_MODE_FIRST;
+                 mode <= SPECBLEACH_PROFILE_MODE_LAST; ++mode) {
+              if (specbleach_stereo_profile_available_for_channel(vizGroup, 0u,
+                                                                  mode)) {
+                actualNoiseProfile =
+                    specbleach_stereo_get_noise_profile_for_channel(vizGroup,
+                                                                    0u, mode);
+                profileSize =
+                    specbleach_stereo_get_noise_profile_size(vizGroup);
+                if (actualNoiseProfile != nullptr && profileSize > 0) {
+                  profileAvailable = true;
+                  break;
+                }
+              }
+            }
+            if (!profileAvailable) {
+              actualNoiseProfile =
+                  specbleach_stereo_get_active_noise_profile_for_channel(
+                      vizGroup, 0u);
+              profileSize = specbleach_stereo_get_noise_profile_size(vizGroup);
+              profileAvailable =
+                  (actualNoiseProfile != nullptr && profileSize > 0);
+            }
+          }
+          if (profileAvailable && actualNoiseProfile != nullptr) {
+            size_t realProfileBins = profileSize;
+            const float maxProfileIdx = static_cast<float>(realProfileBins - 1);
+            const float maxFftIdx = static_cast<float>(kFftBins - 1);
+            const float dbOffset = (maxProfileIdx > 0.0f)
+                                       ? (20.0f * std::log10(maxProfileIdx))
+                                       : 0.0f;
+            for (size_t i = 0; i < kFftBins; ++i) {
+              float normPos = static_cast<float>(i) / maxFftIdx;
+              float exactP = normPos * maxProfileIdx;
+              size_t p0 =
+                  std::clamp(static_cast<size_t>(exactP),
+                             static_cast<size_t>(0), realProfileBins - 1);
+              size_t p1 = std::min(p0 + 1, realProfileBins - 1);
+              float frac = exactP - static_cast<float>(p0);
+              float interpVal = (1.0f - frac) * actualNoiseProfile[p0] +
+                                frac * actualNoiseProfile[p1];
+              float rawDb = 10.0f * std::log10(std::max(interpVal, 1e-12f));
+              frame.noiseFloorDB[i] = rawDb - dbOffset;
+            }
+          } else {
+            frame.noiseFloorDB.fill(-120.0f);
+          }
+        } else {
+          frame.noiseFloorDB.fill(-120.0f);
+          frame.hasNoiseProfile = false;
         }
         spectralFifo.finishedWrite(1);
       }
