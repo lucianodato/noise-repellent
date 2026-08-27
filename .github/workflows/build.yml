@@ -5,6 +5,8 @@ on:
   push:
     tags:
       - "v*.*.*"
+    branches:
+      - main
   pull_request:
     branches:
       - "*"
@@ -13,6 +15,64 @@ env:
   CCACHE_SLOPPINESS: include_file_ctime,include_file_mtime,time_macros
 
 jobs:
+  test-linux:
+    name: Test & Coverage (Linux)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Install System Dependencies & Build Tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -qq -y \
+            build-essential cmake ninja-build gcovr xvfb \
+            libasound2-dev libjack-jackd2-dev libgl1-mesa-dev \
+            libx11-dev libxcomposite-dev libxcursor-dev libxext-dev \
+            libxinerama-dev libxrandr-dev libfontconfig1-dev libfreetype6-dev
+
+      - name: Setup ccache
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: ${{ runner.os }}-test-ccache
+          max-size: 2000M
+          verbose: 2
+
+      - name: Configure CMake
+        run: |
+          cmake -B build-test -G "Ninja" \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DENABLE_PLUGIN_TESTS=ON \
+            -DENABLE_COVERAGE=ON \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+
+      - name: Build Test Executables
+        run: |
+          cmake --build build-test --target test_ux_invariants test_performance -j4
+
+      - name: Run Test Suite
+        run: |
+          xvfb-run ctest --test-dir build-test --output-on-failure
+
+      - name: Generate Coverage Report
+        run: |
+          gcovr --xml build-test/coverage.xml -r . \
+            -e 'Source/Tests/.*' \
+            -e 'subprojects/.*' \
+            -e '_deps/.*' \
+            -e 'build-test/.*' \
+            --gcov-ignore-parse-errors negative_hits.warn_once_per_file
+
+      - name: Upload Coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: build-test/coverage.xml
+          fail_ci_if_error: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+
   build-macos:
     name: macOS (Universal arm64 + x86_64)
     runs-on: macos-latest

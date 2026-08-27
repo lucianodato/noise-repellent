@@ -971,8 +971,16 @@ void NoiseRepellentAudioProcessor::processBlock(
   juce::dsp::AudioBlock<float> audioBlock(buffer);
   dryWetMixer.pushDrySamples(audioBlock);
 
-  if (isBypassed) {
-    // Bypassed: skip all specbleach STFT+denoise
+  const bool hasProfile = hasNoiseProfile();
+  const bool canSkipDenoise =
+      isSilent && !hasProfile && !adaptiveNoise && !learnNoise && !switchingNow;
+
+  if (isBypassed || canSkipDenoise) {
+    // Skip specbleach STFT, denoise, and compensation delay when bypassed
+    // or when silent with no noise profile or adaptive estimation active.
+    if (canSkipDenoise) {
+      buffer.clear();
+    }
   } else if (!switchingNow) {
     // Steady state: gapless with deferred PDC (lastReported may be high)
     auto* activeGroup = activeGroupFor(currentAlgoMode.load());
@@ -1356,88 +1364,50 @@ void NoiseRepellentAudioProcessor::processBlock(
               }
               morphedPtr[i] = std::max(morphedPtr[i], 0.0f);
             }
-            // Apply threshold offsets per-bin. When unlinked and silent, the
-            // new 2D engine's tonalMask is still empty (never run), so
-            // broadband only would hide tonal scaling. Build a mask from peaks
-            // instead.
+            // Apply threshold offsets per-bin using exact CV tonal mask
             {
               bool tonalActive = tonalProfileScale != 1.0f;
               const float* tonalMask = nullptr;
               if (tonalActive) {
-                auto* maskGroup = srcGroup;
-                if (maskGroup != nullptr)
-                  tonalMask = specbleach_stereo_get_tonal_mask_for_channel(
-                      maskGroup, 0u);
-                if (tonalMask == nullptr) {
-                  auto* other = (currentAlgoMode.load() == 0)
-                                    ? nlmGroup.get()
-                                    : spectralGroup.get();
-                  if (other != nullptr && other != maskGroup)
-                    tonalMask =
-                        specbleach_stereo_get_tonal_mask_for_channel(other, 0u);
+                // For manual profiles, CV_MASK (cvProfile) is the exact tonal
+                // mask used by libspecbleach denoiser core
+                if (cvProfile != nullptr) {
+                  float maxCv = 0.0f;
+                  for (uint32_t k = 0; k < profileSize; ++k) {
+                    if (cvProfile[k] > maxCv) {
+                      maxCv = cvProfile[k];
+                    }
+                  }
+                  if (maxCv > 1e-6f) {
+                    tonalMask = cvProfile;
+                  }
                 }
-                // If mask is present but all zeros (new engine never ran),
-                // treat as empty
-                if (tonalMask != nullptr) {
-                  float maxMask = 0.0f;
-                  for (uint32_t k = 0; k < profileSize; ++k)
-                    if (tonalMask[k] > maxMask)
-                      maxMask = tonalMask[k];
-                  if (maxMask < 1e-6f)
-                    tonalMask = nullptr;
+                // Fallback to active group's live tonal mask if cvProfile was
+                // empty
+                if (tonalMask == nullptr) {
+                  auto* maskGroup = srcGroup;
+                  if (maskGroup != nullptr)
+                    tonalMask = specbleach_stereo_get_tonal_mask_for_channel(
+                        maskGroup, 0u);
+                  if (tonalMask == nullptr) {
+                    auto* other = (currentAlgoMode.load() == 0)
+                                      ? nlmGroup.get()
+                                      : spectralGroup.get();
+                    if (other != nullptr && other != maskGroup)
+                      tonalMask = specbleach_stereo_get_tonal_mask_for_channel(
+                          other, 0u);
+                  }
+                  if (tonalMask != nullptr) {
+                    float maxMask = 0.0f;
+                    for (uint32_t k = 0; k < profileSize; ++k)
+                      if (tonalMask[k] > maxMask)
+                        maxMask = tonalMask[k];
+                    if (maxMask < 1e-6f)
+                      tonalMask = nullptr;
+                  }
                 }
                 if (tonalMask == nullptr)
                   tonalActive = false;
-              }
-              // If tonal mask still empty but we have peaks and thresholds
-              // unlinked, synthesize a simple mask from peaks (first silent
-              // switch case)
-              std::array<float, 2048> synthMask{};
-              if (tonalMask == nullptr &&
-                  (!frame.isLinked || !frame.isOffsetLinked) && haveProfiles &&
-                  tonalProfileScale != 1.0f) {
-                // Try to get peaks from srcGroup/other and build mask
-                auto tryPeaksForMask = [&](auto* grp) -> bool {
-                  if (grp == nullptr)
-                    return false;
-                  std::array<float, 32> pb{};
-                  uint32_t n = specbleach_stereo_get_tonal_peaks_for_channel(
-                      grp, 0u, pb.data(), static_cast<uint32_t>(pb.size()));
-                  if (n == 0)
-                    return false;
-                  for (uint32_t pi = 0; pi < n; ++pi) {
-                    // Convert Hz to bin
-                    float freq = pb[pi];
-                    // Use profile's fftSize derived from profileSize
-                    uint32_t fftSize =
-                        profileSize > 1 ? (profileSize - 1) * 2 : 2048;
-                    float bin =
-                        freq * (float)fftSize / (float)currentSampleRate;
-                    int ibin = static_cast<int>(std::round(bin));
-                    for (int d = -2; d <= 2; ++d) {
-                      int b = ibin + d;
-                      if (b >= 0 && (uint32_t)b < profileSize)
-                        synthMask[b] = 1.0f;
-                    }
-                  }
-                  return true;
-                };
-                bool gotMask = false;
-                if (srcGroup != nullptr)
-                  gotMask = tryPeaksForMask(srcGroup);
-                if (!gotMask) {
-                  auto* other = (currentAlgoMode.load() == 0)
-                                    ? nlmGroup.get()
-                                    : spectralGroup.get();
-                  if (other != nullptr)
-                    gotMask = tryPeaksForMask(other);
-                }
-                if (gotMask) {
-                  tonalMask = synthMask.data();
-                  tonalActive = true;
-                } else {
-                  tonalActive = false;
-                }
               }
               for (uint32_t i = 0; i < profileSize && i < morphed.size(); ++i) {
                 float scale = profileScale;
