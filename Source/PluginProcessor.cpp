@@ -1402,13 +1402,32 @@ void NoiseRepellentAudioProcessor::processBlock(
                   peakGroup = other;
               }
             }
-            if (peakGroup != nullptr) {
+            bool gotPeaks = false;
+            auto tryPeaks = [&](auto* grp) -> bool {
+              if (grp == nullptr)
+                return false;
               std::array<float, 32> peakBuf{};
-              uint32_t numPeaks = specbleach_stereo_get_tonal_peaks_for_channel(
-                  peakGroup, 0u, peakBuf.data(),
+              uint32_t n = specbleach_stereo_get_tonal_peaks_for_channel(
+                  grp, 0u, peakBuf.data(),
                   static_cast<uint32_t>(peakBuf.size()));
-              for (uint32_t i = 0; i < numPeaks; ++i)
+              if (n == 0)
+                return false;
+              for (uint32_t i = 0; i < n; ++i)
                 frame.tonalPeaksHz.push_back(peakBuf[i]);
+              return true;
+            };
+            if (peakGroup != nullptr)
+              gotPeaks = tryPeaks(peakGroup);
+            if (!gotPeaks) {
+              auto* active = activeGroupFor(currentAlgoMode.load());
+              if (active != nullptr && active != peakGroup)
+                gotPeaks = tryPeaks(active);
+            }
+            if (!gotPeaks) {
+              auto* other = (currentAlgoMode.load() == 0) ? nlmGroup.get()
+                                                          : spectralGroup.get();
+              if (other != nullptr && other != peakGroup)
+                tryPeaks(other);
             }
           }
         } else {
