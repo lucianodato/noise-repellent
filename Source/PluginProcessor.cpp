@@ -1281,37 +1281,57 @@ void NoiseRepellentAudioProcessor::processBlock(
         frame.isTransientProtected = false;
         frame.isTransientProtectionActive = transientProtectionEnable;
         frame.tonalPeaksHz.clear();
-        // Keep learned noise profile frozen while input/output fall
-        if (hasNoiseProfile()) {
+        // Keep learned noise profile frozen while input/output fall — use
+        // same active-profile logic as the normal FFT path so the line does
+        // not jump when playback starts/stops.
+        bool profileHasAnyMode = false;
+        if (auto* vizGroup = activeGroupFor(currentAlgoMode)) {
+          for (int mode = SPECBLEACH_PROFILE_MODE_FIRST;
+               mode <= SPECBLEACH_PROFILE_MODE_LAST; ++mode) {
+            if (specbleach_stereo_profile_available_for_channel(vizGroup, 0u,
+                                                                mode)) {
+              profileHasAnyMode = true;
+              break;
+            }
+          }
+        }
+        if (hasNoiseProfile() && profileHasAnyMode) {
           frame.hasNoiseProfile = true;
-          // Fill noiseFloor from learned profile (cheap vs 4096 FFT)
           const float* actualNoiseProfile = nullptr;
           uint32_t profileSize = 0;
           bool profileAvailable = false;
           if (auto* vizGroup = activeGroupFor(currentAlgoMode)) {
-            // Prefer any learned static profile for frozen display
-            for (int mode = SPECBLEACH_PROFILE_MODE_FIRST;
-                 mode <= SPECBLEACH_PROFILE_MODE_LAST; ++mode) {
-              if (specbleach_stereo_profile_available_for_channel(vizGroup, 0u,
-                                                                  mode)) {
-                actualNoiseProfile =
-                    specbleach_stereo_get_noise_profile_for_channel(vizGroup,
-                                                                    0u, mode);
-                profileSize =
-                    specbleach_stereo_get_noise_profile_size(vizGroup);
-                if (actualNoiseProfile != nullptr && profileSize > 0) {
-                  profileAvailable = true;
-                  break;
-                }
-              }
-            }
-            if (!profileAvailable) {
+            bool isAdaptive = adaptiveNoise;
+            bool isLearning = learnNoise;
+            if (isLearning) {
+              actualNoiseProfile =
+                  specbleach_stereo_get_noise_profile_for_channel(vizGroup, 0u,
+                                                                  1);
+              profileSize = specbleach_stereo_get_noise_profile_size(vizGroup);
+              profileAvailable =
+                  (actualNoiseProfile != nullptr && profileSize > 0);
+            } else if (isAdaptive || profileHasAnyMode) {
               actualNoiseProfile =
                   specbleach_stereo_get_active_noise_profile_for_channel(
                       vizGroup, 0u);
               profileSize = specbleach_stereo_get_noise_profile_size(vizGroup);
               profileAvailable =
                   (actualNoiseProfile != nullptr && profileSize > 0);
+              if (!profileAvailable) {
+                for (int mode = SPECBLEACH_PROFILE_MODE_FIRST;
+                     mode <= SPECBLEACH_PROFILE_MODE_LAST; ++mode) {
+                  if (specbleach_stereo_profile_available_for_channel(
+                          vizGroup, 0u, mode)) {
+                    actualNoiseProfile =
+                        specbleach_stereo_get_noise_profile_for_channel(
+                            vizGroup, 0u, mode);
+                    if (actualNoiseProfile != nullptr)
+                      break;
+                  }
+                }
+                profileAvailable =
+                    (actualNoiseProfile != nullptr && profileSize > 0);
+              }
             }
           }
           if (profileAvailable && actualNoiseProfile != nullptr) {
