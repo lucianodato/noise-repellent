@@ -8,6 +8,7 @@ This file contains foundational mandates and architectural context for AI agents
 2. **Bypass Fidelity**: All bypass transitions must use native `juce::dsp::DryWetMixer<float>` to prevent pops/clicks and maintain latency alignment (`setWetLatency`) with host delay compensation.
 3. **APVTS & Parameter Management**: Parameter changes must go through `juce::AudioProcessorValueTreeState`. Parameter IDs defined in `PluginProcessor` layout must match key strings used in state serialization and GUI attachments.
 4. **License**: Code in `Source/` is licensed under GPL-3.0-or-later. Include standard license headers on all new source files.
+5. **UX & Invariant Preservation**: All changes must preserve the contracts defined in [docs/UX_INVARIANTS.md](docs/UX_INVARIANTS.md). Always verify with `test_ux_invariants` (`-DENABLE_PLUGIN_TESTS=ON`).
 
 ## Project Structure & Workflow
 

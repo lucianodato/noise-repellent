@@ -58,6 +58,7 @@ private:
   std::array<float, NoiseRepellentAudioProcessor::kFftBins> smoothedInputDB;
   std::array<float, NoiseRepellentAudioProcessor::kFftBins> smoothedOutputDB;
   bool isSmoothedInitialized = false;
+  int idleTicks = 0;
 
   float ledBrightness = 0.0f;
   int transientHoldTicks = 0;

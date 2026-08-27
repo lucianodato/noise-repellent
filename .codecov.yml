@@ -1,0 +1,18 @@
+coverage:
+  status:
+    project:
+      default:
+        target: auto
+        threshold: 1%
+    patch:
+      default:
+        target: auto
+        threshold: 1%
+
+ignore:
+  - "Source/Tests"
+  - "subprojects"
+  - "build"
+  - "build-test"
+  - "_deps"
+  - "docs"

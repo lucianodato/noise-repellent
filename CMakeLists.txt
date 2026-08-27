@@ -20,6 +20,15 @@ set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 option(USE_SYSTEM_FREETYPE   "Use system-installed FreeType library"   OFF)
 option(USE_SYSTEM_SPECBLEACH "Use system-installed libspecbleach"      OFF)
 option(USE_SYSTEM_JUCE       "Use system-installed JUCE library"       OFF)
+option(ENABLE_PLUGIN_TESTS   "Build plugin unit tests"                 ON)
+option(ENABLE_COVERAGE       "Enable code coverage instrumentation"    OFF)
+
+include(CTest)
+
+if(ENABLE_COVERAGE AND NOT MSVC)
+    add_compile_options(--coverage -O0)
+    add_link_options(--coverage)
+endif()
 
 if(UNIX AND NOT APPLE)
     # Statically link GCC runtimes AND hide all symbols inside static archives (-Wl,--exclude-libs,ALL)
@@ -389,5 +398,91 @@ if(TARGET NoiseRepellent_LV2)
         COMPONENT LV2
     )
 endif()
+
+# ==============================================================================
+# 9. Unit Tests
+# ==============================================================================
+if(ENABLE_PLUGIN_TESTS OR BUILD_TESTING)
+    add_executable(test_ux_invariants
+        Source/Tests/test_ux_invariants.cpp
+        Source/PluginProcessor.cpp
+        Source/PluginEditor.cpp
+        Source/GUI/LookAndFeel.cpp
+        Source/GUI/SpectralVisualizer.cpp
+    )
+    target_compile_definitions(test_ux_invariants PRIVATE
+        JUCE_MODAL_LOOPS_PERMITTED=1
+        JucePlugin_Name="Noise Repellent"
+        JUCE_WEB_BROWSER=0
+        JUCE_USE_CURL=0
+        JUCE_VST3_CAN_REPLACE_VST2=0
+    )
+    target_include_directories(test_ux_invariants PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/Source
+        ${SPECBLEACH_SRC}/include
+        ${SPECBLEACH_SRC}/extras/include
+    )
+    target_link_libraries(test_ux_invariants PRIVATE
+        ${SPECBLEACH_TARGET}
+        ${SPECBLEACH_EXTRAS_TARGET}
+        juce::juce_audio_utils
+        juce::juce_audio_processors
+        juce::juce_dsp
+        juce::juce_gui_extra
+        juce::juce_gui_basics
+        juce::juce_graphics
+        juce::juce_events
+        juce::juce_core
+    )
+    if(UNIX AND NOT APPLE)
+        if(USE_SYSTEM_FREETYPE)
+            target_link_libraries(test_ux_invariants PRIVATE Freetype::Freetype)
+        elseif(NOT USE_SYSTEM_JUCE)
+            target_link_libraries(test_ux_invariants PRIVATE freetype)
+        endif()
+    endif()
+    add_test(NAME test_ux_invariants COMMAND test_ux_invariants)
+
+    add_executable(test_performance
+        Source/Tests/test_performance.cpp
+        Source/PluginProcessor.cpp
+        Source/PluginEditor.cpp
+        Source/GUI/LookAndFeel.cpp
+        Source/GUI/SpectralVisualizer.cpp
+    )
+    target_compile_definitions(test_performance PRIVATE
+        JUCE_MODAL_LOOPS_PERMITTED=1
+        JucePlugin_Name="Noise Repellent"
+        JUCE_WEB_BROWSER=0
+        JUCE_USE_CURL=0
+        JUCE_VST3_CAN_REPLACE_VST2=0
+    )
+    target_include_directories(test_performance PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/Source
+        ${SPECBLEACH_SRC}/include
+        ${SPECBLEACH_SRC}/extras/include
+    )
+    target_link_libraries(test_performance PRIVATE
+        ${SPECBLEACH_TARGET}
+        ${SPECBLEACH_EXTRAS_TARGET}
+        juce::juce_audio_utils
+        juce::juce_audio_processors
+        juce::juce_dsp
+        juce::juce_gui_extra
+        juce::juce_gui_basics
+        juce::juce_graphics
+        juce::juce_events
+        juce::juce_core
+    )
+    if(UNIX AND NOT APPLE)
+        if(USE_SYSTEM_FREETYPE)
+            target_link_libraries(test_performance PRIVATE Freetype::Freetype)
+        elseif(NOT USE_SYSTEM_JUCE)
+            target_link_libraries(test_performance PRIVATE freetype)
+        endif()
+    endif()
+    add_test(NAME test_performance COMMAND test_performance)
+endif()
+
 
 

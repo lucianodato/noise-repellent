@@ -89,7 +89,13 @@ void SpectralVisualizerComponent::timerCallback() {
     }
   }
 
-  repaint();
+  if (frameReceived || transientHoldTicks > 0 || ledBrightness > 0.0f) {
+    idleTicks = 0;
+    repaint();
+  } else if (idleTicks < 30) {
+    idleTicks++;
+    repaint();
+  }
 }
 
 void SpectralVisualizerComponent::resized() {
