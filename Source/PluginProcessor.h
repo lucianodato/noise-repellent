@@ -179,16 +179,18 @@ private:
   // splice is deferred until after the crossfade. Previous
   // FadeOut/WarmSilent/FadeIn with mute is replaced to avoid audible gap.
   enum class SwitchPhase { Steady, Warming, XFade };
-  SwitchPhase switchPhase = SwitchPhase::Steady;
-  int switchFromMode = 0; // family heard during Warming
-  int stageSamplesRemaining = 0;
-  int warmSamplesTotal = 0;
-  int xfadeSamplesTotal = 0;
+  std::atomic<SwitchPhase> switchPhase{SwitchPhase::Steady};
+  std::atomic<int> switchFromMode{0}; // family heard during Warming
+  std::atomic<int> stageSamplesRemaining{0};
+  std::atomic<int> warmSamplesTotal{0};
+  std::atomic<int> xfadeSamplesTotal{0};
   static constexpr int kWarmupMs = 700; // >= NLM 64-frame history depth
   static constexpr int kXFadeMs = 30;   // short gapless crossfade
   // Host PDC splice deferred until transport stopped (!isPlaying) for gapless
   // A/B - effective during Warming+XFade is max(old,new) via wetCompDelay.
-  float xfadeProgress = 0.0f;
+  std::atomic<float> xfadeProgress{0.0f};
+  double switchStartTimeSeconds = 0.0;
+  double switchTotalDurationSeconds = 0.0;
 
   // GUI feedback (progress 1 == idle)
   std::atomic<float> uiSwitchProgress{1.0f};
@@ -216,7 +218,7 @@ private:
   juce::dsp::DryWetMixer<float> dryWetMixer;
 
   double currentSampleRate = 44100.0;
-  int currentAlgoMode = 1; // Track for dynamic latency updates
+  std::atomic<int> currentAlgoMode{1}; // Track for dynamic latency updates
   std::atomic<float> transientActivity{0.0f};
   std::atomic<bool> transientProtectionActive{false};
   bool wasLearning =
