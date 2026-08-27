@@ -1393,8 +1393,9 @@ void NoiseRepellentAudioProcessor::processBlock(
               // unlinked, synthesize a simple mask from peaks (first silent
               // switch case)
               std::array<float, 2048> synthMask{};
-              if (tonalActive && tonalMask == nullptr &&
-                  (!frame.isLinked || !frame.isOffsetLinked) && haveProfiles) {
+              if (tonalMask == nullptr &&
+                  (!frame.isLinked || !frame.isOffsetLinked) && haveProfiles &&
+                  tonalProfileScale != 1.0f) {
                 // Try to get peaks from srcGroup/other and build mask
                 auto tryPeaksForMask = [&](auto* grp) -> bool {
                   if (grp == nullptr)
