@@ -938,6 +938,26 @@ void NoiseRepellentAudioProcessor::processBlock(
 
   const bool switchingNow = (switchPhase != SwitchPhase::Steady);
 
+  // Silence detection: when input is ~-100dB and not learning, skip heavy
+  // STFT+denoise (was culprit for idle > denoising and no-playback CPU).
+  bool isSilent = false;
+  if (!learnNoise) {
+    const float thresh = 1e-5f;
+    isSilent = true;
+    for (int ch = 0; ch < numChannels && isSilent; ++ch) {
+      const float* d = buffer.getReadPointer(ch);
+      for (int i = 0; i < numSamples; ++i) {
+        if (std::abs(d[i]) > thresh) {
+          isSilent = false;
+          break;
+        }
+      }
+    }
+    // Keep adaptive tracking alive when enabled — don't gate it as silent
+    if (adaptiveNoise)
+      isSilent = false;
+  }
+
   // Save dry input copy for FFT visualization before processing
   const size_t copySamples =
       std::min(static_cast<size_t>(numSamples), dryInputL.size());
@@ -948,7 +968,7 @@ void NoiseRepellentAudioProcessor::processBlock(
   juce::dsp::AudioBlock<float> audioBlock(buffer);
   dryWetMixer.pushDrySamples(audioBlock);
 
-  if (isBypassed) {
+  if (isBypassed || isSilent) {
     // Bypassed: skip all specbleach STFT+denoise — was culprit for
     // bypass > denoise CPU. Buffer stays as input, dryWetMixer with 0 wet
     // outputs dry with correct PDC latency.
@@ -1230,9 +1250,10 @@ void NoiseRepellentAudioProcessor::processBlock(
   dryWetMixer.setWetMixProportion(isBypassed ? 0.0f : 1.0f);
   dryWetMixer.mixWetSamples(audioBlock);
 
-  // Skip FFT analysis and FIFO writes during offline rendering or if the GUI is
-  // closed
-  if (isNonRealtime() || getActiveEditor() == nullptr) {
+  // Skip FFT analysis and FIFO writes during offline rendering, if the GUI is
+  // closed, or when input is silent and not learning (saves ~4096 FFT per
+  // 1024 samples when no playback).
+  if (isNonRealtime() || getActiveEditor() == nullptr || isSilent) {
     fftAccumCount = 0;
     return;
   }
