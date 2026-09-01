@@ -715,95 +715,17 @@ void NoiseRepellentAudioProcessor::processBlock(
         // not jump when playback starts/stops.
         if (hasNoiseProfile()) {
           frame.hasNoiseProfile = true;
-          // Directly compute morphed profile from static learned profiles and
-          // current aggressiveness/threshold so it stays frozen and responsive
-          // even before the next audio block.
+          // Use the library's active (morphed, tonal-scaled) profile so the
+          // line stays frozen and responsive even before the next audio block.
           uint32_t profileSize = 0;
-          bool haveProfiles = false;
-          const float* meanProfile = nullptr;
-          const float* medianProfile = nullptr;
-          const float* stdProfile = nullptr;
-          const float* cvProfile = nullptr;
+          const float* morphedPtr = nullptr;
           if (engineGroup != nullptr) {
             profileSize =
                 specbleach_stereo_get_noise_profile_size(engineGroup.get());
-            if (profileSize > 0) {
-              meanProfile = specbleach_stereo_get_noise_profile_for_channel(
-                  engineGroup.get(), 0u, 1);
-              medianProfile = specbleach_stereo_get_noise_profile_for_channel(
-                  engineGroup.get(), 0u, 2);
-              stdProfile = specbleach_stereo_get_noise_profile_for_channel(
-                  engineGroup.get(), 0u, 3);
-              cvProfile = specbleach_stereo_get_noise_profile_for_channel(
-                  engineGroup.get(), 0u, 4);
-              haveProfiles =
-                  (meanProfile != nullptr && medianProfile != nullptr &&
-                   stdProfile != nullptr && cvProfile != nullptr);
-            }
+            morphedPtr = specbleach_stereo_get_active_noise_profile_for_channel(
+                engineGroup.get(), 0u);
           }
-          if (haveProfiles) {
-            // Stack morphed profile for resampling (max 2048 bins, profile up
-            // to ~1201)
-            std::array<float, 2048> morphed{};
-            float* morphedPtr = morphed.data();
-            // Replicate get_morphed_profile logic
-            for (uint32_t i = 0; i < profileSize && i < morphed.size(); ++i) {
-              if (aggressiveness < 0.0f) {
-                float t = -aggressiveness;
-                morphedPtr[i] =
-                    (meanProfile[i] * (1.0f - t)) + (medianProfile[i] * t);
-              } else {
-                float t = aggressiveness;
-                morphedPtr[i] = meanProfile[i] + (stdProfile[i] * t * 2.0f);
-              }
-              morphedPtr[i] = std::max(morphedPtr[i], 0.0f);
-            }
-            // Apply threshold offsets per-bin using exact CV tonal mask
-            {
-              bool tonalActive = tonalProfileScale != 1.0f;
-              const float* tonalMask = nullptr;
-              if (tonalActive) {
-                // For manual profiles, CV_MASK (cvProfile) is the exact tonal
-                // mask used by libspecbleach denoiser core
-                if (cvProfile != nullptr) {
-                  float maxCv = 0.0f;
-                  for (uint32_t k = 0; k < profileSize; ++k) {
-                    if (cvProfile[k] > maxCv) {
-                      maxCv = cvProfile[k];
-                    }
-                  }
-                  if (maxCv > 1e-6f) {
-                    tonalMask = cvProfile;
-                  }
-                }
-                // Fallback to the live tonal mask if cvProfile was empty
-                if (tonalMask == nullptr && engineGroup != nullptr) {
-                  tonalMask = specbleach_stereo_get_tonal_mask_for_channel(
-                      engineGroup.get(), 0u);
-                  if (tonalMask != nullptr) {
-                    float maxMask = 0.0f;
-                    for (uint32_t k = 0; k < profileSize; ++k)
-                      if (tonalMask[k] > maxMask)
-                        maxMask = tonalMask[k];
-                    if (maxMask < 1e-6f)
-                      tonalMask = nullptr;
-                  }
-                }
-                if (tonalMask == nullptr)
-                  tonalActive = false;
-              }
-              for (uint32_t i = 0; i < profileSize && i < morphed.size(); ++i) {
-                float scale = profileScale;
-                if (tonalActive && tonalMask != nullptr &&
-                    tonalMask[i] > 0.0f) {
-                  float mask = std::min(tonalMask[i], 1.0f);
-                  mask = std::sqrt(std::sqrt(mask));
-                  scale = (profileScale * (1.0f - mask)) +
-                          (tonalProfileScale * mask);
-                }
-                morphedPtr[i] *= scale;
-              }
-            }
+          if (morphedPtr != nullptr && profileSize > 0) {
             // Resample morphed profile to kFftBins and convert to dB
             size_t realProfileBins = profileSize;
             const float maxProfileIdx = static_cast<float>(realProfileBins - 1);

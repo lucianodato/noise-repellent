@@ -34,6 +34,7 @@ cmake --build build --config Release -j4
 - **Bypass**: Soft bypass is handled via native `juce::dsp::DryWetMixer<float>`, configured with `setWetLatency(latency)` for dry delay compensation and `setWetMixProportion()` for smooth crossfading. `processBlockBypassed()` is also implemented.
 - **FFT Visualization**: Input and output channels feed into `juce::dsp::FFT` order 12 (4096 points) and push magnitude spectra to an SPSC lock-free `juce::AbstractFifo` for smooth rendering in `SpectralVisualizer`.
 - **Latency**: Plugin latency is constant across both smoothing modes (temporal is padded to the NLM look-ahead inside libspecbleach); reported once in `prepareToPlay()` via `setLatencySamples()`.
+- **Profile Visualization**: Noise-floor snapshots (including the silent-input path) read the library's already-morphed, tonal-scaled profile via `specbleach_stereo_get_active_noise_profile_for_channel()` — never re-implement profile morphing in the plugin.
 
 ## Developer & AI Agent Guidelines for NoiseRepellent
 
