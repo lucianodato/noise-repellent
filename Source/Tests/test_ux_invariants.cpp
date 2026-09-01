@@ -395,26 +395,32 @@ private:
     expectEquals(proc.getEngineSwitchProgress(), 1.0f,
                  "Initial switch progress should be 1.0 (idle)");
 
-    // Switch algorithm mode to initiate transition
-    setParam(proc, "algorithm_mode", 1.0f); // Switch to 2D
+    // Smoothing mode switching is handled seamlessly inside libspecbleach
+    // (allocation-free internal crossfade, constant latency), so from the
+    // plugin's perspective a switch is instantaneous: no switch phase, no
+    // progress ramp — the parameter simply retargets the engine.
+    setParam(proc, "algorithm_mode", 1.0f); // Switch to 2D NLM
     pumpMessageLoop(20);
 
-    expect(proc.isEngineSwitching(),
-           "Switch must be active after changing algorithm_mode");
-    expect(proc.getEngineSwitchProgress() < 1.0f,
-           "Switch progress must be < 1.0 during transition");
-
-    // Pump timer and message loop to simulate time passing while stopped
-    // (approx 1 second)
-    for (int step = 0; step < 60; ++step) {
-      pumpMessageLoop(20);
-    }
-
     expect(!proc.isEngineSwitching(),
-           "Engine switch must complete after duration while transport is "
-           "stopped");
+           "Mode switch must be instantaneous (handled by the library)");
     expectEquals(proc.getEngineSwitchProgress(), 1.0f,
-                 "Switch progress must reach 1.0 on completion");
+                 "Switch progress must stay idle after mode change");
+
+    // Audio keeps flowing through the same engine group across the switch
+    juce::AudioBuffer<float> buffer(2, blockSize);
+    for (int ch = 0; ch < 2; ++ch) {
+      for (int i = 0; i < blockSize; ++i) {
+        buffer.setSample(
+            ch, i,
+            0.1f * std::sin(2.0f * juce::MathConstants<float>::pi * 440.0f *
+                            (float)i / (float)sampleRate));
+      }
+    }
+    juce::MidiBuffer midi;
+    proc.processBlock(buffer, midi);
+    expect(std::abs(buffer.getSample(0, 0)) < 10.0f,
+           "Processing after mode switch produces finite output");
 
     proc.releaseResources();
   }
