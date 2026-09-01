@@ -57,8 +57,6 @@ private:
   juce::TextButton btnPreferences{juce::CharPointer_UTF8("\xe2\x96\xbc")};
   juce::Label lblAlgoHeader{"lblAlgoHeader", "PROCESSING ENGINE"};
   juce::ComboBox comboAlgoMode;
-  bool engineSwitchWasVisible = false; // engine-switch overlay latch
-  juce::Component switchBlocker; // transparent blocker to avoid clicks during switch
   juce::TextButton btnAdvancedToggle{"ADVANCED"};
   juce::ToggleButton btnDelta{"Delta"};
   juce::ToggleButton btnBypass{"Bypass"};

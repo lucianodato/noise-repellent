@@ -138,18 +138,6 @@ public:
     return transientProtectionActive.load(std::memory_order_relaxed);
   }
 
-  // Engine-switch feedback for the UI. Smoothing mode switching is handled
-  // seamlessly inside libspecbleach (allocation-free internal crossfade,
-  // constant latency), so from the plugin's perspective a switch is
-  // instantaneous: never switching, progress always idle (1.0).
-  bool isEngineSwitching() const {
-    return false;
-  }
-
-  float getEngineSwitchProgress() const {
-    return 1.0f;
-  }
-
 private:
   void ensureEnginesInitialized(double sampleRate);
   void interpolateCurve(uint32_t numBins);

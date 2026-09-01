@@ -111,9 +111,6 @@ public:
 
     beginTest("Idle No-Profile Silent Bypass");
     testIdleNoProfileBypass();
-
-    beginTest("Engine Switch Progress Advances While Transport Stopped");
-    testEngineSwitchProgress();
   }
 
 private:
@@ -379,48 +376,6 @@ private:
     expect(maxOutput <= -119.0f, "Silent output spectrum must drop to -120dB");
     expect(frame.hasNoiseProfile,
            "Noise profile must remain active when input is silent");
-
-    proc.releaseResources();
-  }
-
-  void testEngineSwitchProgress() {
-    NoiseRepellentAudioProcessor proc;
-    constexpr double sampleRate = 48000.0;
-    constexpr int blockSize = 512;
-    proc.prepareToPlay(sampleRate, blockSize);
-    pumpMessageLoop(20);
-
-    expect(!proc.isEngineSwitching(),
-           "Initially engine should not be switching");
-    expectEquals(proc.getEngineSwitchProgress(), 1.0f,
-                 "Initial switch progress should be 1.0 (idle)");
-
-    // Smoothing mode switching is handled seamlessly inside libspecbleach
-    // (allocation-free internal crossfade, constant latency), so from the
-    // plugin's perspective a switch is instantaneous: no switch phase, no
-    // progress ramp — the parameter simply retargets the engine.
-    setParam(proc, "algorithm_mode", 1.0f); // Switch to 2D NLM
-    pumpMessageLoop(20);
-
-    expect(!proc.isEngineSwitching(),
-           "Mode switch must be instantaneous (handled by the library)");
-    expectEquals(proc.getEngineSwitchProgress(), 1.0f,
-                 "Switch progress must stay idle after mode change");
-
-    // Audio keeps flowing through the same engine group across the switch
-    juce::AudioBuffer<float> buffer(2, blockSize);
-    for (int ch = 0; ch < 2; ++ch) {
-      for (int i = 0; i < blockSize; ++i) {
-        buffer.setSample(
-            ch, i,
-            0.1f * std::sin(2.0f * juce::MathConstants<float>::pi * 440.0f *
-                            (float)i / (float)sampleRate));
-      }
-    }
-    juce::MidiBuffer midi;
-    proc.processBlock(buffer, midi);
-    expect(std::abs(buffer.getSample(0, 0)) < 10.0f,
-           "Processing after mode switch produces finite output");
 
     proc.releaseResources();
   }
