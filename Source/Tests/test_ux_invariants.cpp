@@ -111,9 +111,6 @@ public:
 
     beginTest("Idle No-Profile Silent Bypass");
     testIdleNoProfileBypass();
-
-    beginTest("Engine Switch Progress Advances While Transport Stopped");
-    testEngineSwitchProgress();
   }
 
 private:
@@ -379,42 +376,6 @@ private:
     expect(maxOutput <= -119.0f, "Silent output spectrum must drop to -120dB");
     expect(frame.hasNoiseProfile,
            "Noise profile must remain active when input is silent");
-
-    proc.releaseResources();
-  }
-
-  void testEngineSwitchProgress() {
-    NoiseRepellentAudioProcessor proc;
-    constexpr double sampleRate = 48000.0;
-    constexpr int blockSize = 512;
-    proc.prepareToPlay(sampleRate, blockSize);
-    pumpMessageLoop(20);
-
-    expect(!proc.isEngineSwitching(),
-           "Initially engine should not be switching");
-    expectEquals(proc.getEngineSwitchProgress(), 1.0f,
-                 "Initial switch progress should be 1.0 (idle)");
-
-    // Switch algorithm mode to initiate transition
-    setParam(proc, "algorithm_mode", 1.0f); // Switch to 2D
-    pumpMessageLoop(20);
-
-    expect(proc.isEngineSwitching(),
-           "Switch must be active after changing algorithm_mode");
-    expect(proc.getEngineSwitchProgress() < 1.0f,
-           "Switch progress must be < 1.0 during transition");
-
-    // Pump timer and message loop to simulate time passing while stopped
-    // (approx 1 second)
-    for (int step = 0; step < 60; ++step) {
-      pumpMessageLoop(20);
-    }
-
-    expect(!proc.isEngineSwitching(),
-           "Engine switch must complete after duration while transport is "
-           "stopped");
-    expectEquals(proc.getEngineSwitchProgress(), 1.0f,
-                 "Switch progress must reach 1.0 on completion");
 
     proc.releaseResources();
   }

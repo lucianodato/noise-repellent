@@ -28,11 +28,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "specbleach.hpp" // self-guarding for C++; do NOT wrap in extern "C"
 #include "specbleach_version.h"
 
-class NoiseRepellentAudioProcessor
-    : public juce::AudioProcessor,
-      private juce::Timer,
-      private juce::AudioProcessorValueTreeState::Listener,
-      private juce::AsyncUpdater {
+class NoiseRepellentAudioProcessor : public juce::AudioProcessor {
 public:
   NoiseRepellentAudioProcessor();
   ~NoiseRepellentAudioProcessor() override;
@@ -109,6 +105,7 @@ public:
   static constexpr int kFftOrder = 12;               // 2^12 = 4096 point FFT
   static constexpr size_t kFftSize = 1 << kFftOrder; // 4096
   static constexpr size_t kFftBins = kFftSize / 2; // 2048 unique frequency bins
+  static constexpr size_t kMaxTonalPeaks = 32; // Max peaks reported per frame
 
   // Spectral frame shared with GUI via lock-free ring buffer
   struct SpectralFrame {
@@ -142,19 +139,8 @@ public:
     return transientProtectionActive.load(std::memory_order_relaxed);
   }
 
-  // Engine-switch feedback for the UI: 1.0 == no switch in progress;
-  // while switching, ramps 0..1 across warm-up + fade.
-  bool isEngineSwitching() const {
-    return uiSwitchProgress.load(std::memory_order_relaxed) < 1.0f;
-  }
-
-  float getEngineSwitchProgress() const {
-    return uiSwitchProgress.load(std::memory_order_relaxed);
-  }
-
 private:
   void ensureEnginesInitialized(double sampleRate);
-  specbleach_stereo* activeGroupFor(int algoMode) const;
   void interpolateCurve(uint32_t numBins);
 
   // Thread-safe reduction curve data
@@ -167,62 +153,19 @@ private:
   static juce::AudioProcessorValueTreeState::ParameterLayout
   createParameterLayout();
 
-  // DSP Engines — libspecbleach multi-channel groups wrapping per-channel
-  // engines for both families
-  specbleach::StereoGroupPtr spectralGroup; // wraps 1D per-channel engines
-  specbleach::StereoGroupPtr nlmGroup;      // wraps 2D per-channel engines
+  // DSP Engine — single libspecbleach multi-channel group of unified
+  // spectral denoisers. The smoothing strategy (1D temporal vs 2D NLM) is
+  // selected per-block through parameters.smoothing_mode and switched
+  // seamlessly by the library (constant latency, no allocations, no
+  // crossfade machinery needed in the plugin).
+  specbleach::StereoGroupPtr engineGroup;
 
-  // Engine-switch: gapless JUCE best practice for buffering/latency
-  // change (STFT+NLM). The source family stays audible while the target
-  // warms its history in a scratch buffer; then a short equal-power
-  // crossfade swaps to the target. No silence is inserted — the host PDC
-  // splice is deferred until after the crossfade. Previous
-  // FadeOut/WarmSilent/FadeIn with mute is replaced to avoid audible gap.
-  enum class SwitchPhase { Steady, Warming, XFade };
-  std::atomic<SwitchPhase> switchPhase{SwitchPhase::Steady};
-  std::atomic<int> switchFromMode{0}; // family heard during Warming
-  std::atomic<int> stageSamplesRemaining{0};
-  std::atomic<int> warmSamplesTotal{0};
-  std::atomic<int> xfadeSamplesTotal{0};
-  static constexpr int kWarmupMs = 700; // >= NLM 64-frame history depth
-  static constexpr int kXFadeMs = 30;   // short gapless crossfade
-  // Host PDC splice deferred until transport stopped (!isPlaying) for gapless
-  // A/B - effective during Warming+XFade is max(old,new) via wetCompDelay.
-  std::atomic<float> xfadeProgress{0.0f};
-  double switchStartTimeSeconds = 0.0;
-  double switchTotalDurationSeconds = 0.0;
-
-  // GUI feedback (progress 1 == idle)
-  std::atomic<float> uiSwitchProgress{1.0f};
-
-  // Latency reports are NEVER sent from the audio thread: hosts (notably
-  // Reaper via VST3 ioChanged) suspend/resume the plugin on latency
-  // changes, which must not happen mid-callback. The audio side stages the
-  // value here; the timer delivers it on the message thread.
-  std::atomic<int> pendingLatencyReport{-1};
-  void timerCallback() override;
-
-  // JUCE best practice: engine switch (FFT-size-like) is driven from the
-  // message thread via APVTS listener + AsyncUpdater, with profile
-  // migration guarded by getCallbackLock() so the audio thread never
-  // performs non-RT-safe copies.
-  void parameterChanged(const juce::String& parameterID,
-                        float newValue) override;
-  void handleAsyncUpdate() override;
-  void initiateEngineSwitchOnMessageThread(int newMode);
-  void applyWetCompensationDelay(juce::AudioBuffer<float>& buffer,
-                                 uint32_t compDelay, int numSamples);
-  std::atomic<int> pendingEngineSwitchRequest{-1};
-
-  juce::AudioParameterBool* bypassParameter = nullptr;
-  juce::dsp::DryWetMixer<float> dryWetMixer;
+  // Scratch wet sink for out-of-bus channels during processing
+  juce::AudioBuffer<float> wetScratchA;
 
   double currentSampleRate = 44100.0;
-  std::atomic<int> currentAlgoMode{1}; // Track for dynamic latency updates
   std::atomic<float> transientActivity{0.0f};
   std::atomic<bool> transientProtectionActive{false};
-  bool wasLearning =
-      false; // Track learn mode state transition to sync profiles
 
   struct PendingProfile {
     int channel = 0; // 0 = Left, 1 = Right
@@ -242,11 +185,6 @@ private:
   std::vector<float> dryInputL;
   uint32_t preparedBlockSize = 0;
   uint32_t preparedNumChannels = 0;
-
-  // Preallocated wet scratch buffers for rendering both engine groups during
-  // transitions (also serve as overflow sinks for out-of-bus channels)
-  juce::AudioBuffer<float> wetScratchA; // spectralGroup wet output
-  juce::AudioBuffer<float> wetScratchB; // nlmGroup wet output
 
   // FFT analysis for visualization
   juce::dsp::FFT fftAnalyzer{kFftOrder};
@@ -272,17 +210,10 @@ private:
   std::vector<float> visualizerDelayBuffer;
   size_t visualizerDelayWritePos = 0;
   uint32_t currentLatency = 0;
-  uint32_t lastReportedLatency =
-      0; // variable, deferred until transport stop (gapless compare)
+  uint32_t lastReportedLatency = 0; // constant for both smoothing modes
 
-  // Internal wet delay to pad to lastReportedLatency when engine switch is
-  // deferred (e.g. 2D->1D high->low while playing). Reported stays high,
-  // 1D wet is padded to high until stop, then reported drops to low.
-  // One circular buffer per channel, sized to maxDelta+blockSize.
-  std::vector<std::vector<float>> wetCompDelayBuffers;
-  std::vector<size_t> wetCompDelayWritePos;
-  uint32_t wetCompDelay1D = 0; // lastReported - spectralLatency
-  uint32_t wetCompDelay2D = 0; // lastReported - nlmLatency
+  juce::AudioParameterBool* bypassParameter = nullptr;
+  juce::dsp::DryWetMixer<float> dryWetMixer;
 
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(NoiseRepellentAudioProcessor)
 };

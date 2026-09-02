@@ -230,11 +230,14 @@ else()
         set(SPECBLEACH_SRC "${CMAKE_CURRENT_SOURCE_DIR}/subprojects/libspecbleach")
         add_subdirectory("${SPECBLEACH_SRC}" "${CMAKE_CURRENT_BINARY_DIR}/libspecbleach_build")
     else()
-        message(STATUS "Fetching libspecbleach remotely (tracking main)...")
+        message(STATUS "Fetching libspecbleach remotely (pinned revision)...")
         FetchContent_Declare(
             libspecbleach
             GIT_REPOSITORY https://github.com/lucianodato/libspecbleach.git
-            GIT_TAG        main
+            # Pin to the revision providing the stereo profile/sync APIs used
+            # by PluginProcessor (specbleach_stereo_get_active_noise_profile_
+            # for_channel, *_get_tonal_peaks_for_channel, *_sync_profiles)
+            GIT_TAG        336beb065f3918be46220832943af8cc003128f9
         )
         FetchContent_MakeAvailable(libspecbleach)
         set(SPECBLEACH_SRC "${libspecbleach_SOURCE_DIR}")
