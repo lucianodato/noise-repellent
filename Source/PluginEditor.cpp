@@ -93,7 +93,7 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(
   addAndMakeVisible(lblAlgoHeader);
 
   comboAlgoMode.addItemList(
-      {"1D Spectral (Fast & Low CPU)", "2D NLM Patch (High Quality)"}, 1);
+      {"Standard (Fast & Low CPU)", "Patch-Based (High Quality)"}, 1);
   addAndMakeVisible(comboAlgoMode);
   comboAlgoMode.onChange = [this]() { updateLayout(); };
 
@@ -463,11 +463,11 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(
   // Control Tooltip Descriptions
   btnPreferences.setTooltip("Plugin preferences menu.");
   comboAlgoMode.setTooltip(
-      "Select denoising algorithm: 1D STFT (fast & low latency)\nor 2D NLM "
-      "Patch (high quality non-local means processing).");
+      "How the noise reduction smoothing is computed. Standard is fast and\n"
+      "light on CPU; Patch-Based analyzes similar patches for higher quality.");
   lblAlgoHeader.setTooltip(
-      "Select denoising algorithm: 1D STFT (fast & low latency)\nor 2D NLM "
-      "Patch (high quality non-local means processing).");
+      "How the noise reduction smoothing is computed. Standard is fast and\n"
+      "light on CPU; Patch-Based analyzes similar patches for higher quality.");
   btnAdvancedToggle.setTooltip(
       "Show Advanced DSP Controls (Smoothing, Masking Protect, Whitening,\n "
       "Bias Curve, Tonal Split & Aggressiveness).");

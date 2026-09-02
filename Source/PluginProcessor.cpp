@@ -49,8 +49,9 @@ NoiseRepellentAudioProcessor::createParameterLayout() {
   std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
 
   params.push_back(std::make_unique<juce::AudioParameterChoice>(
-      "algorithm_mode", "Algorithm",
-      juce::StringArray{"1D Spectral", "2D NLM Patch HQ"}, 0));
+      "algorithm_mode", "Smoothing Quality",
+      juce::StringArray{"Standard (Fast & Low CPU)", "Patch-Based (High Quality)"},
+      0));
 
   params.push_back(std::make_unique<juce::AudioParameterBool>(
       "transient_protection_enable", "Transient Protection", false));
