@@ -37,6 +37,76 @@ const juce::String kTipLink =
 const juce::String kTipResetCurve = "Reset reduction curve to flat 0 dB line.";
 const juce::String kTipThreshold =
     "Shift noise profile threshold up or down\nin decibels (-12 to +12 dB).";
+// Header
+const juce::String kTipAbout = "About Noise Repellent";
+const juce::String kTipPreferences = "Preferences";
+const juce::String kTipPreferencesMenu = "Plugin preferences menu.";
+const juce::String kTipAlgoMode =
+    "How the noise reduction smoothing is computed. Standard is fast and\n"
+    "light on CPU; Patch-Based analyzes similar patches for higher quality.";
+const juce::String kTipAdvancedToggle =
+    "Toggle Advanced DSP Controls (Smoothing, Masking, Whitening, "
+    "Aggressiveness).";
+const juce::String kTipAdvancedShow =
+    "Show Advanced DSP Controls (Smoothing, Masking Protect, Whitening,\n "
+    "Bias Curve, Tonal Split & Aggressiveness).";
+// Noise profile box
+const juce::String kTipLearnInitial =
+    "Capture static noise profile from current audio input\n(supports "
+    "multi-section accumulation).";
+const juce::String kTipLearnCapturing =
+    "Capturing noise profile from current audio playback...";
+const juce::String kTipLearnAccumulate =
+    "Capture and accumulate an additional noise section\ninto the current "
+    "profile.";
+const juce::String kTipLearnDefault =
+    "Loop a noise-only segment in your DAW and click\nto capture a noise "
+    "profile.";
+const juce::String kTipResetProfile = "Reset noise profile";
+const juce::String kTipResetProfileClear =
+    "Reset noise profile and clear learned data.";
+const juce::String kTipAdaptiveMethod =
+    "Select Adaptive Estimation Method: SPP-MMSE (best for speech & dynamic "
+    "noise),\nBrandt (best for steady hiss & fans), or Martin (best for slow "
+    "background).";
+// Reduction faders
+const juce::String kTipMasterReduction =
+    "Adjust noise reduction level in decibels\n(0 to 40 dB across all "
+    "bands).";
+const juce::String kTipTonalReduction =
+    "Adjust reduction level for tonal noise components\n(0 to 40 dB for "
+    "harmonic peaks).";
+const juce::String kTipDelta =
+    "Listen to removed noise signal\n(residual audio output).";
+const juce::String kTipBypass =
+    "Soft bypass plugin processing\nwith smooth wet/dry fade transition.";
+const juce::String kTipLinkUnlinkedDisabled =
+    "Unlinking tonal reduction is disabled in Standalone Adaptive "
+    "mode\n(requires a captured manual profile to detect tonal peaks).";
+const juce::String kTipCurveToggle = "Enable per-frequency reduction bias curve.";
+const juce::String kTipCurveOverlay =
+    "Enable per-frequency reduction bias curve overlay on spectral\n"
+    "display. Shapes both broadband and tonal reduction.";
+// Threshold faders
+const juce::String kTipMasterOffsetUnlinked =
+    "Shift broadband noise threshold up or down\nin "
+    "decibels (-12 to +12 dB).";
+const juce::String kTipTonalOffset =
+    "Shift threshold for tonal noise components\nin decibels (-12 to +12 "
+    "dB).";
+// Advanced panel
+const juce::String kTipSmoothing =
+    "Apply temporal smoothing across spectral frames\nto reduce musical "
+    "noise bubbling artifacts.";
+const juce::String kTipSmoothing2D =
+    "Adjust patch-based similarity filtering strength\nto "
+    "control Patch-Based (High Quality) smoothing.";
+const juce::String kTipMasking =
+    "Adjust psychoacoustic masking threshold\nto protect quiet musical "
+    "transients.";
+const juce::String kTipWhitening =
+    "Spectral whitening factor to equalize\nthe residual noise floor "
+    "spectrum.";
 const juce::String kTipMorphingUnavailable =
     "Profile Morphing is available in Advanced Controls\nwhen a manual "
     "learned noise profile is captured.";
@@ -59,13 +129,13 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(
   brandLabel.setFont(juce::FontOptions(
       NoiseRepellentLookAndFeel::kFontSizeBrand, juce::Font::bold));
   brandLabel.setColour(juce::Label::textColourId, juce::Colours::white);
-  brandLabel.setTooltip("About Noise Repellent");
+  brandLabel.setTooltip(kTipAbout);
   brandLabel.setMouseCursor(juce::MouseCursor::PointingHandCursor);
   addAndMakeVisible(brandLabel);
 
   // Preferences Header Button
   addAndMakeVisible(btnPreferences);
-  btnPreferences.setTooltip("Preferences");
+  btnPreferences.setTooltip(kTipPreferences);
   btnPreferences.setColour(juce::TextButton::buttonColourId,
                            juce::Colour(0xff3a4150));
   btnPreferences.onClick = [this]() {
@@ -187,11 +257,7 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(
   };
 
   addAndMakeVisible(btnAdaptiveArrow);
-  const juce::String adaptiveMethodTip =
-      "Select Adaptive Estimation Method: SPP-MMSE (best for speech & dynamic "
-      "noise),\nBrandt (best for steady hiss & fans), or Martin (best for slow "
-      "background).";
-  btnAdaptiveArrow.setTooltip(adaptiveMethodTip);
+  btnAdaptiveArrow.setTooltip(kTipAdaptiveMethod);
   btnAdaptiveArrow.setColour(juce::TextButton::buttonColourId,
                              juce::Colour(0xff353b48));
   btnAdaptiveArrow.onClick = [this]() {
@@ -223,7 +289,7 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(
   };
 
   addAndMakeVisible(btnResetProfile);
-  btnResetProfile.setTooltip("Reset noise profile");
+  btnResetProfile.setTooltip(kTipResetProfile);
   btnResetProfile.onClick = [this]() {
     audioProcessor.resetNoiseProfile();
     if (auto* pLearn = audioProcessor.getAPVTS().getParameter("learn_noise"))
@@ -283,7 +349,7 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(
   };
 
   btnCurveToggle.setClickingTogglesState(true);
-  btnCurveToggle.setTooltip("Enable per-frequency reduction bias curve.");
+  btnCurveToggle.setTooltip(kTipCurveToggle);
   addAndMakeVisible(btnCurveToggle);
   btnCurveToggle.onClick = [this]() { updateLayout(); };
 
@@ -439,9 +505,7 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(
   // Advanced Controls Toggle Button
   btnAdvancedToggle.setClickingTogglesState(true);
   btnAdvancedToggle.setButtonText("ADVANCED");
-  btnAdvancedToggle.setTooltip(
-      "Toggle Advanced DSP Controls (Smoothing, Masking, Whitening, "
-      "Aggressiveness).");
+  btnAdvancedToggle.setTooltip(kTipAdvancedToggle);
   addAndMakeVisible(btnAdvancedToggle);
   btnAdvancedToggle.onClick = [this]() {
     isAdvancedVisible = btnAdvancedToggle.getToggleState();
@@ -486,60 +550,38 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(
       apvts, "aggressiveness", sliderAggressiveness);
 
   // Control Tooltip Descriptions
-  btnPreferences.setTooltip("Plugin preferences menu.");
+  btnPreferences.setTooltip(kTipPreferencesMenu);
   comboAlgoMode.setTooltip(
-      "How the noise reduction smoothing is computed. Standard is fast and\n"
-      "light on CPU; Patch-Based analyzes similar patches for higher quality.");
+kTipAlgoMode);
   lblAlgoHeader.setTooltip(
-      "How the noise reduction smoothing is computed. Standard is fast and\n"
-      "light on CPU; Patch-Based analyzes similar patches for higher quality.");
-  btnAdvancedToggle.setTooltip(
-      "Show Advanced DSP Controls (Smoothing, Masking Protect, Whitening,\n "
-      "Bias Curve, Tonal Split & Aggressiveness).");
-  btnLearn.setTooltip(
-      "Capture static noise profile from current audio input\n(supports "
-      "multi-section accumulation).");
-  btnResetProfile.setTooltip("Reset noise profile and clear learned data.");
+kTipAlgoMode);
+  btnAdvancedToggle.setTooltip(kTipAdvancedShow);
+  btnLearn.setTooltip(kTipLearnInitial);
+  btnResetProfile.setTooltip(kTipResetProfileClear);
   btnAdaptiveNoise.setTooltip(
       kTipAdaptive);
-  btnAdaptiveArrow.setTooltip(adaptiveMethodTip);
-  comboMethod.setTooltip(adaptiveMethodTip);
-  lblMethod.setTooltip(adaptiveMethodTip);
+  btnAdaptiveArrow.setTooltip(kTipAdaptiveMethod);
+  comboMethod.setTooltip(kTipAdaptiveMethod);
+  lblMethod.setTooltip(kTipAdaptiveMethod);
 
-  const juce::String masterRedTip =
-      "Adjust noise reduction level in decibels\n(0 to 40 dB across all "
-      "bands).";
-  const juce::String tonalRedTip =
-      "Adjust reduction level for tonal noise components\n(0 to 40 dB for "
-      "harmonic peaks).";
-  sliderMasterRed.setTooltip(masterRedTip);
-  lblMasterRed.setTooltip(masterRedTip);
-  lblReductionHeader.setTooltip(masterRedTip);
-  sliderTonalRed.setTooltip(tonalRedTip);
-  lblTonalRed.setTooltip(tonalRedTip);
+  sliderMasterRed.setTooltip(kTipMasterReduction);
+  lblMasterRed.setTooltip(kTipMasterReduction);
+  lblReductionHeader.setTooltip(kTipMasterReduction);
+  sliderTonalRed.setTooltip(kTipTonalReduction);
+  lblTonalRed.setTooltip(kTipTonalReduction);
 
   sliderOffset.setTooltip(kTipThreshold);
   lblOffset.setTooltip(kTipThreshold);
   sliderAggressiveness.setTooltip(kTipAggressiveness);
   lblAggressiveness.setTooltip(kTipAggressiveness);
-  btnDelta.setTooltip(
-      "Listen to removed noise signal\n(residual audio output).");
-  btnBypass.setTooltip(
-      "Soft bypass plugin processing\nwith smooth wet/dry fade transition.");
+  btnDelta.setTooltip(kTipDelta);
+  btnBypass.setTooltip(kTipBypass);
 
-  sliderSmoothing.setTooltip(
-      "Apply temporal smoothing across spectral frames\nto reduce musical "
-      "noise bubbling artifacts.");
-  sliderMasking.setTooltip(
-      "Adjust psychoacoustic masking threshold\nto protect quiet musical "
-      "transients.");
-  sliderWhitening.setTooltip(
-      "Spectral whitening factor to equalize\nthe residual noise floor "
-      "spectrum.");
+  sliderSmoothing.setTooltip(kTipSmoothing);
+  sliderMasking.setTooltip(kTipMasking);
+  sliderWhitening.setTooltip(kTipWhitening);
   btnLink.setTooltip(kTipLink);
-  btnCurveToggle.setTooltip(
-      "Enable per-frequency reduction bias curve overlay on spectral\n"
-      "display. Shapes both broadband and tonal reduction.");
+  btnCurveToggle.setTooltip(kTipCurveOverlay);
   btnResetCurve.setTooltip(kTipResetCurve);
 
   // Initial Layout update
@@ -771,26 +813,21 @@ void NoiseRepellentAudioProcessorEditor::updateProfileStatus() {
                        juce::Colour(NoiseRepellentLookAndFeel::kColorLearnActive)); // Active Learning Red
     btnLearn.setColour(juce::TextButton::buttonOnColourId,
                        juce::Colour(NoiseRepellentLookAndFeel::kColorLearnActive));
-    btnLearn.setTooltip(
-        "Capturing noise profile from current audio playback...");
+    btnLearn.setTooltip(kTipLearnCapturing);
   } else if (hasProfile) {
     btnLearn.setButtonText("+ Learn");
     btnLearn.setColour(juce::TextButton::buttonColourId,
                        NoiseRepellentLookAndFeel::kColorNoiseProfile);
     btnLearn.setColour(juce::TextButton::buttonOnColourId,
                        NoiseRepellentLookAndFeel::kColorNoiseProfile);
-    btnLearn.setTooltip(
-        "Capture and accumulate an additional noise section\ninto the current "
-        "profile.");
+    btnLearn.setTooltip(kTipLearnAccumulate);
   } else {
     btnLearn.setButtonText("Learn Noise");
     btnLearn.setColour(juce::TextButton::buttonColourId,
                        juce::Colour(NoiseRepellentLookAndFeel::kColorLearnCTA)); // Prominent Crimson Red CTA
     btnLearn.setColour(juce::TextButton::buttonOnColourId,
                        juce::Colour(NoiseRepellentLookAndFeel::kColorLearnActive)); // Active Learning Red
-    btnLearn.setTooltip(
-        "Loop a noise-only segment in your DAW and click\nto capture a noise "
-        "profile.");
+    btnLearn.setTooltip(kTipLearnDefault);
   }
   btnLearn.repaint();
 
@@ -856,9 +893,7 @@ void NoiseRepellentAudioProcessorEditor::updateProfileStatus() {
   if (canUnlink) {
     btnLink.setTooltip(kTipLink);
   } else {
-    btnLink.setTooltip(
-        "Unlinking tonal reduction is disabled in Standalone Adaptive "
-        "mode\n(requires a captured manual profile to detect tonal peaks).");
+    btnLink.setTooltip(kTipLinkUnlinkedDisabled);
   }
 
   lblReductionHeader.setEnabled(pluginActive);
@@ -870,19 +905,19 @@ void NoiseRepellentAudioProcessorEditor::updateProfileStatus() {
   sliderTonalRed.setEnabled(tonalEnabled);
   lblTonalRed.setEnabled(tonalEnabled);
 
-  const juce::String masterRedTip =
+  const juce::String kTipMasterReduction =
       isLinked
           ? "Adjust noise reduction level in decibels\n(0 to 40 dB across all "
             "bands)."
           : "Adjust broadband noise reduction level in decibels\n(0 to 40 dB).";
-  const juce::String tonalRedTip =
+  const juce::String kTipTonalReduction =
       "Adjust reduction level for tonal noise components\n(0 to 40 dB).";
 
-  lblReductionHeader.setTooltip(masterRedTip);
-  sliderMasterRed.setTooltip(masterRedTip);
-  lblMasterRed.setTooltip(masterRedTip);
-  sliderTonalRed.setTooltip(tonalRedTip);
-  lblTonalRed.setTooltip(tonalRedTip);
+  lblReductionHeader.setTooltip(kTipMasterReduction);
+  sliderMasterRed.setTooltip(kTipMasterReduction);
+  lblMasterRed.setTooltip(kTipMasterReduction);
+  sliderTonalRed.setTooltip(kTipTonalReduction);
+  lblTonalRed.setTooltip(kTipTonalReduction);
 
   // Threshold Offset controls
   btnLinkOffset.setEnabled(allowUnlink);
@@ -900,19 +935,12 @@ void NoiseRepellentAudioProcessorEditor::updateProfileStatus() {
   sliderTonalOffset.setEnabled(tonalOffsetEnabled);
   lblTonalOffset.setEnabled(tonalOffsetEnabled);
 
-  const juce::String masterOffsetTip =
-      isOffsetLinked ? kTipThreshold
-                     : "Shift broadband noise threshold up or down\nin "
-                       "decibels (-12 to +12 dB).";
-  const juce::String tonalOffsetTip =
-      "Shift threshold for tonal noise components\nin decibels (-12 to +12 "
-      "dB).";
 
-  lblOffset.setTooltip(masterOffsetTip);
-  sliderOffset.setTooltip(masterOffsetTip);
-  lblMasterOffset.setTooltip(masterOffsetTip);
-  sliderTonalOffset.setTooltip(tonalOffsetTip);
-  lblTonalOffset.setTooltip(tonalOffsetTip);
+  lblOffset.setTooltip((isOffsetLinked ? kTipThreshold : kTipMasterOffsetUnlinked));
+  sliderOffset.setTooltip((isOffsetLinked ? kTipThreshold : kTipMasterOffsetUnlinked));
+  lblMasterOffset.setTooltip((isOffsetLinked ? kTipThreshold : kTipMasterOffsetUnlinked));
+  sliderTonalOffset.setTooltip(kTipTonalOffset);
+  lblTonalOffset.setTooltip(kTipTonalOffset);
 
   btnCurveToggle.setEnabled(pluginActive);
   btnResetCurve.setEnabled(pluginActive && btnCurveToggle.getToggleState());
@@ -929,11 +957,7 @@ void NoiseRepellentAudioProcessorEditor::updateProfileStatus() {
   groupAdvanced.setEnabled(pluginActive);
 
   bool is2D = (comboAlgoMode.getSelectedItemIndex() == 1);
-  const juce::String smoothingTip =
-      is2D ? "Adjust patch-based similarity filtering strength\nto "
-             "control Patch-Based (High Quality) smoothing."
-           : "Apply temporal smoothing across spectral frames\nto reduce "
-             "musical noise bubbling artifacts.";
+  const juce::String smoothingTip = is2D ? kTipSmoothing2D : kTipSmoothing;
 
   sliderSmoothing.setTooltip(smoothingTip);
   lblSmoothing.setTooltip(smoothingTip);
