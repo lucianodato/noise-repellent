@@ -22,6 +22,19 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <cmath>
 #include <cstring>
 
+namespace {
+
+// STFT frame sent to libspecbleach (matches library examples/header docs).
+constexpr float kEngineFrameSizeMs = 46.0f;
+// Silence gate: amplitude floor ~-100 dB, i.e. the amplitude-domain twin of
+// libspecbleach's ESTIMATOR_SILENCE_THRESHOLD (1e-10 power).
+constexpr float kSilenceAmplitudeFloor = 1e-5f;
+// Divide-by-zero guards for the reduction-curve Hermite spline.
+constexpr float kSplineSlopeEpsilon = 1e-5f;
+constexpr float kSplineParamEpsilon = 1e-9f;
+
+} // namespace
+
 NoiseRepellentAudioProcessor::NoiseRepellentAudioProcessor()
     : AudioProcessor(
           BusesProperties()
@@ -32,7 +45,7 @@ NoiseRepellentAudioProcessor::NoiseRepellentAudioProcessor()
   bypassParameter = dynamic_cast<juce::AudioParameterBool*>(
       parameters.getParameter("bypass"));
   juce::ignoreUnused(specbleach_get_version_string());
-  DBG("libspecbleach " << specbleach_get_version_string());
+  DBG(specbleach_get_version_string()); // banner is "libspecbleach X.Y.Z"
 }
 
 NoiseRepellentAudioProcessor::~NoiseRepellentAudioProcessor() {
@@ -236,12 +249,12 @@ void NoiseRepellentAudioProcessor::interpolateCurve(uint32_t numBins) {
 
   std::vector<float> m(numNodes, 0.0f);
   if (numNodes > 2) {
-    m.front() = (dX.front() > 1e-5f) ? dY.front() / dX.front() : 0.0f;
-    m.back() = (dX.back() > 1e-5f) ? dY.back() / dX.back() : 0.0f;
+    m.front() = (dX.front() > kSplineSlopeEpsilon) ? dY.front() / dX.front() : 0.0f;
+    m.back() = (dX.back() > kSplineSlopeEpsilon) ? dY.back() / dX.back() : 0.0f;
 
     for (size_t i = 1; i < numNodes - 1; ++i) {
-      float secant1 = (dX[i - 1] > 1e-5f) ? dY[i - 1] / dX[i - 1] : 0.0f;
-      float secant2 = (dX[i] > 1e-5f) ? dY[i] / dX[i] : 0.0f;
+      float secant1 = (dX[i - 1] > kSplineSlopeEpsilon) ? dY[i - 1] / dX[i - 1] : 0.0f;
+      float secant2 = (dX[i] > kSplineSlopeEpsilon) ? dY[i] / dX[i] : 0.0f;
       if (secant1 * secant2 <= 0.0f) {
         m[i] = 0.0f;
       } else {
@@ -249,7 +262,7 @@ void NoiseRepellentAudioProcessor::interpolateCurve(uint32_t numBins) {
       }
     }
   } else {
-    float secant = (dX.front() > 1e-5f) ? dY.front() / dX.front() : 0.0f;
+    float secant = (dX.front() > kSplineSlopeEpsilon) ? dY.front() / dX.front() : 0.0f;
     m[0] = secant;
     m[1] = secant;
   }
@@ -280,7 +293,7 @@ void NoiseRepellentAudioProcessor::interpolateCurve(uint32_t numBins) {
       if (binNormX >= sortedNodes[i].normX &&
           binNormX <= sortedNodes[i + 1].normX) {
         float dx = dX[i];
-        float t = (dx > 1e-9f) ? (binNormX - sortedNodes[i].normX) / dx : 0.0f;
+        float t = (dx > kSplineParamEpsilon) ? (binNormX - sortedNodes[i].normX) / dx : 0.0f;
         float t2 = t * t;
         float t3 = t2 * t;
 
@@ -298,46 +311,20 @@ void NoiseRepellentAudioProcessor::interpolateCurve(uint32_t numBins) {
   }
 }
 
-// Resamples a persisted noise profile to whatever spectrum size the group
-// expects, then loads it into one of its channel engines.
-static bool loadProfileGroupSafe(specbleach_stereo* group, uint32_t channel,
-                                 const float* data, uint32_t size,
-                                 uint32_t blockCount, int mode) {
-  if (group == nullptr || data == nullptr || size == 0)
-    return false;
-
-  const uint32_t targetSize = specbleach_stereo_get_noise_profile_size(group);
-  if (targetSize == 0)
-    return false;
-
-  if (size == targetSize) {
-    return specbleach_stereo_load_noise_profile_for_channel(
-        group, channel, data, size, blockCount, mode);
-  } else if (targetSize == 1) {
-    float resampledSample = data[0];
-    return specbleach_stereo_load_noise_profile_for_channel(
-        group, channel, &resampledSample, 1, blockCount, mode);
-  } else {
-    std::vector<float> resampled(targetSize);
-    float maxSrcIdx = static_cast<float>(size - 1);
-    float maxTargetIdx = static_cast<float>(targetSize - 1);
-    for (uint32_t i = 0; i < targetSize; ++i) {
-      float normPos = static_cast<float>(i) / maxTargetIdx;
-      float exactIdx = normPos * maxSrcIdx;
-      uint32_t idx0 = std::clamp(static_cast<uint32_t>(exactIdx), 0u, size - 1);
-      uint32_t idx1 = std::min(idx0 + 1, size - 1);
-      float frac = exactIdx - static_cast<float>(idx0);
-      resampled[i] = (1.0f - frac) * data[idx0] + frac * data[idx1];
-    }
-    return specbleach_stereo_load_noise_profile_for_channel(
-        group, channel, resampled.data(), targetSize, blockCount, mode);
-  }
-}
-
 void NoiseRepellentAudioProcessor::ensureEnginesInitialized(double sampleRate) {
+  // Engine width follows the bus layout (mono hosts get a 1-engine group;
+  // the library supports 1 channel explicitly). Rebuild on sample-rate OR
+  // channel-count change — hosts can re-layout without touching the rate.
+  const uint32_t wantedChannels = static_cast<uint32_t>(
+      std::max({getTotalNumInputChannels(), getTotalNumOutputChannels(), 1}));
+  const uint32_t currentGroupChannels =
+      (engineGroup != nullptr)
+          ? specbleach_stereo_get_channel_count(engineGroup.get())
+          : 0;
   const bool needNewEngines =
       (engineGroup == nullptr ||
-       std::abs(currentSampleRate - sampleRate) > 0.001);
+       std::abs(currentSampleRate - sampleRate) > 0.001 ||
+       currentGroupChannels != wantedChannels);
 
   if (!needNewEngines)
     return;
@@ -361,13 +348,13 @@ void NoiseRepellentAudioProcessor::ensureEnginesInitialized(double sampleRate) {
       for (int mode = SPECBLEACH_PROFILE_MODE_FIRST;
            mode <= SPECBLEACH_PROFILE_MODE_LAST; ++mode) {
         if (!specbleach_stereo_profile_available_for_channel(engineGroup.get(),
-                                                             channel, mode))
+                                                             channel, static_cast<SpecbleachProfileMode>(mode)))
           continue;
-        float* profile = specbleach_stereo_get_noise_profile_for_channel(
-            engineGroup.get(), channel, mode);
+        const float* profile = specbleach_stereo_get_noise_profile_for_channel(
+            engineGroup.get(), channel, static_cast<SpecbleachProfileMode>(mode));
         const uint32_t blockCount =
             specbleach_stereo_get_profile_block_count_for_channel(
-                engineGroup.get(), channel, mode);
+                engineGroup.get(), channel, static_cast<SpecbleachProfileMode>(mode));
         if (profile != nullptr && sz > 0) {
           savedProfiles.push_back({static_cast<int>(channel), mode, sz,
                                    blockCount,
@@ -380,23 +367,22 @@ void NoiseRepellentAudioProcessor::ensureEnginesInitialized(double sampleRate) {
   // Free existing group before allocating the replacement
   engineGroup.reset();
 
-  uint32_t channels = preparedNumChannels;
-  if (channels < 2) {
-    channels = static_cast<uint32_t>(
-        std::max({getTotalNumInputChannels(), getTotalNumOutputChannels(), 2}));
-  }
+  uint32_t channels = wantedChannels;
 
   const uint32_t sampleRateUint = static_cast<uint32_t>(sampleRate);
-  engineGroup = specbleach::make_stereo_group(sampleRateUint, 50.0f, channels);
+  engineGroup = specbleach::make_stereo_group(sampleRateUint,
+                                                kEngineFrameSizeMs, channels);
 
   currentSampleRate = sampleRate;
   preparedNumChannels = channels;
 
-  // Restore backed-up profiles into the new group
+  // Restore backed-up profiles into the new group (library resamples to
+  // the native spectrum size when the sample rate changed)
   for (const auto& item : savedProfiles) {
-    loadProfileGroupSafe(engineGroup.get(), static_cast<uint32_t>(item.channel),
-                         item.data.data(), item.size, item.blockCount,
-                         item.mode);
+    specbleach_stereo_load_noise_profile_resampled_for_channel(
+        engineGroup.get(), static_cast<uint32_t>(item.channel),
+        item.data.data(), item.size, item.blockCount,
+        static_cast<SpecbleachProfileMode>(item.mode));
   }
 
   // Restore state pending profiles if loaded before prepareToPlay
@@ -405,17 +391,21 @@ void NoiseRepellentAudioProcessor::ensureEnginesInitialized(double sampleRate) {
     if (item.channel == 1)
       hasCh1 = true;
 
-    loadProfileGroupSafe(engineGroup.get(), static_cast<uint32_t>(item.channel),
-                         item.data.data(), item.size, item.blockCount,
-                         item.mode);
+    specbleach_stereo_load_noise_profile_resampled_for_channel(
+        engineGroup.get(), static_cast<uint32_t>(item.channel),
+        item.data.data(), item.size, item.blockCount,
+        static_cast<SpecbleachProfileMode>(item.mode));
   }
 
   // Legacy states may lack channel 1 profiles — fall back from channel 0
-  if (!hasCh1) {
+  // (stereo groups only; mono groups have no channel 1)
+  if (!hasCh1 &&
+      specbleach_stereo_get_channel_count(engineGroup.get()) > 1) {
     for (const auto& item : pendingProfiles) {
       if (item.channel == 0) {
-        loadProfileGroupSafe(engineGroup.get(), 1u, item.data.data(), item.size,
-                             item.blockCount, item.mode);
+        specbleach_stereo_load_noise_profile_resampled_for_channel(
+            engineGroup.get(), 1u, item.data.data(), item.size,
+            item.blockCount, static_cast<SpecbleachProfileMode>(item.mode));
       }
     }
   }
@@ -439,7 +429,7 @@ void NoiseRepellentAudioProcessor::prepareToPlay(double sampleRate,
   const int bufferCapacity = std::max(samplesPerBlock, 16384);
   preparedBlockSize = static_cast<uint32_t>(bufferCapacity);
   preparedNumChannels = static_cast<uint32_t>(
-      std::max({getTotalNumInputChannels(), getTotalNumOutputChannels(), 2}));
+      std::max({getTotalNumInputChannels(), getTotalNumOutputChannels(), 1}));
 
   juce::dsp::ProcessSpec spec;
   spec.sampleRate = sampleRate;
@@ -458,10 +448,7 @@ void NoiseRepellentAudioProcessor::prepareToPlay(double sampleRate,
 
   // Pre-allocate persistent buffers to prevent audio-thread allocations
   dryInputL.resize(static_cast<size_t>(bufferCapacity), 0.0f);
-  wetScratchA.setSize(static_cast<int>(preparedNumChannels), bufferCapacity,
-                      false, false, true);
   jassert(dryInputL.size() >= static_cast<size_t>(samplesPerBlock));
-  jassert(wetScratchA.getNumSamples() >= samplesPerBlock);
 
   // Pre-reserve tonal peak storage in every FIFO slot so push_back on the
   // audio thread never reallocates
@@ -585,7 +572,7 @@ void NoiseRepellentAudioProcessor::processBlock(
   p.reduction_gain = reductionGain;
   p.smoothing_factor = smoothingNorm;
   p.smoothing_mode =
-      (algoMode == 1) ? SB_SMOOTHING_NLM_2D : SB_SMOOTHING_TEMPORAL;
+      (algoMode == 1) ? SPECBLEACH_SMOOTHING_NLM_2D : SPECBLEACH_SMOOTHING_TEMPORAL;
   p.whitening_factor = whiteningNorm;
   p.adaptive_noise = adaptiveNoise;
   p.noise_estimation_method =
@@ -607,7 +594,7 @@ void NoiseRepellentAudioProcessor::processBlock(
   // STFT+denoise (was culprit for idle > denoising and no-playback CPU).
   bool isSilent = false;
   if (!learnNoise) {
-    const float thresh = 1e-5f;
+    const float thresh = kSilenceAmplitudeFloor;
     isSilent = true;
     for (int ch = 0; ch < numChannels && isSilent; ++ch) {
       const float* d = buffer.getReadPointer(ch);
@@ -644,25 +631,21 @@ void NoiseRepellentAudioProcessor::processBlock(
       buffer.clear();
     }
   } else if (engineGroup != nullptr) {
+    // Process 1:1 up to the buffer width (mono hosts get a 1-engine group;
+    // layouts beyond stereo are rejected in isBusesLayoutSupported).
     const uint32_t groupChannels = std::min<uint32_t>(
-        specbleach_stereo_get_channel_count(engineGroup.get()), 2u);
+        specbleach_stereo_get_channel_count(engineGroup.get()),
+        static_cast<uint32_t>(numChannels));
     const float* inPtrs[2] = {nullptr, nullptr};
-    float* sinkA = wetScratchA.getNumChannels() > 1
-                       ? wetScratchA.getWritePointer(1)
-                       : nullptr;
-    for (uint32_t ch = 0; ch < groupChannels; ++ch)
-      inPtrs[ch] = buffer.getReadPointer(
-          ch < static_cast<uint32_t>(numChannels) ? static_cast<int>(ch) : 0);
+    for (uint32_t ch = 0; ch < groupChannels && ch < 2u; ++ch)
+      inPtrs[ch] = buffer.getReadPointer(static_cast<int>(ch));
 
     float* outPtrs[2] = {nullptr, nullptr};
-    for (uint32_t ch = 0; ch < groupChannels; ++ch) {
-      outPtrs[ch] =
-          (ch < static_cast<uint32_t>(numChannels))
-              ? buffer.getWritePointer(static_cast<int>(ch))
-              : ((sinkA != nullptr) ? sinkA : buffer.getWritePointer(0));
-    }
+    for (uint32_t ch = 0; ch < groupChannels && ch < 2u; ++ch)
+      outPtrs[ch] = buffer.getWritePointer(static_cast<int>(ch));
 
-    specbleach_stereo_load_parameters(engineGroup.get(), &p, sizeof(p));
+    specbleach_stereo_load_parameters(engineGroup.get(), &p,
+                                        SPECBLEACH_PARAMETERS_SIZE);
     specbleach_stereo_process(
         engineGroup.get(), static_cast<uint32_t>(numSamples), inPtrs, outPtrs);
     // Latency is constant for both smoothing modes — no wet compensation
@@ -762,7 +745,7 @@ void NoiseRepellentAudioProcessor::processBlock(
             // Tonal peaks for silent when unlinked
             if ((!frame.isLinked || !frame.isOffsetLinked) &&
                 frame.hasNoiseProfile) {
-              std::array<float, 32> peakBuf{};
+              std::array<float, kMaxTonalPeaks> peakBuf{};
               uint32_t n = specbleach_stereo_get_tonal_peaks_for_channel(
                   engineGroup.get(), 0u, peakBuf.data(),
                   static_cast<uint32_t>(peakBuf.size()));
@@ -851,37 +834,31 @@ void NoiseRepellentAudioProcessor::processBlock(
         juce::SpinLock::ScopedTryLockType profileTryLock(profileLock);
         if (profileTryLock.isLocked() && engineGroup != nullptr) {
           const auto* vizGroup = engineGroup.get();
-          for (int mode = SPECBLEACH_PROFILE_MODE_FIRST;
-               mode <= SPECBLEACH_PROFILE_MODE_LAST; ++mode) {
-            if (specbleach_stereo_profile_available_for_channel(
-                    const_cast<specbleach_stereo*>(vizGroup), 0u, mode)) {
-              profileHasAnyMode = true;
-              break;
-            }
-          }
+          profileHasAnyMode =
+              specbleach_stereo_has_any_profile_for_channel(vizGroup, 0u);
 
           if (isLearning) {
             actualNoiseProfile =
                 specbleach_stereo_get_noise_profile_for_channel(
-                    const_cast<specbleach_stereo*>(vizGroup), 0u, 1);
+                    vizGroup, 0u, SPECBLEACH_PROFILE_ROLLING_MEAN);
             profileSize = specbleach_stereo_get_noise_profile_size(
-                const_cast<specbleach_stereo*>(vizGroup));
+                vizGroup);
             profileAvailable =
                 (actualNoiseProfile != nullptr && profileSize > 0);
           } else {
             actualNoiseProfile =
                 specbleach_stereo_get_active_noise_profile_for_channel(
-                    const_cast<specbleach_stereo*>(vizGroup), 0u);
+                    vizGroup, 0u);
             profileSize = specbleach_stereo_get_noise_profile_size(
-                const_cast<specbleach_stereo*>(vizGroup));
+                vizGroup);
             if (!actualNoiseProfile && profileHasAnyMode) {
               for (int mode = SPECBLEACH_PROFILE_MODE_FIRST;
                    mode <= SPECBLEACH_PROFILE_MODE_LAST; ++mode) {
                 if (specbleach_stereo_profile_available_for_channel(
-                        const_cast<specbleach_stereo*>(vizGroup), 0u, mode)) {
+                        vizGroup, 0u, static_cast<SpecbleachProfileMode>(mode))) {
                   actualNoiseProfile =
                       specbleach_stereo_get_noise_profile_for_channel(
-                          const_cast<specbleach_stereo*>(vizGroup), 0u, mode);
+                          vizGroup, 0u, static_cast<SpecbleachProfileMode>(mode));
                   if (actualNoiseProfile)
                     break;
                 }
@@ -948,7 +925,7 @@ void NoiseRepellentAudioProcessor::processBlock(
 
           // Query libspecbleach directly for reported tonal peak frequencies
           // computed on this real noise profile
-          std::array<float, 32> peakBuf{};
+          std::array<float, kMaxTonalPeaks> peakBuf{};
           uint32_t numPeaks = 0;
           if (engineGroup != nullptr) {
             numPeaks = specbleach_stereo_get_tonal_peaks_for_channel(
@@ -1015,13 +992,7 @@ void NoiseRepellentAudioProcessor::resetNoiseProfile() {
 bool NoiseRepellentAudioProcessor::hasNoiseProfile() const {
   if (engineGroup == nullptr)
     return false;
-  for (int mode = SPECBLEACH_PROFILE_MODE_FIRST;
-       mode <= SPECBLEACH_PROFILE_MODE_LAST; ++mode) {
-    if (specbleach_stereo_profile_available_for_channel(engineGroup.get(), 0u,
-                                                        mode))
-      return true;
-  }
-  return false;
+  return specbleach_stereo_has_any_profile_for_channel(engineGroup.get(), 0u);
 }
 
 void NoiseRepellentAudioProcessor::getStateInformation(
@@ -1049,13 +1020,13 @@ void NoiseRepellentAudioProcessor::getStateInformation(
 
       if (engineGroup != nullptr &&
           specbleach_stereo_profile_available_for_channel(engineGroup.get(),
-                                                          channel, mode)) {
+                                                          channel, static_cast<SpecbleachProfileMode>(mode))) {
         profile = specbleach_stereo_get_noise_profile_for_channel(
-            engineGroup.get(), channel, mode);
+            engineGroup.get(), channel, static_cast<SpecbleachProfileMode>(mode));
         profileSize =
             specbleach_stereo_get_noise_profile_size(engineGroup.get());
         blockCount = specbleach_stereo_get_profile_block_count_for_channel(
-            engineGroup.get(), channel, mode);
+            engineGroup.get(), channel, static_cast<SpecbleachProfileMode>(mode));
       }
 
       if (profile != nullptr && profileSize > 0) {
@@ -1184,19 +1155,22 @@ void NoiseRepellentAudioProcessor::setStateInformation(const void* data,
             pendingProfiles.push_back(pp);
 
             const uint32_t channelUint = static_cast<uint32_t>(channel);
-            loadProfileGroupSafe(engineGroup.get(), channelUint, floatArray,
-                                 size, blockCount, mode);
+            specbleach_stereo_load_noise_profile_resampled_for_channel(
+                engineGroup.get(), channelUint, floatArray, size, blockCount,
+                static_cast<SpecbleachProfileMode>(mode));
           }
         }
       }
 
       // If legacy profile had no Channel 1 profile, copy Channel 0 to
-      // Channel 1
-      if (!hasCh1) {
+      // Channel 1 (stereo groups only)
+      if (!hasCh1 &&
+          specbleach_stereo_get_channel_count(engineGroup.get()) > 1) {
         for (const auto& pp : pendingProfiles) {
           if (pp.channel == 0) {
-            loadProfileGroupSafe(engineGroup.get(), 1u, pp.data.data(), pp.size,
-                                 pp.blockCount, pp.mode);
+            specbleach_stereo_load_noise_profile_resampled_for_channel(
+                engineGroup.get(), 1u, pp.data.data(), pp.size, pp.blockCount,
+                static_cast<SpecbleachProfileMode>(pp.mode));
           }
         }
       }

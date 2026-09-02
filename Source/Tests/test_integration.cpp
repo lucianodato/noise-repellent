@@ -118,6 +118,9 @@ public:
     beginTest("Channel Layout Matrix (Mono vs Stereo Processing)");
     testChannelLayoutMatrix();
 
+    beginTest("Mono Bus Layout (Single-Engine Group)");
+    testMonoBusLayout();
+
     beginTest("Transient Protection Dynamic Response");
     testTransientProtection();
   }
@@ -469,6 +472,68 @@ private:
     }
 
     proc.releaseResources();
+  }
+
+  void testMonoBusLayout() {
+    constexpr double sampleRate = 48000.0;
+    constexpr int blockSize = 512;
+
+    juce::AudioProcessor::BusesLayout monoLayout;
+    monoLayout.inputBuses.add(juce::AudioChannelSet::mono());
+    monoLayout.outputBuses.add(juce::AudioChannelSet::mono());
+
+    NoiseRepellentAudioProcessor proc;
+    expect(proc.setBusesLayout(monoLayout), "Mono bus layout must be accepted");
+    expect(proc.getTotalNumInputChannels() == 1, "Mono input bus width");
+    expect(proc.getTotalNumOutputChannels() == 1, "Mono output bus width");
+
+    proc.prepareToPlay(sampleRate, blockSize);
+    pumpMessageLoop(10);
+
+    // Learn a profile through the 1-engine group
+    setParam(proc, "learn_noise", 1.0f);
+    juce::AudioBuffer<float> buffer(1, blockSize);
+    juce::MidiBuffer midi;
+    for (int b = 0; b < 30; ++b) {
+      generateNoiseBuffer(buffer, 0.05f, 2000 + b);
+      proc.processBlock(buffer, midi);
+    }
+    setParam(proc, "learn_noise", 0.0f);
+    pumpMessageLoop(10);
+
+    expect(proc.hasNoiseProfile(), "Mono-learned profile must be present");
+
+    generateNoiseBuffer(buffer, 0.05f, 777);
+    proc.processBlock(buffer, midi);
+    const auto* out = buffer.getReadPointer(0);
+    for (int s = 0; s < blockSize; ++s)
+      expect(std::isfinite(out[s]), "Mono output must be finite");
+
+    // State roundtrip between mono instances
+    juce::MemoryBlock state;
+    proc.getStateInformation(state);
+    NoiseRepellentAudioProcessor proc2;
+    expect(proc2.setBusesLayout(monoLayout),
+           "Mono layout on restore target must be accepted");
+    proc2.prepareToPlay(sampleRate, blockSize);
+    proc2.setStateInformation(state.getData(), (int)state.getSize());
+    expect(proc2.hasNoiseProfile(), "Restored mono profile must be present");
+
+    // Switching back to stereo rebuilds the engine width without crashing
+    juce::AudioProcessor::BusesLayout stereoLayout;
+    stereoLayout.inputBuses.add(juce::AudioChannelSet::stereo());
+    stereoLayout.outputBuses.add(juce::AudioChannelSet::stereo());
+    expect(proc.setBusesLayout(stereoLayout),
+           "Stereo layout must be accepted after mono");
+    proc.prepareToPlay(sampleRate, blockSize);
+    pumpMessageLoop(10);
+    juce::AudioBuffer<float> stereoBuf(2, blockSize);
+    generateNoiseBuffer(stereoBuf, 0.05f, 888);
+    proc.processBlock(stereoBuf, midi);
+    expect(proc.hasNoiseProfile(), "Profile must survive mono->stereo switch");
+
+    proc.releaseResources();
+    proc2.releaseResources();
   }
 
   void testTransientProtection() {

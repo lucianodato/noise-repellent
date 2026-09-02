@@ -25,7 +25,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <juce_dsp/juce_dsp.h>
 #include <vector>
 
-#include "specbleach.hpp" // self-guarding for C++; do NOT wrap in extern "C"
+#include "specbleach_stereo.hpp" // self-guarding for C++; do NOT wrap in extern "C"
 #include "specbleach_version.h"
 
 class NoiseRepellentAudioProcessor : public juce::AudioProcessor {
@@ -160,10 +160,7 @@ private:
   // crossfade machinery needed in the plugin).
   specbleach::StereoGroupPtr engineGroup;
 
-  // Scratch wet sink for out-of-bus channels during processing
-  juce::AudioBuffer<float> wetScratchA;
-
-  double currentSampleRate = 44100.0;
+  double currentSampleRate = 48000.0;
   std::atomic<float> transientActivity{0.0f};
   std::atomic<bool> transientProtectionActive{false};
 

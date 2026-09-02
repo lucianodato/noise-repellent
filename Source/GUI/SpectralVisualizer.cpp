@@ -25,8 +25,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 SpectralVisualizerComponent::SpectralVisualizerComponent(
     NoiseRepellentAudioProcessor& p)
     : processor(p) {
-  smoothedInputDB.fill(-100.0f);
-  smoothedOutputDB.fill(-100.0f);
+  smoothedInputDB.fill(SpectralVisualizerComponent::kAxisMinDB);
+  smoothedOutputDB.fill(SpectralVisualizerComponent::kAxisMinDB);
   startTimerHz(60);
 }
 
@@ -101,9 +101,23 @@ void SpectralVisualizerComponent::timerCallback() {
 void SpectralVisualizerComponent::resized() {
 }
 
+juce::Rectangle<float> SpectralVisualizerComponent::getTpBadgeBounds() const {
+  const float w = static_cast<float>(getWidth());
+  return {w - kBadgeW - kBadgeMargin, kBadgeTop, kBadgeW, kBadgeH};
+}
+
+float SpectralVisualizerComponent::biasToY(float biasDB, float h) {
+  return h * 0.5f - (biasDB / kCurveMaxBiasDB) * (h * kCurveHeightFrac);
+}
+
+float SpectralVisualizerComponent::yToBias(float y, float h) {
+  return ((h * 0.5f - y) / (h * kCurveHeightFrac)) * kCurveMaxBiasDB;
+}
+
 // Map a frequency (Hz) to an X pixel position using logarithmic scale
-static float freqToX(float freqHz, float width, float minFreq = 20.0f,
-                     float maxFreq = 20000.0f) {
+static float freqToX(float freqHz, float width,
+                     float minFreq = SpectralVisualizerComponent::kAxisMinFreq,
+                     float maxFreq = SpectralVisualizerComponent::kAxisMaxFreq) {
   if (freqHz <= minFreq)
     return 0.0f;
   if (freqHz >= maxFreq)
@@ -112,8 +126,9 @@ static float freqToX(float freqHz, float width, float minFreq = 20.0f,
 }
 
 // Map a dB value to a Y pixel position
-static float dbToY(float db, float height, float minDB = -100.0f,
-                   float maxDB = -20.0f) {
+static float dbToY(float db, float height,
+                   float minDB = SpectralVisualizerComponent::kAxisMinDB,
+                   float maxDB = SpectralVisualizerComponent::kAxisMaxDB) {
   float clamped = juce::jlimit(minDB, maxDB, db);
   float normalized =
       (clamped - minDB) / (maxDB - minDB); // 0 at bottom, 1 at top
@@ -169,10 +184,10 @@ void SpectralVisualizerComponent::paint(juce::Graphics& g) {
 
   const float w = static_cast<float>(getWidth());
   const float h = static_cast<float>(getHeight());
-  const float minDB = -100.0f;
-  const float maxDB = -20.0f;
-  const float minFreq = 20.0f;
-  const float maxFreq = 20000.0f;
+  const float minDB = SpectralVisualizerComponent::kAxisMinDB;
+  const float maxDB = SpectralVisualizerComponent::kAxisMaxDB;
+  const float minFreq = SpectralVisualizerComponent::kAxisMinFreq;
+  const float maxFreq = SpectralVisualizerComponent::kAxisMaxFreq;
 
   const double sampleRate = processor.getSampleRate();
   const size_t numBins = NoiseRepellentAudioProcessor::kFftBins;
@@ -202,10 +217,10 @@ void SpectralVisualizerComponent::paint(juce::Graphics& g) {
   // dB Y-grid (-90 dB to -20 dB in 10 dB steps)
   for (int db = -90; db <= -20; db += 10) {
     float y = dbToY(static_cast<float>(db), h, minDB, maxDB);
-    g.setColour(juce::Colour(0xff3d4657));
+    g.setColour(juce::Colour(NoiseRepellentLookAndFeel::kColorGridLine));
     g.drawHorizontalLine(static_cast<int>(y), 0.0f, w);
 
-    g.setColour(juce::Colour(0xffa8b3c4));
+    g.setColour(juce::Colour(NoiseRepellentLookAndFeel::kColorGridLabel));
     juce::String label = juce::String(db) + " dB";
     g.drawText(label, 8, static_cast<int>(y) - 12, 60, 12,
                juce::Justification::left);
@@ -216,10 +231,10 @@ void SpectralVisualizerComponent::paint(juce::Graphics& g) {
                                 2000, 5000, 10000, 20000};
   for (float f : freqs) {
     float x = freqToX(f, w, minFreq, maxFreq);
-    g.setColour(juce::Colour(0xff3d4657));
+    g.setColour(juce::Colour(NoiseRepellentLookAndFeel::kColorGridLine));
     g.drawVerticalLine(static_cast<int>(x), 0.0f, h);
 
-    g.setColour(juce::Colour(0xffa8b3c4));
+    g.setColour(juce::Colour(NoiseRepellentLookAndFeel::kColorGridLabel));
     juce::String label = f >= 1000.0f ? juce::String(f / 1000.0f, 0) + "k"
                                       : juce::String(static_cast<int>(f));
     g.drawText(label, static_cast<int>(x) + 4, static_cast<int>(h) - 14, 40, 12,
@@ -364,7 +379,7 @@ void SpectralVisualizerComponent::paint(juce::Graphics& g) {
       auto nodeToPoint = [&](const NoiseRepellentAudioProcessor::CurveNode& n)
           -> juce::Point<float> {
         float nx = std::clamp(n.normX, 0.0f, 1.0f);
-        float ny = h * 0.5f - (n.biasDB / 24.0f) * (h * 0.4f);
+        float ny = SpectralVisualizerComponent::biasToY(n.biasDB, h);
         return {nx * w, ny};
       };
 
@@ -433,11 +448,11 @@ void SpectralVisualizerComponent::paint(juce::Graphics& g) {
       // Draw dB Reference Y-Scale for Reduction Curve on Right Margin
       const float scaleX = w - 42.0f;
       const float textX = w - 38.0f;
-      static const int biasLevels[] = {+24, +12, 0, -12, -24};
+      static const int biasLevels[] = {+24, +12, 0, -12, -24}; // +/-kCurveMaxBiasDB
 
       for (int biasVal : biasLevels) {
         float ny =
-            h * 0.5f - (static_cast<float>(biasVal) / 24.0f) * (h * 0.4f);
+            SpectralVisualizerComponent::biasToY(static_cast<float>(biasVal), h);
         g.setColour(
             NoiseRepellentLookAndFeel::kColorReductionCurve.withAlpha(0.35f));
         g.drawHorizontalLine(static_cast<int>(ny), scaleX, w);
@@ -560,7 +575,7 @@ void SpectralVisualizerComponent::paint(juce::Graphics& g) {
           NoiseRepellentLookAndFeel::kColorInputSignal.withAlpha(0.70f));
       g.fillRect(curX, legendY + 7.0f, 10.0f, 8.0f);
       curX += 14.0f;
-      g.setColour(juce::Colour(0xffd8e0ec));
+      g.setColour(juce::Colour(NoiseRepellentLookAndFeel::kColorLegendText));
       g.drawText("Input", static_cast<int>(curX), static_cast<int>(legendY), 32,
                  static_cast<int>(legendH), juce::Justification::left);
       curX += 32.0f + 14.0f;
@@ -569,7 +584,7 @@ void SpectralVisualizerComponent::paint(juce::Graphics& g) {
       g.setColour(NoiseRepellentLookAndFeel::kColorNoiseProfile);
       g.drawLine(curX, legendY + 11.0f, curX + 12.0f, legendY + 11.0f, 2.0f);
       curX += 16.0f;
-      g.setColour(juce::Colour(0xffd8e0ec));
+      g.setColour(juce::Colour(NoiseRepellentLookAndFeel::kColorLegendText));
       g.drawText("Profile", static_cast<int>(curX), static_cast<int>(legendY),
                  38, static_cast<int>(legendH), juce::Justification::left);
       curX += 38.0f + 14.0f;
@@ -578,7 +593,7 @@ void SpectralVisualizerComponent::paint(juce::Graphics& g) {
       g.setColour(NoiseRepellentLookAndFeel::kColorDenoising);
       g.drawLine(curX, legendY + 11.0f, curX + 12.0f, legendY + 11.0f, 2.0f);
       curX += 16.0f;
-      g.setColour(juce::Colour(0xffd8e0ec));
+      g.setColour(juce::Colour(NoiseRepellentLookAndFeel::kColorLegendText));
       g.drawText("Output", static_cast<int>(curX), static_cast<int>(legendY),
                  40, static_cast<int>(legendH), juce::Justification::left);
       curX += 40.0f;
@@ -592,7 +607,7 @@ void SpectralVisualizerComponent::paint(juce::Graphics& g) {
         float dLen[] = {2.0f, 2.0f};
         g.drawDashedLine(dashLine, dLen, 2, 1.5f);
         curX += 16.0f;
-        g.setColour(juce::Colour(0xffd8e0ec));
+        g.setColour(juce::Colour(NoiseRepellentLookAndFeel::kColorLegendText));
         g.drawText("Tonal Peaks", static_cast<int>(curX),
                    static_cast<int>(legendY), 64, static_cast<int>(legendH),
                    juce::Justification::left);
@@ -605,7 +620,7 @@ void SpectralVisualizerComponent::paint(juce::Graphics& g) {
         g.setColour(NoiseRepellentLookAndFeel::kColorReductionCurve);
         g.drawLine(curX, legendY + 11.0f, curX + 12.0f, legendY + 11.0f, 2.0f);
         curX += 16.0f;
-        g.setColour(juce::Colour(0xffd8e0ec));
+        g.setColour(juce::Colour(NoiseRepellentLookAndFeel::kColorLegendText));
         g.drawText("Curve", static_cast<int>(curX), static_cast<int>(legendY),
                    38, static_cast<int>(legendH), juce::Justification::left);
       }
@@ -615,10 +630,11 @@ void SpectralVisualizerComponent::paint(juce::Graphics& g) {
   // 6. Transient Protection (TP) LED Indicator & Button (Top-Right Corner:
   // click to toggle ON/OFF, only visible in Advanced mode)
   if (isAdvancedVisible) {
-    const float badgeW = 66.0f;
-    const float badgeH = 22.0f;
-    const float badgeX = w - badgeW - 10.0f;
-    const float badgeY = 10.0f;
+    const juce::Rectangle<float> badge = getTpBadgeBounds();
+    const float badgeX = badge.getX();
+    const float badgeY = badge.getY();
+    const float badgeW = badge.getWidth();
+    const float badgeH = badge.getHeight();
 
     if (badgeX > 10.0f) {
       // Container background (dimmer when disabled)
@@ -672,7 +688,7 @@ void SpectralVisualizerComponent::paint(juce::Graphics& g) {
             juce::FontOptions(NoiseRepellentLookAndFeel::kFontSizeLabel - 0.5f,
                               juce::Font::bold));
         g.setColour(
-            juce::Colour(0xffd8e0ec).withAlpha(0.65f + 0.35f * ledBrightness));
+            juce::Colour(NoiseRepellentLookAndFeel::kColorLegendText).withAlpha(0.65f + 0.35f * ledBrightness));
         g.drawText("TP ON", static_cast<int>(badgeX + 19.0f),
                    static_cast<int>(badgeY), static_cast<int>(badgeW - 22.0f),
                    static_cast<int>(badgeH), juce::Justification::centred);
@@ -708,10 +724,11 @@ void SpectralVisualizerComponent::mouseDown(const juce::MouseEvent& e) {
   // Check Transient Protection (TP) Toggle Badge click (Top-Right corner: click
   // to toggle ON/OFF in Advanced mode)
   if (isAdvancedVisible) {
-    const float badgeW = 66.0f;
-    const float badgeH = 22.0f;
-    const float badgeX = w - badgeW - 10.0f;
-    const float badgeY = 10.0f;
+    const juce::Rectangle<float> badge = getTpBadgeBounds();
+    const float badgeX = badge.getX();
+    const float badgeY = badge.getY();
+    const float badgeW = badge.getWidth();
+    const float badgeH = badge.getHeight();
     juce::Rectangle<float> badgeBounds(badgeX, badgeY, badgeW, badgeH);
     if (badgeBounds.contains(e.position)) {
       if (auto* transientParam = dynamic_cast<juce::AudioParameterBool*>(
@@ -746,7 +763,7 @@ void SpectralVisualizerComponent::mouseDown(const juce::MouseEvent& e) {
     const auto& nodes = processor.getCurveNodes();
     for (size_t i = 0; i < nodes.size(); ++i) {
       float nx = std::clamp(nodes[i].normX, 0.0f, 1.0f);
-      float ny = h * 0.5f - (nodes[i].biasDB / 24.0f) * (h * 0.4f);
+      float ny = SpectralVisualizerComponent::biasToY(nodes[i].biasDB, h);
       if (e.position.getDistanceFrom({nx * w, ny}) <= 12.0f) {
         activeDragTarget = DragTarget::CurveNode;
         activeNodeIndex = static_cast<int>(i);
@@ -757,7 +774,7 @@ void SpectralVisualizerComponent::mouseDown(const juce::MouseEvent& e) {
     // Add a new curve node on empty click
     float clickNormX = std::clamp(e.position.x / w, 0.01f, 0.99f);
     float clickBiasDB = std::clamp(
-        ((h * 0.5f - e.position.y) / (h * 0.4f)) * 24.0f, -24.0f, 24.0f);
+        SpectralVisualizerComponent::yToBias(e.position.y, h), -SpectralVisualizerComponent::kCurveMaxBiasDB, SpectralVisualizerComponent::kCurveMaxBiasDB);
     processor.addCurveNode(clickNormX, clickBiasDB);
     repaint();
   }
@@ -769,8 +786,8 @@ void SpectralVisualizerComponent::mouseDrag(const juce::MouseEvent& e) {
 
   if (activeDragTarget == DragTarget::CurveNode && activeNodeIndex >= 0) {
     float normX = std::clamp(e.position.x / w, 0.0f, 1.0f);
-    float biasDB = std::clamp(((h * 0.5f - e.position.y) / (h * 0.4f)) * 24.0f,
-                              -24.0f, 24.0f);
+    float biasDB = std::clamp(SpectralVisualizerComponent::yToBias(e.position.y, h),
+                              -SpectralVisualizerComponent::kCurveMaxBiasDB, SpectralVisualizerComponent::kCurveMaxBiasDB);
     processor.updateCurveNode(activeNodeIndex, normX, biasDB);
     repaint();
   }
@@ -789,7 +806,7 @@ void SpectralVisualizerComponent::mouseDoubleClick(const juce::MouseEvent& e) {
 
     for (size_t i = 1; i < nodes.size() - 1; ++i) {
       float nx = std::clamp(nodes[i].normX, 0.0f, 1.0f);
-      float ny = h * 0.5f - (nodes[i].biasDB / 24.0f) * (h * 0.4f);
+      float ny = SpectralVisualizerComponent::biasToY(nodes[i].biasDB, h);
       if (e.position.getDistanceFrom({nx * w, ny}) <= 12.0f) {
         processor.removeCurveNode(static_cast<int>(i));
         repaint();
@@ -801,11 +818,7 @@ void SpectralVisualizerComponent::mouseDoubleClick(const juce::MouseEvent& e) {
 
 void SpectralVisualizerComponent::mouseMove(const juce::MouseEvent& e) {
   const float w = static_cast<float>(getWidth());
-  const float badgeW = 66.0f;
-  const float badgeH = 22.0f;
-  const float badgeX = w - badgeW - 10.0f;
-  const float badgeY = 10.0f;
-  juce::Rectangle<float> badgeBounds(badgeX, badgeY, badgeW, badgeH);
+  juce::Rectangle<float> badgeBounds = getTpBadgeBounds();
 
   if (isAdvancedVisible && badgeBounds.contains(e.position)) {
     setMouseCursor(juce::MouseCursor::PointingHandCursor);
@@ -821,10 +834,11 @@ void SpectralVisualizerComponent::mouseExit(const juce::MouseEvent&) {
 juce::String SpectralVisualizerComponent::getTooltip() {
   if (isAdvancedVisible) {
     const float w = static_cast<float>(getWidth());
-    const float badgeW = 66.0f;
-    const float badgeH = 22.0f;
-    const float badgeX = w - badgeW - 10.0f;
-    const float badgeY = 10.0f;
+    const juce::Rectangle<float> badge = getTpBadgeBounds();
+    const float badgeX = badge.getX();
+    const float badgeY = badge.getY();
+    const float badgeW = badge.getWidth();
+    const float badgeH = badge.getHeight();
     juce::Rectangle<float> badgeBounds(badgeX, badgeY, badgeW, badgeH);
 
     auto mousePos = getMouseXYRelative().toFloat();

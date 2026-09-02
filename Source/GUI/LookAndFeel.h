@@ -64,15 +64,25 @@ public:
                                  int standardMenuItemHeight, int& idealWidth,
                                  int& idealHeight) override;
 
-  // Domain Colors
+  // Domain Colors (hex values mirror the definitions in LookAndFeel.cpp)
   static const juce::Colour kColorNoiseProfile;   // Warm Amber 0xffe5a000
-  static const juce::Colour kColorDenoising;      // Slate Blue  0xff00b4d8
-  static const juce::Colour kColorFineTuning;     // Slate Gray  0xff64748b
-  static const juce::Colour kColorInputSignal;    // Soft Teal   0xff486581
-  static const juce::Colour kColorTonalPeaks;     // Muted Violet 0xff9d65c9
+  static const juce::Colour kColorDenoising;      // Aqua 0xff5cc0d4
+  static const juce::Colour kColorFineTuning;     // Pale Slate 0xffb4bfce
+  static const juce::Colour kColorInputSignal;    // Steel Blue 0xff6184a8
+  static const juce::Colour kColorTonalPeaks;     // Coral 0xffe07055
   static const juce::Colour kColorReductionCurve; // Soft Green 0xff4caf50
-  static const juce::Colour kColorPanelBg;        // Matte Dark  0xff171a21
-  static const juce::Colour kColorPanelBorder;    // Border      0xff272c37
+  static const juce::Colour kColorPanelBg;        // Matte Dark 0xff343a48
+  static const juce::Colour kColorPanelBorder;    // Border 0xff4f586c
+
+  // Shared UI Colors (previously inline hex literals across editor/visualizer)
+  static const juce::Colour kColorButtonOff;   // Toggle off 0xff3f4757
+  static const juce::Colour kColorLearnCTA;    // Learn idle red 0xffc0392b
+  static const juce::Colour kColorLearnActive; // Learn active red 0xffe74c3c
+  static const juce::Colour kColorInactiveText; // Muted gray 0xff808896
+  static const juce::Colour kColorFooterText;   // Footer gray 0xff94a3b8
+  static const juce::Colour kColorGridLine;     // Spectrum grid 0xff3d4657
+  static const juce::Colour kColorGridLabel;    // Grid labels 0xffa8b3c4
+  static const juce::Colour kColorLegendText;   // Legend text 0xffd8e0ec
 
   // Typography Scale
   static constexpr float kFontSizeLabel =

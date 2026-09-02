@@ -38,6 +38,7 @@ public:
   void paintOverChildren(juce::Graphics&) override;
   void resized() override;
   void timerCallback() override;
+  void mouseDown(const juce::MouseEvent&) override;
   void mouseEnter(const juce::MouseEvent&) override;
   void mouseMove(const juce::MouseEvent&) override;
   void mouseExit(const juce::MouseEvent&) override;
@@ -145,6 +146,7 @@ private:
   void updateLayout();
   void updateSliderLabels();
   void updateProfileStatus();
+  void showAboutBox();
 
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(
       NoiseRepellentAudioProcessorEditor)
