@@ -22,6 +22,15 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <algorithm>
 #include <cmath>
 
+namespace {
+
+// Tooltip strings (single source; getTooltip() only selects among these)
+const juce::String kTpBadgeTip =
+    "Transient Protection (TP): Click to toggle.\n"
+    "Preserves sharp attack transients and plucked notes.";
+
+} // namespace
+
 SpectralVisualizerComponent::SpectralVisualizerComponent(
     NoiseRepellentAudioProcessor& p)
     : processor(p) {
@@ -843,8 +852,7 @@ juce::String SpectralVisualizerComponent::getTooltip() {
 
     auto mousePos = getMouseXYRelative().toFloat();
     if (badgeBounds.contains(mousePos)) {
-      return "Transient Protection (TP): Click to toggle.\n"
-             "Preserves sharp attack transients and plucked notes.";
+      return kTpBadgeTip;
     }
   }
   return {};
