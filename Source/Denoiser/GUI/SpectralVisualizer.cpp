@@ -18,7 +18,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
 #include "SpectralVisualizer.h"
-#include "LookAndFeel.h"
+#include "../../Shared/GUI/LookAndFeel.h"
 #include <algorithm>
 #include <cmath>
 

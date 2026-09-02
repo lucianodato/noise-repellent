@@ -149,7 +149,7 @@ if(UNIX AND NOT APPLE)
 endif()
 
 # ==============================================================================
-# 4. Audio Plugin Target Definition
+# 4. Audio Plugin Targets
 # ==============================================================================
 set(NOISE_REPELLENT_FORMATS "VST3;AU;LV2" CACHE STRING "Plugin formats to build")
 juce_add_plugin(NoiseRepellent
@@ -168,6 +168,23 @@ juce_add_plugin(NoiseRepellent
     PRODUCT_NAME "Noise Repellent"
 )
 
+# Zero-latency time-domain sibling plugin (live/monitoring use case)
+juce_add_plugin(NoiseRepellentLive
+    COMPANY_NAME "Luciano Dato"
+    BUNDLE_ID "com.lucianodato.NoiseRepellentLive"
+    LV2URI "https://github.com/lucianodato/noise-repellent-live#v0"
+    IS_SYNTH FALSE
+    NEEDS_MIDI_INPUT FALSE
+    NEEDS_MIDI_OUTPUT FALSE
+    IS_MIDI_EFFECT FALSE
+    EDITOR_WANTS_KEYBOARD_FOCUS FALSE
+    COPY_PLUGIN_AFTER_BUILD FALSE
+    PLUGIN_MANUFACTURER_CODE LdNR
+    PLUGIN_CODE Nrlv
+    FORMATS VST3 AU LV2
+    PRODUCT_NAME "Noise Repellent Live"
+)
+
 if(APPLE)
     set(CMAKE_OSX_DEPLOYMENT_TARGET "10.13" CACHE STRING "Minimum macOS version")
 endif()
@@ -177,17 +194,38 @@ target_include_directories(NoiseRepellent PRIVATE
 )
 
 target_sources(NoiseRepellent PRIVATE
-    Source/PluginProcessor.cpp
-    Source/PluginProcessor.h
-    Source/PluginEditor.cpp
-    Source/PluginEditor.h
-    Source/GUI/LookAndFeel.cpp
-    Source/GUI/LookAndFeel.h
-    Source/GUI/SpectralVisualizer.cpp
-    Source/GUI/SpectralVisualizer.h
+    Source/Denoiser/PluginProcessor.cpp
+    Source/Denoiser/PluginProcessor.h
+    Source/Denoiser/PluginEditor.cpp
+    Source/Denoiser/PluginEditor.h
+    Source/Shared/GUI/LookAndFeel.cpp
+    Source/Shared/GUI/LookAndFeel.h
+    Source/Denoiser/GUI/SpectralVisualizer.cpp
+    Source/Denoiser/GUI/SpectralVisualizer.h
 )
 
 target_compile_definitions(NoiseRepellent PRIVATE
+    JUCE_WEB_BROWSER=0
+    JUCE_USE_CURL=0
+    JUCE_VST3_CAN_REPLACE_VST2=0
+)
+
+target_include_directories(NoiseRepellentLive PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/Source
+)
+
+target_sources(NoiseRepellentLive PRIVATE
+    Source/LiveDenoiser/PluginProcessor.cpp
+    Source/LiveDenoiser/PluginProcessor.h
+    Source/LiveDenoiser/PluginEditor.cpp
+    Source/LiveDenoiser/PluginEditor.h
+    Source/Shared/GUI/LookAndFeel.cpp
+    Source/Shared/GUI/LookAndFeel.h
+    Source/LiveDenoiser/GUI/LiveSpectralVisualizer.cpp
+    Source/LiveDenoiser/GUI/LiveSpectralVisualizer.h
+)
+
+target_compile_definitions(NoiseRepellentLive PRIVATE
     JUCE_WEB_BROWSER=0
     JUCE_USE_CURL=0
     JUCE_VST3_CAN_REPLACE_VST2=0
@@ -263,14 +301,14 @@ endif()
 # ==============================================================================
 # 7. Target Linkage & Symbol Visibility Properties
 # ==============================================================================
-set_target_properties(NoiseRepellent PROPERTIES
+set_target_properties(NoiseRepellent NoiseRepellentLive PROPERTIES
     C_VISIBILITY_PRESET hidden
     CXX_VISIBILITY_PRESET hidden
     VISIBILITY_INLINES_HIDDEN YES
 )
 
 # JUCE core modules (always)
-target_link_libraries(NoiseRepellent PRIVATE
+set(JUCE_PLUGIN_MODULES
     juce::juce_audio_utils
     juce::juce_audio_processors
     juce::juce_dsp
@@ -280,73 +318,68 @@ target_link_libraries(NoiseRepellent PRIVATE
     juce::juce_core
 )
 
+target_link_libraries(NoiseRepellent PRIVATE ${JUCE_PLUGIN_MODULES})
+target_link_libraries(NoiseRepellentLive PRIVATE ${JUCE_PLUGIN_MODULES})
+
+# Statically embed libspecbleach into a JUCE plugin target (main target +
+# SharedCode + per-format targets).
+#
 # On MSVC, static archives linked into a SHARED module are pruned by
 # /OPT:REF unless wrapped in /WHOLEARCHIVE. Without this, libspecbleach
 # objects are silently dropped from the final .vst3/.dll,
 # while import-table verification still passes.
 # Use LINK_LIBRARY:WHOLE_ARCHIVE on CMake >=3.24, fallback to
 # LINKER:/WHOLEARCHIVE on older CMake.
-if(NOT USE_SYSTEM_SPECBLEACH)
-    if(MSVC)
-        if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.24")
-            target_link_libraries(NoiseRepellent PRIVATE "$<LINK_LIBRARY:WHOLE_ARCHIVE,${SPECBLEACH_TARGET};${SPECBLEACH_EXTRAS_TARGET}>")
-        else()
-            target_link_libraries(NoiseRepellent PRIVATE ${SPECBLEACH_TARGET} ${SPECBLEACH_EXTRAS_TARGET})
-            target_link_options(NoiseRepellent PRIVATE "LINKER:/WHOLEARCHIVE,$<TARGET_FILE:${SPECBLEACH_TARGET}>" "LINKER:/WHOLEARCHIVE,$<TARGET_FILE:${SPECBLEACH_EXTRAS_TARGET}>")
-        endif()
-    else()
-        target_link_libraries(NoiseRepellent PRIVATE ${SPECBLEACH_TARGET} ${SPECBLEACH_EXTRAS_TARGET})
-    endif()
-else()
-    target_link_libraries(NoiseRepellent PRIVATE ${SPECBLEACH_TARGET} ${SPECBLEACH_EXTRAS_TARGET})
-endif()
-
-# Explicitly propagate the static DSP libs to JUCE format targets.
-# juce_add_plugin creates NoiseRepellent_SharedCode + per-format modules
-# (VST3/LV2/AU/Standalone). Linking only to NoiseRepellent is not
-# sufficient on MSVC where SharedCode is a STATIC archive that does not
-# itself embed its PRIVATE dependencies.
-foreach(_fmt IN ITEMS VST3 LV2 AU Standalone)
-    if(TARGET NoiseRepellent_${_fmt})
-        if(NOT USE_SYSTEM_SPECBLEACH)
-            if(MSVC)
-                if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.24")
-                    target_link_libraries(NoiseRepellent_${_fmt} PRIVATE "$<LINK_LIBRARY:WHOLE_ARCHIVE,${SPECBLEACH_TARGET};${SPECBLEACH_EXTRAS_TARGET}>")
+function(link_specbleach plugin_target)
+    foreach(_tgt IN ITEMS ${plugin_target} ${plugin_target}_SharedCode)
+        if(TARGET ${_tgt})
+            if(NOT USE_SYSTEM_SPECBLEACH)
+                if(MSVC)
+                    if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.24")
+                        target_link_libraries(${_tgt} PRIVATE "$<LINK_LIBRARY:WHOLE_ARCHIVE,${SPECBLEACH_TARGET};${SPECBLEACH_EXTRAS_TARGET}>")
+                    else()
+                        target_link_libraries(${_tgt} PRIVATE ${SPECBLEACH_TARGET} ${SPECBLEACH_EXTRAS_TARGET})
+                        target_link_options(${_tgt} PRIVATE "LINKER:/WHOLEARCHIVE,$<TARGET_FILE:${SPECBLEACH_TARGET}>" "LINKER:/WHOLEARCHIVE,$<TARGET_FILE:${SPECBLEACH_EXTRAS_TARGET}>")
+                    endif()
                 else()
-                    target_link_libraries(NoiseRepellent_${_fmt} PRIVATE ${SPECBLEACH_TARGET} ${SPECBLEACH_EXTRAS_TARGET})
-                    target_link_options(NoiseRepellent_${_fmt} PRIVATE "LINKER:/WHOLEARCHIVE,$<TARGET_FILE:${SPECBLEACH_TARGET}>" "LINKER:/WHOLEARCHIVE,$<TARGET_FILE:${SPECBLEACH_EXTRAS_TARGET}>")
+                    target_link_libraries(${_tgt} PRIVATE ${SPECBLEACH_TARGET} ${SPECBLEACH_EXTRAS_TARGET})
                 endif()
             else()
-                target_link_libraries(NoiseRepellent_${_fmt} PRIVATE ${SPECBLEACH_TARGET} ${SPECBLEACH_EXTRAS_TARGET})
+                target_link_libraries(${_tgt} PRIVATE ${SPECBLEACH_TARGET} ${SPECBLEACH_EXTRAS_TARGET})
             endif()
-        else()
-            target_link_libraries(NoiseRepellent_${_fmt} PRIVATE ${SPECBLEACH_TARGET} ${SPECBLEACH_EXTRAS_TARGET})
         endif()
-    endif()
-endforeach()
-if(TARGET NoiseRepellent_SharedCode)
-    if(NOT USE_SYSTEM_SPECBLEACH)
-        if(MSVC)
-            if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.24")
-                target_link_libraries(NoiseRepellent_SharedCode PRIVATE "$<LINK_LIBRARY:WHOLE_ARCHIVE,${SPECBLEACH_TARGET};${SPECBLEACH_EXTRAS_TARGET}>")
+    endforeach()
+    foreach(_fmt IN ITEMS VST3 LV2 AU Standalone)
+        if(TARGET ${plugin_target}_${_fmt})
+            if(NOT USE_SYSTEM_SPECBLEACH)
+                if(MSVC)
+                    if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.24")
+                        target_link_libraries(${plugin_target}_${_fmt} PRIVATE "$<LINK_LIBRARY:WHOLE_ARCHIVE,${SPECBLEACH_TARGET};${SPECBLEACH_EXTRAS_TARGET}>")
+                    else()
+                        target_link_libraries(${plugin_target}_${_fmt} PRIVATE ${SPECBLEACH_TARGET} ${SPECBLEACH_EXTRAS_TARGET})
+                        target_link_options(${plugin_target}_${_fmt} PRIVATE "LINKER:/WHOLEARCHIVE,$<TARGET_FILE:${SPECBLEACH_TARGET}>" "LINKER:/WHOLEARCHIVE,$<TARGET_FILE:${SPECBLEACH_EXTRAS_TARGET}>")
+                    endif()
+                else()
+                    target_link_libraries(${plugin_target}_${_fmt} PRIVATE ${SPECBLEACH_TARGET} ${SPECBLEACH_EXTRAS_TARGET})
+                endif()
             else()
-                target_link_libraries(NoiseRepellent_SharedCode PRIVATE ${SPECBLEACH_TARGET} ${SPECBLEACH_EXTRAS_TARGET})
-                target_link_options(NoiseRepellent_SharedCode PRIVATE "LINKER:/WHOLEARCHIVE,$<TARGET_FILE:${SPECBLEACH_TARGET}>" "LINKER:/WHOLEARCHIVE,$<TARGET_FILE:${SPECBLEACH_EXTRAS_TARGET}>")
+                target_link_libraries(${plugin_target}_${_fmt} PRIVATE ${SPECBLEACH_TARGET} ${SPECBLEACH_EXTRAS_TARGET})
             endif()
-        else()
-            target_link_libraries(NoiseRepellent_SharedCode PRIVATE ${SPECBLEACH_TARGET} ${SPECBLEACH_EXTRAS_TARGET})
         endif()
-    else()
-        target_link_libraries(NoiseRepellent_SharedCode PRIVATE ${SPECBLEACH_TARGET} ${SPECBLEACH_EXTRAS_TARGET})
-    endif()
-endif()
+    endforeach()
+endfunction()
+
+link_specbleach(NoiseRepellent)
+link_specbleach(NoiseRepellentLive)
 
 if(UNIX AND NOT APPLE)
-    if(USE_SYSTEM_FREETYPE)
-        target_link_libraries(NoiseRepellent PRIVATE Freetype::Freetype)
-    elseif(NOT USE_SYSTEM_JUCE)
-        target_link_libraries(NoiseRepellent PRIVATE freetype)
-    endif()
+    foreach(_tgt IN ITEMS NoiseRepellent NoiseRepellentLive)
+        if(USE_SYSTEM_FREETYPE)
+            target_link_libraries(${_tgt} PRIVATE Freetype::Freetype)
+        elseif(NOT USE_SYSTEM_JUCE)
+            target_link_libraries(${_tgt} PRIVATE freetype)
+        endif()
+    endforeach()
 endif()
 
 # ==============================================================================
@@ -401,106 +434,107 @@ if(TARGET NoiseRepellent_LV2)
     )
 endif()
 
+if(TARGET NoiseRepellentLive_VST3)
+    install(DIRECTORY "$<TARGET_PROPERTY:NoiseRepellentLive_VST3,JUCE_PLUGIN_ARTEFACT_FILE>"
+        DESTINATION "${INSTALL_VST3_DIR}"
+        USE_SOURCE_PERMISSIONS
+        COMPONENT VST3
+    )
+endif()
+
+if(TARGET NoiseRepellentLive_AU)
+    install(DIRECTORY "$<TARGET_PROPERTY:NoiseRepellentLive_AU,JUCE_PLUGIN_ARTEFACT_FILE>"
+        DESTINATION "${INSTALL_AU_DIR}"
+        USE_SOURCE_PERMISSIONS
+        COMPONENT AU
+    )
+endif()
+
+if(TARGET NoiseRepellentLive_LV2)
+    install(DIRECTORY "$<TARGET_PROPERTY:NoiseRepellentLive_LV2,JUCE_PLUGIN_ARTEFACT_FILE>"
+        DESTINATION "${INSTALL_LV2_DIR}"
+        USE_SOURCE_PERMISSIONS
+        COMPONENT LV2
+    )
+endif()
+
+# ==============================================================================
 # ==============================================================================
 # 9. Unit Tests
 # ==============================================================================
 if(ENABLE_PLUGIN_TESTS OR BUILD_TESTING)
-    add_executable(test_ux_invariants
-        Source/Tests/test_ux_invariants.cpp
-        Source/PluginProcessor.cpp
-        Source/PluginEditor.cpp
-        Source/GUI/LookAndFeel.cpp
-        Source/GUI/SpectralVisualizer.cpp
-    )
-    target_compile_definitions(test_ux_invariants PRIVATE
-        JUCE_MODAL_LOOPS_PERMITTED=1
-        JucePlugin_Name="Noise Repellent"
-        JUCE_WEB_BROWSER=0
-        JUCE_USE_CURL=0
-        JUCE_VST3_CAN_REPLACE_VST2=0
-    )
-    target_include_directories(test_ux_invariants PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/Source
-    )
-    target_link_libraries(test_ux_invariants PRIVATE
-        ${SPECBLEACH_TARGET}
-        ${SPECBLEACH_EXTRAS_TARGET}
-        juce::juce_audio_utils
-        juce::juce_audio_processors
-        juce::juce_dsp
-        juce::juce_gui_extra
-        juce::juce_gui_basics
-        juce::juce_graphics
-        juce::juce_events
-        juce::juce_core
-    )
-    if(UNIX AND NOT APPLE)
-        if(USE_SYSTEM_FREETYPE)
-            target_link_libraries(test_ux_invariants PRIVATE Freetype::Freetype)
-        elseif(NOT USE_SYSTEM_JUCE)
-            target_link_libraries(test_ux_invariants PRIVATE freetype)
+    # Test executables link the plugin sources directly (no JucePlugin_* defines
+    # in the sources themselves). Each passes its own JucePlugin_Name.
+    function(add_plugin_test test_name test_source plugin_name)
+        add_executable(${test_name}
+            ${test_source}
+            Source/Denoiser/PluginProcessor.cpp
+            Source/Denoiser/PluginEditor.cpp
+            Source/Shared/GUI/LookAndFeel.cpp
+            Source/Denoiser/GUI/SpectralVisualizer.cpp
+        )
+        target_compile_definitions(${test_name} PRIVATE
+            JUCE_MODAL_LOOPS_PERMITTED=1
+            JucePlugin_Name="${plugin_name}"
+            JUCE_WEB_BROWSER=0
+            JUCE_USE_CURL=0
+            JUCE_VST3_CAN_REPLACE_VST2=0
+        )
+        target_include_directories(${test_name} PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/Source
+            ${SPECBLEACH_SRC}/include
+            ${SPECBLEACH_SRC}/extras/include
+        )
+        target_link_libraries(${test_name} PRIVATE
+            ${SPECBLEACH_TARGET}
+            ${SPECBLEACH_EXTRAS_TARGET}
+            juce::juce_audio_utils
+            juce::juce_audio_processors
+            juce::juce_dsp
+            juce::juce_gui_extra
+            juce::juce_gui_basics
+            juce::juce_graphics
+            juce::juce_events
+            juce::juce_core
+        )
+        if(UNIX AND NOT APPLE)
+            if(USE_SYSTEM_FREETYPE)
+                target_link_libraries(${test_name} PRIVATE Freetype::Freetype)
+            elseif(NOT USE_SYSTEM_JUCE)
+                target_link_libraries(${test_name} PRIVATE freetype)
+            endif()
         endif()
-    endif()
-    add_test(NAME test_ux_invariants COMMAND test_ux_invariants)
+        add_test(NAME ${test_name} COMMAND ${test_name})
+    endfunction()
 
-    add_executable(test_performance
-        Source/Tests/test_performance.cpp
-        Source/PluginProcessor.cpp
-        Source/PluginEditor.cpp
-        Source/GUI/LookAndFeel.cpp
-        Source/GUI/SpectralVisualizer.cpp
-    )
-    target_compile_definitions(test_performance PRIVATE
-        JUCE_MODAL_LOOPS_PERMITTED=1
-        JucePlugin_Name="Noise Repellent"
-        JUCE_WEB_BROWSER=0
-        JUCE_USE_CURL=0
-        JUCE_VST3_CAN_REPLACE_VST2=0
-    )
-    target_include_directories(test_performance PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/Source
-    )
-    target_link_libraries(test_performance PRIVATE
-        ${SPECBLEACH_TARGET}
-        ${SPECBLEACH_EXTRAS_TARGET}
-        juce::juce_audio_utils
-        juce::juce_audio_processors
-        juce::juce_dsp
-        juce::juce_gui_extra
-        juce::juce_gui_basics
-        juce::juce_graphics
-        juce::juce_events
-        juce::juce_core
-    )
-    if(UNIX AND NOT APPLE)
-        if(USE_SYSTEM_FREETYPE)
-            target_link_libraries(test_performance PRIVATE Freetype::Freetype)
-        elseif(NOT USE_SYSTEM_JUCE)
-            target_link_libraries(test_performance PRIVATE freetype)
-        endif()
-    endif()
-    add_test(NAME test_performance COMMAND test_performance)
+    add_plugin_test(test_ux_invariants Source/Tests/test_ux_invariants.cpp "Noise Repellent")
+    add_plugin_test(test_ux Source/Tests/test_ux.cpp "Noise Repellent")
+    add_plugin_test(test_performance Source/Tests/test_performance.cpp "Noise Repellent")
+    add_plugin_test(test_stress Source/Tests/test_stress.cpp "Noise Repellent")
+    add_plugin_test(test_integration Source/Tests/test_integration.cpp "Noise Repellent")
 
-    add_executable(test_stress
-        Source/Tests/test_stress.cpp
-        Source/PluginProcessor.cpp
-        Source/PluginEditor.cpp
-        Source/GUI/LookAndFeel.cpp
-        Source/GUI/SpectralVisualizer.cpp
+    # Live plugin test: compiles the LiveDenoiser sources with the shared
+    # LookAndFeel and links only the time-domain engine entry points.
+    add_executable(test_live_ux
+        Source/Tests/test_live_ux.cpp
+        Source/LiveDenoiser/PluginProcessor.cpp
+        Source/LiveDenoiser/PluginEditor.cpp
+        Source/Shared/GUI/LookAndFeel.cpp
+        Source/LiveDenoiser/GUI/LiveSpectralVisualizer.cpp
     )
-    target_compile_definitions(test_stress PRIVATE
+    target_compile_definitions(test_live_ux PRIVATE
         JUCE_MODAL_LOOPS_PERMITTED=1
-        JucePlugin_Name="Noise Repellent"
+        JucePlugin_Name="Noise Repellent Live"
         JUCE_WEB_BROWSER=0
         JUCE_USE_CURL=0
         JUCE_VST3_CAN_REPLACE_VST2=0
     )
-    target_include_directories(test_stress PRIVATE
+    target_include_directories(test_live_ux PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/Source
+        ${SPECBLEACH_SRC}/include
     )
-    target_link_libraries(test_stress PRIVATE
+    target_link_libraries(test_live_ux PRIVATE
         ${SPECBLEACH_TARGET}
-        ${SPECBLEACH_EXTRAS_TARGET}
         juce::juce_audio_utils
         juce::juce_audio_processors
         juce::juce_dsp
@@ -512,90 +546,10 @@ if(ENABLE_PLUGIN_TESTS OR BUILD_TESTING)
     )
     if(UNIX AND NOT APPLE)
         if(USE_SYSTEM_FREETYPE)
-            target_link_libraries(test_stress PRIVATE Freetype::Freetype)
+            target_link_libraries(test_live_ux PRIVATE Freetype::Freetype)
         elseif(NOT USE_SYSTEM_JUCE)
-            target_link_libraries(test_stress PRIVATE freetype)
+            target_link_libraries(test_live_ux PRIVATE freetype)
         endif()
     endif()
-    add_test(NAME test_stress COMMAND test_stress)
-
-    add_executable(test_integration
-        Source/Tests/test_integration.cpp
-        Source/PluginProcessor.cpp
-        Source/PluginEditor.cpp
-        Source/GUI/LookAndFeel.cpp
-        Source/GUI/SpectralVisualizer.cpp
-    )
-    target_compile_definitions(test_integration PRIVATE
-        JUCE_MODAL_LOOPS_PERMITTED=1
-        JucePlugin_Name="Noise Repellent"
-        JUCE_WEB_BROWSER=0
-        JUCE_USE_CURL=0
-        JUCE_VST3_CAN_REPLACE_VST2=0
-    )
-    target_include_directories(test_integration PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/Source
-    )
-    target_link_libraries(test_integration PRIVATE
-        ${SPECBLEACH_TARGET}
-        ${SPECBLEACH_EXTRAS_TARGET}
-        juce::juce_audio_utils
-        juce::juce_audio_processors
-        juce::juce_dsp
-        juce::juce_gui_extra
-        juce::juce_gui_basics
-        juce::juce_graphics
-        juce::juce_events
-        juce::juce_core
-    )
-    if(UNIX AND NOT APPLE)
-        if(USE_SYSTEM_FREETYPE)
-            target_link_libraries(test_integration PRIVATE Freetype::Freetype)
-        elseif(NOT USE_SYSTEM_JUCE)
-            target_link_libraries(test_integration PRIVATE freetype)
-        endif()
-    endif()
-    add_test(NAME test_integration COMMAND test_integration)
-
-    add_executable(test_ux
-        Source/Tests/test_ux.cpp
-        Source/PluginProcessor.cpp
-        Source/PluginEditor.cpp
-        Source/GUI/LookAndFeel.cpp
-        Source/GUI/SpectralVisualizer.cpp
-    )
-    target_compile_definitions(test_ux PRIVATE
-        JUCE_MODAL_LOOPS_PERMITTED=1
-        JucePlugin_Name="Noise Repellent"
-        JUCE_WEB_BROWSER=0
-        JUCE_USE_CURL=0
-        JUCE_VST3_CAN_REPLACE_VST2=0
-    )
-    target_include_directories(test_ux PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/Source
-    )
-    target_link_libraries(test_ux PRIVATE
-        ${SPECBLEACH_TARGET}
-        ${SPECBLEACH_EXTRAS_TARGET}
-        juce::juce_audio_utils
-        juce::juce_audio_processors
-        juce::juce_dsp
-        juce::juce_gui_extra
-        juce::juce_gui_basics
-        juce::juce_graphics
-        juce::juce_events
-        juce::juce_core
-    )
-    if(UNIX AND NOT APPLE)
-        if(USE_SYSTEM_FREETYPE)
-            target_link_libraries(test_ux PRIVATE Freetype::Freetype)
-        elseif(NOT USE_SYSTEM_JUCE)
-            target_link_libraries(test_ux PRIVATE freetype)
-        endif()
-    endif()
-    add_test(NAME test_ux COMMAND test_ux)
+    add_test(NAME test_live_ux COMMAND test_live_ux)
 endif()
-
-
-
-
