@@ -463,6 +463,11 @@ void NoiseRepellentAudioProcessor::prepareToPlay(double sampleRate,
   jassert(dryInputL.size() >= static_cast<size_t>(samplesPerBlock));
   jassert(wetScratchA.getNumSamples() >= samplesPerBlock);
 
+  // Pre-reserve tonal peak storage in every FIFO slot so push_back on the
+  // audio thread never reallocates
+  for (auto& slot : spectralBuffer)
+    slot.tonalPeaksHz.reserve(kMaxTonalPeaks);
+
   pendingProfiles.clear();
 
   currentLatency = reportedLatency;
@@ -713,53 +718,59 @@ void NoiseRepellentAudioProcessor::processBlock(
         frame.tonalPeaksHz.clear();
         // Keep learned noise profile frozen while input/output fall — use
         // same active-profile logic as the normal FFT path so the line does
-        // not jump when playback starts/stops.
+        // not jump when playback starts/stops. Reads of the shared profile
+        // are guarded by the same try-lock as the FFT path; if the lock is
+        // busy, retain the previous frame's profile data.
         if (hasNoiseProfile()) {
-          frame.hasNoiseProfile = true;
-          // Use the library's active (morphed, tonal-scaled) profile so the
-          // line stays frozen and responsive even before the next audio block.
-          uint32_t profileSize = 0;
-          const float* morphedPtr = nullptr;
-          if (engineGroup != nullptr) {
-            profileSize =
-                specbleach_stereo_get_noise_profile_size(engineGroup.get());
-            morphedPtr = specbleach_stereo_get_active_noise_profile_for_channel(
-                engineGroup.get(), 0u);
-          }
-          if (morphedPtr != nullptr && profileSize > 0) {
-            // Resample morphed profile to kFftBins and convert to dB
-            size_t realProfileBins = profileSize;
-            const float maxProfileIdx = static_cast<float>(realProfileBins - 1);
-            const float maxFftIdx = static_cast<float>(kFftBins - 1);
-            const float dbOffset = (maxProfileIdx > 0.0f)
-                                       ? (20.0f * std::log10(maxProfileIdx))
-                                       : 0.0f;
-            for (size_t i = 0; i < kFftBins; ++i) {
-              float normPos = static_cast<float>(i) / maxFftIdx;
-              float exactP = normPos * maxProfileIdx;
-              size_t p0 =
-                  std::clamp(static_cast<size_t>(exactP),
-                             static_cast<size_t>(0), realProfileBins - 1);
-              size_t p1 = std::min(p0 + 1, realProfileBins - 1);
-              float frac = exactP - static_cast<float>(p0);
-              float interpVal =
-                  (1.0f - frac) * morphedPtr[p0] + frac * morphedPtr[p1];
-              float rawDb = 10.0f * std::log10(std::max(interpVal, 1e-12f));
-              frame.noiseFloorDB[i] = rawDb - dbOffset;
+          juce::SpinLock::ScopedTryLockType profileTryLock(profileLock);
+          if (profileTryLock.isLocked() && engineGroup != nullptr) {
+            frame.hasNoiseProfile = true;
+            // Use the library's active (morphed, tonal-scaled) profile so the
+            // line stays frozen and responsive even before the next audio
+            // block.
+            uint32_t profileSize = 0;
+            const float* morphedPtr =
+                specbleach_stereo_get_active_noise_profile_for_channel(
+                    engineGroup.get(), 0u);
+            profileSize = specbleach_stereo_get_noise_profile_size(
+                engineGroup.get());
+            if (morphedPtr != nullptr && profileSize > 0) {
+              // Resample morphed profile to kFftBins and convert to dB
+              size_t realProfileBins = profileSize;
+              const float maxProfileIdx =
+                  static_cast<float>(realProfileBins - 1);
+              const float maxFftIdx = static_cast<float>(kFftBins - 1);
+              const float dbOffset = (maxProfileIdx > 0.0f)
+                                         ? (20.0f * std::log10(maxProfileIdx))
+                                         : 0.0f;
+              for (size_t i = 0; i < kFftBins; ++i) {
+                float normPos = static_cast<float>(i) / maxFftIdx;
+                float exactP = normPos * maxProfileIdx;
+                size_t p0 =
+                    std::clamp(static_cast<size_t>(exactP),
+                               static_cast<size_t>(0), realProfileBins - 1);
+                size_t p1 = std::min(p0 + 1, realProfileBins - 1);
+                float frac = exactP - static_cast<float>(p0);
+                float interpVal =
+                    (1.0f - frac) * morphedPtr[p0] + frac * morphedPtr[p1];
+                float rawDb = 10.0f * std::log10(std::max(interpVal, 1e-12f));
+                frame.noiseFloorDB[i] = rawDb - dbOffset;
+              }
+            } else {
+              frame.noiseFloorDB.fill(-120.0f);
             }
-          } else {
-            frame.noiseFloorDB.fill(-120.0f);
+            // Tonal peaks for silent when unlinked
+            if ((!frame.isLinked || !frame.isOffsetLinked) &&
+                frame.hasNoiseProfile) {
+              std::array<float, 32> peakBuf{};
+              uint32_t n = specbleach_stereo_get_tonal_peaks_for_channel(
+                  engineGroup.get(), 0u, peakBuf.data(),
+                  static_cast<uint32_t>(peakBuf.size()));
+              for (uint32_t i = 0; i < n; ++i)
+                frame.tonalPeaksHz.push_back(peakBuf[i]);
+            }
           }
-          // Tonal peaks for silent when unlinked
-          if ((!frame.isLinked || !frame.isOffsetLinked) &&
-              frame.hasNoiseProfile && engineGroup != nullptr) {
-            std::array<float, 32> peakBuf{};
-            uint32_t n = specbleach_stereo_get_tonal_peaks_for_channel(
-                engineGroup.get(), 0u, peakBuf.data(),
-                static_cast<uint32_t>(peakBuf.size()));
-            for (uint32_t i = 0; i < n; ++i)
-              frame.tonalPeaksHz.push_back(peakBuf[i]);
-          }
+          // If the lock was busy, retain the previous frame's profile data.
         } else {
           frame.noiseFloorDB.fill(-120.0f);
           frame.hasNoiseProfile = false;
@@ -834,7 +845,6 @@ void NoiseRepellentAudioProcessor::processBlock(
         uint32_t profileSize = 0;
         bool profileAvailable = false;
 
-        const bool isAdaptive = adaptiveNoise;
         const bool isLearning = learnNoise;
         bool profileHasAnyMode = false;
 
@@ -949,7 +959,9 @@ void NoiseRepellentAudioProcessor::processBlock(
           for (uint32_t i = 0; i < numPeaks; ++i) {
             frame.tonalPeaksHz.push_back(peakBuf[i]);
           }
-        } else {
+        } else if (profileTryLock.isLocked()) {
+          // Lock was held and no profile exists — genuinely unavailable.
+          // On lock contention, retain the previous frame's noise floor.
           frame.noiseFloorDB.fill(-120.0f);
         }
       }
@@ -1138,6 +1150,10 @@ void NoiseRepellentAudioProcessor::setStateInformation(const void* data,
     }
 
     if (profilesTree.isValid()) {
+      // Serialize the whole restore sequence against profile readers
+      // (visualization try-lock in processBlock, getStateInformation)
+      juce::SpinLock::ScopedLockType profileLockGuard(profileLock);
+
       bool hasCh1 = false;
       for (int i = 0; i < profilesTree.getNumChildren(); ++i) {
         juce::ValueTree node = profilesTree.getChild(i);

@@ -901,8 +901,8 @@ void NoiseRepellentAudioProcessorEditor::updateProfileStatus() {
 
   bool is2D = (comboAlgoMode.getSelectedItemIndex() == 1);
   const juce::String smoothingTip =
-      is2D ? "Adjust NLM patch similarity filtering strength (h-parameter)\nto "
-             "control 2D time-frequency smoothing."
+      is2D ? "Adjust patch-based similarity filtering strength\nto "
+             "control Patch-Based (High Quality) smoothing."
            : "Apply temporal smoothing across spectral frames\nto reduce "
              "musical noise bubbling artifacts.";
 

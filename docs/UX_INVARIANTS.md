@@ -5,7 +5,7 @@ This document defines the critical UX invariants and architectural contracts tha
 ---
 
 ## 1. Profile as Single Source of Truth
-* **Persistence Across States:** Once noise is learned (`learn_noise`), the noise profile is frozen and preserved across playback starts, stops, transport suspensions, and smoothing mode switches. Switching algorithm mode (1D Spectral ↔ 2D NLM) must never lose the profile or cause the visualizer to flatline to -120 dB.
+* **Persistence Across States:** Once noise is learned (`learn_noise`), the noise profile is frozen and preserved across playback starts, stops, transport suspensions, and smoothing mode switches. Switching smoothing mode (Standard (Fast & Low CPU) ↔ Patch-Based (High Quality), internally 1D Spectral ↔ 2D NLM) must never lose the profile or cause the visualizer to flatline to -120 dB.
 * **Unified Engine:** A single libspecbleach stereo group of unified spectral denoisers backs both modes; the smoothing strategy is selected per-block through parameters (`smoothing_mode`). The library owns the seamless mode transition (allocation-free internal crossfade, shared profile state), so profile persistence across mode switches is structural, not synchronized.
 
 ## 2. Real-Time Interactivity While Silent / Stopped

@@ -105,6 +105,7 @@ public:
   static constexpr int kFftOrder = 12;               // 2^12 = 4096 point FFT
   static constexpr size_t kFftSize = 1 << kFftOrder; // 4096
   static constexpr size_t kFftBins = kFftSize / 2; // 2048 unique frequency bins
+  static constexpr size_t kMaxTonalPeaks = 32; // Max peaks reported per frame
 
   // Spectral frame shared with GUI via lock-free ring buffer
   struct SpectralFrame {
