@@ -129,6 +129,9 @@ void NoiseRepellentLookAndFeel::drawButtonBackground(
     juce::Graphics& g, juce::Button& button,
     const juce::Colour& backgroundColour, bool shouldDrawButtonAsHighlighted,
     bool shouldDrawButtonAsDown) {
+  // The header brand button keeps its flat label look — no button chrome.
+  if (button.getName() == kBrandButtonName)
+    return;
   auto bounds = button.getLocalBounds().toFloat();
   bool isOn = button.getToggleState();
 
@@ -158,8 +161,10 @@ void NoiseRepellentLookAndFeel::drawButtonBackground(
   g.drawRoundedRectangle(bounds, 4.0f, 1.0f);
 }
 
-juce::Font NoiseRepellentLookAndFeel::getTextButtonFont(juce::TextButton&,
+juce::Font NoiseRepellentLookAndFeel::getTextButtonFont(juce::TextButton& button,
                                                         int) {
+  if (button.getName() == kBrandButtonName)
+    return juce::FontOptions(kFontSizeBrand, juce::Font::bold);
   return juce::FontOptions(kFontSizeLabel, juce::Font::bold);
 }
 
@@ -167,6 +172,14 @@ void NoiseRepellentLookAndFeel::drawButtonText(
     juce::Graphics& g, juce::TextButton& button,
     bool shouldDrawButtonAsHighlighted, bool shouldDrawButtonAsDown) {
   juce::ignoreUnused(shouldDrawButtonAsHighlighted, shouldDrawButtonAsDown);
+  if (button.getName() == kBrandButtonName) {
+    // Flat label styling preserved from the former brand juce::Label.
+    g.setColour(juce::Colours::white);
+    g.setFont(juce::FontOptions(kFontSizeBrand, juce::Font::bold));
+    g.drawText(button.getButtonText(), button.getLocalBounds(),
+               juce::Justification::centredLeft);
+    return;
+  }
   juce::Font font(getTextButtonFont(button, button.getHeight()));
   g.setFont(font);
 

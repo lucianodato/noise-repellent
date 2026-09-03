@@ -142,9 +142,19 @@ public:
 private:
   void ensureEnginesInitialized(double sampleRate);
   void interpolateCurve(uint32_t numBins);
+  // Pushes p to the engine group only when it differs from the last pushed
+  // block (same-thread, serialized with process calls — never concurrent).
+  // Steady-state audio blocks skip the setup-only library call entirely.
+  void loadParametersIfChanged(const SpecbleachDenoiserParameters& p,
+                               bool curveEnabled);
 
   // Thread-safe reduction curve data
   juce::SpinLock curveLock;
+  // Last parameter block pushed to the engine group, with the curve pointer
+  // normalized out (curve bytes are cached separately below).
+  SpecbleachDenoiserParameters lastLoadedParams{};
+  std::vector<float> lastLoadedCurve;
+  bool paramsCacheValid = false;
   std::vector<CurveNode> curveNodes{{0.0f, 0.0f}, {1.0f, 0.0f}};
   std::vector<float> interpolatedCurveBias;
   std::atomic<bool> curveNodesDirty{true};

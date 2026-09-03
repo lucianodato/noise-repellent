@@ -33,6 +33,22 @@ constexpr float kSilenceAmplitudeFloor = 1e-5f;
 constexpr float kSplineSlopeEpsilon = 1e-5f;
 constexpr float kSplineParamEpsilon = 1e-9f;
 
+// Bounds-checked profile restore. Returns false (without touching the engine)
+// when the group is null/narrow for the requested channel, so callers can
+// retain the entry for a later, wider rebuild instead of dropping it.
+bool loadProfileResampledChecked(specbleach_stereo* group, int channel,
+                                 const float* data, uint32_t size,
+                                 uint32_t blockCount,
+                                 SpecbleachProfileMode mode) {
+  if (group == nullptr || data == nullptr || channel < 0 || size == 0)
+    return false;
+  if (static_cast<uint32_t>(channel) >=
+      specbleach_stereo_get_channel_count(group))
+    return false;
+  return specbleach_stereo_load_noise_profile_resampled_for_channel(
+      group, static_cast<uint32_t>(channel), data, size, blockCount, mode);
+}
+
 } // namespace
 
 NoiseRepellentAudioProcessor::NoiseRepellentAudioProcessor()
@@ -311,6 +327,41 @@ void NoiseRepellentAudioProcessor::interpolateCurve(uint32_t numBins) {
   }
 }
 
+void NoiseRepellentAudioProcessor::loadParametersIfChanged(
+    const SpecbleachDenoiserParameters& p, bool curveEnabled) {
+  SpecbleachDenoiserParameters norm = p;
+  norm.reduction_curve_bias = nullptr; // compared via lastLoadedCurve instead
+  const bool sameStruct =
+      paramsCacheValid &&
+      std::memcmp(&norm, &lastLoadedParams, sizeof(norm)) == 0;
+  bool sameCurve = true;
+  if (curveEnabled && p.reduction_curve_bias != nullptr &&
+      p.reduction_curve_size > 0) {
+    sameCurve =
+        paramsCacheValid &&
+        lastLoadedCurve.size() == p.reduction_curve_size &&
+        std::memcmp(lastLoadedCurve.data(), p.reduction_curve_bias,
+                    p.reduction_curve_size * sizeof(float)) == 0;
+  } else {
+    sameCurve = paramsCacheValid && lastLoadedCurve.empty();
+  }
+  if (sameStruct && sameCurve)
+    return; // steady state: skip the setup-only library call entirely
+
+  if (!specbleach_stereo_load_parameters(engineGroup.get(), &p,
+                                         SPECBLEACH_PARAMETERS_SIZE))
+    return; // keep the old cache so the next block retries
+
+  lastLoadedParams = norm;
+  if (curveEnabled && p.reduction_curve_bias != nullptr &&
+      p.reduction_curve_size > 0)
+    lastLoadedCurve.assign(p.reduction_curve_bias,
+                           p.reduction_curve_bias + p.reduction_curve_size);
+  else
+    lastLoadedCurve.clear();
+  paramsCacheValid = true;
+}
+
 void NoiseRepellentAudioProcessor::ensureEnginesInitialized(double sampleRate) {
   // Engine width follows the bus layout (mono hosts get a 1-engine group;
   // the library supports 1 channel explicitly). Rebuild on sample-rate OR
@@ -377,12 +428,23 @@ void NoiseRepellentAudioProcessor::ensureEnginesInitialized(double sampleRate) {
   preparedNumChannels = channels;
 
   // Restore backed-up profiles into the new group (library resamples to
-  // the native spectrum size when the sample rate changed)
+  // the native spectrum size when the sample rate changed). Entries that do
+  // not fit the current width (e.g. right-channel data on a mono rebuild)
+  // are retained in pendingProfiles for a later stereo rebuild.
+  std::vector<PendingProfile> retainedProfiles;
+  retainedProfiles.reserve(savedProfiles.size() + pendingProfiles.size());
   for (const auto& item : savedProfiles) {
-    specbleach_stereo_load_noise_profile_resampled_for_channel(
-        engineGroup.get(), static_cast<uint32_t>(item.channel),
-        item.data.data(), item.size, item.blockCount,
-        static_cast<SpecbleachProfileMode>(item.mode));
+    if (!loadProfileResampledChecked(
+            engineGroup.get(), item.channel, item.data.data(), item.size,
+            item.blockCount, static_cast<SpecbleachProfileMode>(item.mode))) {
+      PendingProfile pp;
+      pp.channel = item.channel;
+      pp.mode = item.mode;
+      pp.size = item.size;
+      pp.blockCount = item.blockCount;
+      pp.data = item.data;
+      retainedProfiles.push_back(std::move(pp));
+    }
   }
 
   // Restore state pending profiles if loaded before prepareToPlay
@@ -391,11 +453,12 @@ void NoiseRepellentAudioProcessor::ensureEnginesInitialized(double sampleRate) {
     if (item.channel == 1)
       hasCh1 = true;
 
-    specbleach_stereo_load_noise_profile_resampled_for_channel(
-        engineGroup.get(), static_cast<uint32_t>(item.channel),
-        item.data.data(), item.size, item.blockCount,
-        static_cast<SpecbleachProfileMode>(item.mode));
+    if (!loadProfileResampledChecked(
+            engineGroup.get(), item.channel, item.data.data(), item.size,
+            item.blockCount, static_cast<SpecbleachProfileMode>(item.mode)))
+      retainedProfiles.push_back(item);
   }
+  pendingProfiles = std::move(retainedProfiles);
 
   // Legacy states may lack channel 1 profiles — fall back from channel 0
   // (stereo groups only; mono groups have no channel 1)
@@ -403,16 +466,40 @@ void NoiseRepellentAudioProcessor::ensureEnginesInitialized(double sampleRate) {
       specbleach_stereo_get_channel_count(engineGroup.get()) > 1) {
     for (const auto& item : pendingProfiles) {
       if (item.channel == 0) {
-        specbleach_stereo_load_noise_profile_resampled_for_channel(
-            engineGroup.get(), 1u, item.data.data(), item.size,
+        loadProfileResampledChecked(
+            engineGroup.get(), 1, item.data.data(), item.size,
             item.blockCount, static_cast<SpecbleachProfileMode>(item.mode));
       }
     }
   }
-  pendingProfiles.clear();
 
   // Fill any remaining per-channel/per-mode gaps
   specbleach_stereo_sync_profiles(engineGroup.get());
+
+  // This rebuild invalidates the parameter cache, and the engine is fresh.
+  // Warm up the library's internal curve copy buffer here (setup context —
+  // the first curve-enabled load may allocate, later same-size loads reuse
+  // it) so audio blocks never trigger that allocation.
+  paramsCacheValid = false;
+  lastLoadedCurve.clear();
+  {
+    juce::SpinLock::ScopedLockType curveGuard(curveLock);
+    const uint32_t numBins =
+        specbleach_stereo_get_noise_profile_size(engineGroup.get());
+    if (numBins > 0) {
+      interpolateCurve(numBins);
+      lastLoadedCurve.reserve(interpolatedCurveBias.size());
+      if (!interpolatedCurveBias.empty()) {
+        SpecbleachDenoiserParameters warm{};
+        warm.reduction_curve_enabled = true;
+        warm.reduction_curve_bias = interpolatedCurveBias.data();
+        warm.reduction_curve_size =
+            static_cast<uint32_t>(interpolatedCurveBias.size());
+        specbleach_stereo_load_parameters(engineGroup.get(), &warm,
+                                          SPECBLEACH_PARAMETERS_SIZE);
+      }
+    }
+  }
 }
 
 void NoiseRepellentAudioProcessor::prepareToPlay(double sampleRate,
@@ -455,8 +542,8 @@ void NoiseRepellentAudioProcessor::prepareToPlay(double sampleRate,
   for (auto& slot : spectralBuffer)
     slot.tonalPeaksHz.reserve(kMaxTonalPeaks);
 
-  pendingProfiles.clear();
-
+  // NB: pendingProfiles is owned by ensureEnginesInitialized — retained
+  // (narrow-group) entries must survive prepareToPlay for a later rebuild.
   currentLatency = reportedLatency;
   dryWetMixer.setWetLatency(static_cast<float>(reportedLatency));
 
@@ -644,8 +731,10 @@ void NoiseRepellentAudioProcessor::processBlock(
     for (uint32_t ch = 0; ch < groupChannels && ch < 2u; ++ch)
       outPtrs[ch] = buffer.getWritePointer(static_cast<int>(ch));
 
-    specbleach_stereo_load_parameters(engineGroup.get(), &p,
-                                        SPECBLEACH_PARAMETERS_SIZE);
+    // Push the latest parameter values ahead of processing, but only when
+    // they changed since the last push — steady-state blocks skip the
+    // setup-only library call (same-thread handoff, never concurrent).
+    loadParametersIfChanged(p, curveEnabled);
     specbleach_stereo_process(
         engineGroup.get(), static_cast<uint32_t>(numSamples), inPtrs, outPtrs);
     // Latency is constant for both smoothing modes — no wet compensation
@@ -1146,18 +1235,20 @@ void NoiseRepellentAudioProcessor::setStateInformation(const void* data,
             const float* floatArray =
                 reinterpret_cast<const float*>(mb.getData());
 
-            PendingProfile pp;
-            pp.channel = channel;
-            pp.mode = mode;
-            pp.size = size;
-            pp.blockCount = blockCount;
-            pp.data.assign(floatArray, floatArray + size);
-            pendingProfiles.push_back(pp);
-
-            const uint32_t channelUint = static_cast<uint32_t>(channel);
-            specbleach_stereo_load_noise_profile_resampled_for_channel(
-                engineGroup.get(), channelUint, floatArray, size, blockCount,
-                static_cast<SpecbleachProfileMode>(mode));
+            // Narrow (or not yet created) engines cannot take this channel —
+            // keep it pending for a later, wider rebuild instead of dropping
+            // it.
+            if (!loadProfileResampledChecked(
+                    engineGroup.get(), channel, floatArray, size, blockCount,
+                    static_cast<SpecbleachProfileMode>(mode))) {
+              PendingProfile pp;
+              pp.channel = channel;
+              pp.mode = mode;
+              pp.size = size;
+              pp.blockCount = blockCount;
+              pp.data.assign(floatArray, floatArray + size);
+              pendingProfiles.push_back(std::move(pp));
+            }
           }
         }
       }
@@ -1168,8 +1259,8 @@ void NoiseRepellentAudioProcessor::setStateInformation(const void* data,
           specbleach_stereo_get_channel_count(engineGroup.get()) > 1) {
         for (const auto& pp : pendingProfiles) {
           if (pp.channel == 0) {
-            specbleach_stereo_load_noise_profile_resampled_for_channel(
-                engineGroup.get(), 1u, pp.data.data(), pp.size, pp.blockCount,
+            loadProfileResampledChecked(
+                engineGroup.get(), 1, pp.data.data(), pp.size, pp.blockCount,
                 static_cast<SpecbleachProfileMode>(pp.mode));
           }
         }
@@ -1177,10 +1268,6 @@ void NoiseRepellentAudioProcessor::setStateInformation(const void* data,
 
       // Fill any remaining per-channel/per-mode gaps
       specbleach_stereo_sync_profiles(engineGroup.get());
-
-      if (engineGroup != nullptr) {
-        pendingProfiles.clear();
-      }
     }
   }
 }

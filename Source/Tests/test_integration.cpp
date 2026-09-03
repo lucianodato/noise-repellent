@@ -18,6 +18,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
 #include <cmath>
+#include <limits>
+#include <map>
 #include <numeric>
 #include <random>
 #include <vector>
@@ -86,6 +88,64 @@ void learnProfile(NoiseRepellentAudioProcessor& proc, double sampleRate,
   pumpMessageLoop(10);
 }
 
+void learnStereoDistinctProfiles(NoiseRepellentAudioProcessor& proc,
+                                 int blockSize = 512, int numBlocks = 30) {
+  juce::AudioBuffer<float> buffer(2, blockSize);
+  juce::MidiBuffer midi;
+  for (int b = 0; b < numBlocks; ++b) {
+    // Deliberately different per-channel noise so L/R profiles are distinct.
+    std::mt19937 genL(static_cast<uint32_t>(3000 + b));
+    std::normal_distribution<float> distL(0.0f, 0.06f);
+    auto* left = buffer.getWritePointer(0);
+    for (int s = 0; s < blockSize; ++s) left[s] = distL(genL);
+    std::mt19937 genR(static_cast<uint32_t>(9000 + b));
+    std::normal_distribution<float> distR(0.0f, 0.015f);
+    auto* right = buffer.getWritePointer(1);
+    for (int s = 0; s < blockSize; ++s) right[s] = distR(genR);
+    proc.processBlock(buffer, midi);
+  }
+}
+
+// (channel, mode) -> profile magnitudes decoded from a saved state block.
+std::map<std::pair<int, int>, std::vector<float>>
+extractStateProfiles(const juce::MemoryBlock& state) {
+  std::map<std::pair<int, int>, std::vector<float>> out;
+  std::unique_ptr<juce::XmlElement> xml(
+      juce::AudioProcessor::getXmlFromBinary(state.getData(),
+                                             (int)state.getSize()));
+  if (xml == nullptr)
+    return out;
+  juce::ValueTree tree = juce::ValueTree::fromXml(*xml);
+  if (!tree.isValid())
+    return out;
+  juce::ValueTree profiles = tree.getChildWithName("LEARNED_PROFILES");
+  if (!profiles.isValid())
+    return out;
+  for (int i = 0; i < profiles.getNumChildren(); ++i) {
+    juce::ValueTree node = profiles.getChild(i);
+    int channel = node.getProperty("channel", -1);
+    int mode = node.getProperty("mode", 0);
+    juce::String base64Data = node.getProperty("data", "");
+    juce::MemoryBlock mb;
+    if (channel < 0 || base64Data.isEmpty() ||
+        !mb.fromBase64Encoding(base64Data) || mb.getSize() == 0)
+      continue;
+    const size_t count = mb.getSize() / sizeof(float);
+    const float* data = reinterpret_cast<const float*>(mb.getData());
+    out[{channel, mode}] = std::vector<float>(data, data + count);
+  }
+  return out;
+}
+
+float maxAbsDiff(const std::vector<float>& a, const std::vector<float>& b) {
+  if (a.size() != b.size())
+    return std::numeric_limits<float>::infinity();
+  float m = 0.0f;
+  for (size_t i = 0; i < a.size(); ++i)
+    m = std::max(m, std::abs(a[i] - b[i]));
+  return m;
+}
+
 } // namespace
 
 class IntegrationTest : public juce::UnitTest {
@@ -120,6 +180,9 @@ public:
 
     beginTest("Mono Bus Layout (Single-Engine Group)");
     testMonoBusLayout();
+
+    beginTest("Stereo-Mono-Stereo Distinct Profile Restore");
+    testStereoMonoStereoDistinctRestore();
 
     beginTest("Transient Protection Dynamic Response");
     testTransientProtection();
@@ -534,6 +597,78 @@ private:
 
     proc.releaseResources();
     proc2.releaseResources();
+  }
+
+  void testStereoMonoStereoDistinctRestore() {
+    constexpr double sampleRate = 48000.0;
+    constexpr int blockSize = 512;
+
+    NoiseRepellentAudioProcessor proc;
+    proc.prepareToPlay(sampleRate, blockSize);
+    pumpMessageLoop(10);
+
+    // Learn distinct L/R profiles from deliberately different channel noise.
+    setParam(proc, "learn_noise", 1.0f);
+    learnStereoDistinctProfiles(proc, blockSize, 30);
+    setParam(proc, "learn_noise", 0.0f);
+    pumpMessageLoop(10);
+    expect(proc.hasNoiseProfile(), "Stereo-learned profile must be present");
+
+    juce::MemoryBlock stereoState;
+    proc.getStateInformation(stereoState);
+    auto before = extractStateProfiles(stereoState);
+
+    // Find a mode stored for both channels and require distinct L/R data.
+    int probeMode = -1;
+    for (const auto& [key, data] : before) {
+      const auto [ch, mode] = key;
+      if (ch == 0 && before.count({1, mode}) > 0) {
+        probeMode = mode;
+        break;
+      }
+    }
+    expect(probeMode >= 0, "Saved state must hold both channel profiles");
+    if (probeMode < 0) {
+      proc.releaseResources();
+      return;
+    }
+    expect(maxAbsDiff(before[{0, probeMode}], before[{1, probeMode}]) > 1e-3f,
+           "Left/right profiles must be distinct before narrowing");
+
+    // Narrow to mono: the right-channel entry must be retained, not dropped.
+    juce::AudioProcessor::BusesLayout monoLayout;
+    monoLayout.inputBuses.add(juce::AudioChannelSet::mono());
+    monoLayout.outputBuses.add(juce::AudioChannelSet::mono());
+    expect(proc.setBusesLayout(monoLayout), "Mono layout must be accepted");
+    proc.prepareToPlay(sampleRate, blockSize);
+    pumpMessageLoop(10);
+    expect(proc.hasNoiseProfile(), "Mono engine must keep channel 0 profile");
+
+    // Widen back to stereo: the retained right channel must come back intact
+    // (not overwritten by a channel-0 fallback copy).
+    juce::AudioProcessor::BusesLayout stereoLayout;
+    stereoLayout.inputBuses.add(juce::AudioChannelSet::stereo());
+    stereoLayout.outputBuses.add(juce::AudioChannelSet::stereo());
+    expect(proc.setBusesLayout(stereoLayout),
+           "Stereo layout must be accepted after mono");
+    proc.prepareToPlay(sampleRate, blockSize);
+    pumpMessageLoop(10);
+    expect(proc.hasNoiseProfile(), "Profile must survive mono->stereo switch");
+
+    juce::MemoryBlock restoredState;
+    proc.getStateInformation(restoredState);
+    auto after = extractStateProfiles(restoredState);
+    expect(after.count({0, probeMode}) > 0 && after.count({1, probeMode}) > 0,
+           "Restored state must hold both channel profiles");
+    if (after.count({0, probeMode}) > 0 && after.count({1, probeMode}) > 0) {
+      expectWithinAbsoluteError(
+          maxAbsDiff(after[{1, probeMode}], before[{1, probeMode}]), 0.0f,
+          1e-6f, "Right channel must restore intact across mono narrowing");
+      expect(maxAbsDiff(after[{0, probeMode}], after[{1, probeMode}]) > 1e-3f,
+             "Restored left/right profiles must remain distinct");
+    }
+
+    proc.releaseResources();
   }
 
   void testTransientProtection() {

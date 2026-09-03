@@ -84,6 +84,10 @@ public:
   static const juce::Colour kColorGridLabel;    // Grid labels 0xffa8b3c4
   static const juce::Colour kColorLegendText;   // Legend text 0xffd8e0ec
 
+  // Component name identifying the header brand button (rendered as flat
+  // label-styled text instead of button chrome).
+  static constexpr const char* kBrandButtonName = "brandButton";
+
   // Typography Scale
   static constexpr float kFontSizeLabel =
       12.0f; // Standardized UI font size for all labels, headers, buttons,

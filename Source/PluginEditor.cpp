@@ -124,14 +124,14 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(
   setResizeLimits(840, 480, 1600, 1000);
   setSize(940, 560);
 
-  // Brand Header (click for About box with dependency versions)
-  brandLabel.setText("NOISE REPELLENT", juce::dontSendNotification);
-  brandLabel.setFont(juce::FontOptions(
-      NoiseRepellentLookAndFeel::kFontSizeBrand, juce::Font::bold));
-  brandLabel.setColour(juce::Label::textColourId, juce::Colours::white);
-  brandLabel.setTooltip(kTipAbout);
-  brandLabel.setMouseCursor(juce::MouseCursor::PointingHandCursor);
-  addAndMakeVisible(brandLabel);
+  // Brand Header (accessible button opening the About box with dependency
+  // versions)
+  brandButton.setName(NoiseRepellentLookAndFeel::kBrandButtonName);
+  brandButton.setButtonText("NOISE REPELLENT");
+  brandButton.setTooltip(kTipAbout);
+  brandButton.setMouseCursor(juce::MouseCursor::PointingHandCursor);
+  brandButton.onClick = [this]() { showAboutBox(); };
+  addAndMakeVisible(brandButton);
 
   // Preferences Header Button
   addAndMakeVisible(btnPreferences);
@@ -645,12 +645,6 @@ void NoiseRepellentAudioProcessorEditor::mouseEnter(
       juce::dontSendNotification);
 }
 
-void NoiseRepellentAudioProcessorEditor::mouseDown(
-    const juce::MouseEvent& event) {
-  if (event.originalComponent == &brandLabel)
-    showAboutBox();
-}
-
 void NoiseRepellentAudioProcessorEditor::showAboutBox() {
 #ifdef JucePlugin_VersionString
   const juce::String pluginVersion = JucePlugin_VersionString;
@@ -658,14 +652,15 @@ void NoiseRepellentAudioProcessorEditor::showAboutBox() {
   const juce::String pluginVersion = "dev";
 #endif
   const juce::String builtAgainst = SPECBLEACH_VERSION_STRING;
+  const juce::String expectedBanner =
+      juce::String("libspecbleach ") + builtAgainst;
   const char* runtime = specbleach_get_version_string();
   juce::String message;
   message << "Noise Repellent " << pluginVersion << " (GPL-3.0-or-later)\n\n"
           << "Built against libspecbleach " << builtAgainst << "\n"
           << "Loaded libspecbleach: "
           << (runtime != nullptr ? runtime : "unknown");
-  if (runtime != nullptr &&
-      juce::String(runtime).contains(builtAgainst) == false)
+  if (runtime != nullptr && juce::String(runtime) != expectedBanner)
     message << "\n\nNote: the loaded library differs from the build version.";
   juce::AlertWindow::showMessageBoxAsync(juce::MessageBoxIconType::InfoIcon,
                                          "About Noise Repellent", message, "OK");
@@ -1131,7 +1126,7 @@ void NoiseRepellentAudioProcessorEditor::resized() {
   auto headerArea = area.removeFromTop(kHeaderH);
 
   // Left Title & Options Block
-  brandLabel.setBounds(
+  brandButton.setBounds(
       headerArea.removeFromLeft(kBrandW).withSizeKeepingCentre(kBrandW, kBrandH));
   headerArea.removeFromLeft(kTitleGap);
   btnPreferences.setBounds(

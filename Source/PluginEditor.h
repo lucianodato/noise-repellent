@@ -38,7 +38,6 @@ public:
   void paintOverChildren(juce::Graphics&) override;
   void resized() override;
   void timerCallback() override;
-  void mouseDown(const juce::MouseEvent&) override;
   void mouseEnter(const juce::MouseEvent&) override;
   void mouseMove(const juce::MouseEvent&) override;
   void mouseExit(const juce::MouseEvent&) override;
@@ -54,7 +53,7 @@ private:
   std::atomic<bool> tooltipStateDirty{false};
 
   // Header Controls
-  juce::Label brandLabel;
+  juce::TextButton brandButton;
   juce::TextButton btnPreferences{juce::CharPointer_UTF8("\xe2\x96\xbc")};
   juce::Label lblAlgoHeader{"lblAlgoHeader", "SMOOTHING QUALITY"};
   juce::ComboBox comboAlgoMode;
