@@ -219,6 +219,17 @@ private:
       juce::AudioBuffer<float> buffer(2, blockSize);
       juce::MidiBuffer midi;
 
+      // Learn a profile first so the bypass run executes the identical
+      // engine workload as the active run (learning works while bypassed;
+      // only monitoring is muted).
+      setParam(proc, "learn_noise", 1.0f);
+      for (int i = 0; i < 50; ++i) {
+        buffer.makeCopyOf(noiseBlocks[i % numBlocks]);
+        proc.processBlock(buffer, midi);
+      }
+      setParam(proc, "learn_noise", 0.0f);
+      pumpMessageLoop(20);
+
       setParam(proc, "bypass", 1.0f);
       pumpMessageLoop(20);
 
@@ -243,13 +254,16 @@ private:
     expect(bypassDurationUs > 0, "Bypass duration must be greater than zero");
     expect(activeDurationUs > 0, "Active duration must be greater than zero");
 
-    const double speedupRatio =
+    // Bypass keeps the full pipeline running (time-alignment across the
+    // toggle), so its throughput must be comparable to active denoising —
+    // neither skipping the engine (much faster) nor duplicating work.
+    const double parityRatio =
         static_cast<double>(activeDurationUs) /
         static_cast<double>(std::max<int64_t>(1, bypassDurationUs));
 
-    expect(speedupRatio >= 2.5,
-           "Bypassed processing must be at least 2.5x faster than active "
-           "denoising");
+    expect(parityRatio >= 0.5 && parityRatio <= 2.0,
+           "Bypassed processing must run the same pipeline as active "
+           "denoising (comparable throughput, within 2x)");
   }
 };
 
