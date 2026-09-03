@@ -160,7 +160,10 @@ private:
   // crossfade machinery needed in the plugin).
   specbleach::StereoGroupPtr engineGroup;
 
-  double currentSampleRate = 48000.0;
+  // Last rate reported by the host via prepareToPlay(). Zero until the first
+  // call — readers must tolerate "host hasn't informed us yet" (see the
+  // sr <= 0 fallback in interpolateCurve).
+  double currentSampleRate = 0.0;
   std::atomic<float> transientActivity{0.0f};
   std::atomic<bool> transientProtectionActive{false};
 
