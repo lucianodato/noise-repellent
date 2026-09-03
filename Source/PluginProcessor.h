@@ -153,6 +153,16 @@ public:
   void rebuildForFrameSizeChange();
   void parameterChanged(const juce::String& parameterID,
                         float newValue) override;
+  // Parameter snapshot for one engine run (built from APVTS per block).
+  struct EngineParams {
+    SpecbleachDenoiserParameters p{};
+    bool curveEnabled = false;
+    bool learnNoise = false;
+    bool adaptiveNoise = false;
+    bool transientProtectionEnable = false;
+  };
+  EngineParams buildEngineParams();
+  void runEngine(juce::AudioBuffer<float>& buffer, const EngineParams& ep);
   void interpolateCurve(uint32_t numBins);
   // Pushes p to the engine group only when it differs from the last pushed
   // block (same-thread, serialized with process calls — never concurrent).
@@ -186,6 +196,11 @@ public:
   // call — readers must tolerate "host hasn't informed us yet" (see the
   // sr <= 0 fallback in interpolateCurve).
   double currentSampleRate = 0.0;
+  // Consecutive silent input blocks. The engine may sleep on silence only
+  // after the streak outlasts the full pipeline (latency + gain-release
+  // tails) — sleeping earlier would chop decaying tails and swallow sparse
+  // transients mid-response. Audio thread only.
+  uint32_t silentBlocksStreak = 0;
   // Frame size (ms) the live engine group was built with. Mirrors the
   // "frame_size" APVTS choice; compared in ensureEnginesInitialized to detect
   // a rebuild request. Message thread only (written under suspendProcessing).

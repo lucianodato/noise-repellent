@@ -20,6 +20,7 @@ This document defines the critical UX invariants and architectural contracts tha
 ## 4. Silence Segregation
 * **Input / Output Drop:** When the input signal drops below silence threshold (`< 1e-5` / ~-100 dB) and learning is inactive, input and output spectra drop to -120 dB.
 * **Profile Isolation:** The noise floor profile must *never* drop or clear on silence; it remains frozen and interactive.
+* **Flush Before Sleep:** The engine sleeps on silence only after it persists past the full pipeline (reported latency plus gain-release tails), so decaying tails ring out naturally and sparse transients are never swallowed mid-response.
 
 ## 5. Smoothing Mode Switching (Library-Owned)
 * **Instantaneous From Plugin Perspective:** Switching between 1D Spectral and 2D NLM is a plain parameter load. libspecbleach performs the transition internally (allocation-free crossfade); the plugin keeps a single engine instance and no switch machinery.
@@ -32,5 +33,6 @@ This document defines the critical UX invariants and architectural contracts tha
 
 ## 6. Real-Time Safety & Performance Hierarchy
 * **Strict RT-Safety:** The audio thread (`processBlock`) must never perform dynamic memory allocations, take blocking locks/mutexes, or execute file/console I/O. Runtime smoothing mode changes are allocation-free inside the library.
+* **Bypass Alignment:** The engine keeps running while bypassed (internal or host) so both ends of the mixer's crossfade carry pipeline-delayed content — toggling never time-travels by a full latency. The true-idle engine sleep applies only when unbypassed.
 * **CPU Hierarchy:**
-  $$\text{Bypass} < \text{Silent/Idle} < \text{Learn} < \text{Denoise 1D} < \text{Denoise 2D}$$
+  $$\text{Silent/Idle (unbypassed)} < \text{Bypass} \approx \text{Denoise 1D} < \text{Denoise 2D} \le \text{Learn}$$

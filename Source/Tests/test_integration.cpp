@@ -189,6 +189,9 @@ public:
 
     beginTest("Frame-Size Switch Preserves Profile and Re-reports Latency");
     testFrameSizeSwitch();
+
+    beginTest("Bypass Toggle Stays Time-Aligned (No Skip)");
+    testBypassToggleAlignment();
   }
 
 private:
@@ -790,6 +793,78 @@ private:
     expect(!fresh.hasNoiseProfile(),
            "Fresh instance must still have no profile");
     fresh.releaseResources();
+
+    proc.releaseResources();
+  }
+
+  void testBypassToggleAlignment() {
+    constexpr double sampleRate = 48000.0;
+    constexpr int blockSize = 512;
+    constexpr int settleBlocks = 12; // > latency (4416) + margin
+
+    NoiseRepellentAudioProcessor proc;
+    proc.prepareToPlay(sampleRate, blockSize);
+    pumpMessageLoop(10);
+
+    // Unity reduction: the wet path passes signal through cleanly so peak
+    // positions purely reflect pipeline delay, not denoising.
+    setParam(proc, "reduction_amount", 0.0f);
+
+    const int latency = proc.getLatencySamples();
+    expect(latency > 0, "Engine must report positive latency");
+
+    juce::AudioBuffer<float> buffer(2, blockSize);
+    juce::MidiBuffer midi;
+
+    // Fires one isolated impulse over a low (non-silent) noise floor and
+    // returns its stream offset of peak energy. The floor keeps the engine
+    // deterministically running (no silence-sleep involvement) while sitting
+    // far below the impulse and the detection threshold; history stays
+    // near-clean so the response is deterministic.
+    int seedCounter = 0;
+    auto fireImpulse = [&](std::vector<float>& stream) {
+      stream.clear();
+      stream.reserve(static_cast<size_t>(blockSize) * settleBlocks);
+      for (int b = 0; b < settleBlocks; ++b) {
+        generateNoiseBuffer(buffer, 0.0001f, 9000 + seedCounter++);
+        if (b == 0)
+          buffer.setSample(0, 0, buffer.getSample(0, 0) + 0.5f);
+        proc.processBlock(buffer, midi);
+        const float* d = buffer.getReadPointer(0);
+        stream.insert(stream.end(), d, d + blockSize);
+      }
+      size_t peakIdx = 0;
+      float peakVal = 0.0f;
+      for (size_t i = 0; i < stream.size(); ++i) {
+        if (std::abs(stream[i]) > peakVal) {
+          peakVal = std::abs(stream[i]);
+          peakIdx = i;
+        }
+      }
+      return std::pair<size_t, float>{peakIdx, peakVal};
+    };
+
+    auto expectPeakAtLatency = [&](const char* what) {
+      std::vector<float> stream;
+      const auto [peakIdx, peakVal] = fireImpulse(stream);
+      fprintf(stderr, "DBG %s: peak=%zu val=%.4f latency=%d\n", what, peakIdx,
+              peakVal, latency);
+      expect(peakVal > 0.1f,
+             juce::String(what) + ": impulse must come through");
+      expect(static_cast<int>(std::abs(static_cast<int>(peakIdx) - latency)) <=
+                 2,
+             juce::String(what) +
+                 ": impulse must land on the reported latency, not jump");
+    };
+
+    // Baseline: unbypassed wet path delay.
+    expectPeakAtLatency("Unbypassed");
+    // Engage: the old skip-the-engine code time-travelled and peaked at ~0.
+    setParam(proc, "bypass", 1.0f);
+    expectPeakAtLatency("Bypassed");
+    // Disengage: engine never stopped, so alignment holds by construction.
+    setParam(proc, "bypass", 0.0f);
+    expectPeakAtLatency("Un-bypassed");
 
     proc.releaseResources();
   }
