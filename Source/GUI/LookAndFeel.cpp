@@ -35,6 +35,22 @@ const juce::Colour NoiseRepellentLookAndFeel::kColorPanelBg =
     juce::Colour(0xff343a48);
 const juce::Colour NoiseRepellentLookAndFeel::kColorPanelBorder =
     juce::Colour(0xff4f586c);
+const juce::Colour NoiseRepellentLookAndFeel::kColorButtonOff =
+    juce::Colour(0xff3f4757);
+const juce::Colour NoiseRepellentLookAndFeel::kColorLearnCTA =
+    juce::Colour(0xffc0392b);
+const juce::Colour NoiseRepellentLookAndFeel::kColorLearnActive =
+    juce::Colour(0xffe74c3c);
+const juce::Colour NoiseRepellentLookAndFeel::kColorInactiveText =
+    juce::Colour(0xff808896);
+const juce::Colour NoiseRepellentLookAndFeel::kColorFooterText =
+    juce::Colour(0xff94a3b8);
+const juce::Colour NoiseRepellentLookAndFeel::kColorGridLine =
+    juce::Colour(0xff3d4657);
+const juce::Colour NoiseRepellentLookAndFeel::kColorGridLabel =
+    juce::Colour(0xffa8b3c4);
+const juce::Colour NoiseRepellentLookAndFeel::kColorLegendText =
+    juce::Colour(0xffd8e0ec);
 
 NoiseRepellentLookAndFeel::NoiseRepellentLookAndFeel() {
   setColour(juce::Slider::thumbColourId, juce::Colour(0xff525c70));
@@ -113,6 +129,9 @@ void NoiseRepellentLookAndFeel::drawButtonBackground(
     juce::Graphics& g, juce::Button& button,
     const juce::Colour& backgroundColour, bool shouldDrawButtonAsHighlighted,
     bool shouldDrawButtonAsDown) {
+  // The header brand button keeps its flat label look — no button chrome.
+  if (button.getName() == kBrandButtonName)
+    return;
   auto bounds = button.getLocalBounds().toFloat();
   bool isOn = button.getToggleState();
 
@@ -126,7 +145,7 @@ void NoiseRepellentLookAndFeel::drawButtonBackground(
         button.findColour(juce::TextButton::buttonColourId, false);
     base = (offCol.isOpaque() && !offCol.isTransparent())
                ? offCol
-               : (backgroundColour.isTransparent() ? juce::Colour(0xff3f4757)
+               : (backgroundColour.isTransparent() ? kColorButtonOff
                                                    : backgroundColour);
   }
 
@@ -142,8 +161,10 @@ void NoiseRepellentLookAndFeel::drawButtonBackground(
   g.drawRoundedRectangle(bounds, 4.0f, 1.0f);
 }
 
-juce::Font NoiseRepellentLookAndFeel::getTextButtonFont(juce::TextButton&,
+juce::Font NoiseRepellentLookAndFeel::getTextButtonFont(juce::TextButton& button,
                                                         int) {
+  if (button.getName() == kBrandButtonName)
+    return juce::FontOptions(kFontSizeBrand, juce::Font::bold);
   return juce::FontOptions(kFontSizeLabel, juce::Font::bold);
 }
 
@@ -151,6 +172,14 @@ void NoiseRepellentLookAndFeel::drawButtonText(
     juce::Graphics& g, juce::TextButton& button,
     bool shouldDrawButtonAsHighlighted, bool shouldDrawButtonAsDown) {
   juce::ignoreUnused(shouldDrawButtonAsHighlighted, shouldDrawButtonAsDown);
+  if (button.getName() == kBrandButtonName) {
+    // Flat label styling preserved from the former brand juce::Label.
+    g.setColour(juce::Colours::white);
+    g.setFont(juce::FontOptions(kFontSizeBrand, juce::Font::bold));
+    g.drawText(button.getButtonText(), button.getLocalBounds(),
+               juce::Justification::centredLeft);
+    return;
+  }
   juce::Font font(getTextButtonFont(button, button.getHeight()));
   g.setFont(font);
 
@@ -161,8 +190,8 @@ void NoiseRepellentLookAndFeel::drawButtonText(
                         false);
 
   juce::Colour textColour;
-  if (activeBg == juce::Colour(0xffc0392b) ||
-      activeBg == juce::Colour(0xffe74c3c)) {
+  if (activeBg == kColorLearnCTA ||
+      activeBg == kColorLearnActive) {
     textColour = juce::Colours::white;
   } else if (activeBg == kColorNoiseProfile || isOn) {
     textColour = juce::Colour(0xff101216);
@@ -185,7 +214,7 @@ void NoiseRepellentLookAndFeel::drawToggleButton(
   auto bounds = button.getLocalBounds().toFloat();
   bool isOn = button.getToggleState();
 
-  g.setColour(isOn ? kColorNoiseProfile : juce::Colour(0xff3f4757));
+  g.setColour(isOn ? kColorNoiseProfile : kColorButtonOff);
   g.fillRoundedRectangle(bounds, 4.0f);
 
   g.setColour(kColorPanelBorder);
@@ -222,7 +251,7 @@ void NoiseRepellentLookAndFeel::drawComboBox(juce::Graphics& g, int width,
                    arrowZone.getCentreX() + 4.0f, arrowZone.getCentreY() - 2.0f,
                    arrowZone.getCentreX(), arrowZone.getCentreY() + 3.0f);
 
-  g.setColour(juce::Colour(0xff808896));
+  g.setColour(kColorInactiveText);
   g.fillPath(path);
 }
 

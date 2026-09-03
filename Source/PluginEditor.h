@@ -53,7 +53,7 @@ private:
   std::atomic<bool> tooltipStateDirty{false};
 
   // Header Controls
-  juce::Label brandLabel;
+  juce::TextButton brandButton;
   juce::TextButton btnPreferences{juce::CharPointer_UTF8("\xe2\x96\xbc")};
   juce::Label lblAlgoHeader{"lblAlgoHeader", "SMOOTHING QUALITY"};
   juce::ComboBox comboAlgoMode;
@@ -145,6 +145,7 @@ private:
   void updateLayout();
   void updateSliderLabels();
   void updateProfileStatus();
+  void showAboutBox();
 
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(
       NoiseRepellentAudioProcessorEditor)

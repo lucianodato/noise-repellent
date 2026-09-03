@@ -50,6 +50,25 @@ public:
     }
   }
 
+  // Spectrum axis ranges (shared by mapping helpers and paint)
+  static constexpr float kAxisMinDB = -100.0f;
+  static constexpr float kAxisMaxDB = -20.0f;
+  static constexpr float kAxisMinFreq = 20.0f;
+  static constexpr float kAxisMaxFreq = 20000.0f;
+  // Reduction-curve vertical mapping: +/-kCurveMaxBiasDB spans
+  // kCurveHeightFrac of the height around the vertical centre
+  static constexpr float kCurveMaxBiasDB = 24.0f;
+  static constexpr float kCurveHeightFrac = 0.4f;
+  // Transient-protection badge geometry
+  static constexpr float kBadgeW = 66.0f;
+  static constexpr float kBadgeH = 22.0f;
+  static constexpr float kBadgeMargin = 10.0f;
+  static constexpr float kBadgeTop = 10.0f;
+
+  juce::Rectangle<float> getTpBadgeBounds() const;
+  static float biasToY(float biasDB, float h);
+  static float yToBias(float y, float h);
+
 private:
   NoiseRepellentAudioProcessor& processor;
   NoiseRepellentAudioProcessor::SpectralFrame currentFrame;

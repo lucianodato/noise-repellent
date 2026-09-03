@@ -234,10 +234,9 @@ else()
         FetchContent_Declare(
             libspecbleach
             GIT_REPOSITORY https://github.com/lucianodato/libspecbleach.git
-            # Pin to the revision providing the stereo profile/sync APIs used
-            # by PluginProcessor (specbleach_stereo_get_active_noise_profile_
-            # for_channel, *_get_tonal_peaks_for_channel, *_sync_profiles)
-            GIT_TAG        336beb065f3918be46220832943af8cc003128f9
+            # Track libspecbleach main while both projects are co-developed.
+            # Re-pin to a fixed revision for release builds.
+            GIT_TAG        main
         )
         FetchContent_MakeAvailable(libspecbleach)
         set(SPECBLEACH_SRC "${libspecbleach_SOURCE_DIR}")

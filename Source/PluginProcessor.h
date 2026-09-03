@@ -25,7 +25,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <juce_dsp/juce_dsp.h>
 #include <vector>
 
-#include "specbleach.hpp" // self-guarding for C++; do NOT wrap in extern "C"
+#include "specbleach_stereo.hpp" // self-guarding for C++; do NOT wrap in extern "C"
 #include "specbleach_version.h"
 
 class NoiseRepellentAudioProcessor : public juce::AudioProcessor {
@@ -142,9 +142,19 @@ public:
 private:
   void ensureEnginesInitialized(double sampleRate);
   void interpolateCurve(uint32_t numBins);
+  // Pushes p to the engine group only when it differs from the last pushed
+  // block (same-thread, serialized with process calls — never concurrent).
+  // Steady-state audio blocks skip the setup-only library call entirely.
+  void loadParametersIfChanged(const SpecbleachDenoiserParameters& p,
+                               bool curveEnabled);
 
   // Thread-safe reduction curve data
   juce::SpinLock curveLock;
+  // Last parameter block pushed to the engine group, with the curve pointer
+  // normalized out (curve bytes are cached separately below).
+  SpecbleachDenoiserParameters lastLoadedParams{};
+  std::vector<float> lastLoadedCurve;
+  bool paramsCacheValid = false;
   std::vector<CurveNode> curveNodes{{0.0f, 0.0f}, {1.0f, 0.0f}};
   std::vector<float> interpolatedCurveBias;
   std::atomic<bool> curveNodesDirty{true};
@@ -160,10 +170,10 @@ private:
   // crossfade machinery needed in the plugin).
   specbleach::StereoGroupPtr engineGroup;
 
-  // Scratch wet sink for out-of-bus channels during processing
-  juce::AudioBuffer<float> wetScratchA;
-
-  double currentSampleRate = 44100.0;
+  // Last rate reported by the host via prepareToPlay(). Zero until the first
+  // call — readers must tolerate "host hasn't informed us yet" (see the
+  // sr <= 0 fallback in interpolateCurve).
+  double currentSampleRate = 0.0;
   std::atomic<float> transientActivity{0.0f};
   std::atomic<bool> transientProtectionActive{false};
 
