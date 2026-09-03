@@ -879,17 +879,16 @@ void NoiseRepellentAudioProcessor::processBlock(
               const float dbOffset = (maxProfileIdx > 0.0f)
                                          ? (20.0f * std::log10(maxProfileIdx))
                                          : 0.0f;
+              // Nearest-bin mapping (see the live FFT path): the frozen profile
+              // keeps the engine's native resolution so frame-size changes
+              // stay visible while stopped/silent.
               for (size_t i = 0; i < kFftBins; ++i) {
                 float normPos = static_cast<float>(i) / maxFftIdx;
-                float exactP = normPos * maxProfileIdx;
-                size_t p0 =
-                    std::clamp(static_cast<size_t>(exactP),
-                               static_cast<size_t>(0), realProfileBins - 1);
-                size_t p1 = std::min(p0 + 1, realProfileBins - 1);
-                float frac = exactP - static_cast<float>(p0);
-                float interpVal =
-                    (1.0f - frac) * morphedPtr[p0] + frac * morphedPtr[p1];
-                float rawDb = 10.0f * std::log10(std::max(interpVal, 1e-12f));
+                size_t p = std::clamp(
+                    static_cast<size_t>(normPos * maxProfileIdx + 0.5f),
+                    static_cast<size_t>(0), realProfileBins - 1);
+                float rawDb =
+                    10.0f * std::log10(std::max(morphedPtr[p], 1e-12f));
                 frame.noiseFloorDB[i] = rawDb - dbOffset;
               }
             } else {
@@ -1059,20 +1058,18 @@ void NoiseRepellentAudioProcessor::processBlock(
                                      ? (20.0f * std::log10(maxProfileIdx))
                                      : 0.0f;
 
+          // Nearest-bin mapping (no interpolation): the display shows exactly
+          // the engine's native bins, so a shorter frame renders a visibly
+          // coarser profile and a longer frame a finer one. Interpolating
+          // would invent detail the engine never measured.
           for (size_t i = 0; i < kFftBins; ++i) {
             float normPos = static_cast<float>(i) / maxFftIdx;
-            float exactP = normPos * maxProfileIdx;
+            size_t p = std::clamp(
+                static_cast<size_t>(normPos * maxProfileIdx + 0.5f),
+                static_cast<size_t>(0), realProfileBins - 1);
 
-            size_t p0 = std::clamp(static_cast<size_t>(exactP),
-                                   static_cast<size_t>(0), realProfileBins - 1);
-            size_t p1 = std::min(p0 + 1, realProfileBins - 1);
-            float frac = exactP - static_cast<float>(p0);
-
-            float val0 = actualNoiseProfile[p0];
-            float val1 = actualNoiseProfile[p1];
-            float interpVal = (1.0f - frac) * val0 + frac * val1;
-
-            float rawDb = 10.0f * std::log10(std::max(interpVal, 1e-12f));
+            float rawDb =
+                10.0f * std::log10(std::max(actualNoiseProfile[p], 1e-12f));
             frame.noiseFloorDB[i] = rawDb - dbOffset;
           }
 

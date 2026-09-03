@@ -28,6 +28,7 @@ This document defines the critical UX invariants and architectural contracts tha
 
 ## 7. Frame-Size Switching
 * **Profile Preservation:** A learned profile survives a frame-size switch via resampled restore and is flagged stale (`STATUS: PROFILE RESAMPLED - RE-LEARN ADVISED`) until the user re-learns or resets, since resampling cannot invent (upscale) or keep (downscale) native-bin detail.
+* **Native-Resolution Display:** The profile line renders the engine's native bins (nearest-bin mapped, no display smoothing), so a shorter frame looks visibly coarser and a longer frame finer. Input/output spectra stay on the fixed high-resolution analysis FFT — they are independent measurements, not engine internals.
 * **Learn Safety:** An in-progress Learn is auto-stopped before the rebuild; a half-rolled mean must never migrate across resolutions.
 
 ## 6. Real-Time Safety & Performance Hierarchy

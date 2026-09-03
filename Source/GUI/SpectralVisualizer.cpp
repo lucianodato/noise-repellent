@@ -205,19 +205,16 @@ void SpectralVisualizerComponent::paint(juce::Graphics& g) {
       static_cast<float>(NoiseRepellentAudioProcessor::kFftSize);
 
   // Frequency-domain spatially smoothed display buffers (UI display smoothing
-  // only)
+  // only). The noise profile is deliberately NOT smoothed: it arrives at the
+  // engine's native bin resolution (nearest-bin mapped) and smoothing would
+  // hide the coarser/finer steps that distinguish frame sizes.
   std::vector<float> freqSmoothedInput(numBins);
   std::vector<float> freqSmoothedOutput(numBins);
-  std::vector<float> freqSmoothedProfile(numBins);
 
   smoothBinsLogarithmicFrequencyDomain(smoothedInputDB.data(),
                                        freqSmoothedInput.data(), numBins);
   smoothBinsLogarithmicFrequencyDomain(smoothedOutputDB.data(),
                                        freqSmoothedOutput.data(), numBins);
-  if (currentFrame.hasNoiseProfile) {
-    smoothBinsLogarithmicFrequencyDomain(currentFrame.noiseFloorDB.data(),
-                                         freqSmoothedProfile.data(), numBins);
-  }
 
   // ── Grid lines ──
   g.setFont(juce::FontOptions(NoiseRepellentLookAndFeel::kFontSizeLabel,
@@ -319,10 +316,10 @@ void SpectralVisualizerComponent::paint(juce::Graphics& g) {
     g.strokePath(outputPath, juce::PathStrokeType(1.8f));
   }
 
-  // 3. Noise Floor Profile Curve (Solid Warm Amber Line)
+  // 3. Noise Floor Profile Curve (Solid Warm Amber Line, native engine bins)
   if (currentFrame.hasNoiseProfile) {
     juce::Path noisePath =
-        buildLogFreqPath(freqSmoothedProfile.data(), numBins);
+        buildLogFreqPath(currentFrame.noiseFloorDB.data(), numBins);
     g.setColour(NoiseRepellentLookAndFeel::kColorNoiseProfile);
     g.strokePath(noisePath, juce::PathStrokeType(2.0f));
 
@@ -363,7 +360,7 @@ void SpectralVisualizerComponent::paint(juce::Graphics& g) {
           if (freq < minFreq || freq > maxFreq)
             continue;
           float x = freqToX(freq, w, minFreq, maxFreq);
-          float y = dbToY(freqSmoothedProfile[b], h, minDB, maxDB);
+          float y = dbToY(currentFrame.noiseFloorDB[b], h, minDB, maxDB);
           if (!started) {
             segment.startNewSubPath(x, y);
             started = true;
