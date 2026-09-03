@@ -473,6 +473,14 @@ void NoiseRepellentAudioProcessor::ensureEnginesInitialized(double sampleRate) {
   }
 
   // Free existing group before allocating the replacement
+  // A frame-size switch starts clean: resampling a profile captured at a
+  // different resolution works poorly, so drop it and let the user re-learn
+  // at native resolution. Gated on live profiles so state restores into a
+  // fresh engine (empty savedProfiles) never discard session data.
+  if (frameSizeChanged && !savedProfiles.empty()) {
+    savedProfiles.clear();
+    pendingProfiles.clear();
+  }
   engineGroup.reset();
 
   uint32_t channels = wantedChannels;
@@ -483,8 +491,6 @@ void NoiseRepellentAudioProcessor::ensureEnginesInitialized(double sampleRate) {
 
   currentSampleRate = sampleRate;
   currentFrameSizeMs = wantedFrameSizeMs;
-  if (frameSizeChanged && !savedProfiles.empty())
-    profileResampledStale.store(true, std::memory_order_relaxed);
   preparedNumChannels = channels;
 
   // Restore backed-up profiles into the new group (library resamples to
@@ -647,8 +653,6 @@ void NoiseRepellentAudioProcessor::processBlock(
       0.5f;
   const bool learnNoise =
       parameters.getRawParameterValue("learn_noise")->load() > 0.5f;
-  if (learnNoise)
-    profileResampledStale.store(false, std::memory_order_relaxed);
   const bool adaptiveNoise =
       parameters.getRawParameterValue("adaptive_noise")->load() > 0.5f;
   const int adaptiveMethod = static_cast<int>(
@@ -879,16 +883,17 @@ void NoiseRepellentAudioProcessor::processBlock(
               const float dbOffset = (maxProfileIdx > 0.0f)
                                          ? (20.0f * std::log10(maxProfileIdx))
                                          : 0.0f;
-              // Nearest-bin mapping (see the live FFT path): the frozen profile
-              // keeps the engine's native resolution so frame-size changes
-              // stay visible while stopped/silent.
               for (size_t i = 0; i < kFftBins; ++i) {
                 float normPos = static_cast<float>(i) / maxFftIdx;
-                size_t p = std::clamp(
-                    static_cast<size_t>(normPos * maxProfileIdx + 0.5f),
-                    static_cast<size_t>(0), realProfileBins - 1);
-                float rawDb =
-                    10.0f * std::log10(std::max(morphedPtr[p], 1e-12f));
+                float exactP = normPos * maxProfileIdx;
+                size_t p0 =
+                    std::clamp(static_cast<size_t>(exactP),
+                               static_cast<size_t>(0), realProfileBins - 1);
+                size_t p1 = std::min(p0 + 1, realProfileBins - 1);
+                float frac = exactP - static_cast<float>(p0);
+                float interpVal =
+                    (1.0f - frac) * morphedPtr[p0] + frac * morphedPtr[p1];
+                float rawDb = 10.0f * std::log10(std::max(interpVal, 1e-12f));
                 frame.noiseFloorDB[i] = rawDb - dbOffset;
               }
             } else {
@@ -1058,18 +1063,20 @@ void NoiseRepellentAudioProcessor::processBlock(
                                      ? (20.0f * std::log10(maxProfileIdx))
                                      : 0.0f;
 
-          // Nearest-bin mapping (no interpolation): the display shows exactly
-          // the engine's native bins, so a shorter frame renders a visibly
-          // coarser profile and a longer frame a finer one. Interpolating
-          // would invent detail the engine never measured.
           for (size_t i = 0; i < kFftBins; ++i) {
             float normPos = static_cast<float>(i) / maxFftIdx;
-            size_t p = std::clamp(
-                static_cast<size_t>(normPos * maxProfileIdx + 0.5f),
-                static_cast<size_t>(0), realProfileBins - 1);
+            float exactP = normPos * maxProfileIdx;
 
-            float rawDb =
-                10.0f * std::log10(std::max(actualNoiseProfile[p], 1e-12f));
+            size_t p0 = std::clamp(static_cast<size_t>(exactP),
+                                   static_cast<size_t>(0), realProfileBins - 1);
+            size_t p1 = std::min(p0 + 1, realProfileBins - 1);
+            float frac = exactP - static_cast<float>(p0);
+
+            float val0 = actualNoiseProfile[p0];
+            float val1 = actualNoiseProfile[p1];
+            float interpVal = (1.0f - frac) * val0 + frac * val1;
+
+            float rawDb = 10.0f * std::log10(std::max(interpVal, 1e-12f));
             frame.noiseFloorDB[i] = rawDb - dbOffset;
           }
 
@@ -1137,7 +1144,6 @@ bool NoiseRepellentAudioProcessor::getNextSpectralFrame(SpectralFrame& frame) {
 void NoiseRepellentAudioProcessor::resetNoiseProfile() {
   specbleach_stereo_reset_profiles(engineGroup.get());
   pendingProfiles.clear();
-  profileResampledStale.store(false, std::memory_order_relaxed);
 }
 
 bool NoiseRepellentAudioProcessor::hasNoiseProfile() const {

@@ -724,16 +724,16 @@ private:
     expect(proc.hasNoiseProfile(), "Profile must exist before the switch");
 
     // Upscale 46 -> 64 ms (choice index 2 -> 3) on the message thread.
+    // Policy: the switch resets the profile (resampling across resolutions
+    // works poorly), so the user re-learns at native resolution.
     setParam(proc, "frame_size", 3.0f);
     pumpMessageLoop(50);
     expectWithinAbsoluteError(proc.getFrameSizeMs(), 64.0f, 1e-6f,
                               "Frame size must switch to 64 ms");
     expect(proc.getLatencySamples() > latency46,
            "Larger frame must report larger latency");
-    expect(proc.hasNoiseProfile(),
-           "Learned profile must survive the switch via resampling");
-    expect(proc.isProfileResampledStale(),
-           "Resampled profile must be flagged stale until re-learn");
+    expect(!proc.hasNoiseProfile(),
+           "Frame-size switch must reset the learned profile");
 
     // Audio must keep flowing without NaNs after the rebuild.
     juce::AudioBuffer<float> buffer(2, blockSize);
@@ -749,12 +749,18 @@ private:
       }
     }
 
-    // Downscale back to 46 ms: profile still present, latency restored.
+    // Downscale back to 46 ms: still no profile, latency restored.
     setParam(proc, "frame_size", 2.0f);
     pumpMessageLoop(50);
     expect(proc.getLatencySamples() == latency46,
            "Latency must return to the 46 ms value");
-    expect(proc.hasNoiseProfile(), "Profile must survive the switch back");
+    expect(!proc.hasNoiseProfile(),
+           "Profile must stay cleared after switching back");
+
+    // Re-learning at the new size works normally.
+    learnProfile(proc, sampleRate, blockSize, 20);
+    expect(proc.hasNoiseProfile(),
+           "Re-learn must capture a fresh profile after the switch");
 
     // Switch with no profile: plain rebuild, nothing flagged.
     NoiseRepellentAudioProcessor fresh;
@@ -766,8 +772,6 @@ private:
                               "Fresh instance must switch to 23 ms");
     expect(!fresh.hasNoiseProfile(),
            "Fresh instance must still have no profile");
-    expect(!fresh.isProfileResampledStale(),
-           "No profile means nothing to flag stale");
     fresh.releaseResources();
 
     proc.releaseResources();

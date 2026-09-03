@@ -134,9 +134,6 @@ public:
 
   void resetNoiseProfile();
   bool hasNoiseProfile() const;
-  bool isProfileResampledStale() const {
-    return profileResampledStale.load(std::memory_order_relaxed);
-  }
 
   double getSampleRate() const {
     return currentSampleRate;
@@ -193,10 +190,6 @@ public:
   // "frame_size" APVTS choice; compared in ensureEnginesInitialized to detect
   // a rebuild request. Message thread only (written under suspendProcessing).
   float currentFrameSizeMs = kFrameSizeOptionsMs[kDefaultFrameSizeIndex];
-  // Set when a frame-size switch resampled a learned profile: the kept
-  // profile is valid but captured at a different resolution, so the GUI
-  // should recommend re-learning. Cleared on reset/learn.
-  std::atomic<bool> profileResampledStale{false};
   std::atomic<float> transientActivity{0.0f};
   std::atomic<bool> transientProtectionActive{false};
 

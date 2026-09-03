@@ -1009,17 +1009,10 @@ void NoiseRepellentAudioProcessorEditor::updateProfileStatus() {
     lblProfileStatus.setColour(juce::Label::textColourId,
                                NoiseRepellentLookAndFeel::kColorDenoising);
   } else if (hasProfile) {
-    if (audioProcessor.isProfileResampledStale()) {
-      lblProfileStatus.setText("STATUS: PROFILE RESAMPLED - RE-LEARN ADVISED",
-                               juce::dontSendNotification);
-      lblProfileStatus.setColour(juce::Label::textColourId,
-                                 juce::Colour(NoiseRepellentLookAndFeel::kColorTonalPeaks));
-    } else {
-      lblProfileStatus.setText("STATUS: STATIONARY NOISE PROFILE",
-                               juce::dontSendNotification);
-      lblProfileStatus.setColour(juce::Label::textColourId,
-                                 NoiseRepellentLookAndFeel::kColorNoiseProfile);
-    }
+    lblProfileStatus.setText("STATUS: STATIONARY NOISE PROFILE",
+                             juce::dontSendNotification);
+    lblProfileStatus.setColour(juce::Label::textColourId,
+                               NoiseRepellentLookAndFeel::kColorNoiseProfile);
   } else {
     lblProfileStatus.setText("STATUS: NO PROFILE (PASS-THROUGH)",
                              juce::dontSendNotification);
