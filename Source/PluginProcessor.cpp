@@ -24,8 +24,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 namespace {
 
-// STFT frame sent to libspecbleach (matches library examples/header docs).
-constexpr float kEngineFrameSizeMs = 46.0f;
 // Silence gate: amplitude floor ~-100 dB, i.e. the amplitude-domain twin of
 // libspecbleach's ESTIMATOR_SILENCE_THRESHOLD (1e-10 power).
 constexpr float kSilenceAmplitudeFloor = 1e-5f;
@@ -57,20 +55,73 @@ NoiseRepellentAudioProcessor::NoiseRepellentAudioProcessor()
               .withInput("Input", juce::AudioChannelSet::stereo(), true)
               .withOutput("Output", juce::AudioChannelSet::stereo(), true)),
       parameters(*this, nullptr, "PARAMETERS", createParameterLayout()),
-      dryWetMixer(16384) {
+      // Dry-delay headroom must exceed the worst-case engine latency:
+      // 93 ms at 192 kHz needs 35712 samples (latency = 2x frame).
+      // setWetLatency() silently clamps past this ceiling, which
+      // misaligns dry/wet and skips on bypass toggles.
+      dryWetMixer(65536) {
   bypassParameter = dynamic_cast<juce::AudioParameterBool*>(
       parameters.getParameter("bypass"));
+  parameters.addParameterListener("frame_size", this);
   juce::ignoreUnused(specbleach_get_version_string());
   DBG(specbleach_get_version_string()); // banner is "libspecbleach X.Y.Z"
 }
 
 NoiseRepellentAudioProcessor::~NoiseRepellentAudioProcessor() {
+  parameters.removeParameterListener("frame_size", this);
   releaseResources();
 }
 
 juce::AudioProcessorParameter*
 NoiseRepellentAudioProcessor::getBypassParameter() const {
   return bypassParameter;
+}
+
+float NoiseRepellentAudioProcessor::getFrameSizeMs() const {
+  if (auto* choice = dynamic_cast<juce::AudioParameterChoice*>(
+          parameters.getParameter("frame_size"))) {
+    const int index = choice->getIndex();
+    if (index >= 0 && index < 5)
+      return kFrameSizeOptionsMs[static_cast<size_t>(index)];
+  }
+  return kFrameSizeOptionsMs[kDefaultFrameSizeIndex];
+}
+
+void NoiseRepellentAudioProcessor::parameterChanged(
+    const juce::String& parameterID, float /*newValue*/) {
+  if (parameterID != "frame_size")
+    return;
+  // APVTS listeners run on the message thread for non-automatable params
+  // touched from the Options menu; state restore happens before
+  // prepareToPlay so there is nothing live to rebuild yet.
+  if (juce::MessageManager::getInstance()->isThisTheMessageThread()) {
+    rebuildForFrameSizeChange();
+  } else {
+    juce::MessageManager::callAsync([this]() { rebuildForFrameSizeChange(); });
+  }
+}
+
+void NoiseRepellentAudioProcessor::rebuildForFrameSizeChange() {
+  if (currentSampleRate <= 0.0 || engineGroup == nullptr)
+    return; // not prepared yet — next prepareToPlay picks up the new value
+  // Auto-stop an in-progress Learn: a half-rolled mean must not migrate
+  // across resolutions.
+  if (auto* learn = parameters.getParameter("learn_noise"))
+    learn->setValueNotifyingHost(0.0f);
+  suspendProcessing(true);
+  ensureEnginesInitialized(currentSampleRate);
+  updateLatencyReporting();
+  // Fresh STFT history: clear visualization accumulators so the first frames
+  // after the switch don't mix pre/post-switch spectra. The rebuilt
+  // pipeline is empty, so the silence streak restarts clean.
+  fftAccumInput.fill(0.0f);
+  fftAccumOutput.fill(0.0f);
+  fftAccumTransient.fill(0.0f);
+  fftAccumCount = 0;
+  silentBlocksStreak = 0;
+  suspendProcessing(false);
+  if (auto* editor = getActiveEditor())
+    editor->repaint();
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout
@@ -81,6 +132,13 @@ NoiseRepellentAudioProcessor::createParameterLayout() {
       "algorithm_mode", "Smoothing Quality",
       juce::StringArray{"Standard (Fast & Low CPU)", "Patch-Based (High Quality)"},
       0));
+
+  params.push_back(std::make_unique<juce::AudioParameterChoice>(
+      "frame_size", "STFT Frame Size",
+      juce::StringArray{"23 ms", "32 ms", "46 ms", "64 ms", "93 ms"},
+      NoiseRepellentAudioProcessor::kDefaultFrameSizeIndex,
+      juce::AudioParameterChoiceAttributes().withAutomatable(false).withMeta(
+          true)));
 
   params.push_back(std::make_unique<juce::AudioParameterBool>(
       "transient_protection_enable", "Transient Protection", false));
@@ -372,13 +430,18 @@ void NoiseRepellentAudioProcessor::ensureEnginesInitialized(double sampleRate) {
       (engineGroup != nullptr)
           ? specbleach_stereo_get_channel_count(engineGroup.get())
           : 0;
+  const float wantedFrameSizeMs = getFrameSizeMs();
   const bool needNewEngines =
       (engineGroup == nullptr ||
        std::abs(currentSampleRate - sampleRate) > 0.001 ||
-       currentGroupChannels != wantedChannels);
+       currentGroupChannels != wantedChannels ||
+       std::abs(currentFrameSizeMs - wantedFrameSizeMs) > 0.001f);
 
   if (!needNewEngines)
     return;
+
+  const bool frameSizeChanged =
+      std::abs(currentFrameSizeMs - wantedFrameSizeMs) > 0.001f;
 
   struct SavedProfileData {
     int channel; // 0 = Left, 1 = Right
@@ -416,15 +479,24 @@ void NoiseRepellentAudioProcessor::ensureEnginesInitialized(double sampleRate) {
   }
 
   // Free existing group before allocating the replacement
+  // A frame-size switch starts clean: resampling a profile captured at a
+  // different resolution works poorly, so drop it and let the user re-learn
+  // at native resolution. Gated on live profiles so state restores into a
+  // fresh engine (empty savedProfiles) never discard session data.
+  if (frameSizeChanged && !savedProfiles.empty()) {
+    savedProfiles.clear();
+    pendingProfiles.clear();
+  }
   engineGroup.reset();
 
   uint32_t channels = wantedChannels;
 
   const uint32_t sampleRateUint = static_cast<uint32_t>(sampleRate);
   engineGroup = specbleach::make_stereo_group(sampleRateUint,
-                                                kEngineFrameSizeMs, channels);
+                                              wantedFrameSizeMs, channels);
 
   currentSampleRate = sampleRate;
+  currentFrameSizeMs = wantedFrameSizeMs;
   preparedNumChannels = channels;
 
   // Restore backed-up profiles into the new group (library resamples to
@@ -502,16 +574,26 @@ void NoiseRepellentAudioProcessor::ensureEnginesInitialized(double sampleRate) {
   }
 }
 
-void NoiseRepellentAudioProcessor::prepareToPlay(double sampleRate,
-                                                 int samplesPerBlock) {
-  ensureEnginesInitialized(sampleRate);
-
-  // Latency is constant for both smoothing modes (the library pads the
-  // temporal path to the NLM look-ahead), so it is set once here.
+void NoiseRepellentAudioProcessor::updateLatencyReporting() {
+  // Latency depends on the STFT frame size (frame + NLM look-ahead) but is
+  // constant across smoothing modes (temporal is padded to the NLM
+  // look-ahead), so hosts only need a re-report after a frame-size switch.
   const uint32_t reportedLatency =
       engineGroup ? specbleach_stereo_get_latency(engineGroup.get()) : 0;
   lastReportedLatency = reportedLatency;
   setLatencySamples(static_cast<int>(reportedLatency));
+  dryWetMixer.setWetLatency(static_cast<float>(reportedLatency));
+
+  currentLatency = reportedLatency;
+  visualizerDelayBuffer.assign(
+      std::max<size_t>(32768, static_cast<size_t>(reportedLatency) + 8192),
+      0.0f);
+  visualizerDelayWritePos = 0;
+}
+
+void NoiseRepellentAudioProcessor::prepareToPlay(double sampleRate,
+                                                 int samplesPerBlock) {
+  ensureEnginesInitialized(sampleRate);
 
   const int bufferCapacity = std::max(samplesPerBlock, 16384);
   preparedBlockSize = static_cast<uint32_t>(bufferCapacity);
@@ -525,13 +607,7 @@ void NoiseRepellentAudioProcessor::prepareToPlay(double sampleRate,
 
   dryWetMixer.prepare(spec);
   dryWetMixer.setMixingRule(juce::dsp::DryWetMixingRule::linear);
-  dryWetMixer.setWetLatency(static_cast<float>(reportedLatency));
-
-  currentLatency = reportedLatency;
-  visualizerDelayBuffer.assign(
-      std::max<size_t>(32768, static_cast<size_t>(reportedLatency) + 8192),
-      0.0f);
-  visualizerDelayWritePos = 0;
+  updateLatencyReporting();
 
   // Pre-allocate persistent buffers to prevent audio-thread allocations
   dryInputL.resize(static_cast<size_t>(bufferCapacity), 0.0f);
@@ -544,14 +620,15 @@ void NoiseRepellentAudioProcessor::prepareToPlay(double sampleRate,
 
   // NB: pendingProfiles is owned by ensureEnginesInitialized — retained
   // (narrow-group) entries must survive prepareToPlay for a later rebuild.
-  currentLatency = reportedLatency;
-  dryWetMixer.setWetLatency(static_cast<float>(reportedLatency));
 
   // Reset FFT accumulation
   fftAccumInput.fill(0.0f);
   fftAccumOutput.fill(0.0f);
   fftAccumTransient.fill(0.0f);
   fftAccumCount = 0;
+  // Unknown pipeline state after (re)configuration: restart the silence
+  // streak so a fresh silence re-proves the flush before any sleep.
+  silentBlocksStreak = 0;
 }
 
 void NoiseRepellentAudioProcessor::releaseResources() {
@@ -567,25 +644,17 @@ bool NoiseRepellentAudioProcessor::isBusesLayoutSupported(
   return layouts.getMainOutputChannelSet() == layouts.getMainInputChannelSet();
 }
 
-void NoiseRepellentAudioProcessor::processBlock(
-    juce::AudioBuffer<float>& buffer, juce::MidiBuffer&) {
-  juce::ScopedNoDenormals noDenormals;
-  const int numSamples = buffer.getNumSamples();
-  const int numChannels = buffer.getNumChannels();
-
-  if (numSamples == 0 || numChannels == 0)
-    return;
-
-  const bool isBypassed =
-      parameters.getRawParameterValue("bypass")->load() > 0.5f;
+NoiseRepellentAudioProcessor::EngineParams
+NoiseRepellentAudioProcessor::buildEngineParams() {
+  EngineParams ep;
   const int algoMode = static_cast<int>(
       parameters.getRawParameterValue("algorithm_mode")->load());
-  const bool transientProtectionEnable =
+  ep.transientProtectionEnable =
       parameters.getRawParameterValue("transient_protection_enable")->load() >
       0.5f;
-  const bool learnNoise =
+  ep.learnNoise =
       parameters.getRawParameterValue("learn_noise")->load() > 0.5f;
-  const bool adaptiveNoise =
+  ep.adaptiveNoise =
       parameters.getRawParameterValue("adaptive_noise")->load() > 0.5f;
   const int adaptiveMethod = static_cast<int>(
       parameters.getRawParameterValue("adaptive_method")->load());
@@ -623,10 +692,10 @@ void NoiseRepellentAudioProcessor::processBlock(
           ? profileOffset
           : parameters.getRawParameterValue("tonal_noise_profile_offset")
                 ->load();
-  const bool curveEnabled =
+  ep.curveEnabled =
       parameters.getRawParameterValue("reduction_curve_enabled")->load() > 0.5f;
 
-  if (curveEnabled) {
+  if (ep.curveEnabled) {
     if (curveNodesDirty.exchange(false)) {
       juce::SpinLock::ScopedTryLockType tryLock(curveLock);
       if (tryLock.isLocked()) {
@@ -652,30 +721,75 @@ void NoiseRepellentAudioProcessor::processBlock(
 
   // Single unified parameter block. The smoothing strategy is selected via
   // smoothing_mode: the library performs the seamless runtime switch
-  // internally (allocation-free crossfade, constant latency).
-  SpecbleachDenoiserParameters p{};
-  p.learn_noise = learnNoise ? SPECBLEACH_LEARN_ALL : SPECBLEACH_LEARN_OFF;
-  p.residual_listen = residualListen;
-  p.reduction_gain = reductionGain;
-  p.smoothing_factor = smoothingNorm;
-  p.smoothing_mode =
-      (algoMode == 1) ? SPECBLEACH_SMOOTHING_NLM_2D : SPECBLEACH_SMOOTHING_TEMPORAL;
-  p.whitening_factor = whiteningNorm;
-  p.adaptive_noise = adaptiveNoise;
-  p.noise_estimation_method =
+  // internally (allocation-free crossfade, constant latency per frame size).
+  ep.p.learn_noise =
+      ep.learnNoise ? SPECBLEACH_LEARN_ALL : SPECBLEACH_LEARN_OFF;
+  ep.p.residual_listen = residualListen;
+  ep.p.reduction_gain = reductionGain;
+  ep.p.smoothing_factor = smoothingNorm;
+  ep.p.smoothing_mode = (algoMode == 1) ? SPECBLEACH_SMOOTHING_NLM_2D
+                                        : SPECBLEACH_SMOOTHING_TEMPORAL;
+  ep.p.whitening_factor = whiteningNorm;
+  ep.p.adaptive_noise = ep.adaptiveNoise;
+  ep.p.noise_estimation_method =
       static_cast<SpecbleachNoiseEstimationMethod>(adaptiveMethod);
-  p.masking_depth = masking;
-  p.suppression_strength = 1.0f;
-  p.aggressiveness = aggressiveness;
-  p.tonal_reduction_gain = tonalReductionGain;
-  p.hpss_enable = transientProtectionEnable;
-  p.noise_profile_scale = profileScale;
-  p.reduction_curve_bias =
-      curveEnabled ? interpolatedCurveBias.data() : nullptr;
-  p.reduction_curve_enabled = curveEnabled;
-  p.reduction_curve_size =
-      curveEnabled ? static_cast<uint32_t>(interpolatedCurveBias.size()) : 0;
-  p.tonal_noise_profile_scale = tonalProfileScale;
+  ep.p.masking_depth = masking;
+  ep.p.suppression_strength = 1.0f;
+  ep.p.aggressiveness = aggressiveness;
+  ep.p.tonal_reduction_gain = tonalReductionGain;
+  ep.p.hpss_enable = ep.transientProtectionEnable;
+  ep.p.noise_profile_scale = profileScale;
+  ep.p.reduction_curve_bias =
+      ep.curveEnabled ? interpolatedCurveBias.data() : nullptr;
+  ep.p.reduction_curve_enabled = ep.curveEnabled;
+  ep.p.reduction_curve_size =
+      ep.curveEnabled ? static_cast<uint32_t>(interpolatedCurveBias.size())
+                      : 0;
+  ep.p.tonal_noise_profile_scale = tonalProfileScale;
+  return ep;
+}
+
+void NoiseRepellentAudioProcessor::runEngine(
+    juce::AudioBuffer<float>& buffer, const EngineParams& ep) {
+  if (engineGroup == nullptr)
+    return;
+  const int numChannels = buffer.getNumChannels();
+  // Process 1:1 up to the buffer width (mono hosts get a 1-engine group;
+  // layouts beyond stereo are rejected in isBusesLayoutSupported).
+  const uint32_t groupChannels = std::min<uint32_t>(
+      specbleach_stereo_get_channel_count(engineGroup.get()),
+      static_cast<uint32_t>(numChannels));
+  const float* inPtrs[2] = {nullptr, nullptr};
+  for (uint32_t ch = 0; ch < groupChannels && ch < 2u; ++ch)
+    inPtrs[ch] = buffer.getReadPointer(static_cast<int>(ch));
+
+  float* outPtrs[2] = {nullptr, nullptr};
+  for (uint32_t ch = 0; ch < groupChannels && ch < 2u; ++ch)
+    outPtrs[ch] = buffer.getWritePointer(static_cast<int>(ch));
+
+  // Push the latest parameter values ahead of processing, but only when
+  // they changed since the last push — steady-state blocks skip the
+  // setup-only library call (same-thread handoff, never concurrent).
+  loadParametersIfChanged(ep.p, ep.curveEnabled);
+  specbleach_stereo_process(engineGroup.get(),
+                            static_cast<uint32_t>(buffer.getNumSamples()),
+                            inPtrs, outPtrs);
+}
+
+void NoiseRepellentAudioProcessor::processBlock(
+    juce::AudioBuffer<float>& buffer, juce::MidiBuffer&) {
+  juce::ScopedNoDenormals noDenormals;
+  const int numSamples = buffer.getNumSamples();
+  const int numChannels = buffer.getNumChannels();
+
+  if (numSamples == 0 || numChannels == 0)
+    return;
+
+  const bool isBypassed =
+      parameters.getRawParameterValue("bypass")->load() > 0.5f;
+  const EngineParams ep = buildEngineParams();
+  const bool learnNoise = ep.learnNoise;
+  const bool adaptiveNoise = ep.adaptiveNoise;
 
   // Silence detection: when input is ~-100dB and not learning, skip heavy
   // STFT+denoise (was culprit for idle > denoising and no-playback CPU).
@@ -708,37 +822,39 @@ void NoiseRepellentAudioProcessor::processBlock(
   dryWetMixer.pushDrySamples(audioBlock);
 
   const bool hasProfile = hasNoiseProfile();
-  const bool canSkipDenoise =
-      isSilent && !hasProfile && !adaptiveNoise && !learnNoise;
+  // Sleep the engine on silence only after the streak outlasts the whole
+  // pipeline (reported latency plus gain-release tails): the pipeline
+  // holds over a full latency of future output, so an output-silence check
+  // cannot tell "empty" from "still primed". Bypass always runs — see below.
+  if (isSilent)
+    ++silentBlocksStreak;
+  else
+    silentBlocksStreak = 0;
+  const double tailMarginSamples =
+      (currentSampleRate > 0.0 ? currentSampleRate * 0.5 : 24000.0);
+  const double flushSamples =
+      static_cast<double>(currentLatency) + tailMarginSamples;
+  const bool pipelineFlushed =
+      static_cast<double>(silentBlocksStreak) *
+          static_cast<double>(std::max(numSamples, 1)) >
+      flushSamples;
+  const bool canSkipDenoise = isSilent && pipelineFlushed && !hasProfile &&
+                              !adaptiveNoise && !learnNoise;
 
-  if (isBypassed || canSkipDenoise) {
-    // Skip specbleach STFT and denoise when bypassed or when silent with
-    // no noise profile or adaptive estimation active.
-    if (canSkipDenoise) {
-      buffer.clear();
-    }
-  } else if (engineGroup != nullptr) {
-    // Process 1:1 up to the buffer width (mono hosts get a 1-engine group;
-    // layouts beyond stereo are rejected in isBusesLayoutSupported).
-    const uint32_t groupChannels = std::min<uint32_t>(
-        specbleach_stereo_get_channel_count(engineGroup.get()),
-        static_cast<uint32_t>(numChannels));
-    const float* inPtrs[2] = {nullptr, nullptr};
-    for (uint32_t ch = 0; ch < groupChannels && ch < 2u; ++ch)
-      inPtrs[ch] = buffer.getReadPointer(static_cast<int>(ch));
-
-    float* outPtrs[2] = {nullptr, nullptr};
-    for (uint32_t ch = 0; ch < groupChannels && ch < 2u; ++ch)
-      outPtrs[ch] = buffer.getWritePointer(static_cast<int>(ch));
-
-    // Push the latest parameter values ahead of processing, but only when
-    // they changed since the last push — steady-state blocks skip the
-    // setup-only library call (same-thread handoff, never concurrent).
-    loadParametersIfChanged(p, curveEnabled);
-    specbleach_stereo_process(
-        engineGroup.get(), static_cast<uint32_t>(numSamples), inPtrs, outPtrs);
-    // Latency is constant for both smoothing modes — no wet compensation
-    // padding and no host PDC handoff are ever needed.
+  if (canSkipDenoise && !isBypassed) {
+    // True idle: silence persisted past every tail, nothing learned or
+    // tracked. The engine sleeps; cleared output keeps the silence.
+    buffer.clear();
+  } else {
+    // The engine ALWAYS runs while bypassed. Skipping it would leave the
+    // raw current input in the buffer while the mixer's wet gain is still
+    // ~1 from before the toggle — the output would jump forward by a full
+    // engine latency and then sweep back over the crossfade (audible skip,
+    // scaling with frame size). With the engine running, both crossfade
+    // endpoints carry pipeline-delayed (t - latency) content and the
+    // toggle is seamless. Bonus: NLM/STFT history stays warm, so
+    // un-bypassing has no re-convergence glitch.
+    runEngine(buffer, ep);
   }
 
   // Query transient protection status and intensity (aggregated max across
@@ -749,8 +865,8 @@ void NoiseRepellentAudioProcessor::processBlock(
         specbleach_stereo_get_transient_intensity(engineGroup.get());
   transientActivity.store(reportedTransientIntensity,
                           std::memory_order_relaxed);
-  transientProtectionActive.store(transientProtectionEnable,
-                                  std::memory_order_relaxed);
+  transientProtectionActive.store(ep.transientProtectionEnable,
+                                   std::memory_order_relaxed);
 
   // Apply Soft Crossfade Bypass using JUCE DryWetMixer (with dry latency
   // compensation)
@@ -786,7 +902,7 @@ void NoiseRepellentAudioProcessor::processBlock(
                  ->load() > 0.5f);
         frame.transientIntensity = 0.0f;
         frame.isTransientProtected = false;
-        frame.isTransientProtectionActive = transientProtectionEnable;
+        frame.isTransientProtectionActive = ep.transientProtectionEnable;
         frame.tonalPeaksHz.clear();
         // Keep learned noise profile frozen while input/output fall — use
         // same active-profile logic as the normal FFT path so the line does
@@ -980,7 +1096,7 @@ void NoiseRepellentAudioProcessor::processBlock(
         }
         frame.transientIntensity = maxWindowTransient;
         frame.isTransientProtected = (maxWindowTransient > 0.05f);
-        frame.isTransientProtectionActive = transientProtectionEnable;
+        frame.isTransientProtectionActive = ep.transientProtectionEnable;
         frame.tonalPeaksHz.clear();
 
         if (profileAvailable && actualNoiseProfile) {
@@ -1057,6 +1173,11 @@ void NoiseRepellentAudioProcessor::processBlockBypassed(
 
   juce::dsp::AudioBlock<float> audioBlock(buffer);
   dryWetMixer.pushDrySamples(audioBlock);
+  // Run the engine even though the wet path is muted: same alignment
+  // requirement as the internal bypass (see processBlock) — the buffer
+  // must hold pipeline-delayed content while the mixer ramps down, and
+  // the delay line stays warm for the resume boundary.
+  runEngine(buffer, buildEngineParams());
   dryWetMixer.setWetMixProportion(0.0f);
   dryWetMixer.mixWetSamples(audioBlock);
 }

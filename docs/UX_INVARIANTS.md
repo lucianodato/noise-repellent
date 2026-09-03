@@ -20,13 +20,20 @@ This document defines the critical UX invariants and architectural contracts tha
 ## 4. Silence Segregation
 * **Input / Output Drop:** When the input signal drops below silence threshold (`< 1e-5` / ~-100 dB) and learning is inactive, input and output spectra drop to -120 dB.
 * **Profile Isolation:** The noise floor profile must *never* drop or clear on silence; it remains frozen and interactive.
+* **Flush Before Sleep:** The engine sleeps on silence only after it persists past the full pipeline (reported latency plus gain-release tails), so decaying tails ring out naturally and sparse transients are never swallowed mid-response.
 
 ## 5. Smoothing Mode Switching (Library-Owned)
 * **Instantaneous From Plugin Perspective:** Switching between 1D Spectral and 2D NLM is a plain parameter load. libspecbleach performs the transition internally (allocation-free crossfade); the plugin keeps a single engine instance and no switch machinery.
-* **Constant Latency:** Both smoothing modes share the same algorithmic latency (temporal is padded to the NLM look-ahead), so `getLatencySamples()` and host PDC never change on a mode switch.
-* **No Host Suspension:** Mode switching must never trigger `suspendProcessing`, latency re-reports, or profile migration in the plugin.
+* **Constant Latency Per Frame Size:** For a given STFT frame size, both smoothing modes share the same algorithmic latency (temporal is padded to the NLM look-ahead). Changing the frame size (Options menu: 23 / 32 / 46 / 64 / 93 ms) changes latency (roughly 2x the frame) and re-reports PDC via a suspended rebuild; it must never rebuild concurrently with `processBlock`.
+* **No Host Suspension For Mode Switches:** Mode switching must never trigger `suspendProcessing`, latency re-reports, or profile migration in the plugin. Frame-size switches are the exception: they suspend, rebuild, and re-report.
+
+## 7. Frame-Size Switching
+* **Clean Slate:** A frame-size switch discards the learned profile (resampling across resolutions works poorly) and the HUD falls back to `NO PROFILE (PASS-THROUGH)` until the user re-learns at native resolution. Session state restores are exempt — profiles saved in a session load into the fresh engine normally.
+* **Learn Safety:** An in-progress Learn is auto-stopped before the rebuild; a half-rolled mean must never migrate across resolutions.
+* **Large-Frame Character (expected):** 64/93 ms trades time resolution for frequency resolution — transients smear across the (frame-counted) NLM patch and gain envelopes step per hop, which reads as "robotic" on transient material. This is inherent DSP tradeoff, not a defect; the Options menu steers transient material to 23/32 ms. Frame-rate-independent time constants are tracked as future library work (libspecbleach#152).
 
 ## 6. Real-Time Safety & Performance Hierarchy
 * **Strict RT-Safety:** The audio thread (`processBlock`) must never perform dynamic memory allocations, take blocking locks/mutexes, or execute file/console I/O. Runtime smoothing mode changes are allocation-free inside the library.
+* **Bypass Alignment:** The engine keeps running while bypassed (internal or host) so both ends of the mixer's crossfade carry pipeline-delayed content — toggling never time-travels by a full latency. The true-idle engine sleep applies only when unbypassed.
 * **CPU Hierarchy:**
-  $$\text{Bypass} < \text{Silent/Idle} < \text{Learn} < \text{Denoise 1D} < \text{Denoise 2D}$$
+  $$\text{Silent/Idle (unbypassed)} < \text{Bypass} \approx \text{Denoise 1D} < \text{Denoise 2D} \le \text{Learn}$$
