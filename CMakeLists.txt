@@ -234,9 +234,8 @@ else()
         FetchContent_Declare(
             libspecbleach
             GIT_REPOSITORY https://github.com/lucianodato/libspecbleach.git
-            # Pin to the revision providing the redesigned C API used by
-            # PluginProcessor (SPECBLEACH_* symbols, specbleach_stereo.hpp,
-            # resampled profile load, has_any_profile).
+            # Track libspecbleach main while both projects are co-developed.
+            # Re-pin to a fixed revision for release builds.
             GIT_TAG        main
         )
         FetchContent_MakeAvailable(libspecbleach)
