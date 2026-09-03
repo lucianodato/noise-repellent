@@ -142,10 +142,16 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(
     auto* tooltipParam =
         audioProcessor.getAPVTS().getParameter("show_tooltips");
     auto* hudParam = audioProcessor.getAPVTS().getParameter("show_hud");
+    auto* frameSizeParam =
+        audioProcessor.getAPVTS().getParameter("frame_size");
 
     bool tooltipVal =
         (tooltipParam != nullptr && tooltipParam->getValue() > 0.5f);
     bool hudVal = (hudParam != nullptr && hudParam->getValue() > 0.5f);
+    int frameSizeIdx = 2;
+    if (auto* choice = dynamic_cast<juce::AudioParameterChoice*>(
+            frameSizeParam))
+      frameSizeIdx = choice->getIndex();
 
     juce::PopupMenu menu;
 
@@ -174,6 +180,24 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(
       }
     };
     menu.addItem(item2);
+
+    menu.addSeparator();
+    menu.addSectionHeader("STFT FRAME SIZE (FFT RESOLUTION)");
+    static constexpr const char* kFrameSizeNames[4] = {"23 ms", "32 ms",
+                                                       "46 ms", "64 ms"};
+    for (int i = 0; i < 4; ++i) {
+      juce::PopupMenu::Item frameItem(kFrameSizeNames[i]);
+      frameItem.itemID = 3 + i;
+      frameItem.isTicked = (i == frameSizeIdx);
+      frameItem.action = [this, frameSizeParam, i]() {
+        if (frameSizeParam != nullptr) {
+          frameSizeParam->beginChangeGesture();
+          frameSizeParam->setValueNotifyingHost(static_cast<float>(i) / 3.0f);
+          frameSizeParam->endChangeGesture();
+        }
+      };
+      menu.addItem(frameItem);
+    }
 
     menu.setLookAndFeel(&getLookAndFeel());
     menu.showMenuAsync(
@@ -985,10 +1009,17 @@ void NoiseRepellentAudioProcessorEditor::updateProfileStatus() {
     lblProfileStatus.setColour(juce::Label::textColourId,
                                NoiseRepellentLookAndFeel::kColorDenoising);
   } else if (hasProfile) {
-    lblProfileStatus.setText("STATUS: STATIONARY NOISE PROFILE",
-                             juce::dontSendNotification);
-    lblProfileStatus.setColour(juce::Label::textColourId,
-                               NoiseRepellentLookAndFeel::kColorNoiseProfile);
+    if (audioProcessor.isProfileResampledStale()) {
+      lblProfileStatus.setText("STATUS: PROFILE RESAMPLED - RE-LEARN ADVISED",
+                               juce::dontSendNotification);
+      lblProfileStatus.setColour(juce::Label::textColourId,
+                                 juce::Colour(NoiseRepellentLookAndFeel::kColorTonalPeaks));
+    } else {
+      lblProfileStatus.setText("STATUS: STATIONARY NOISE PROFILE",
+                               juce::dontSendNotification);
+      lblProfileStatus.setColour(juce::Label::textColourId,
+                                 NoiseRepellentLookAndFeel::kColorNoiseProfile);
+    }
   } else {
     lblProfileStatus.setText("STATUS: NO PROFILE (PASS-THROUGH)",
                              juce::dontSendNotification);

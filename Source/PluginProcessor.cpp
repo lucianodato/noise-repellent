@@ -24,8 +24,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 namespace {
 
-// STFT frame sent to libspecbleach (matches library examples/header docs).
-constexpr float kEngineFrameSizeMs = 46.0f;
 // Silence gate: amplitude floor ~-100 dB, i.e. the amplitude-domain twin of
 // libspecbleach's ESTIMATOR_SILENCE_THRESHOLD (1e-10 power).
 constexpr float kSilenceAmplitudeFloor = 1e-5f;
@@ -60,17 +58,64 @@ NoiseRepellentAudioProcessor::NoiseRepellentAudioProcessor()
       dryWetMixer(16384) {
   bypassParameter = dynamic_cast<juce::AudioParameterBool*>(
       parameters.getParameter("bypass"));
+  parameters.addParameterListener("frame_size", this);
   juce::ignoreUnused(specbleach_get_version_string());
   DBG(specbleach_get_version_string()); // banner is "libspecbleach X.Y.Z"
 }
 
 NoiseRepellentAudioProcessor::~NoiseRepellentAudioProcessor() {
+  parameters.removeParameterListener("frame_size", this);
   releaseResources();
 }
 
 juce::AudioProcessorParameter*
 NoiseRepellentAudioProcessor::getBypassParameter() const {
   return bypassParameter;
+}
+
+float NoiseRepellentAudioProcessor::getFrameSizeMs() const {
+  if (auto* choice = dynamic_cast<juce::AudioParameterChoice*>(
+          parameters.getParameter("frame_size"))) {
+    const int index = choice->getIndex();
+    if (index >= 0 && index < 4)
+      return kFrameSizeOptionsMs[static_cast<size_t>(index)];
+  }
+  return kFrameSizeOptionsMs[kDefaultFrameSizeIndex];
+}
+
+void NoiseRepellentAudioProcessor::parameterChanged(
+    const juce::String& parameterID, float /*newValue*/) {
+  if (parameterID != "frame_size")
+    return;
+  // APVTS listeners run on the message thread for non-automatable params
+  // touched from the Options menu; state restore happens before
+  // prepareToPlay so there is nothing live to rebuild yet.
+  if (juce::MessageManager::getInstance()->isThisTheMessageThread()) {
+    rebuildForFrameSizeChange();
+  } else {
+    juce::MessageManager::callAsync([this]() { rebuildForFrameSizeChange(); });
+  }
+}
+
+void NoiseRepellentAudioProcessor::rebuildForFrameSizeChange() {
+  if (currentSampleRate <= 0.0 || engineGroup == nullptr)
+    return; // not prepared yet — next prepareToPlay picks up the new value
+  // Auto-stop an in-progress Learn: a half-rolled mean must not migrate
+  // across resolutions.
+  if (auto* learn = parameters.getParameter("learn_noise"))
+    learn->setValueNotifyingHost(0.0f);
+  suspendProcessing(true);
+  ensureEnginesInitialized(currentSampleRate);
+  updateLatencyReporting();
+  // Fresh STFT history: clear visualization accumulators so the first frames
+  // after the switch don't mix pre/post-switch spectra.
+  fftAccumInput.fill(0.0f);
+  fftAccumOutput.fill(0.0f);
+  fftAccumTransient.fill(0.0f);
+  fftAccumCount = 0;
+  suspendProcessing(false);
+  if (auto* editor = getActiveEditor())
+    editor->repaint();
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout
@@ -81,6 +126,13 @@ NoiseRepellentAudioProcessor::createParameterLayout() {
       "algorithm_mode", "Smoothing Quality",
       juce::StringArray{"Standard (Fast & Low CPU)", "Patch-Based (High Quality)"},
       0));
+
+  params.push_back(std::make_unique<juce::AudioParameterChoice>(
+      "frame_size", "STFT Frame Size",
+      juce::StringArray{"23 ms", "32 ms", "46 ms", "64 ms"},
+      NoiseRepellentAudioProcessor::kDefaultFrameSizeIndex,
+      juce::AudioParameterChoiceAttributes().withAutomatable(false).withMeta(
+          true)));
 
   params.push_back(std::make_unique<juce::AudioParameterBool>(
       "transient_protection_enable", "Transient Protection", false));
@@ -372,13 +424,18 @@ void NoiseRepellentAudioProcessor::ensureEnginesInitialized(double sampleRate) {
       (engineGroup != nullptr)
           ? specbleach_stereo_get_channel_count(engineGroup.get())
           : 0;
+  const float wantedFrameSizeMs = getFrameSizeMs();
   const bool needNewEngines =
       (engineGroup == nullptr ||
        std::abs(currentSampleRate - sampleRate) > 0.001 ||
-       currentGroupChannels != wantedChannels);
+       currentGroupChannels != wantedChannels ||
+       std::abs(currentFrameSizeMs - wantedFrameSizeMs) > 0.001f);
 
   if (!needNewEngines)
     return;
+
+  const bool frameSizeChanged =
+      std::abs(currentFrameSizeMs - wantedFrameSizeMs) > 0.001f;
 
   struct SavedProfileData {
     int channel; // 0 = Left, 1 = Right
@@ -422,9 +479,12 @@ void NoiseRepellentAudioProcessor::ensureEnginesInitialized(double sampleRate) {
 
   const uint32_t sampleRateUint = static_cast<uint32_t>(sampleRate);
   engineGroup = specbleach::make_stereo_group(sampleRateUint,
-                                                kEngineFrameSizeMs, channels);
+                                              wantedFrameSizeMs, channels);
 
   currentSampleRate = sampleRate;
+  currentFrameSizeMs = wantedFrameSizeMs;
+  if (frameSizeChanged && !savedProfiles.empty())
+    profileResampledStale.store(true, std::memory_order_relaxed);
   preparedNumChannels = channels;
 
   // Restore backed-up profiles into the new group (library resamples to
@@ -502,16 +562,26 @@ void NoiseRepellentAudioProcessor::ensureEnginesInitialized(double sampleRate) {
   }
 }
 
-void NoiseRepellentAudioProcessor::prepareToPlay(double sampleRate,
-                                                 int samplesPerBlock) {
-  ensureEnginesInitialized(sampleRate);
-
-  // Latency is constant for both smoothing modes (the library pads the
-  // temporal path to the NLM look-ahead), so it is set once here.
+void NoiseRepellentAudioProcessor::updateLatencyReporting() {
+  // Latency depends on the STFT frame size (frame + NLM look-ahead) but is
+  // constant across smoothing modes (temporal is padded to the NLM
+  // look-ahead), so hosts only need a re-report after a frame-size switch.
   const uint32_t reportedLatency =
       engineGroup ? specbleach_stereo_get_latency(engineGroup.get()) : 0;
   lastReportedLatency = reportedLatency;
   setLatencySamples(static_cast<int>(reportedLatency));
+  dryWetMixer.setWetLatency(static_cast<float>(reportedLatency));
+
+  currentLatency = reportedLatency;
+  visualizerDelayBuffer.assign(
+      std::max<size_t>(32768, static_cast<size_t>(reportedLatency) + 8192),
+      0.0f);
+  visualizerDelayWritePos = 0;
+}
+
+void NoiseRepellentAudioProcessor::prepareToPlay(double sampleRate,
+                                                 int samplesPerBlock) {
+  ensureEnginesInitialized(sampleRate);
 
   const int bufferCapacity = std::max(samplesPerBlock, 16384);
   preparedBlockSize = static_cast<uint32_t>(bufferCapacity);
@@ -525,13 +595,7 @@ void NoiseRepellentAudioProcessor::prepareToPlay(double sampleRate,
 
   dryWetMixer.prepare(spec);
   dryWetMixer.setMixingRule(juce::dsp::DryWetMixingRule::linear);
-  dryWetMixer.setWetLatency(static_cast<float>(reportedLatency));
-
-  currentLatency = reportedLatency;
-  visualizerDelayBuffer.assign(
-      std::max<size_t>(32768, static_cast<size_t>(reportedLatency) + 8192),
-      0.0f);
-  visualizerDelayWritePos = 0;
+  updateLatencyReporting();
 
   // Pre-allocate persistent buffers to prevent audio-thread allocations
   dryInputL.resize(static_cast<size_t>(bufferCapacity), 0.0f);
@@ -544,8 +608,6 @@ void NoiseRepellentAudioProcessor::prepareToPlay(double sampleRate,
 
   // NB: pendingProfiles is owned by ensureEnginesInitialized — retained
   // (narrow-group) entries must survive prepareToPlay for a later rebuild.
-  currentLatency = reportedLatency;
-  dryWetMixer.setWetLatency(static_cast<float>(reportedLatency));
 
   // Reset FFT accumulation
   fftAccumInput.fill(0.0f);
@@ -585,6 +647,8 @@ void NoiseRepellentAudioProcessor::processBlock(
       0.5f;
   const bool learnNoise =
       parameters.getRawParameterValue("learn_noise")->load() > 0.5f;
+  if (learnNoise)
+    profileResampledStale.store(false, std::memory_order_relaxed);
   const bool adaptiveNoise =
       parameters.getRawParameterValue("adaptive_noise")->load() > 0.5f;
   const int adaptiveMethod = static_cast<int>(
@@ -1076,6 +1140,7 @@ bool NoiseRepellentAudioProcessor::getNextSpectralFrame(SpectralFrame& frame) {
 void NoiseRepellentAudioProcessor::resetNoiseProfile() {
   specbleach_stereo_reset_profiles(engineGroup.get());
   pendingProfiles.clear();
+  profileResampledStale.store(false, std::memory_order_relaxed);
 }
 
 bool NoiseRepellentAudioProcessor::hasNoiseProfile() const {

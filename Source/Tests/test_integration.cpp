@@ -186,6 +186,9 @@ public:
 
     beginTest("Transient Protection Dynamic Response");
     testTransientProtection();
+
+    beginTest("Frame-Size Switch Preserves Profile and Re-reports Latency");
+    testFrameSizeSwitch();
   }
 
 private:
@@ -699,6 +702,73 @@ private:
     float transientAct = proc.consumeTransientActivity();
     // Transient activity should be reported or preserved safely
     expect(!std::isnan(transientAct), "Transient activity must be a valid number");
+
+    proc.releaseResources();
+  }
+
+  void testFrameSizeSwitch() {
+    constexpr double sampleRate = 48000.0;
+    constexpr int blockSize = 512;
+
+    NoiseRepellentAudioProcessor proc;
+    proc.prepareToPlay(sampleRate, blockSize);
+    pumpMessageLoop(10);
+
+    // Default must be the legacy 46 ms frame.
+    expectWithinAbsoluteError(proc.getFrameSizeMs(), 46.0f, 1e-6f,
+                              "Default frame size must be 46 ms");
+    const int latency46 = proc.getLatencySamples();
+    expect(latency46 > 0, "Default engine must report positive latency");
+
+    learnProfile(proc, sampleRate, blockSize, 20);
+    expect(proc.hasNoiseProfile(), "Profile must exist before the switch");
+
+    // Upscale 46 -> 64 ms (choice index 2 -> 3) on the message thread.
+    setParam(proc, "frame_size", 3.0f);
+    pumpMessageLoop(50);
+    expectWithinAbsoluteError(proc.getFrameSizeMs(), 64.0f, 1e-6f,
+                              "Frame size must switch to 64 ms");
+    expect(proc.getLatencySamples() > latency46,
+           "Larger frame must report larger latency");
+    expect(proc.hasNoiseProfile(),
+           "Learned profile must survive the switch via resampling");
+    expect(proc.isProfileResampledStale(),
+           "Resampled profile must be flagged stale until re-learn");
+
+    // Audio must keep flowing without NaNs after the rebuild.
+    juce::AudioBuffer<float> buffer(2, blockSize);
+    juce::MidiBuffer midi;
+    for (int b = 0; b < 10; ++b) {
+      generateNoiseBuffer(buffer, 0.05f, 5000 + b);
+      proc.processBlock(buffer, midi);
+      for (int ch = 0; ch < buffer.getNumChannels(); ++ch) {
+        const float* d = buffer.getReadPointer(ch);
+        for (int s = 0; s < buffer.getNumSamples(); ++s)
+          expect(!std::isnan(d[s]) && !std::isinf(d[s]),
+                 "Output must stay finite after frame-size switch");
+      }
+    }
+
+    // Downscale back to 46 ms: profile still present, latency restored.
+    setParam(proc, "frame_size", 2.0f);
+    pumpMessageLoop(50);
+    expect(proc.getLatencySamples() == latency46,
+           "Latency must return to the 46 ms value");
+    expect(proc.hasNoiseProfile(), "Profile must survive the switch back");
+
+    // Switch with no profile: plain rebuild, nothing flagged.
+    NoiseRepellentAudioProcessor fresh;
+    fresh.prepareToPlay(sampleRate, blockSize);
+    pumpMessageLoop(10);
+    setParam(fresh, "frame_size", 0.0f);
+    pumpMessageLoop(50);
+    expectWithinAbsoluteError(fresh.getFrameSizeMs(), 23.0f, 1e-6f,
+                              "Fresh instance must switch to 23 ms");
+    expect(!fresh.hasNoiseProfile(),
+           "Fresh instance must still have no profile");
+    expect(!fresh.isProfileResampledStale(),
+           "No profile means nothing to flag stale");
+    fresh.releaseResources();
 
     proc.releaseResources();
   }

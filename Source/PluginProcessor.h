@@ -28,10 +28,18 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "specbleach_stereo.hpp" // self-guarding for C++; do NOT wrap in extern "C"
 #include "specbleach_version.h"
 
-class NoiseRepellentAudioProcessor : public juce::AudioProcessor {
+class NoiseRepellentAudioProcessor : public juce::AudioProcessor,
+                                        private juce::AudioProcessorValueTreeState::Listener {
 public:
   NoiseRepellentAudioProcessor();
   ~NoiseRepellentAudioProcessor() override;
+
+  // Stepped STFT frame-size options (ms) exposed in the Options menu.
+  // Index 2 (46 ms) is the legacy default.
+  static constexpr float kFrameSizeOptionsMs[4] = {23.0f, 32.0f, 46.0f,
+                                                  64.0f};
+  static constexpr int kDefaultFrameSizeIndex = 2;
+  float getFrameSizeMs() const;
 
   void prepareToPlay(double sampleRate, int samplesPerBlock) override;
   void releaseResources() override;
@@ -126,6 +134,9 @@ public:
 
   void resetNoiseProfile();
   bool hasNoiseProfile() const;
+  bool isProfileResampledStale() const {
+    return profileResampledStale.load(std::memory_order_relaxed);
+  }
 
   double getSampleRate() const {
     return currentSampleRate;
@@ -139,8 +150,12 @@ public:
     return transientProtectionActive.load(std::memory_order_relaxed);
   }
 
-private:
+ private:
   void ensureEnginesInitialized(double sampleRate);
+  void updateLatencyReporting();
+  void rebuildForFrameSizeChange();
+  void parameterChanged(const juce::String& parameterID,
+                        float newValue) override;
   void interpolateCurve(uint32_t numBins);
   // Pushes p to the engine group only when it differs from the last pushed
   // block (same-thread, serialized with process calls — never concurrent).
@@ -174,6 +189,14 @@ private:
   // call — readers must tolerate "host hasn't informed us yet" (see the
   // sr <= 0 fallback in interpolateCurve).
   double currentSampleRate = 0.0;
+  // Frame size (ms) the live engine group was built with. Mirrors the
+  // "frame_size" APVTS choice; compared in ensureEnginesInitialized to detect
+  // a rebuild request. Message thread only (written under suspendProcessing).
+  float currentFrameSizeMs = kFrameSizeOptionsMs[kDefaultFrameSizeIndex];
+  // Set when a frame-size switch resampled a learned profile: the kept
+  // profile is valid but captured at a different resolution, so the GUI
+  // should recommend re-learning. Cleared on reset/learn.
+  std::atomic<bool> profileResampledStale{false};
   std::atomic<float> transientActivity{0.0f};
   std::atomic<bool> transientProtectionActive{false};
 
@@ -220,7 +243,7 @@ private:
   std::vector<float> visualizerDelayBuffer;
   size_t visualizerDelayWritePos = 0;
   uint32_t currentLatency = 0;
-  uint32_t lastReportedLatency = 0; // constant for both smoothing modes
+  uint32_t lastReportedLatency = 0; // constant per frame size / smoothing mode
 
   juce::AudioParameterBool* bypassParameter = nullptr;
   juce::dsp::DryWetMixer<float> dryWetMixer;
