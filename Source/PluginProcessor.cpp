@@ -55,7 +55,11 @@ NoiseRepellentAudioProcessor::NoiseRepellentAudioProcessor()
               .withInput("Input", juce::AudioChannelSet::stereo(), true)
               .withOutput("Output", juce::AudioChannelSet::stereo(), true)),
       parameters(*this, nullptr, "PARAMETERS", createParameterLayout()),
-      dryWetMixer(16384) {
+      // Dry-delay headroom must exceed the worst-case engine latency:
+      // 93 ms at 192 kHz needs 35712 samples (latency = 2x frame).
+      // setWetLatency() silently clamps past this ceiling, which
+      // misaligns dry/wet and skips on bypass toggles.
+      dryWetMixer(65536) {
   bypassParameter = dynamic_cast<juce::AudioParameterBool*>(
       parameters.getParameter("bypass"));
   parameters.addParameterListener("frame_size", this);

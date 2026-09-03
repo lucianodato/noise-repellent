@@ -770,7 +770,7 @@ private:
                               "Frame size must switch to 93 ms");
     expect(proc.getLatencySamples() > latency46,
            "93 ms frame must report larger latency than 46 ms");
-    expect(proc.getLatencySamples() < 16384,
+    expect(proc.getLatencySamples() < 65536,
            "93 ms latency must fit the DryWetMixer delay headroom");
     expect(!proc.hasNoiseProfile(),
            "Switch to 93 ms must reset the learned profile");
