@@ -762,6 +762,23 @@ private:
     expect(proc.hasNoiseProfile(),
            "Re-learn must capture a fresh profile after the switch");
 
+    // Largest step (93 ms, choice index 4): latency grows again within the
+    // DryWetMixer's headroom, audio stays finite, profile resets.
+    setParam(proc, "frame_size", 4.0f);
+    pumpMessageLoop(50);
+    expectWithinAbsoluteError(proc.getFrameSizeMs(), 93.0f, 1e-6f,
+                              "Frame size must switch to 93 ms");
+    expect(proc.getLatencySamples() > latency46,
+           "93 ms frame must report larger latency than 46 ms");
+    expect(proc.getLatencySamples() < 16384,
+           "93 ms latency must fit the DryWetMixer delay headroom");
+    expect(!proc.hasNoiseProfile(),
+           "Switch to 93 ms must reset the learned profile");
+    generateNoiseBuffer(buffer, 0.05f, 6000);
+    proc.processBlock(buffer, midi);
+    expect(!std::isnan(buffer.getSample(0, 0)),
+           "Output must stay finite at 93 ms");
+
     // Switch with no profile: plain rebuild, nothing flagged.
     NoiseRepellentAudioProcessor fresh;
     fresh.prepareToPlay(sampleRate, blockSize);

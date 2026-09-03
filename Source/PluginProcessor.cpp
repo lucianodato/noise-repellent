@@ -77,7 +77,7 @@ float NoiseRepellentAudioProcessor::getFrameSizeMs() const {
   if (auto* choice = dynamic_cast<juce::AudioParameterChoice*>(
           parameters.getParameter("frame_size"))) {
     const int index = choice->getIndex();
-    if (index >= 0 && index < 4)
+    if (index >= 0 && index < 5)
       return kFrameSizeOptionsMs[static_cast<size_t>(index)];
   }
   return kFrameSizeOptionsMs[kDefaultFrameSizeIndex];
@@ -129,7 +129,7 @@ NoiseRepellentAudioProcessor::createParameterLayout() {
 
   params.push_back(std::make_unique<juce::AudioParameterChoice>(
       "frame_size", "STFT Frame Size",
-      juce::StringArray{"23 ms", "32 ms", "46 ms", "64 ms"},
+      juce::StringArray{"23 ms", "32 ms", "46 ms", "64 ms", "93 ms"},
       NoiseRepellentAudioProcessor::kDefaultFrameSizeIndex,
       juce::AudioParameterChoiceAttributes().withAutomatable(false).withMeta(
           true)));

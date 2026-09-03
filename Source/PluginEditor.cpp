@@ -183,16 +183,17 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(
 
     menu.addSeparator();
     menu.addSectionHeader("STFT FRAME SIZE (FFT RESOLUTION)");
-    static constexpr const char* kFrameSizeNames[4] = {"23 ms", "32 ms",
-                                                       "46 ms", "64 ms"};
-    for (int i = 0; i < 4; ++i) {
+    static constexpr const char* kFrameSizeNames[5] = {"23 ms", "32 ms",
+                                                       "46 ms", "64 ms",
+                                                       "93 ms"};
+    for (int i = 0; i < 5; ++i) {
       juce::PopupMenu::Item frameItem(kFrameSizeNames[i]);
       frameItem.itemID = 3 + i;
       frameItem.isTicked = (i == frameSizeIdx);
       frameItem.action = [this, frameSizeParam, i]() {
         if (frameSizeParam != nullptr) {
           frameSizeParam->beginChangeGesture();
-          frameSizeParam->setValueNotifyingHost(static_cast<float>(i) / 3.0f);
+          frameSizeParam->setValueNotifyingHost(static_cast<float>(i) / 4.0f);
           frameSizeParam->endChangeGesture();
         }
       };

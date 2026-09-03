@@ -36,8 +36,8 @@ public:
 
   // Stepped STFT frame-size options (ms) exposed in the Options menu.
   // Index 2 (46 ms) is the legacy default.
-  static constexpr float kFrameSizeOptionsMs[4] = {23.0f, 32.0f, 46.0f,
-                                                  64.0f};
+  static constexpr float kFrameSizeOptionsMs[5] = {23.0f, 32.0f, 46.0f,
+                                                  64.0f, 93.0f};
   static constexpr int kDefaultFrameSizeIndex = 2;
   float getFrameSizeMs() const;
 

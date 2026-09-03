@@ -23,7 +23,7 @@ This document defines the critical UX invariants and architectural contracts tha
 
 ## 5. Smoothing Mode Switching (Library-Owned)
 * **Instantaneous From Plugin Perspective:** Switching between 1D Spectral and 2D NLM is a plain parameter load. libspecbleach performs the transition internally (allocation-free crossfade); the plugin keeps a single engine instance and no switch machinery.
-* **Constant Latency Per Frame Size:** For a given STFT frame size, both smoothing modes share the same algorithmic latency (temporal is padded to the NLM look-ahead). Changing the frame size (Options menu: 23 / 32 / 46 / 64 ms) changes latency (roughly 2x the frame) and re-reports PDC via a suspended rebuild; it must never rebuild concurrently with `processBlock`.
+* **Constant Latency Per Frame Size:** For a given STFT frame size, both smoothing modes share the same algorithmic latency (temporal is padded to the NLM look-ahead). Changing the frame size (Options menu: 23 / 32 / 46 / 64 / 93 ms) changes latency (roughly 2x the frame) and re-reports PDC via a suspended rebuild; it must never rebuild concurrently with `processBlock`.
 * **No Host Suspension For Mode Switches:** Mode switching must never trigger `suspendProcessing`, latency re-reports, or profile migration in the plugin. Frame-size switches are the exception: they suspend, rebuild, and re-report.
 
 ## 7. Frame-Size Switching
