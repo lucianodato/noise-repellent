@@ -186,11 +186,11 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(
     // Guidance baked into the labels: PopupMenu items have no tooltip
     // support, and latency in ms is sample-rate independent (always 2x).
     static constexpr const char* kFrameSizeNames[5] = {
-        "23 ms - live input, transients (46 ms latency)",
-        "32 ms - general purpose (64 ms latency)",
-        "46 ms - stationary noise, default (92 ms latency)",
-        "64 ms - tonal detail: hum & whine (128 ms latency)",
-        "93 ms - max resolution, print/mix (186 ms latency)"};
+        "23 ms - preserve transients",
+        "32 ms - general purpose",
+        "46 ms - stationary noise, default",
+        "64 ms - tonal detail: hum & whine",
+        "93 ms - max resolution"};
     for (int i = 0; i < 5; ++i) {
       juce::PopupMenu::Item frameItem(kFrameSizeNames[i]);
       frameItem.itemID = 3 + i;
