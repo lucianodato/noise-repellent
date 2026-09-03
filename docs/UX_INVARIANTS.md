@@ -30,6 +30,7 @@ This document defines the critical UX invariants and architectural contracts tha
 ## 7. Frame-Size Switching
 * **Clean Slate:** A frame-size switch discards the learned profile (resampling across resolutions works poorly) and the HUD falls back to `NO PROFILE (PASS-THROUGH)` until the user re-learns at native resolution. Session state restores are exempt — profiles saved in a session load into the fresh engine normally.
 * **Learn Safety:** An in-progress Learn is auto-stopped before the rebuild; a half-rolled mean must never migrate across resolutions.
+* **Large-Frame Character (expected):** 64/93 ms trades time resolution for frequency resolution — transients smear across the (frame-counted) NLM patch and gain envelopes step per hop, which reads as "robotic" on transient material. This is inherent DSP tradeoff, not a defect; the Options menu steers transient material to 23/32 ms. Frame-rate-independent time constants are tracked as future library work (libspecbleach#152).
 
 ## 6. Real-Time Safety & Performance Hierarchy
 * **Strict RT-Safety:** The audio thread (`processBlock`) must never perform dynamic memory allocations, take blocking locks/mutexes, or execute file/console I/O. Runtime smoothing mode changes are allocation-free inside the library.
