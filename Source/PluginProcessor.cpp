@@ -30,6 +30,8 @@ constexpr float kSilenceAmplitudeFloor = 1e-5f;
 // Divide-by-zero guards for the reduction-curve Hermite spline.
 constexpr float kSplineSlopeEpsilon = 1e-5f;
 constexpr float kSplineParamEpsilon = 1e-9f;
+// DFTT refinement strength doubles per this many dB of reduction amount
+constexpr float kDfttStrengthDoublingReductionDb = 12.0f;
 
 // Bounds-checked profile restore. Returns false (without touching the engine)
 // when the group is null/narrow for the requested channel, so callers can
@@ -130,7 +132,8 @@ NoiseRepellentAudioProcessor::createParameterLayout() {
 
   params.push_back(std::make_unique<juce::AudioParameterChoice>(
       "algorithm_mode", "Smoothing Quality",
-      juce::StringArray{"Standard (Fast & Low CPU)", "Patch-Based (High Quality)",
+      juce::StringArray{"Standard (Fast & Low CPU)",
+                        "Patch-Based (High Quality)",
                         "Patch-Based + Refinement (Max Quality)"},
       0));
 
@@ -324,11 +327,13 @@ void NoiseRepellentAudioProcessor::interpolateCurve(uint32_t numBins) {
 
   std::vector<float> m(numNodes, 0.0f);
   if (numNodes > 2) {
-    m.front() = (dX.front() > kSplineSlopeEpsilon) ? dY.front() / dX.front() : 0.0f;
+    m.front() =
+        (dX.front() > kSplineSlopeEpsilon) ? dY.front() / dX.front() : 0.0f;
     m.back() = (dX.back() > kSplineSlopeEpsilon) ? dY.back() / dX.back() : 0.0f;
 
     for (size_t i = 1; i < numNodes - 1; ++i) {
-      float secant1 = (dX[i - 1] > kSplineSlopeEpsilon) ? dY[i - 1] / dX[i - 1] : 0.0f;
+      float secant1 =
+          (dX[i - 1] > kSplineSlopeEpsilon) ? dY[i - 1] / dX[i - 1] : 0.0f;
       float secant2 = (dX[i] > kSplineSlopeEpsilon) ? dY[i] / dX[i] : 0.0f;
       if (secant1 * secant2 <= 0.0f) {
         m[i] = 0.0f;
@@ -337,7 +342,8 @@ void NoiseRepellentAudioProcessor::interpolateCurve(uint32_t numBins) {
       }
     }
   } else {
-    float secant = (dX.front() > kSplineSlopeEpsilon) ? dY.front() / dX.front() : 0.0f;
+    float secant =
+        (dX.front() > kSplineSlopeEpsilon) ? dY.front() / dX.front() : 0.0f;
     m[0] = secant;
     m[1] = secant;
   }
@@ -368,7 +374,9 @@ void NoiseRepellentAudioProcessor::interpolateCurve(uint32_t numBins) {
       if (binNormX >= sortedNodes[i].normX &&
           binNormX <= sortedNodes[i + 1].normX) {
         float dx = dX[i];
-        float t = (dx > kSplineParamEpsilon) ? (binNormX - sortedNodes[i].normX) / dx : 0.0f;
+        float t = (dx > kSplineParamEpsilon)
+                      ? (binNormX - sortedNodes[i].normX) / dx
+                      : 0.0f;
         float t2 = t * t;
         float t3 = t2 * t;
 
@@ -396,11 +404,10 @@ void NoiseRepellentAudioProcessor::loadParametersIfChanged(
   bool sameCurve = true;
   if (curveEnabled && p.reduction_curve_bias != nullptr &&
       p.reduction_curve_size > 0) {
-    sameCurve =
-        paramsCacheValid &&
-        lastLoadedCurve.size() == p.reduction_curve_size &&
-        std::memcmp(lastLoadedCurve.data(), p.reduction_curve_bias,
-                    p.reduction_curve_size * sizeof(float)) == 0;
+    sameCurve = paramsCacheValid &&
+                lastLoadedCurve.size() == p.reduction_curve_size &&
+                std::memcmp(lastLoadedCurve.data(), p.reduction_curve_bias,
+                            p.reduction_curve_size * sizeof(float)) == 0;
   } else {
     sameCurve = paramsCacheValid && lastLoadedCurve.empty();
   }
@@ -462,14 +469,17 @@ void NoiseRepellentAudioProcessor::ensureEnginesInitialized(double sampleRate) {
     for (uint32_t channel = 0; channel < channels; ++channel) {
       for (int mode = SPECBLEACH_PROFILE_MODE_FIRST;
            mode <= SPECBLEACH_PROFILE_MODE_LAST; ++mode) {
-        if (!specbleach_stereo_profile_available_for_channel(engineGroup.get(),
-                                                             channel, static_cast<SpecbleachProfileMode>(mode)))
+        if (!specbleach_stereo_profile_available_for_channel(
+                engineGroup.get(), channel,
+                static_cast<SpecbleachProfileMode>(mode)))
           continue;
         const float* profile = specbleach_stereo_get_noise_profile_for_channel(
-            engineGroup.get(), channel, static_cast<SpecbleachProfileMode>(mode));
+            engineGroup.get(), channel,
+            static_cast<SpecbleachProfileMode>(mode));
         const uint32_t blockCount =
             specbleach_stereo_get_profile_block_count_for_channel(
-                engineGroup.get(), channel, static_cast<SpecbleachProfileMode>(mode));
+                engineGroup.get(), channel,
+                static_cast<SpecbleachProfileMode>(mode));
         if (profile != nullptr && sz > 0) {
           savedProfiles.push_back({static_cast<int>(channel), mode, sz,
                                    blockCount,
@@ -493,8 +503,8 @@ void NoiseRepellentAudioProcessor::ensureEnginesInitialized(double sampleRate) {
   uint32_t channels = wantedChannels;
 
   const uint32_t sampleRateUint = static_cast<uint32_t>(sampleRate);
-  engineGroup = specbleach::make_stereo_group(sampleRateUint,
-                                              wantedFrameSizeMs, channels);
+  engineGroup = specbleach::make_stereo_group(sampleRateUint, wantedFrameSizeMs,
+                                              channels);
 
   currentSampleRate = sampleRate;
   currentFrameSizeMs = wantedFrameSizeMs;
@@ -535,13 +545,12 @@ void NoiseRepellentAudioProcessor::ensureEnginesInitialized(double sampleRate) {
 
   // Legacy states may lack channel 1 profiles — fall back from channel 0
   // (stereo groups only; mono groups have no channel 1)
-  if (!hasCh1 &&
-      specbleach_stereo_get_channel_count(engineGroup.get()) > 1) {
+  if (!hasCh1 && specbleach_stereo_get_channel_count(engineGroup.get()) > 1) {
     for (const auto& item : pendingProfiles) {
       if (item.channel == 0) {
         loadProfileResampledChecked(
-            engineGroup.get(), 1, item.data.data(), item.size,
-            item.blockCount, static_cast<SpecbleachProfileMode>(item.mode));
+            engineGroup.get(), 1, item.data.data(), item.size, item.blockCount,
+            static_cast<SpecbleachProfileMode>(item.mode));
       }
     }
   }
@@ -653,8 +662,7 @@ NoiseRepellentAudioProcessor::buildEngineParams() {
   ep.transientProtectionEnable =
       parameters.getRawParameterValue("transient_protection_enable")->load() >
       0.5f;
-  ep.learnNoise =
-      parameters.getRawParameterValue("learn_noise")->load() > 0.5f;
+  ep.learnNoise = parameters.getRawParameterValue("learn_noise")->load() > 0.5f;
   ep.adaptiveNoise =
       parameters.getRawParameterValue("adaptive_noise")->load() > 0.5f;
   const int adaptiveMethod = static_cast<int>(
@@ -728,9 +736,16 @@ NoiseRepellentAudioProcessor::buildEngineParams() {
   ep.p.residual_listen = residualListen;
   ep.p.reduction_gain = reductionGain;
   ep.p.smoothing_factor = smoothingNorm;
-  ep.p.smoothing_mode = (algoMode == 2) ? SPECBLEACH_SMOOTHING_NLM_2D_DFTT
-                                  : (algoMode == 1) ? SPECBLEACH_SMOOTHING_NLM_2D
-                                                    : SPECBLEACH_SMOOTHING_TEMPORAL;
+  ep.p.smoothing_mode = (algoMode == 2)   ? SPECBLEACH_SMOOTHING_NLM_2D_DFTT
+                        : (algoMode == 1) ? SPECBLEACH_SMOOTHING_NLM_2D
+                                          : SPECBLEACH_SMOOTHING_TEMPORAL;
+  // Single-control orchestration: in Refinement mode the DFTT quefrency
+  // threshold scales with the reduction depth — deeper reduction produces
+  // more musical noise, so the refinement stage is strengthed to match
+  // (12 dB reduction doubles the default strength; clamped library-side).
+  ep.p.dftt_strength =
+      (algoMode == 2) ? (1.0f + masterRed / kDfttStrengthDoublingReductionDb)
+                      : 1.0f;
   ep.p.whitening_factor = whiteningNorm;
   ep.p.adaptive_noise = ep.adaptiveNoise;
   ep.p.noise_estimation_method =
@@ -745,22 +760,21 @@ NoiseRepellentAudioProcessor::buildEngineParams() {
       ep.curveEnabled ? interpolatedCurveBias.data() : nullptr;
   ep.p.reduction_curve_enabled = ep.curveEnabled;
   ep.p.reduction_curve_size =
-      ep.curveEnabled ? static_cast<uint32_t>(interpolatedCurveBias.size())
-                      : 0;
+      ep.curveEnabled ? static_cast<uint32_t>(interpolatedCurveBias.size()) : 0;
   ep.p.tonal_noise_profile_scale = tonalProfileScale;
   return ep;
 }
 
-void NoiseRepellentAudioProcessor::runEngine(
-    juce::AudioBuffer<float>& buffer, const EngineParams& ep) {
+void NoiseRepellentAudioProcessor::runEngine(juce::AudioBuffer<float>& buffer,
+                                             const EngineParams& ep) {
   if (engineGroup == nullptr)
     return;
   const int numChannels = buffer.getNumChannels();
   // Process 1:1 up to the buffer width (mono hosts get a 1-engine group;
   // layouts beyond stereo are rejected in isBusesLayoutSupported).
-  const uint32_t groupChannels = std::min<uint32_t>(
-      specbleach_stereo_get_channel_count(engineGroup.get()),
-      static_cast<uint32_t>(numChannels));
+  const uint32_t groupChannels =
+      std::min<uint32_t>(specbleach_stereo_get_channel_count(engineGroup.get()),
+                         static_cast<uint32_t>(numChannels));
   const float* inPtrs[2] = {nullptr, nullptr};
   for (uint32_t ch = 0; ch < groupChannels && ch < 2u; ++ch)
     inPtrs[ch] = buffer.getReadPointer(static_cast<int>(ch));
@@ -868,7 +882,7 @@ void NoiseRepellentAudioProcessor::processBlock(
   transientActivity.store(reportedTransientIntensity,
                           std::memory_order_relaxed);
   transientProtectionActive.store(ep.transientProtectionEnable,
-                                   std::memory_order_relaxed);
+                                  std::memory_order_relaxed);
 
   // Apply Soft Crossfade Bypass using JUCE DryWetMixer (with dry latency
   // compensation)
@@ -922,8 +936,8 @@ void NoiseRepellentAudioProcessor::processBlock(
             const float* morphedPtr =
                 specbleach_stereo_get_active_noise_profile_for_channel(
                     engineGroup.get(), 0u);
-            profileSize = specbleach_stereo_get_noise_profile_size(
-                engineGroup.get());
+            profileSize =
+                specbleach_stereo_get_noise_profile_size(engineGroup.get());
             if (morphedPtr != nullptr && profileSize > 0) {
               // Resample morphed profile to kFftBins and convert to dB
               size_t realProfileBins = profileSize;
@@ -1048,24 +1062,24 @@ void NoiseRepellentAudioProcessor::processBlock(
             actualNoiseProfile =
                 specbleach_stereo_get_noise_profile_for_channel(
                     vizGroup, 0u, SPECBLEACH_PROFILE_ROLLING_MEAN);
-            profileSize = specbleach_stereo_get_noise_profile_size(
-                vizGroup);
+            profileSize = specbleach_stereo_get_noise_profile_size(vizGroup);
             profileAvailable =
                 (actualNoiseProfile != nullptr && profileSize > 0);
           } else {
             actualNoiseProfile =
-                specbleach_stereo_get_active_noise_profile_for_channel(
-                    vizGroup, 0u);
-            profileSize = specbleach_stereo_get_noise_profile_size(
-                vizGroup);
+                specbleach_stereo_get_active_noise_profile_for_channel(vizGroup,
+                                                                       0u);
+            profileSize = specbleach_stereo_get_noise_profile_size(vizGroup);
             if (!actualNoiseProfile && profileHasAnyMode) {
               for (int mode = SPECBLEACH_PROFILE_MODE_FIRST;
                    mode <= SPECBLEACH_PROFILE_MODE_LAST; ++mode) {
                 if (specbleach_stereo_profile_available_for_channel(
-                        vizGroup, 0u, static_cast<SpecbleachProfileMode>(mode))) {
+                        vizGroup, 0u,
+                        static_cast<SpecbleachProfileMode>(mode))) {
                   actualNoiseProfile =
                       specbleach_stereo_get_noise_profile_for_channel(
-                          vizGroup, 0u, static_cast<SpecbleachProfileMode>(mode));
+                          vizGroup, 0u,
+                          static_cast<SpecbleachProfileMode>(mode));
                   if (actualNoiseProfile)
                     break;
                 }
@@ -1231,14 +1245,17 @@ void NoiseRepellentAudioProcessor::getStateInformation(
       uint32_t blockCount = 0;
 
       if (engineGroup != nullptr &&
-          specbleach_stereo_profile_available_for_channel(engineGroup.get(),
-                                                          channel, static_cast<SpecbleachProfileMode>(mode))) {
+          specbleach_stereo_profile_available_for_channel(
+              engineGroup.get(), channel,
+              static_cast<SpecbleachProfileMode>(mode))) {
         profile = specbleach_stereo_get_noise_profile_for_channel(
-            engineGroup.get(), channel, static_cast<SpecbleachProfileMode>(mode));
+            engineGroup.get(), channel,
+            static_cast<SpecbleachProfileMode>(mode));
         profileSize =
             specbleach_stereo_get_noise_profile_size(engineGroup.get());
         blockCount = specbleach_stereo_get_profile_block_count_for_channel(
-            engineGroup.get(), channel, static_cast<SpecbleachProfileMode>(mode));
+            engineGroup.get(), channel,
+            static_cast<SpecbleachProfileMode>(mode));
       }
 
       if (profile != nullptr && profileSize > 0) {
