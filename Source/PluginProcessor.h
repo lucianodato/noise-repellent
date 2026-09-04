@@ -186,7 +186,8 @@ public:
   createParameterLayout();
 
   // DSP Engine — single libspecbleach multi-channel group of unified
-  // spectral denoisers. The smoothing strategy (1D temporal vs 2D NLM) is
+  // spectral denoisers. The smoothing strategy (1D temporal vs 2D NLM vs
+  // 2D NLM + DFTT refinement) is
   // selected per-block through parameters.smoothing_mode and switched
   // seamlessly by the library (constant latency, no allocations, no
   // crossfade machinery needed in the plugin).
