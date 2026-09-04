@@ -43,7 +43,7 @@ const juce::String kTipPreferences = "Preferences";
 const juce::String kTipPreferencesMenu = "Plugin preferences menu.";
 const juce::String kTipAlgoMode =
     "How the noise reduction smoothing is computed. Standard is fast and\n"
-    "light on CPU; Patch-Based analyzes similar patches for higher quality.";
+    "light on CPU; Patch-Based costs CPU for quality, + Refinement max.";
 const juce::String kTipAdvancedToggle =
     "Toggle Advanced DSP Controls (Smoothing, Masking, Whitening, "
     "Aggressiveness).";
@@ -219,7 +219,9 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(
   addAndMakeVisible(lblAlgoHeader);
 
   comboAlgoMode.addItemList(
-      {"Standard (Fast & Low CPU)", "Patch-Based (High Quality)"}, 1);
+      {"Standard (Fast & Low CPU)", "Patch-Based (High Quality)",
+       "Patch-Based + Refinement (Max Quality)"},
+      1);
   addAndMakeVisible(comboAlgoMode);
   comboAlgoMode.onChange = [this]() { updateLayout(); };
 

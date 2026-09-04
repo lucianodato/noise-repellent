@@ -227,6 +227,40 @@ private:
                               "Profile bins must match identically across 1D "
                               "<-> 2D switch while stopped");
 
+    // 3b. Switch to NLM+DFTT while stopped: intra-family flip, profile and
+    // floor must survive identically
+    setParam(proc, "algorithm_mode", 2.0f); // NLM + DFTT refinement
+    pumpMessageLoop(50);
+    processSilentBlocks(proc, buffer, midi, 12);
+
+    expect(proc.hasNoiseProfile(),
+           "Profile must persist on NLM+DFTT after silent switch");
+
+    NoiseRepellentAudioProcessor::SpectralFrame frameDFTT;
+    gotFrame = pullLatestFrame(proc, frameDFTT);
+    expect(gotFrame, "Should receive spectral frame in NLM+DFTT mode");
+    expect(frameDFTT.hasNoiseProfile,
+           "NLM+DFTT mode must report hasNoiseProfile=true while silent");
+
+    float avgNoiseFloorDFTT = 0.0f;
+    for (float db : frameDFTT.noiseFloorDB) {
+      avgNoiseFloorDFTT += db;
+    }
+    avgNoiseFloorDFTT /= static_cast<float>(frameDFTT.noiseFloorDB.size());
+    expect(avgNoiseFloorDFTT > -110.0f,
+           "NLM+DFTT noise floor must remain active and not flatline");
+
+    float maxDelta2DDFTT = 0.0f;
+    for (size_t i = 0; i < frame2D.noiseFloorDB.size(); ++i) {
+      float diff =
+          std::abs(frame2D.noiseFloorDB[i] - frameDFTT.noiseFloorDB[i]);
+      if (diff > maxDelta2DDFTT)
+        maxDelta2DDFTT = diff;
+    }
+    expectWithinAbsoluteError(maxDelta2DDFTT, 0.0f, 0.1f,
+                              "Profile bins must match identically across 2D "
+                              "<-> NLM+DFTT switch while stopped");
+
     // 4. Switch back to 1D while stopped
     setParam(proc, "algorithm_mode", 0.0f);
     pumpMessageLoop(50);

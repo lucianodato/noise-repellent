@@ -130,7 +130,8 @@ NoiseRepellentAudioProcessor::createParameterLayout() {
 
   params.push_back(std::make_unique<juce::AudioParameterChoice>(
       "algorithm_mode", "Smoothing Quality",
-      juce::StringArray{"Standard (Fast & Low CPU)", "Patch-Based (High Quality)"},
+      juce::StringArray{"Standard (Fast & Low CPU)", "Patch-Based (High Quality)",
+                        "Patch-Based + Refinement (Max Quality)"},
       0));
 
   params.push_back(std::make_unique<juce::AudioParameterChoice>(
@@ -727,8 +728,9 @@ NoiseRepellentAudioProcessor::buildEngineParams() {
   ep.p.residual_listen = residualListen;
   ep.p.reduction_gain = reductionGain;
   ep.p.smoothing_factor = smoothingNorm;
-  ep.p.smoothing_mode = (algoMode == 1) ? SPECBLEACH_SMOOTHING_NLM_2D
-                                        : SPECBLEACH_SMOOTHING_TEMPORAL;
+  ep.p.smoothing_mode = (algoMode == 2) ? SPECBLEACH_SMOOTHING_NLM_2D_DFTT
+                                  : (algoMode == 1) ? SPECBLEACH_SMOOTHING_NLM_2D
+                                                    : SPECBLEACH_SMOOTHING_TEMPORAL;
   ep.p.whitening_factor = whiteningNorm;
   ep.p.adaptive_noise = ep.adaptiveNoise;
   ep.p.noise_estimation_method =
