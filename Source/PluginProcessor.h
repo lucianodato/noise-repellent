@@ -39,7 +39,11 @@ public:
   static constexpr float kFrameSizeOptionsMs[5] = {23.0f, 32.0f, 46.0f,
                                                   64.0f, 93.0f};
   static constexpr int kDefaultFrameSizeIndex = 2;
+  // Low-latency mode: fixed 512-sample frame (~10.7 ms at 48 kHz,
+  // ~11.6 ms at 44.1 kHz), causal 1D-only, zero look-ahead.
+  static constexpr uint32_t kLowLatencyFrameSamples = 512;
   float getFrameSizeMs() const;
+  bool isLowLatency() const;
 
   void prepareToPlay(double sampleRate, int samplesPerBlock) override;
   void releaseResources() override;
@@ -206,6 +210,7 @@ public:
   // "frame_size" APVTS choice; compared in ensureEnginesInitialized to detect
   // a rebuild request. Message thread only (written under suspendProcessing).
   float currentFrameSizeMs = kFrameSizeOptionsMs[kDefaultFrameSizeIndex];
+  bool currentLowLatency = false;
   std::atomic<float> transientActivity{0.0f};
   std::atomic<bool> transientProtectionActive{false};
 
