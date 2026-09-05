@@ -31,6 +31,7 @@ A multi-format audio plugin (VST3, AU, LV2) for real-time spectral noise reducti
     * **2D Denoising**: Uses NLM smoothing for pattern-based artifact removal.
 
 ### Workflow & Integration
+* **Low-Latency Mode**: Causal 1D-only path with a fixed 512-sample frame for live scenarios (~10.7 ms at 48 kHz / ~11.6 ms at 44.1 kHz). Enable it from the Options menu: the smoothing selector locks to Standard, the frame-size menu is disabled, and reduction/threshold links are forced on (the short frame is too coarse for independent tonal/broadband control). The smoothing slider's top half maps to ~130 ms max release instead of 500 ms (long releases smear coarse LF bins into pad artifacts). Toggling rebuilds the engine from a clean slate (profile dropped, Learn auto-stopped) and re-reports host delay compensation.
 * **Interactive Spectral Visualizer**: Real-time FFT visualization of input, noise floor profile, and processed output spectrums with detected tonal peak markers.
 * **Residual Listening**: Hear exactly what is being filtered out to fine-tune your settings.
 * **Soft Bypass**: Seamless, click-free A/B testing with cross-faded bypass and latency compensation.

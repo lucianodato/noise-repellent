@@ -144,10 +144,14 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(
     auto* hudParam = audioProcessor.getAPVTS().getParameter("show_hud");
     auto* frameSizeParam =
         audioProcessor.getAPVTS().getParameter("frame_size");
+    auto* lowLatencyParam =
+        audioProcessor.getAPVTS().getParameter("low_latency");
 
     bool tooltipVal =
         (tooltipParam != nullptr && tooltipParam->getValue() > 0.5f);
     bool hudVal = (hudParam != nullptr && hudParam->getValue() > 0.5f);
+    bool lowLatencyVal =
+        (lowLatencyParam != nullptr && lowLatencyParam->getValue() > 0.5f);
     int frameSizeIdx = 2;
     if (auto* choice = dynamic_cast<juce::AudioParameterChoice*>(
             frameSizeParam))
@@ -182,6 +186,19 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(
     menu.addItem(item2);
 
     menu.addSeparator();
+    juce::PopupMenu::Item lowLatItem("Low Latency (512, live use)");
+    lowLatItem.itemID = 8;
+    lowLatItem.isTicked = lowLatencyVal;
+    lowLatItem.action = [this, lowLatencyParam, lowLatencyVal]() {
+      if (lowLatencyParam != nullptr) {
+        lowLatencyParam->beginChangeGesture();
+        lowLatencyParam->setValueNotifyingHost(lowLatencyVal ? 0.0f : 1.0f);
+        lowLatencyParam->endChangeGesture();
+      }
+    };
+    menu.addItem(lowLatItem);
+
+    menu.addSeparator();
     menu.addSectionHeader("FRAME SIZE (BIGGER = FINER DETAIL + MORE LATENCY)");
     // Guidance baked into the labels: PopupMenu items have no tooltip
     // support, and latency in ms is sample-rate independent (always 2x).
@@ -195,6 +212,7 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(
       juce::PopupMenu::Item frameItem(kFrameSizeNames[i]);
       frameItem.itemID = 3 + i;
       frameItem.isTicked = (i == frameSizeIdx);
+      frameItem.isEnabled = !lowLatencyVal;
       frameItem.action = [this, frameSizeParam, i]() {
         if (frameSizeParam != nullptr) {
           frameSizeParam->beginChangeGesture();
@@ -878,7 +896,17 @@ void NoiseRepellentAudioProcessorEditor::updateProfileStatus() {
   // Header controls
   btnDelta.setEnabled(pluginActive);
   btnAdvancedToggle.setEnabled(pluginActive);
-  comboAlgoMode.setEnabled(pluginActive);
+  const bool lowLatency =
+      audioProcessor.isLowLatency() ||
+      (audioProcessor.getAPVTS().getRawParameterValue("low_latency") !=
+           nullptr &&
+       audioProcessor.getAPVTS()
+               .getRawParameterValue("low_latency")
+               ->load() > 0.5f);
+  comboAlgoMode.setEnabled(pluginActive && !lowLatency);
+  if (lowLatency)
+    comboAlgoMode.setTooltip(
+        "Locked to Standard in Low Latency mode (causal 1D-only)");
   lblAlgoHeader.setEnabled(pluginActive);
 
   // Noise Profile box: enabled whenever plugin is active
@@ -905,8 +933,9 @@ void NoiseRepellentAudioProcessorEditor::updateProfileStatus() {
     lblAggressiveness.setTooltip(kTipMorphingUnavailable);
   }
 
-  // Reduction controls
-  bool canUnlink = (!isAdaptive || hasProfile);
+  // Reduction controls (low-latency 512-sample frame is too coarse for
+  // independent tonal/broadband control: unlinking is unavailable)
+  bool canUnlink = (!isAdaptive || hasProfile) && !lowLatency;
   bool allowUnlink = pluginActive && canUnlink;
   btnLink.setEnabled(allowUnlink);
 
