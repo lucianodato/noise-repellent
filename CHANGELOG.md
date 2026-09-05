@@ -6,7 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 - **Improve Adaptive/Manual profile learn UX and UI**: Adaptive noise learn can work as a standalone mode or on top of a manual profile.
-- **Low-Latency Mode**: New non-automatable `low_latency` option (Options menu) for live scenarios: fixed 512-sample frame (~10.7 ms at 48 kHz / ~11.6 ms at 44.1 kHz), causal 1D-only engine, smoothing selector locked to Standard, frame-size menu disabled, and reduction/threshold links forced on. Toggling suspends, rebuilds from a clean slate, and re-reports PDC.
+- **Low-Latency Mode**: New non-automatable `low_latency` option (Options menu) for live scenarios: fixed 512-sample frame (~10.7 ms at 48 kHz / ~11.6 ms at 44.1 kHz), causal 1D-only engine, smoothing selector locked to Standard, frame-size menu disabled, and reduction/threshold links forced on. The smoothing slider's top half maps to ~130 ms max release (long releases smear coarse LF bins into pad artifacts). Toggling suspends, rebuilds from a clean slate, and re-reports PDC.
 
 ### Improved & Refactored
 

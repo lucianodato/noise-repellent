@@ -190,6 +190,12 @@ public:
     beginTest("Frame-Size Switch Preserves Profile and Re-reports Latency");
     testFrameSizeSwitch();
 
+    beginTest("Low-Latency Mode Rebuilds Clean With 512-Sample Latency");
+    testLowLatencyMode();
+
+    beginTest("Reduction Curve Shapes Output In Low-Latency Mode");
+    testReductionCurveLowLatency();
+
     beginTest("Bypass Toggle Stays Time-Aligned (No Skip)");
     testBypassToggleAlignment();
   }
@@ -795,6 +801,116 @@ private:
     fresh.releaseResources();
 
     proc.releaseResources();
+  }
+
+  void testLowLatencyMode() {
+    constexpr double sampleRate = 48000.0;
+    constexpr int blockSize = 512;
+
+    NoiseRepellentAudioProcessor proc;
+    proc.prepareToPlay(sampleRate, blockSize);
+    pumpMessageLoop(10);
+
+    const int latency46 = proc.getLatencySamples();
+    expect(latency46 > 512, "46 ms engine latency must exceed 512 samples");
+
+    learnProfile(proc, sampleRate, blockSize, 20);
+    expect(proc.hasNoiseProfile(), "Profile must exist before the switch");
+
+    // Enable low latency: clean slate like a frame-size switch,
+    // 512-sample latency.
+    setParam(proc, "low_latency", 1.0f);
+    pumpMessageLoop(50);
+    expect(proc.getLatencySamples() == 512,
+           "Low-latency engine must report 512 samples at 48 kHz");
+    expect(!proc.hasNoiseProfile(),
+           "Low-latency switch must reset the learned profile");
+
+    // Audio must keep flowing without NaNs after the rebuild, including
+    // at extreme smoothing (capped release must not pad or blow up).
+    juce::AudioBuffer<float> buffer(2, blockSize);
+    juce::MidiBuffer midi;
+    setParam(proc, "smoothing_factor", 100.0f);
+    for (int b = 0; b < 10; ++b) {
+      generateNoiseBuffer(buffer, 0.05f, 7000 + b);
+      proc.processBlock(buffer, midi);
+      for (int ch = 0; ch < buffer.getNumChannels(); ++ch) {
+        const float* d = buffer.getReadPointer(ch);
+        for (int s = 0; s < buffer.getNumSamples(); ++s)
+          expect(!std::isnan(d[s]) && !std::isinf(d[s]),
+                 "Output must stay finite in low-latency mode");
+      }
+    }
+
+    // Disable again: latency restored, still no profile.
+    setParam(proc, "low_latency", 0.0f);
+    pumpMessageLoop(50);
+    expect(proc.getLatencySamples() == latency46,
+           "Latency must return to the 46 ms value");
+    expect(!proc.hasNoiseProfile(),
+           "Profile must stay cleared after leaving low-latency mode");
+
+    proc.releaseResources();
+  }
+
+  static float runAndMeasureRms(NoiseRepellentAudioProcessor& proc,
+                                int blockSize, int warmBlocks, int measBlocks,
+                                int seedBase) {
+    juce::AudioBuffer<float> buffer(2, blockSize);
+    juce::MidiBuffer midi;
+    for (int b = 0; b < warmBlocks; ++b) {
+      generateNoiseBuffer(buffer, 0.05f, seedBase + b);
+      proc.processBlock(buffer, midi);
+    }
+    double sumSq = 0.0;
+    long count = 0;
+    for (int b = 0; b < measBlocks; ++b) {
+      generateNoiseBuffer(buffer, 0.05f, seedBase + 1000 + b);
+      proc.processBlock(buffer, midi);
+      for (int ch = 0; ch < buffer.getNumChannels(); ++ch) {
+        const float* d = buffer.getReadPointer(ch);
+        for (int s = 0; s < buffer.getNumSamples(); ++s) {
+          sumSq += static_cast<double>(d[s]) * d[s];
+          ++count;
+        }
+      }
+    }
+    return static_cast<float>(std::sqrt(sumSq / static_cast<double>(count)));
+  }
+
+  void testReductionCurveLowLatency() {
+    constexpr double sampleRate = 48000.0;
+    constexpr int blockSize = 512;
+
+  // Low-latency leg: uniform curve must shape the 512-sample engine output.
+  {
+    NoiseRepellentAudioProcessor proc;
+    ScopedEditor editor(proc);
+    proc.prepareToPlay(sampleRate, blockSize);
+    pumpMessageLoop(10);
+
+    setParam(proc, "low_latency", 1.0f);
+    pumpMessageLoop(50);
+    expect(proc.getLatencySamples() == 512,
+           "Low-latency engine must report 512 samples");
+
+    learnProfile(proc, sampleRate, blockSize, 25);
+
+    // Flat curve (all zeros): baseline output level.
+    setParam(proc, "reduction_curve_enabled", 1.0f);
+    proc.setCurveNodes({{0.0f, 0.0f}, {1.0f, 0.0f}});
+    const float rmsFlat =
+        runAndMeasureRms(proc, blockSize, 25, 10, 41000);
+
+    // Uniform +24 dB extra reduction: output must drop hard.
+    proc.setCurveNodes({{0.0f, 24.0f}, {1.0f, 24.0f}});
+    const float rmsCut =
+        runAndMeasureRms(proc, blockSize, 25, 10, 42000);
+
+    expect(rmsCut < rmsFlat * 0.5f,
+           "Uniform +24 dB curve must clearly reduce low-latency output");
+    proc.releaseResources();
+  }
   }
 
   void testBypassToggleAlignment() {

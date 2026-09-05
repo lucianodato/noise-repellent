@@ -767,7 +767,10 @@ NoiseRepellentAudioProcessor::buildEngineParams() {
       ep.learnNoise ? SPECBLEACH_LEARN_ALL : SPECBLEACH_LEARN_OFF;
   ep.p.residual_listen = residualListen;
   ep.p.reduction_gain = reductionGain;
-  ep.p.smoothing_factor = smoothingNorm;
+  // Low-latency smoothing cap: the 512 frame's coarse LF bins smear gain
+  // envelopes into synth-pad artifacts at long releases, so the slider's
+  // top half maps to ~130 ms max instead of 500 ms.
+  ep.p.smoothing_factor = lowLatency ? smoothingNorm * 0.5f : smoothingNorm;
   ep.p.smoothing_mode =
       lowLatency ? SPECBLEACH_SMOOTHING_TEMPORAL
                  : (algoMode == 2)   ? SPECBLEACH_SMOOTHING_NLM_2D_DFTT
