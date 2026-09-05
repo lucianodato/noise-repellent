@@ -43,7 +43,7 @@ All notable changes to this project will be documented in this file.
 - **Critical**: Fixed audio alignment/latency issue in 2D denoiser (caused by NLM look-ahead mismatch).
 - Fixed strict prototype warnings in C headers.
 - Fixed stereo state restoration logic (Thanks @orivej).
-- Fixed bypass issue for hosts using in-place buffers (e.g., Ardour) (Thanks @jmaibaum).
+- Fixed bypass issue for hosts using in-place buffers (Thanks @jmaibaum).
 - Fixed soft bypass latency compensation (Issue #124) and stereo crossfade independence.
 
 ### Added
