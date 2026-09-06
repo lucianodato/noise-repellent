@@ -65,12 +65,14 @@ NoiseRepellentAudioProcessor::NoiseRepellentAudioProcessor()
   bypassParameter = dynamic_cast<juce::AudioParameterBool*>(
       parameters.getParameter("bypass"));
   parameters.addParameterListener("frame_size", this);
+  parameters.addParameterListener("low_latency", this);
   juce::ignoreUnused(specbleach_get_version_string());
   DBG(specbleach_get_version_string()); // banner is "libspecbleach X.Y.Z"
 }
 
 NoiseRepellentAudioProcessor::~NoiseRepellentAudioProcessor() {
   parameters.removeParameterListener("frame_size", this);
+  parameters.removeParameterListener("low_latency", this);
   releaseResources();
 }
 
@@ -89,9 +91,15 @@ float NoiseRepellentAudioProcessor::getFrameSizeMs() const {
   return kFrameSizeOptionsMs[kDefaultFrameSizeIndex];
 }
 
+bool NoiseRepellentAudioProcessor::isLowLatency() const {
+  if (auto* p = parameters.getRawParameterValue("low_latency"))
+    return p->load() > 0.5f;
+  return false;
+}
+
 void NoiseRepellentAudioProcessor::parameterChanged(
     const juce::String& parameterID, float /*newValue*/) {
-  if (parameterID != "frame_size")
+  if (parameterID != "frame_size" && parameterID != "low_latency")
     return;
   // APVTS listeners run on the message thread for non-automatable params
   // touched from the Options menu; state restore happens before
@@ -110,6 +118,27 @@ void NoiseRepellentAudioProcessor::rebuildForFrameSizeChange() {
   // across resolutions.
   if (auto* learn = parameters.getParameter("learn_noise"))
     learn->setValueNotifyingHost(0.0f);
+  // Low-latency transitions install control defaults: on entry smoothing
+  // 30, full aggressiveness, no masking veto; on exit the parameter
+  // defaults return. Applied once per transition (currentLowLatency still
+  // holds the old value here); the user stays free to adjust afterwards.
+  auto pushValue = [this](const char* id, float denormalized) {
+    if (auto* p = parameters.getParameter(id))
+      p->setValueNotifyingHost(p->convertTo0to1(denormalized));
+  };
+  auto pushDefault = [this](const char* id) {
+    if (auto* p = parameters.getParameter(id))
+      p->setValueNotifyingHost(p->getDefaultValue());
+  };
+  if (isLowLatency() && !currentLowLatency) {
+    pushValue("smoothing_factor", 30.0f);
+    pushValue("aggressiveness", 1.0f);
+    pushValue("masking_depth", 0.0f);
+  } else if (!isLowLatency() && currentLowLatency) {
+    pushDefault("smoothing_factor");
+    pushDefault("aggressiveness");
+    pushDefault("masking_depth");
+  }
   suspendProcessing(true);
   ensureEnginesInitialized(currentSampleRate);
   updateLatencyReporting();
@@ -142,6 +171,11 @@ NoiseRepellentAudioProcessor::createParameterLayout() {
       juce::StringArray{"23 ms", "32 ms", "46 ms", "64 ms", "93 ms"},
       NoiseRepellentAudioProcessor::kDefaultFrameSizeIndex,
       juce::AudioParameterChoiceAttributes().withAutomatable(false).withMeta(
+          true)));
+
+  params.push_back(std::make_unique<juce::AudioParameterBool>(
+      "low_latency", "Low Latency", false,
+      juce::AudioParameterBoolAttributes().withAutomatable(false).withMeta(
           true)));
 
   params.push_back(std::make_unique<juce::AudioParameterBool>(
@@ -438,18 +472,25 @@ void NoiseRepellentAudioProcessor::ensureEnginesInitialized(double sampleRate) {
       (engineGroup != nullptr)
           ? specbleach_stereo_get_channel_count(engineGroup.get())
           : 0;
-  const float wantedFrameSizeMs = getFrameSizeMs();
+  const float wantedFrameSizeMs =
+      isLowLatency() && sampleRate > 0.0
+          ? (static_cast<float>(kLowLatencyFrameSamples) * 1000.0f /
+             static_cast<float>(sampleRate))
+          : getFrameSizeMs();
+  const bool wantedLowLatency = isLowLatency();
   const bool needNewEngines =
       (engineGroup == nullptr ||
        std::abs(currentSampleRate - sampleRate) > 0.001 ||
        currentGroupChannels != wantedChannels ||
-       std::abs(currentFrameSizeMs - wantedFrameSizeMs) > 0.001f);
+       std::abs(currentFrameSizeMs - wantedFrameSizeMs) > 0.001f ||
+       currentLowLatency != wantedLowLatency);
 
   if (!needNewEngines)
     return;
 
   const bool frameSizeChanged =
-      std::abs(currentFrameSizeMs - wantedFrameSizeMs) > 0.001f;
+      std::abs(currentFrameSizeMs - wantedFrameSizeMs) > 0.001f ||
+      currentLowLatency != wantedLowLatency;
 
   struct SavedProfileData {
     int channel; // 0 = Left, 1 = Right
@@ -503,11 +544,14 @@ void NoiseRepellentAudioProcessor::ensureEnginesInitialized(double sampleRate) {
   uint32_t channels = wantedChannels;
 
   const uint32_t sampleRateUint = static_cast<uint32_t>(sampleRate);
+  const uint32_t initFlags =
+      wantedLowLatency ? SPECBLEACH_INIT_LOW_LATENCY : 0u;
   engineGroup = specbleach::make_stereo_group(sampleRateUint, wantedFrameSizeMs,
-                                              channels);
+                                              channels, initFlags);
 
   currentSampleRate = sampleRate;
   currentFrameSizeMs = wantedFrameSizeMs;
+  currentLowLatency = wantedLowLatency;
   preparedNumChannels = channels;
 
   // Restore backed-up profiles into the new group (library resamples to
@@ -588,6 +632,8 @@ void NoiseRepellentAudioProcessor::updateLatencyReporting() {
   // Latency depends on the STFT frame size (frame + NLM look-ahead) but is
   // constant across smoothing modes (temporal is padded to the NLM
   // look-ahead), so hosts only need a re-report after a frame-size switch.
+  // Low-latency mode is the second exception: causal 1D-only, zero
+  // look-ahead (latency = frame alone), rebuilt via the same suspend path.
   const uint32_t reportedLatency =
       engineGroup ? specbleach_stereo_get_latency(engineGroup.get()) : 0;
   lastReportedLatency = reportedLatency;
@@ -657,6 +703,11 @@ bool NoiseRepellentAudioProcessor::isBusesLayoutSupported(
 NoiseRepellentAudioProcessor::EngineParams
 NoiseRepellentAudioProcessor::buildEngineParams() {
   EngineParams ep;
+  // Low-latency uses a 512-sample frame: too coarse for independent
+  // tonal/broadband control, so tonal follows broadband (forced link) and
+  // the smoothing mode is clamped to temporal (library clamps too).
+  const bool lowLatency =
+      parameters.getRawParameterValue("low_latency")->load() > 0.5f;
   const int algoMode = static_cast<int>(
       parameters.getRawParameterValue("algorithm_mode")->load());
   ep.transientProtectionEnable =
@@ -674,8 +725,10 @@ NoiseRepellentAudioProcessor::buildEngineParams() {
       parameters.getRawParameterValue("link_reduction")->load() > 0.5f;
   const float masterRed =
       parameters.getRawParameterValue("reduction_amount")->load();
+  // Low-latency uses a 512-sample frame: too coarse for independent
+  // tonal/broadband control, so tonal follows broadband (forced link).
   const float tonalRed =
-      linkReduction
+      (lowLatency || linkReduction)
           ? masterRed
           : parameters.getRawParameterValue("tonal_reduction")->load();
 
@@ -697,7 +750,7 @@ NoiseRepellentAudioProcessor::buildEngineParams() {
   const bool linkThresholdOffset =
       parameters.getRawParameterValue("link_threshold_offset")->load() > 0.5f;
   const float tonalProfileOffsetDb =
-      linkThresholdOffset
+      (lowLatency || linkThresholdOffset)
           ? profileOffset
           : parameters.getRawParameterValue("tonal_noise_profile_offset")
                 ->load();
@@ -735,17 +788,22 @@ NoiseRepellentAudioProcessor::buildEngineParams() {
       ep.learnNoise ? SPECBLEACH_LEARN_ALL : SPECBLEACH_LEARN_OFF;
   ep.p.residual_listen = residualListen;
   ep.p.reduction_gain = reductionGain;
-  ep.p.smoothing_factor = smoothingNorm;
-  ep.p.smoothing_mode = (algoMode == 2)   ? SPECBLEACH_SMOOTHING_NLM_2D_DFTT
-                        : (algoMode == 1) ? SPECBLEACH_SMOOTHING_NLM_2D
-                                          : SPECBLEACH_SMOOTHING_TEMPORAL;
+  // Low-latency smoothing cap: the 512 frame's coarse LF bins smear gain
+  // envelopes into synth-pad artifacts at long releases, so the slider's
+  // top half maps to ~130 ms max instead of 500 ms.
+  ep.p.smoothing_factor = lowLatency ? smoothingNorm * 0.5f : smoothingNorm;
+  ep.p.smoothing_mode =
+      lowLatency ? SPECBLEACH_SMOOTHING_TEMPORAL
+                 : (algoMode == 2)   ? SPECBLEACH_SMOOTHING_NLM_2D_DFTT
+                 : (algoMode == 1) ? SPECBLEACH_SMOOTHING_NLM_2D
+                                   : SPECBLEACH_SMOOTHING_TEMPORAL;
   // Single-control orchestration: in Refinement mode the DFTT quefrency
   // threshold scales with the reduction depth — deeper reduction produces
   // more musical noise, so the refinement stage is strengthed to match
   // (12 dB reduction doubles the default strength; clamped library-side).
-  ep.p.dftt_strength =
-      (algoMode == 2) ? (1.0f + masterRed / kDfttStrengthDoublingReductionDb)
-                      : 1.0f;
+  ep.p.dftt_strength = (!lowLatency && algoMode == 2)
+                               ? (1.0f + masterRed / kDfttStrengthDoublingReductionDb)
+                               : 1.0f;
   ep.p.whitening_factor = whiteningNorm;
   ep.p.adaptive_noise = ep.adaptiveNoise;
   ep.p.noise_estimation_method =
@@ -760,7 +818,8 @@ NoiseRepellentAudioProcessor::buildEngineParams() {
       ep.curveEnabled ? interpolatedCurveBias.data() : nullptr;
   ep.p.reduction_curve_enabled = ep.curveEnabled;
   ep.p.reduction_curve_size =
-      ep.curveEnabled ? static_cast<uint32_t>(interpolatedCurveBias.size()) : 0;
+      ep.curveEnabled ? static_cast<uint32_t>(interpolatedCurveBias.size())
+                      : 0;
   ep.p.tonal_noise_profile_scale = tonalProfileScale;
   return ep;
 }

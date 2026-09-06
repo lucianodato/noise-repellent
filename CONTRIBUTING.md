@@ -37,7 +37,7 @@ We use **CMake** and **JUCE** for building.
 
 1. Fork the repo and create your branch from `master` or `main`.
 2. Ensure existing functionality builds cleanly across target plugin formats.
-3. If you've added features or modified UI components, verify behavior in test DAWs (e.g. Reaper, Ardour).
+3. If you've added features or modified UI components, verify behavior in test hosts.
 4. Make sure your code complies with our coding guidelines.
 5. Open a pull request!
 

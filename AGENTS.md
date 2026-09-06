@@ -69,7 +69,7 @@ To balance portable DAW binary compatibility for release artifacts with downstre
 
 1. **Dual-Mode Dependency Linking**:
    * **Default Portable Release Mode (`USE_SYSTEM_*=OFF`)**:
-     * Third-party libraries (`FreeType`, `libspecbleach`) **must be statically embedded** by default into plugin targets to ensure zero host DAW crashes or symbol conflicts (e.g., in Ardour, Bitwig, or REAPER).
+     * Third-party libraries (`FreeType`, `libspecbleach`) **must be statically embedded** by default into plugin targets to ensure zero host crashes or symbol conflicts across DAW hosts.
      * On Linux, static GCC runtimes (`-static-libgcc -static-libstdc++`) must be linked for release builds.
      * On Windows, static MSVC runtimes (`/MT`) must be configured (`set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")`).
    * **Downstream Packaging Mode (`USE_SYSTEM_*=ON`)**:
