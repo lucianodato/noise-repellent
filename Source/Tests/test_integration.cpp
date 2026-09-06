@@ -826,6 +826,17 @@ private:
     expect(!proc.hasNoiseProfile(),
            "Low-latency switch must reset the learned profile");
 
+    // Entering low latency installs its control defaults.
+    expect(proc.getAPVTS().getRawParameterValue("smoothing_factor")->load() >=
+               30.0f,
+           "Low latency must raise smoothing to at least 30");
+    expect(proc.getAPVTS().getRawParameterValue("aggressiveness")->load() ==
+               1.0f,
+           "Low latency must set aggressiveness to 1");
+    expect(proc.getAPVTS().getRawParameterValue("masking_depth")->load() ==
+               0.0f,
+           "Low latency must set masking to 0");
+
     // Audio must keep flowing without NaNs after the rebuild, including
     // at extreme smoothing (capped release must not pad or blow up).
     juce::AudioBuffer<float> buffer(2, blockSize);

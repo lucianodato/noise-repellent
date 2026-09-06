@@ -118,6 +118,21 @@ void NoiseRepellentAudioProcessor::rebuildForFrameSizeChange() {
   // across resolutions.
   if (auto* learn = parameters.getParameter("learn_noise"))
     learn->setValueNotifyingHost(0.0f);
+  // Entering low-latency mode installs its control defaults: smoothing
+  // floor of 30 (coarse bins need it), full aggressiveness, no masking
+  // veto. Applied once on entry (currentLowLatency still holds the old
+  // value here); the user stays free to adjust afterwards.
+  if (isLowLatency() && !currentLowLatency) {
+    auto pushValue = [this](const char* id, float denormalized) {
+      if (auto* p = parameters.getParameter(id))
+        p->setValueNotifyingHost(p->convertTo0to1(denormalized));
+    };
+    if (auto* s = parameters.getRawParameterValue("smoothing_factor"))
+      if (s->load() < 30.0f)
+        pushValue("smoothing_factor", 30.0f);
+    pushValue("aggressiveness", 1.0f);
+    pushValue("masking_depth", 0.0f);
+  }
   suspendProcessing(true);
   ensureEnginesInitialized(currentSampleRate);
   updateLatencyReporting();
