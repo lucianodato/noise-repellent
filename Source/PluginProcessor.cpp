@@ -118,20 +118,26 @@ void NoiseRepellentAudioProcessor::rebuildForFrameSizeChange() {
   // across resolutions.
   if (auto* learn = parameters.getParameter("learn_noise"))
     learn->setValueNotifyingHost(0.0f);
-  // Entering low-latency mode installs its control defaults: smoothing
-  // floor of 30 (coarse bins need it), full aggressiveness, no masking
-  // veto. Applied once on entry (currentLowLatency still holds the old
-  // value here); the user stays free to adjust afterwards.
+  // Low-latency transitions install control defaults: on entry smoothing
+  // 30, full aggressiveness, no masking veto; on exit the parameter
+  // defaults return. Applied once per transition (currentLowLatency still
+  // holds the old value here); the user stays free to adjust afterwards.
+  auto pushValue = [this](const char* id, float denormalized) {
+    if (auto* p = parameters.getParameter(id))
+      p->setValueNotifyingHost(p->convertTo0to1(denormalized));
+  };
+  auto pushDefault = [this](const char* id) {
+    if (auto* p = parameters.getParameter(id))
+      p->setValueNotifyingHost(p->getDefaultValue());
+  };
   if (isLowLatency() && !currentLowLatency) {
-    auto pushValue = [this](const char* id, float denormalized) {
-      if (auto* p = parameters.getParameter(id))
-        p->setValueNotifyingHost(p->convertTo0to1(denormalized));
-    };
-    if (auto* s = parameters.getRawParameterValue("smoothing_factor"))
-      if (s->load() < 30.0f)
-        pushValue("smoothing_factor", 30.0f);
+    pushValue("smoothing_factor", 30.0f);
     pushValue("aggressiveness", 1.0f);
     pushValue("masking_depth", 0.0f);
+  } else if (!isLowLatency() && currentLowLatency) {
+    pushDefault("smoothing_factor");
+    pushDefault("aggressiveness");
+    pushDefault("masking_depth");
   }
   suspendProcessing(true);
   ensureEnginesInitialized(currentSampleRate);

@@ -827,9 +827,9 @@ private:
            "Low-latency switch must reset the learned profile");
 
     // Entering low latency installs its control defaults.
-    expect(proc.getAPVTS().getRawParameterValue("smoothing_factor")->load() >=
+    expect(proc.getAPVTS().getRawParameterValue("smoothing_factor")->load() ==
                30.0f,
-           "Low latency must raise smoothing to at least 30");
+           "Low latency must set smoothing to 30");
     expect(proc.getAPVTS().getRawParameterValue("aggressiveness")->load() ==
                1.0f,
            "Low latency must set aggressiveness to 1");
@@ -860,6 +860,15 @@ private:
            "Latency must return to the 46 ms value");
     expect(!proc.hasNoiseProfile(),
            "Profile must stay cleared after leaving low-latency mode");
+    expect(proc.getAPVTS().getRawParameterValue("smoothing_factor")->load() ==
+               0.0f,
+           "Leaving low latency must restore smoothing default");
+    expect(proc.getAPVTS().getRawParameterValue("aggressiveness")->load() ==
+               0.5f,
+           "Leaving low latency must restore aggressiveness default");
+    expect(proc.getAPVTS().getRawParameterValue("masking_depth")->load() ==
+               100.0f,
+           "Leaving low latency must restore masking default");
 
     proc.releaseResources();
   }
