@@ -154,7 +154,7 @@ public:
  private:
   void ensureEnginesInitialized(double sampleRate);
   void updateLatencyReporting();
-  void rebuildForFrameSizeChange();
+  void rebuildForFrameSizeChange(bool onAudioThread = false);
   void parameterChanged(const juce::String& parameterID,
                         float newValue) override;
   // Parameter snapshot for one engine run (built from APVTS per block).
@@ -211,6 +211,9 @@ public:
   // a rebuild request. Message thread only (written under suspendProcessing).
   float currentFrameSizeMs = kFrameSizeOptionsMs[kDefaultFrameSizeIndex];
   bool currentLowLatency = false;
+  // Coalesced structural-rebuild request (frame_size/low_latency touched
+  // off the message thread, e.g. LV2 automation). Consumed in processBlock.
+  std::atomic<bool> frameSizeRebuildPending{false};
   std::atomic<float> transientActivity{0.0f};
   std::atomic<bool> transientProtectionActive{false};
 

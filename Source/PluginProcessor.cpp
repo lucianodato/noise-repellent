@@ -107,11 +107,15 @@ void NoiseRepellentAudioProcessor::parameterChanged(
   if (juce::MessageManager::getInstance()->isThisTheMessageThread()) {
     rebuildForFrameSizeChange();
   } else {
-    juce::MessageManager::callAsync([this]() { rebuildForFrameSizeChange(); });
+    // ponytail: coalesce — LV2 delivers structural-param automation on the
+    // audio thread per sub-block; one flag beats a callAsync storm that
+    // resets the engine under an in-flight run().
+    frameSizeRebuildPending.store(true, std::memory_order_release);
   }
 }
 
-void NoiseRepellentAudioProcessor::rebuildForFrameSizeChange() {
+void NoiseRepellentAudioProcessor::rebuildForFrameSizeChange(
+    bool onAudioThread) {
   if (currentSampleRate <= 0.0 || engineGroup == nullptr)
     return; // not prepared yet — next prepareToPlay picks up the new value
   // Auto-stop an in-progress Learn: a half-rolled mean must not migrate
@@ -139,7 +143,10 @@ void NoiseRepellentAudioProcessor::rebuildForFrameSizeChange() {
     pushDefault("aggressiveness");
     pushDefault("masking_depth");
   }
-  suspendProcessing(true);
+  // On the audio thread the rebuild is serialized with runEngine below,
+  // so no suspend dance is needed (that only guards message-thread entry).
+  if (!onAudioThread)
+    suspendProcessing(true);
   ensureEnginesInitialized(currentSampleRate);
   updateLatencyReporting();
   // Fresh STFT history: clear visualization accumulators so the first frames
@@ -150,7 +157,8 @@ void NoiseRepellentAudioProcessor::rebuildForFrameSizeChange() {
   fftAccumTransient.fill(0.0f);
   fftAccumCount = 0;
   silentBlocksStreak = 0;
-  suspendProcessing(false);
+  if (!onAudioThread)
+    suspendProcessing(false);
   if (auto* editor = getActiveEditor())
     editor->repaint();
 }
@@ -859,6 +867,12 @@ void NoiseRepellentAudioProcessor::processBlock(
 
   if (numSamples == 0 || numChannels == 0)
     return;
+
+  // Single coalesced structural rebuild, serialized with runEngine below —
+  // the race-free funnel for off-message-thread frame_size/low_latency
+  // changes (LV2 automation). Never concurrent, never a storm.
+  if (frameSizeRebuildPending.exchange(false, std::memory_order_acq_rel))
+    rebuildForFrameSizeChange(/*onAudioThread=*/true);
 
   const bool isBypassed =
       parameters.getRawParameterValue("bypass")->load() > 0.5f;

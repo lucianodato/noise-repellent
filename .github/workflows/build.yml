@@ -247,7 +247,28 @@ jobs:
           if [ $HAS_ERRORS -ne 0 ]; then
             exit 1
           fi
-          echo "✨ All macOS binaries verified clean!"
+           echo "✨ All macOS binaries verified clean!"
+
+      - name: Validate Plugin Loads in Host (pluginval + auval)
+        run: |
+          curl -sL https://github.com/Tracktion/pluginval/releases/download/v1.0.4/pluginval_macOS.zip -o pv.zip
+          unzip -q -o pv.zip -d pv && find pv -name "pluginval*" -type f | head -n 5
+          PV_BIN=$(find pv -name "pluginval" -type f | head -n 1)
+          chmod +x "$PV_BIN"
+          "$PV_BIN" --strictness-level 5 --validate-in-process --validate "staging/Noise Repellent.vst3"
+          echo "[PASS] Noise Repellent.vst3 (pluginval level 5)"
+          xattr -cr "staging/Noise Repellent.component" || true
+          sudo mkdir -p /Library/Audio/Plug-Ins/Components
+          sudo cp -R "staging/Noise Repellent.component" /Library/Audio/Plug-Ins/Components/
+          sudo killall -9 AudioComponentRegistrar 2>/dev/null || true
+          sleep 10
+          auval -a 2>&1 | grep -ai "repellent" || echo "(not in auval -a listing)"
+          auval -v aufx Nrep LdNR
+          echo "[PASS] Noise Repellent.component (auval)"
+          if [ -d "staging/Noise Repellent.lv2" ]; then
+            "$PV_BIN" --strictness-level 5 --validate-in-process --validate "staging/Noise Repellent.lv2"
+            echo "[PASS] Noise Repellent.lv2 (pluginval level 5)"
+          fi
 
       - name: Create Zip Archive
         run: |
@@ -329,7 +350,7 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -qq -y \
-            build-essential cmake ninja-build \
+            build-essential cmake ninja-build xvfb \
             libasound2-dev libjack-jackd2-dev libgl1-mesa-dev \
             libx11-dev libxcomposite-dev libxcursor-dev libxext-dev \
             libxinerama-dev libxrandr-dev libfontconfig1-dev libfreetype6-dev
@@ -413,6 +434,18 @@ jobs:
             exit 1
           fi
           echo "✨ All Linux binaries verified clean and properly encapsulated!"
+
+      - name: Validate Plugin Loads in Host (pluginval)
+        run: |
+          curl -sL https://github.com/Tracktion/pluginval/releases/download/v1.0.4/pluginval_Linux.zip -o pv.zip
+          unzip -q -o pv.zip -d pv
+          PV_BIN=$(find pv -iname "*pluginval*" -type f | head -n 1)
+          chmod +x "$PV_BIN"
+          VST3_DIR=$(find build/NoiseRepellent_artefacts -name "Noise Repellent.vst3" -type d | head -n 1)
+          xvfb-run -a "$PV_BIN" --strictness-level 5 --validate-in-process --validate "$VST3_DIR"
+          echo "[PASS] Noise Repellent.vst3 (pluginval level 5)"
+          LV2_DIR=$(find build/NoiseRepellent_artefacts -name "Noise Repellent.lv2" -type d | head -n 1)
+          if [ -n "$LV2_DIR" ]; then xvfb-run -a "$PV_BIN" --strictness-level 5 --validate-in-process --validate "$LV2_DIR"; echo "[PASS] Noise Repellent.lv2 (pluginval level 5)"; fi
 
       - name: Package Staging Artifacts
         run: |
@@ -636,6 +669,18 @@ jobs:
             exit 1
           fi
           echo "✨ All Windows binaries verified clean!"
+
+      - name: Validate Plugin Loads in Host (pluginval)
+        shell: bash
+        run: |
+          curl -sL https://github.com/Tracktion/pluginval/releases/download/v1.0.4/pluginval_Windows.zip -o pv.zip
+          unzip -q -o pv.zip -d pv
+          PV_BIN=$(find pv -iname "*pluginval*" -name "*.exe" | head -n 1)
+          VST3_PATH=$(find staging -name "*.vst3" | head -n 1)
+          "$PV_BIN" --strictness-level 5 --validate-in-process --validate "$VST3_PATH"
+          echo "[PASS] Noise Repellent.vst3 (pluginval level 5)"
+          LV2_DIR=$(find staging -name "Noise Repellent.lv2" -type d | head -n 1)
+          if [ -n "$LV2_DIR" ]; then "$PV_BIN" --strictness-level 5 --validate-in-process --validate "$LV2_DIR"; echo "[PASS] Noise Repellent.lv2 (pluginval level 5)"; fi
 
       - name: Create Zip Archive
         shell: bash
