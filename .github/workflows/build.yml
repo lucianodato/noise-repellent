@@ -258,8 +258,8 @@ jobs:
           "$PV_BIN" --strictness-level 5 --validate-in-process --validate "staging/Noise Repellent.vst3"
           echo "[PASS] Noise Repellent.vst3 (pluginval level 5)"
           xattr -cr "staging/Noise Repellent.component" || true
-          mkdir -p ~/Library/Audio/Plug-Ins/Components
-          cp -R "staging/Noise Repellent.component" ~/Library/Audio/Plug-Ins/Components/
+          sudo mkdir -p /Library/Audio/Plug-Ins/Components
+          sudo cp -R "staging/Noise Repellent.component" /Library/Audio/Plug-Ins/Components/
           auval -v aufx Nrep LdNR
           echo "[PASS] Noise Repellent.component (auval)"
           if [ -d "staging/Noise Repellent.lv2" ]; then
