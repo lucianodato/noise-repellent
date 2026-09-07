@@ -260,6 +260,9 @@ jobs:
           xattr -cr "staging/Noise Repellent.component" || true
           sudo mkdir -p /Library/Audio/Plug-Ins/Components
           sudo cp -R "staging/Noise Repellent.component" /Library/Audio/Plug-Ins/Components/
+          ls /Library/Audio/Plug-Ins/Components/
+          plutil -p "/Library/Audio/Plug-Ins/Components/Noise Repellent.component/Contents/Info.plist" | grep -aA12 -i audiocomponents | head -n 25 || true
+          auval -a 2>&1 | grep -ai "repellent" || echo "(not in auval -a listing)"
           auval -v aufx Nrep LdNR
           echo "[PASS] Noise Repellent.component (auval)"
           if [ -d "staging/Noise Repellent.lv2" ]; then
