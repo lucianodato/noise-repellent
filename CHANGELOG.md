@@ -2,15 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.3.2] - Unreleased
+## [0.4.0] - 2026-09-07
 
 ### Added
-- **Improve Adaptive/Manual profile learn UX and UI**: Adaptive noise learn can work as a standalone mode or on top of a manual profile.
-- **Low-Latency Mode**: New non-automatable `low_latency` option (Options menu) for live scenarios: fixed 512-sample frame (~10.7 ms at 48 kHz / ~11.6 ms at 44.1 kHz), causal 1D-only engine, smoothing selector locked to Standard, frame-size menu disabled, and reduction/threshold links forced on. Entering it installs control defaults (smoothing floor 30, aggressiveness 1, masking 0). The smoothing slider's top half maps to ~130 ms max release (long releases smear coarse LF bins into pad artifacts). Toggling suspends, rebuilds from a clean slate, and re-reports PDC.
+- **Low-latency mode**: New non-automatable `low_latency` option (Options menu) for live scenarios: fixed 512-sample frame (~10.7 ms at 48 kHz / ~11.6 ms at 44.1 kHz), causal 1D-only engine, smoothing selector locked to Standard, frame-size menu disabled, and reduction/threshold links forced on. Entering it installs control defaults (smoothing floor 30, aggressiveness 1, masking 0) and starts clean (profile dropped, Learn auto-stopped). The smoothing slider's top half maps to ~130 ms max release (long releases smear coarse LF bins into pad artifacts). Toggling suspends, rebuilds from a clean slate, and re-reports PDC.
+- **Third algorithm mode**: Patch-Based + Refinement (post-NLM DFTT) alongside Standard (1D) and Patch-Based (2D NLM); library-owned gapless transitions with allocation-free internal crossfade.
+- **Stepped STFT frame sizes**: Options menu offers 23 / 32 / 46 / 64 / 93 ms frames. Switching suspends, rebuilds from a clean slate (profile dropped, Learn auto-stopped), and re-reports PDC; session state restores are exempt.
+- **Unlinkable tonal threshold offset**: `link_threshold_offset` toggle allows independent tonal vs broadband threshold control, with synthetic tonal-mask synthesis keeping the UI responsive before the DSP pipeline runs.
+- **Threshold offset & custom reduction curve**: User-controllable offsets and curve mapping.
+- **Transient protection toggle & quality selection**: Transient-protection switch on the visualizer LED with latency-compensated transitions.
+- **Live profile rendering**: Noise profile renders in real time while learning; engine queried for tonal peaks to update aggressiveness thresholds.
+- **Adaptive/manual learn UX**: Adaptive noise learn works standalone or on top of a manual profile; refined profile UX with compact advanced panel and simplified default experience.
+- **Offline-render detection**: UI overlay indicates offline rendering state.
 
 ### Improved & Refactored
+- **Adopted redesigned libspecbleach C API**: Type-safe handles, extras orchestration layer (stereo groups, transitions), engine sync moved off the audio thread, unified denoiser with library-owned mode switching.
+- **PFFFT / OpenMP removal**: FFTW3 dependency gone (vendored PFFFT in the library); Windows builds no longer ship non-redistributable OpenMP runtimes, and libspecbleach embeds cleanly in DLLs.
+- **Bypass fidelity**: DSP skipped when bypassed via native DryWetMixer with latency-compensated crossfades; engine keeps running so toggles never time-travel.
+- **Gapless engine switch**: Deferred PDC reporting with blocking overlay during rebuilds.
+- **Controls**: Suppression parameter removed, aggressiveness slider moved; layout updates on algorithm mode change with improved link/smoothing coordination.
 
 ### Fixed
+- Frame-size description clarity and bypass alignment issues.
+
+**Note**: Release binaries are built by CI, which also produces the macOS universal (arm64 + x86_64) artifacts via lipo; local `cmake -B build` yields a single-arch dev build.
 
 ## [0.3.1] - 2026-08-08
 

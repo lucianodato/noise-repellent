@@ -7,13 +7,17 @@
 A multi-format audio plugin (VST3, AU, LV2) for real-time spectral noise reduction, built with [JUCE](https://juce.com/) and powered by the [libspecbleach](https://github.com/lucianodato/libspecbleach) DSP engine.
 
 ## Screenshots
-![Advanced Controls](<Images/Screenshot 1.png>)
-![Basic Controls](<Images/Screenshot 2.png>)
+![Basic Controls](<Images/Screenshot 1.png>)
+![Advanced Controls](<Images/Screenshot 2.png>)
+![Reduction Curve](<Images/Screenshot 3.png>)
 
 ## Features
 
 ### Advanced Denoising Algorithms
 * **2D Non-Local Means (NLM)**: Uses spectral-temporal pattern matching to suppress musical noise while preserving high-frequency detail and textures.
+* **Patch-Based + Refinement (Max Quality)**: Post-NLM DFTT refinement stage on top of 2D NLM for the cleanest results on difficult material. Mode switches within the NLM family are instant (shared history and latency); the engine crossfades gaplessly with no allocations.
+* **Transient Protection**: Onset-based transient veto that freezes gain updates on transient bins, backed by masking veto and per-bin adaptive smoothing — toggle it from the visualizer LED.
+* **Adaptive Wiener Knee & Release Shaper**: Per-bin decay-evidence knee with shaped release tails for smoother suppression without pumping.
 * **Manual Profiling**: Classic noise reduction using a user-captured noise profile from a silent section.
 * **Adaptive Estimation**: Real-time noise floor tracking with multiple algorithms.
     * **Hybrid Operation**: Works on top of manual profiles to refine captured snapshots in real-time.
@@ -22,19 +26,23 @@ A multi-format audio plugin (VST3, AU, LV2) for real-time spectral noise reducti
     * **Martin Minimum Statistics**: Reliable tracking for slowly varying noise.
 
 ### Precision Controls
-* **Tonal separation**: Independent reduction of harmonic content and tonal noise (hum, resonance).
+* **Tonal separation**: Independent reduction of harmonic content and tonal noise (hum, resonance), with unlinkable tonal threshold offset and engine-detected peak markers.
+* **Threshold Offsets & Reduction Curve**: Broadband and tonal threshold offsets plus a custom per-bin reduction bias curve for fine-grained control.
+* **Stepped STFT Frame Sizes**: 23 / 32 / 46 / 64 / 93 ms options from the Options menu (short frames for transient material, long frames for frequency resolution). Switching rebuilds from a clean slate and re-reports latency (~2x frame); latency stays constant across smoothing modes for a given frame size.
 * **Intelligent Steering**: Adjustable aggressiveness to balance between different noise profile statistics (Mean, Median, Max).
 * **Adaptive Whitening**: Reshapes the residual noise floor to prevent coloring and artifacts.
 * **Masking Transparency (Veto)**: Protects transients and delicate details by balancing reduction against signal energy.
 * **Adjustable Smoothing**: Fine-tune the balance between artifact suppression and transient clarity.
     * **Standard Denoising**: Uses temporal smoothing for stable noise reduction.
-    * **2D Denoising**: Uses NLM smoothing for pattern-based artifact removal.
+    * **Patch-Based Denoising**: Uses NLM smoothing for pattern-based artifact removal.
+    * **Patch-Based + Refinement**: Adds the post-NLM DFTT refinement stage for maximum quality.
 
 ### Workflow & Integration
 * **Low-Latency Mode**: Causal 1D-only path with a fixed 512-sample frame for live scenarios (~10.7 ms at 48 kHz / ~11.6 ms at 44.1 kHz). Enable it from the Options menu: the smoothing selector locks to Standard, the frame-size menu is disabled, and reduction/threshold links are forced on (the short frame is too coarse for independent tonal/broadband control). Entering it installs control defaults (smoothing floor 30, aggressiveness 1, masking 0). The smoothing slider's top half maps to ~130 ms max release instead of 500 ms (long releases smear coarse LF bins into pad artifacts). Toggling rebuilds the engine from a clean slate (profile dropped, Learn auto-stopped) and re-reports host delay compensation.
-* **Interactive Spectral Visualizer**: Real-time FFT visualization of input, noise floor profile, and processed output spectrums with detected tonal peak markers.
+* **Interactive Spectral Visualizer**: Real-time FFT visualization of input, noise floor profile, and processed output spectrums with detected tonal peak markers. The noise profile renders live while learning, and aggressiveness/threshold adjustments stay responsive while silent or stopped.
 * **Residual Listening**: Hear exactly what is being filtered out to fine-tune your settings.
-* **Soft Bypass**: Seamless, click-free A/B testing with cross-faded bypass and latency compensation.
+* **Soft Bypass**: Seamless, click-free A/B testing with cross-faded bypass and latency compensation — the engine keeps running while bypassed so toggles never time-travel.
+* **Offline-Render Overlay**: The UI indicates when the host is rendering offline.
 * **Full State Saving**: Noise profiles and all APVTS parameters are saved with the host session.
 
 ### Multi-Format Compatibility
@@ -65,10 +73,10 @@ Pre-built installers and packages for Linux, macOS, and Windows are available on
 ### 🐧 Linux (x86_64)
 
 #### Debian / Ubuntu / Linux Mint / Pop!_OS
-1. Download `noise-repellent_0.3.1_amd64.deb`.
+1. Download `noise-repellent_0.4.0_amd64.deb`.
 2. Install via software center or terminal:
    ```bash
-   sudo apt install ./noise-repellent_0.3.1_amd64.deb
+   sudo apt install ./noise-repellent_0.4.0_amd64.deb
 
 #### Other Linux Distributions
 1. Download `noise-repellent-linux-x86_64.tar.gz`

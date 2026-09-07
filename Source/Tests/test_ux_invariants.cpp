@@ -89,6 +89,34 @@ void processSilentBlocks(NoiseRepellentAudioProcessor& proc,
   pumpMessageLoop(10);
 }
 
+void learnNoiseProfile(NoiseRepellentAudioProcessor& proc,
+                       juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi,
+                       int numBlocks = 50) {
+  setParam(proc, "learn_noise", 1.0f);
+  for (int i = 0; i < numBlocks; ++i) {
+    generateNoiseBuffer(buffer, 0.05f);
+    proc.processBlock(buffer, midi);
+  }
+  setParam(proc, "learn_noise", 0.0f);
+  pumpMessageLoop(20);
+}
+
+void generateTonalBuffer(juce::AudioBuffer<float>& buffer, double sampleRate,
+                         float freqHz = 440.0f, float amplitude = 0.1f) {
+  static double phase = 0.0;
+  const double inc = 2.0 * 3.141592653589793 * freqHz / sampleRate;
+  std::mt19937 gen(4242);
+  std::normal_distribution<float> dist(0.0f, 0.01f);
+  for (int ch = 0; ch < buffer.getNumChannels(); ++ch) {
+    auto* channelData = buffer.getWritePointer(ch);
+    for (int s = 0; s < buffer.getNumSamples(); ++s) {
+      channelData[s] =
+          amplitude * static_cast<float>(std::sin(phase)) + dist(gen);
+      phase += inc;
+    }
+  }
+}
+
 } // namespace
 
 class UxInvariantsTest : public juce::UnitTest {
@@ -111,6 +139,18 @@ public:
 
     beginTest("Idle No-Profile Silent Bypass");
     testIdleNoProfileBypass();
+
+    beginTest("Low-Latency Enter/Exit Drops Profile And Locks Controls");
+    testLowLatencyEnterExitCleanSlate();
+
+    beginTest("Frame-Size Switch Clean Slate And Learn Auto-Stop");
+    testFrameSizeSwitchCleanSlate();
+
+    beginTest("Tonal Peak Visibility Rule And State Preservation");
+    testTonalPeakVisibilityRule();
+
+    beginTest("Mode Switch Never Suspends Or Re-Reports Latency");
+    testModeSwitchNeverSuspends();
   }
 
 private:
@@ -410,6 +450,189 @@ private:
     expect(maxOutput <= -119.0f, "Silent output spectrum must drop to -120dB");
     expect(frame.hasNoiseProfile,
            "Noise profile must remain active when input is silent");
+
+    proc.releaseResources();
+  }
+
+  void testLowLatencyEnterExitCleanSlate() {
+    NoiseRepellentAudioProcessor proc;
+    ScopedEditor editor(proc);
+    constexpr double sampleRate = 48000.0;
+    constexpr int blockSize = 512;
+    proc.prepareToPlay(sampleRate, blockSize);
+    pumpMessageLoop(20);
+
+    juce::AudioBuffer<float> buffer(2, blockSize);
+    juce::MidiBuffer midi;
+
+    // Unlink first so the forced-link behavior is observable
+    setParam(proc, "link_reduction", 0.0f);
+    setParam(proc, "link_threshold_offset", 0.0f);
+    setParam(proc, "algorithm_mode", 0.0f);
+    learnNoiseProfile(proc, buffer, midi);
+    processSilentBlocks(proc, buffer, midi, 12);
+    expect(proc.hasNoiseProfile(), "Profile must exist before low-latency");
+    const int normalLatency = proc.getLatencySamples();
+    expect(normalLatency > 512, "Normal latency must exceed one 512 frame");
+
+    // Enter low-latency: clean slate + defaults + re-reported PDC
+    setParam(proc, "low_latency", 1.0f);
+    pumpMessageLoop(50);
+    processSilentBlocks(proc, buffer, midi, 12);
+
+    expect(proc.isLowLatency(), "Processor must report low-latency active");
+    expect(!proc.hasNoiseProfile(),
+           "Entering low-latency must drop the learned profile");
+    expect(proc.getAPVTS().getRawParameterValue("learn_noise")->load() < 0.5f,
+           "Entering low-latency must auto-stop Learn");
+    expectEquals(proc.getLatencySamples(), 512,
+                 "Low-latency must re-report one 512-sample frame");
+
+    NoiseRepellentAudioProcessor::SpectralFrame frame;
+    pullLatestFrame(proc, frame);
+    expect(frame.isLinked && frame.isOffsetLinked,
+           "Low-latency must force reduction/threshold links on");
+
+    // Exit: still clean, latency restored, links follow parameters again
+    setParam(proc, "low_latency", 0.0f);
+    pumpMessageLoop(50);
+    processSilentBlocks(proc, buffer, midi, 12);
+
+    expect(!proc.isLowLatency(), "Low-latency must be off after exit");
+    expect(!proc.hasNoiseProfile(),
+           "Exiting low-latency must not resurrect a profile");
+    expectEquals(proc.getLatencySamples(), normalLatency,
+                 "Exiting low-latency must restore normal latency");
+    pullLatestFrame(proc, frame);
+    expect(frame.isLinked && frame.isOffsetLinked,
+           "After exit, forced links persist until the user unlinks again");
+
+    proc.releaseResources();
+  }
+
+  void testFrameSizeSwitchCleanSlate() {
+    NoiseRepellentAudioProcessor proc;
+    ScopedEditor editor(proc);
+    constexpr double sampleRate = 48000.0;
+    constexpr int blockSize = 512;
+    proc.prepareToPlay(sampleRate, blockSize);
+    pumpMessageLoop(20);
+
+    juce::AudioBuffer<float> buffer(2, blockSize);
+    juce::MidiBuffer midi;
+
+    // Learn, then leave Learn running: the switch must auto-stop it
+    setParam(proc, "learn_noise", 1.0f);
+    for (int i = 0; i < 50; ++i) {
+      generateNoiseBuffer(buffer, 0.05f);
+      proc.processBlock(buffer, midi);
+    }
+    pumpMessageLoop(20);
+
+    auto* choice = dynamic_cast<juce::AudioParameterChoice*>(
+        proc.getAPVTS().getParameter("frame_size"));
+    expect(choice != nullptr, "frame_size choice parameter must exist");
+    const float otherIndex = choice->getIndex() == 0 ? 4.0f : 0.0f;
+    const int latencyBefore = proc.getLatencySamples();
+    setParam(proc, "frame_size", otherIndex);
+    pumpMessageLoop(50);
+    processSilentBlocks(proc, buffer, midi, 12);
+
+    expect(!proc.hasNoiseProfile(),
+           "Frame-size switch must discard the learned profile");
+    expect(proc.getAPVTS().getRawParameterValue("learn_noise")->load() < 0.5f,
+           "Frame-size switch must auto-stop an in-progress Learn");
+    expect(proc.getLatencySamples() != latencyBefore,
+           "Frame-size switch must re-report latency via suspended rebuild");
+
+    NoiseRepellentAudioProcessor::SpectralFrame frame;
+    pullLatestFrame(proc, frame);
+    expect(!frame.hasNoiseProfile,
+           "HUD frame must show NO PROFILE after frame-size switch");
+
+    proc.releaseResources();
+  }
+
+  void testTonalPeakVisibilityRule() {
+    NoiseRepellentAudioProcessor proc;
+    ScopedEditor editor(proc);
+    constexpr double sampleRate = 48000.0;
+    constexpr int blockSize = 512;
+    proc.prepareToPlay(sampleRate, blockSize);
+    pumpMessageLoop(20);
+
+    juce::AudioBuffer<float> buffer(2, blockSize);
+    juce::MidiBuffer midi;
+
+    // Learn on tonal material so peaks exist; links on by default
+    setParam(proc, "link_reduction", 1.0f);
+    setParam(proc, "link_threshold_offset", 1.0f);
+    setParam(proc, "learn_noise", 1.0f);
+    for (int i = 0; i < 50; ++i) {
+      generateTonalBuffer(buffer, sampleRate);
+      proc.processBlock(buffer, midi);
+    }
+    setParam(proc, "learn_noise", 0.0f);
+    processSilentBlocks(proc, buffer, midi, 12);
+    expect(proc.hasNoiseProfile(), "Tonal profile must be learned");
+
+    // Linked + profile: peaks hidden (visibility rule, "only if" direction)
+    NoiseRepellentAudioProcessor::SpectralFrame linkedFrame;
+    pullLatestFrame(proc, linkedFrame);
+    expect(linkedFrame.tonalPeaksHz.empty(),
+           "Tonal peaks must be hidden while fully linked");
+
+    // Unlinked + profile: peaks visible
+    setParam(proc, "link_threshold_offset", 0.0f);
+    processSilentBlocks(proc, buffer, midi, 12);
+    NoiseRepellentAudioProcessor::SpectralFrame unlinkedFrame;
+    pullLatestFrame(proc, unlinkedFrame);
+    expect(!unlinkedFrame.tonalPeaksHz.empty(),
+           "Tonal peaks must be visible once unlinked with a profile");
+
+    // State preservation: identical peak set across a mode switch + silence
+    setParam(proc, "algorithm_mode", 1.0f);
+    pumpMessageLoop(50);
+    processSilentBlocks(proc, buffer, midi, 12);
+    NoiseRepellentAudioProcessor::SpectralFrame switchedFrame;
+    pullLatestFrame(proc, switchedFrame);
+    expect(!switchedFrame.tonalPeaksHz.empty(),
+           "Tonal peaks must survive smoothing mode switches");
+    expectEquals(switchedFrame.tonalPeaksHz.size(),
+                 unlinkedFrame.tonalPeaksHz.size(),
+                 "Peak set must be preserved across mode switch");
+
+    proc.releaseResources();
+  }
+
+  void testModeSwitchNeverSuspends() {
+    NoiseRepellentAudioProcessor proc;
+    ScopedEditor editor(proc);
+    constexpr double sampleRate = 48000.0;
+    constexpr int blockSize = 512;
+    proc.prepareToPlay(sampleRate, blockSize);
+    pumpMessageLoop(20);
+
+    juce::AudioBuffer<float> buffer(2, blockSize);
+    juce::MidiBuffer midi;
+
+    setParam(proc, "algorithm_mode", 0.0f);
+    learnNoiseProfile(proc, buffer, midi);
+    processSilentBlocks(proc, buffer, midi, 12);
+    const int latency = proc.getLatencySamples();
+
+    for (float mode : {1.0f, 2.0f, 0.0f}) {
+      setParam(proc, "algorithm_mode", mode);
+      pumpMessageLoop(50);
+      processSilentBlocks(proc, buffer, midi, 12);
+
+      expect(!proc.isSuspended(),
+             "Smoothing mode switch must never suspend processing");
+      expectEquals(proc.getLatencySamples(), latency,
+                   "Smoothing mode switch must not re-report latency");
+      expect(proc.hasNoiseProfile(),
+             "Profile must survive smoothing mode switches");
+    }
 
     proc.releaseResources();
   }
