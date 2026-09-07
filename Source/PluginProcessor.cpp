@@ -812,7 +812,7 @@ NoiseRepellentAudioProcessor::buildEngineParams() {
   ep.p.suppression_strength = 1.0f;
   ep.p.aggressiveness = aggressiveness;
   ep.p.tonal_reduction_gain = tonalReductionGain;
-  ep.p.hpss_enable = ep.transientProtectionEnable;
+  ep.p.transient_protection_enable = ep.transientProtectionEnable;
   ep.p.noise_profile_scale = profileScale;
   ep.p.reduction_curve_bias =
       ep.curveEnabled ? interpolatedCurveBias.data() : nullptr;

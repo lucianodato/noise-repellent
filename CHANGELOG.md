@@ -10,7 +10,7 @@ All notable changes to this project will be documented in this file.
 - **Stepped STFT frame sizes**: Options menu offers 23 / 32 / 46 / 64 / 93 ms frames. Switching suspends, rebuilds from a clean slate (profile dropped, Learn auto-stopped), and re-reports PDC; session state restores are exempt.
 - **Unlinkable tonal threshold offset**: `link_threshold_offset` toggle allows independent tonal vs broadband threshold control, with synthetic tonal-mask synthesis keeping the UI responsive before the DSP pipeline runs.
 - **Threshold offset & custom reduction curve**: User-controllable offsets and curve mapping.
-- **HPSS quality selection & transient protection**: HPSS toggle on the visualizer LED with latency-compensated transitions.
+- **Transient protection toggle & quality selection**: Transient-protection switch on the visualizer LED with latency-compensated transitions.
 - **Live profile rendering**: Noise profile renders in real time while learning; engine queried for tonal peaks to update aggressiveness thresholds.
 - **Adaptive/manual learn UX**: Adaptive noise learn works standalone or on top of a manual profile; refined profile UX with compact advanced panel and simplified default experience.
 - **Offline-render detection**: UI overlay indicates offline rendering state.
