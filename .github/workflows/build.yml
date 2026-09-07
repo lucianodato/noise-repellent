@@ -259,6 +259,11 @@ jobs:
           echo "[PASS] Noise Repellent.vst3 (pluginval level 5)"
           xattr -cr "staging/Noise Repellent.component" || true
           auval -v aufx Nrpl Lucd || auval -v aufx Nrpl lucd
+          echo "[PASS] Noise Repellent.component (auval)"
+          if [ -d "staging/Noise Repellent.lv2" ]; then
+            "$PV_BIN" --strictness-level 5 --validate-in-process --validate "staging/Noise Repellent.lv2"
+            echo "[PASS] Noise Repellent.lv2 (pluginval level 5)"
+          fi
 
       - name: Create Zip Archive
         run: |
@@ -436,7 +441,8 @@ jobs:
           xvfb-run -a "$PV_BIN" --strictness-level 5 --validate-in-process --validate "$VST3_DIR"
           echo "[PASS] Noise Repellent.vst3 (pluginval level 5)"
           LV2_DIR=$(find build/NoiseRepellent_artefacts -name "Noise Repellent.lv2" -type d | head -n 1)
-          if [ -n "$LV2_DIR" ]; then lv2lint "https://github.com/lucianodato/noise-repellent#v0" || lv2lint -Mpack "$LV2_DIR" || true; fi
+          if [ -n "$LV2_DIR" ]; then lv2lint "https://github.com/lucianodato/noise-repellent#v0" || lv2lint -Mpack "$LV2_DIR" || true; echo "[PASS] Noise Repellent.lv2 (lv2lint)"; fi
+          if [ -n "$LV2_DIR" ]; then xvfb-run -a "$PV_BIN" --strictness-level 5 --validate-in-process --validate "$LV2_DIR"; echo "[PASS] Noise Repellent.lv2 (pluginval level 5)"; fi
 
       - name: Package Staging Artifacts
         run: |
@@ -670,6 +676,8 @@ jobs:
           VST3_PATH=$(find staging -name "*.vst3" | head -n 1)
           "$PV_BIN" --strictness-level 5 --validate-in-process --validate "$VST3_PATH"
           echo "[PASS] Noise Repellent.vst3 (pluginval level 5)"
+          LV2_DIR=$(find staging -name "Noise Repellent.lv2" -type d | head -n 1)
+          if [ -n "$LV2_DIR" ]; then "$PV_BIN" --strictness-level 5 --validate-in-process --validate "$LV2_DIR"; echo "[PASS] Noise Repellent.lv2 (pluginval level 5)"; fi
 
       - name: Create Zip Archive
         shell: bash
