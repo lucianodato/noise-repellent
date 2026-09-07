@@ -7,8 +7,9 @@
 A multi-format audio plugin (VST3, AU, LV2) for real-time spectral noise reduction, built with [JUCE](https://juce.com/) and powered by the [libspecbleach](https://github.com/lucianodato/libspecbleach) DSP engine.
 
 ## Screenshots
-![Advanced Controls](<Images/Screenshot 1.png>)
-![Basic Controls](<Images/Screenshot 2.png>)
+![Basic Controls](<Images/Screenshot 1.png>)
+![Advanced Controls](<Images/Screenshot 2.png>)
+![Reduction Curve](<Images/Screenshot 3.png>)
 
 ## Features
 
