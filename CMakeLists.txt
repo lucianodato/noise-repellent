@@ -234,9 +234,8 @@ else()
         FetchContent_Declare(
             libspecbleach
             GIT_REPOSITORY https://github.com/lucianodato/libspecbleach.git
-            # Track libspecbleach main while both projects are co-developed.
-            # Re-pin to a fixed revision for release builds.
-            GIT_TAG        main
+            # Pinned to the matching libspecbleach release (keep in sync).
+            GIT_TAG        v0.4.0
         )
         FetchContent_MakeAvailable(libspecbleach)
         set(SPECBLEACH_SRC "${libspecbleach_SOURCE_DIR}")
