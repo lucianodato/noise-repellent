@@ -235,7 +235,7 @@ else()
             libspecbleach
             GIT_REPOSITORY https://github.com/lucianodato/libspecbleach.git
             # Pinned to the matching libspecbleach release (keep in sync).
-            GIT_TAG        v0.4.0
+            GIT_TAG        main
         )
         FetchContent_MakeAvailable(libspecbleach)
         set(SPECBLEACH_SRC "${libspecbleach_SOURCE_DIR}")

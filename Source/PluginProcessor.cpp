@@ -171,7 +171,8 @@ NoiseRepellentAudioProcessor::createParameterLayout() {
       "algorithm_mode", "Smoothing Quality",
       juce::StringArray{"Standard (Fast & Low CPU)",
                         "Patch-Based (High Quality)",
-                        "Patch-Based + Refinement (Max Quality)"},
+                        "Patch-Based + Refinement (Max Quality)",
+                        "Collaborative (Max Quality)"},
       0));
 
   params.push_back(std::make_unique<juce::AudioParameterChoice>(
@@ -802,6 +803,7 @@ NoiseRepellentAudioProcessor::buildEngineParams() {
   ep.p.smoothing_factor = lowLatency ? smoothingNorm * 0.5f : smoothingNorm;
   ep.p.smoothing_mode =
       lowLatency ? SPECBLEACH_SMOOTHING_TEMPORAL
+                 : (algoMode == 3)   ? SPECBLEACH_SMOOTHING_BM3D
                  : (algoMode == 2)   ? SPECBLEACH_SMOOTHING_NLM_2D_DFTT
                  : (algoMode == 1) ? SPECBLEACH_SMOOTHING_NLM_2D
                                    : SPECBLEACH_SMOOTHING_TEMPORAL;
