@@ -621,7 +621,7 @@ private:
     processSilentBlocks(proc, buffer, midi, 12);
     const int latency = proc.getLatencySamples();
 
-    for (float mode : {1.0f, 2.0f, 0.0f}) {
+    for (float mode : {1.0f, 2.0f, 3.0f, 0.0f}) {
       setParam(proc, "algorithm_mode", mode);
       pumpMessageLoop(50);
       processSilentBlocks(proc, buffer, midi, 12);

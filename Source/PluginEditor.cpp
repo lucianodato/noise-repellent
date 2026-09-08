@@ -238,7 +238,8 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(
 
   comboAlgoMode.addItemList(
       {"Standard (Fast & Low CPU)", "Patch-Based (High Quality)",
-       "Patch-Based + Refinement (Max Quality)"},
+       "Patch-Based + Refinement (Max Quality)",
+       "Collaborative (Max Quality)"},
       1);
   addAndMakeVisible(comboAlgoMode);
   comboAlgoMode.onChange = [this]() { updateLayout(); };
