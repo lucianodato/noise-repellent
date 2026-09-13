@@ -125,7 +125,7 @@ else()
     FetchContent_Declare(
         JUCE
         GIT_REPOSITORY https://github.com/juce-framework/JUCE.git
-        GIT_TAG        8.0.4
+        GIT_TAG        8.0.15
     )
     FetchContent_MakeAvailable(JUCE)
 endif()
@@ -377,7 +377,7 @@ set(INSTALL_AU_DIR   "${DEFAULT_AU_DIR}"   CACHE PATH "Installation directory fo
 set(INSTALL_LV2_DIR  "${DEFAULT_LV2_DIR}"  CACHE PATH "Installation directory for LV2 plugins")
 
 if(TARGET NoiseRepellent_VST3)
-    install(DIRECTORY "$<TARGET_PROPERTY:NoiseRepellent_VST3,JUCE_PLUGIN_ARTEFACT_FILE>"
+    install(DIRECTORY "$<TARGET_GENEX_EVAL:NoiseRepellent_VST3,$<TARGET_PROPERTY:NoiseRepellent_VST3,JUCE_PLUGIN_ARTEFACT_FILE>>"
         DESTINATION "${INSTALL_VST3_DIR}"
         USE_SOURCE_PERMISSIONS
         COMPONENT VST3
@@ -385,7 +385,7 @@ if(TARGET NoiseRepellent_VST3)
 endif()
 
 if(TARGET NoiseRepellent_AU)
-    install(DIRECTORY "$<TARGET_PROPERTY:NoiseRepellent_AU,JUCE_PLUGIN_ARTEFACT_FILE>"
+    install(DIRECTORY "$<TARGET_GENEX_EVAL:NoiseRepellent_AU,$<TARGET_PROPERTY:NoiseRepellent_AU,JUCE_PLUGIN_ARTEFACT_FILE>>"
         DESTINATION "${INSTALL_AU_DIR}"
         USE_SOURCE_PERMISSIONS
         COMPONENT AU
@@ -393,7 +393,7 @@ if(TARGET NoiseRepellent_AU)
 endif()
 
 if(TARGET NoiseRepellent_LV2)
-    install(DIRECTORY "$<TARGET_PROPERTY:NoiseRepellent_LV2,JUCE_PLUGIN_ARTEFACT_FILE>"
+    install(DIRECTORY "$<TARGET_GENEX_EVAL:NoiseRepellent_LV2,$<TARGET_PROPERTY:NoiseRepellent_LV2,JUCE_PLUGIN_ARTEFACT_FILE>>"
         DESTINATION "${INSTALL_LV2_DIR}"
         USE_SOURCE_PERMISSIONS
         COMPONENT LV2
