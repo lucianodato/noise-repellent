@@ -147,6 +147,14 @@ public:
     return transientActivity.exchange(0.0f, std::memory_order_relaxed);
   }
 
+  // Counts blocks processed while the host reports non-realtime mode.
+  // Some hosts (e.g. Audacity pre-initializes VST3 with kOffline at load)
+  // leave isNonRealtime() stuck on while idle, so the UI gates its offline
+  // indicator on this counter advancing, not on the raw flag.
+  uint64_t getNonRealtimeBlockCount() const {
+    return nonRealtimeBlockCount.load(std::memory_order_relaxed);
+  }
+
   bool isTransientProtectionActive() const {
     return transientProtectionActive.load(std::memory_order_relaxed);
   }
@@ -216,6 +224,7 @@ public:
   std::atomic<bool> frameSizeRebuildPending{false};
   std::atomic<float> transientActivity{0.0f};
   std::atomic<bool> transientProtectionActive{false};
+  std::atomic<uint64_t> nonRealtimeBlockCount{0};
 
   struct PendingProfile {
     int channel = 0; // 0 = Left, 1 = Right

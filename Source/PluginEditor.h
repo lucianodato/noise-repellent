@@ -141,6 +141,9 @@ private:
 
   bool isAdvancedVisible = true;
   bool wasOfflineRendering = false;
+  // Last observed offline block count — the overlay shows only while this
+  // advances (real render in progress), not on a stale host offline flag.
+  uint64_t lastSeenOfflineBlockCount = 0;
 
   void updateLayout();
   void updateSliderLabels();

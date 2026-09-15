@@ -198,6 +198,9 @@ public:
 
     beginTest("Bypass Toggle Stays Time-Aligned (No Skip)");
     testBypassToggleAlignment();
+
+    beginTest("Offline Block Counter Only Advances On Offline Blocks");
+    testOfflineBlockCounter();
   }
 
 private:
@@ -1001,6 +1004,33 @@ private:
     // Disengage: engine never stopped, so alignment holds by construction.
     setParam(proc, "bypass", 0.0f);
     expectPeakAtLatency("Un-bypassed");
+
+    proc.releaseResources();
+  }
+  void testOfflineBlockCounter() {
+    // Audacity pre-initializes VST3 with kOffline at load, so isNonRealtime()
+    // can be stuck on with zero blocks flowing. The editor's offline overlay
+    // relies on this counter advancing, so pin both halves of that contract.
+    NoiseRepellentAudioProcessor proc;
+    proc.prepareToPlay(48000.0, 512);
+    pumpMessageLoop(10);
+
+    juce::AudioBuffer<float> buffer(2, 512);
+    juce::MidiBuffer midi;
+    generateNoiseBuffer(buffer, 0.05f, 777);
+
+    expect(proc.getNonRealtimeBlockCount() == 0, "Counter must start at zero");
+
+    proc.processBlock(buffer, midi);
+    expect(proc.getNonRealtimeBlockCount() == 0,
+           "Realtime blocks must not advance the offline counter");
+
+    proc.setNonRealtime(true);
+    proc.processBlock(buffer, midi);
+    proc.processBlock(buffer, midi);
+    expect(proc.getNonRealtimeBlockCount() == 2,
+           "Offline blocks must advance the offline counter");
+    proc.setNonRealtime(false);
 
     proc.releaseResources();
   }

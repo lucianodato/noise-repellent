@@ -870,6 +870,10 @@ void NoiseRepellentAudioProcessor::processBlock(
   if (numSamples == 0 || numChannels == 0)
     return;
 
+  // Track genuinely in-progress offline renders (see getNonRealtimeBlockCount).
+  if (isNonRealtime())
+    nonRealtimeBlockCount.fetch_add(1, std::memory_order_relaxed);
+
   // Single coalesced structural rebuild, serialized with runEngine below —
   // the race-free funnel for off-message-thread frame_size/low_latency
   // changes (LV2 automation). Never concurrent, never a storm.
@@ -1261,6 +1265,9 @@ void NoiseRepellentAudioProcessor::processBlockBypassed(
 
   if (numSamples == 0 || numChannels == 0)
     return;
+
+  if (isNonRealtime())
+    nonRealtimeBlockCount.fetch_add(1, std::memory_order_relaxed);
 
   juce::dsp::AudioBlock<float> audioBlock(buffer);
   dryWetMixer.pushDrySamples(audioBlock);
