@@ -42,11 +42,8 @@ const juce::String kTipAbout = "About Noise Repellent";
 const juce::String kTipPreferences = "Preferences";
 const juce::String kTipPreferencesMenu = "Plugin preferences menu.";
 const juce::String kTipAlgoMode =
-    "How the noise reduction smoothing is computed. Four methods, same\n"
-    "controls, different character — none outranks the others, try each\n"
-    "on your material. Temporal is fast and light on CPU; NLM preserves\n"
-    "texture and detail; + DFTT refines tonal and difficult noise;\n"
-    "Collaborative BM3D smooths steady noise.";
+    "Four methods, same controls — none outranks the others.\n"
+    "Temporal: fast; NLM: detail; + DFTT: tonal; BM3D: steady.";
 const juce::String kTipAdvancedToggle =
     "Toggle Advanced DSP Controls (Smoothing, Masking, Whitening, "
     "Aggressiveness).";
