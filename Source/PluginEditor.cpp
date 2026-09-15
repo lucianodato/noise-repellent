@@ -639,6 +639,9 @@ kTipAlgoMode);
   isAdvancedVisible = btnAdvancedToggle.getToggleState();
   updateLayout();
   updateSliderLabels();
+  // Seed the offline-activity baseline so a stale kOffline flag (e.g. from
+  // Audacity's load-time setupProcessing) doesn't flash the overlay on open.
+  lastSeenOfflineBlockCount = audioProcessor.getNonRealtimeBlockCount();
   startTimerHz(30);
 
   // Initial default instruction text
@@ -1064,7 +1067,14 @@ void NoiseRepellentAudioProcessorEditor::timerCallback() {
     triggerAsyncUpdate();
   }
 
-  bool isOffline = audioProcessor.isNonRealtime();
+  // Audacity pre-initializes VST3 with kOffline at load and only switches
+  // to kRealtime when its realtime stack runs, so the raw non-realtime flag
+  // is stuck on while the editor sits idle. Treat offline as active only
+  // while offline blocks are actually flowing through the processor.
+  const uint64_t offlineBlocks = audioProcessor.getNonRealtimeBlockCount();
+  const bool isOffline = audioProcessor.isNonRealtime() &&
+                         (offlineBlocks != lastSeenOfflineBlockCount);
+  lastSeenOfflineBlockCount = offlineBlocks;
   if (isOffline != wasOfflineRendering) {
     wasOfflineRendering = isOffline;
     repaint();
@@ -1104,7 +1114,7 @@ void NoiseRepellentAudioProcessorEditor::paint(juce::Graphics& g) {
 }
 
 void NoiseRepellentAudioProcessorEditor::paintOverChildren(juce::Graphics& g) {
-  if (!audioProcessor.isNonRealtime())
+  if (!wasOfflineRendering)
     return;
 
   // Darken UI overlay
