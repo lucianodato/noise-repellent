@@ -1160,8 +1160,8 @@ void NoiseRepellentAudioProcessor::processBlock(
                 }
               }
             }
-            profileAvailable =
-                (actualNoiseProfile != nullptr && profileSize > 0);
+            profileAvailable = (actualNoiseProfile != nullptr &&
+                                profileSize > 0 && profileHasAnyMode);
           }
         }
 
