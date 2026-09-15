@@ -168,11 +168,11 @@ NoiseRepellentAudioProcessor::createParameterLayout() {
   std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
 
   params.push_back(std::make_unique<juce::AudioParameterChoice>(
-      "algorithm_mode", "Smoothing Quality",
-      juce::StringArray{"Standard (Fast & Low CPU)",
-                        "Patch-Based (High Quality)",
-                        "Patch-Based + Refinement (Max Quality)",
-                        "Collaborative (Max Quality)"},
+      "algorithm_mode", "Smoothing Method",
+      juce::StringArray{"Temporal (Fast / Low CPU)",
+                        "Patch-Based NLM (Texture & Detail)",
+                        "NLM + DFTT Refinement (Tonal / Difficult)",
+                        "Collaborative BM3D (Smooth / Steady)"},
       0));
 
   params.push_back(std::make_unique<juce::AudioParameterChoice>(

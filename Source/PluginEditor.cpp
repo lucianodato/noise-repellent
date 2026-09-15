@@ -42,8 +42,8 @@ const juce::String kTipAbout = "About Noise Repellent";
 const juce::String kTipPreferences = "Preferences";
 const juce::String kTipPreferencesMenu = "Plugin preferences menu.";
 const juce::String kTipAlgoMode =
-    "How the noise reduction smoothing is computed. Standard is fast and\n"
-    "light on CPU; Patch-Based costs CPU for quality, + Refinement max.";
+    "Four methods, same controls — none outranks the others.\n"
+    "Temporal: fast; NLM: detail; + DFTT: tonal; BM3D: steady.";
 const juce::String kTipAdvancedToggle =
     "Toggle Advanced DSP Controls (Smoothing, Masking, Whitening, "
     "Aggressiveness).";
@@ -100,7 +100,7 @@ const juce::String kTipSmoothing =
     "noise bubbling artifacts.";
 const juce::String kTipSmoothing2D =
     "Adjust patch-based similarity filtering strength\nto "
-    "control Patch-Based (High Quality) smoothing.";
+    "control patch-based (NLM / DFTT / BM3D) smoothing.";
 const juce::String kTipMasking =
     "Adjust psychoacoustic masking threshold\nto protect quiet musical "
     "transients.";
@@ -237,9 +237,9 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(
   addAndMakeVisible(lblAlgoHeader);
 
   comboAlgoMode.addItemList(
-      {"Standard (Fast & Low CPU)", "Patch-Based (High Quality)",
-       "Patch-Based + Refinement (Max Quality)",
-       "Collaborative (Max Quality)"},
+      {"Temporal (Fast / Low CPU)", "Patch-Based NLM (Texture & Detail)",
+       "NLM + DFTT Refinement (Tonal / Difficult)",
+       "Collaborative BM3D (Smooth / Steady)"},
       1);
   addAndMakeVisible(comboAlgoMode);
   comboAlgoMode.onChange = [this]() { updateLayout(); };
@@ -910,7 +910,7 @@ void NoiseRepellentAudioProcessorEditor::updateProfileStatus() {
   comboAlgoMode.setEnabled(pluginActive && !lowLatency);
   if (lowLatency)
     comboAlgoMode.setTooltip(
-        "Locked to Standard in Low Latency mode (causal 1D-only)");
+        "Locked to Temporal in Low Latency mode (causal 1D-only)");
   lblAlgoHeader.setEnabled(pluginActive);
 
   // Noise Profile box: enabled whenever plugin is active
@@ -1016,7 +1016,7 @@ void NoiseRepellentAudioProcessorEditor::updateProfileStatus() {
   lblMethod.setEnabled(pluginActive);
   groupAdvanced.setEnabled(pluginActive);
 
-  bool is2D = (comboAlgoMode.getSelectedItemIndex() == 1);
+  bool is2D = (comboAlgoMode.getSelectedItemIndex() >= 1);
   const juce::String smoothingTip = is2D ? kTipSmoothing2D : kTipSmoothing;
 
   sliderSmoothing.setTooltip(smoothingTip);
