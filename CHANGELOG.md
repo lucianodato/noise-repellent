@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.4.1] - 2026-09-15
+
+### Added
+- **Fourth smoothing method**: Collaborative BM3D alongside Temporal, Patch-Based NLM, and NLM + DFTT Refinement; requires libspecbleach v0.4.1.
+- **Method-first labeling**: smoothing modes are named by character (Temporal / NLM / NLM + DFTT / BM3D) instead of a quality ranking — each suits different material.
+- **Offline-render indicator**: UI overlay gated on active offline rendering state.
+
+### Fixed
+- **Install paths**: wrap `JUCE_PLUGIN_ARTEFACT_FILE` in `TARGET_GENEX_EVAL` so `cmake --install` resolves nested generator expressions.
+- **Visualizer profile flag**: gate on noise-profile availability.
+- **JUCE**: bump FetchContent pin 8.0.4 -> 8.0.15.
+
 ## [0.4.0] - 2026-09-07
 
 ### Added

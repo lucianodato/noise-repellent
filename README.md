@@ -15,7 +15,8 @@ A multi-format audio plugin (VST3, AU, LV2) for real-time spectral noise reducti
 
 ### Advanced Denoising Algorithms
 * **2D Non-Local Means (NLM)**: Uses spectral-temporal pattern matching to suppress musical noise while preserving high-frequency detail and textures.
-* **Patch-Based + Refinement (Max Quality)**: Post-NLM DFTT refinement stage on top of 2D NLM for the cleanest results on difficult material. Mode switches within the NLM family are instant (shared history and latency); the engine crossfades gaplessly with no allocations.
+* **NLM + DFTT Refinement**: Post-NLM DFTT refinement stage on top of 2D NLM, suited to tonal and difficult material. Mode switches within the NLM family are instant (shared history and latency); the engine crossfades gaplessly with no allocations.
+* **Collaborative BM3D**: Block-matching collaborative smoothing, suited to steady noise. Each smoothing method has its own character — none outranks the others, pick per material.
 * **Transient Protection**: Onset-based transient veto that freezes gain updates on transient bins, backed by masking veto and per-bin adaptive smoothing — toggle it from the visualizer LED.
 * **Adaptive Wiener Knee & Release Shaper**: Per-bin decay-evidence knee with shaped release tails for smoother suppression without pumping.
 * **Manual Profiling**: Classic noise reduction using a user-captured noise profile from a silent section.
@@ -73,10 +74,10 @@ Pre-built installers and packages for Linux, macOS, and Windows are available on
 ### 🐧 Linux (x86_64)
 
 #### Debian / Ubuntu / Linux Mint / Pop!_OS
-1. Download `noise-repellent_0.4.0_amd64.deb`.
+1. Download `noise-repellent_0.4.1_amd64.deb`.
 2. Install via software center or terminal:
    ```bash
-   sudo apt install ./noise-repellent_0.4.0_amd64.deb
+   sudo apt install ./noise-repellent_0.4.1_amd64.deb
 
 #### Other Linux Distributions
 1. Download `noise-repellent-linux-x86_64.tar.gz`

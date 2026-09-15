@@ -55,7 +55,7 @@ private:
   // Header Controls
   juce::TextButton brandButton;
   juce::TextButton btnPreferences{juce::CharPointer_UTF8("\xe2\x96\xbc")};
-  juce::Label lblAlgoHeader{"lblAlgoHeader", "SMOOTHING QUALITY"};
+  juce::Label lblAlgoHeader{"lblAlgoHeader", "SMOOTHING METHOD"};
   juce::ComboBox comboAlgoMode;
   juce::TextButton btnAdvancedToggle{"ADVANCED"};
   juce::ToggleButton btnDelta{"Delta"};
