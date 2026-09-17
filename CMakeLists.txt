@@ -151,6 +151,7 @@ endif()
 # ==============================================================================
 # 4. Audio Plugin Target Definition
 # ==============================================================================
+set(NOISE_REPELLENT_FORMATS "VST3;AU;LV2" CACHE STRING "Plugin formats to build")
 juce_add_plugin(NoiseRepellent
     COMPANY_NAME "Luciano Dato"
     BUNDLE_ID "com.lucianodato.NoiseRepellent"
@@ -163,7 +164,7 @@ juce_add_plugin(NoiseRepellent
     COPY_PLUGIN_AFTER_BUILD FALSE
     PLUGIN_MANUFACTURER_CODE LdNR
     PLUGIN_CODE Nrep
-    FORMATS VST3 AU LV2
+    FORMATS ${NOISE_REPELLENT_FORMATS}
     PRODUCT_NAME "Noise Repellent"
 )
 
@@ -420,8 +421,6 @@ if(ENABLE_PLUGIN_TESTS OR BUILD_TESTING)
     )
     target_include_directories(test_ux_invariants PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/Source
-        ${SPECBLEACH_SRC}/include
-        ${SPECBLEACH_SRC}/extras/include
     )
     target_link_libraries(test_ux_invariants PRIVATE
         ${SPECBLEACH_TARGET}
@@ -460,8 +459,6 @@ if(ENABLE_PLUGIN_TESTS OR BUILD_TESTING)
     )
     target_include_directories(test_performance PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/Source
-        ${SPECBLEACH_SRC}/include
-        ${SPECBLEACH_SRC}/extras/include
     )
     target_link_libraries(test_performance PRIVATE
         ${SPECBLEACH_TARGET}
@@ -500,8 +497,6 @@ if(ENABLE_PLUGIN_TESTS OR BUILD_TESTING)
     )
     target_include_directories(test_stress PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/Source
-        ${SPECBLEACH_SRC}/include
-        ${SPECBLEACH_SRC}/extras/include
     )
     target_link_libraries(test_stress PRIVATE
         ${SPECBLEACH_TARGET}
@@ -540,8 +535,6 @@ if(ENABLE_PLUGIN_TESTS OR BUILD_TESTING)
     )
     target_include_directories(test_integration PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/Source
-        ${SPECBLEACH_SRC}/include
-        ${SPECBLEACH_SRC}/extras/include
     )
     target_link_libraries(test_integration PRIVATE
         ${SPECBLEACH_TARGET}
@@ -580,8 +573,6 @@ if(ENABLE_PLUGIN_TESTS OR BUILD_TESTING)
     )
     target_include_directories(test_ux PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/Source
-        ${SPECBLEACH_SRC}/include
-        ${SPECBLEACH_SRC}/extras/include
     )
     target_link_libraries(test_ux PRIVATE
         ${SPECBLEACH_TARGET}
