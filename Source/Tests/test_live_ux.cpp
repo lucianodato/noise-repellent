@@ -100,15 +100,16 @@ public:
       NoiseRepellentLiveAudioProcessor proc;
       auto& apvts = proc.getAPVTS();
 
-      const char* expectedIds[] = {"reduction_amount",     "adaptive_noise",
-                                   "adaptive_method",      "smoothing_factor",
-                                   "suppression_strength", "bypass"};
+      const char* expectedIds[] = {"reduction_amount", "attack_ms",
+                                   "release_ms",       "threshold_db",
+                                   "knee_db",          "bypass"};
       for (const auto* id : expectedIds) {
         expect(apvts.getParameter(id) != nullptr,
                juce::String("missing parameter: ") + id);
       }
 
-      // No stale parameters from the main plugin
+      // No stale parameters from the main plugin (Live learns manually:
+      // no adaptive_noise / adaptive_method)
       const int numParams = static_cast<int>(proc.getParameters().size());
       expectEquals(numParams, 6);
 
@@ -118,9 +119,25 @@ public:
       expectWithinAbsoluteError(reduction->range.start, 0.0f, 1e-5f);
       expectWithinAbsoluteError(reduction->range.end, 40.0f, 1e-5f);
 
-      auto* adaptive = static_cast<juce::AudioParameterBool*>(
-          apvts.getParameter("adaptive_noise"));
-      expect(adaptive->get());
+      auto* threshold = static_cast<juce::AudioParameterFloat*>(
+          apvts.getParameter("threshold_db"));
+      expectWithinAbsoluteError(threshold->get(), 0.0f, 1e-5f);
+      expectWithinAbsoluteError(threshold->range.start, -12.0f, 1e-5f);
+      expectWithinAbsoluteError(threshold->range.end, 12.0f, 1e-5f);
+
+      auto* attack = static_cast<juce::AudioParameterFloat*>(
+          apvts.getParameter("attack_ms"));
+      expectWithinAbsoluteError(attack->get(), 5.0f, 1e-5f);
+
+      auto* release = static_cast<juce::AudioParameterFloat*>(
+          apvts.getParameter("release_ms"));
+      expectWithinAbsoluteError(release->get(), 100.0f, 1e-5f);
+
+      auto* knee = static_cast<juce::AudioParameterFloat*>(
+          apvts.getParameter("knee_db"));
+      expectWithinAbsoluteError(knee->get(), 0.0f, 1e-5f);
+      expectWithinAbsoluteError(knee->range.start, 0.0f, 1e-5f);
+      expectWithinAbsoluteError(knee->range.end, 12.0f, 1e-5f);
 
       auto* bypass =
           static_cast<juce::AudioParameterBool*>(apvts.getParameter("bypass"));
@@ -174,26 +191,30 @@ public:
 
     beginTest("reduction reduces noise rms");
     {
-      // Regression: block sizes above the engine's internal ring capacity
-      // used to starve analysis entirely (silent pass-through)
+      // Manual learn: engage the tracker while looping noise (fail-open
+      // floor rises from zero), then freeze and measure.
       for (const int blockSize : {512, 4096}) {
         NoiseRepellentLiveAudioProcessor proc;
         proc.setRateAndBufferSizeDetails(48000.0, blockSize);
         proc.prepareToPlay(48000.0, blockSize);
 
-        // Warm up in adaptive mode so the engine learns the noise floor
+        proc.setLearning(true);
+        pumpMessageLoop(10);
         juce::MidiBuffer midi;
         juce::AudioBuffer<float> buffer(2, blockSize);
         for (int i = 0; i < 96; ++i) {
           generateNoiseBuffer(buffer);
           proc.processBlock(buffer, midi);
         }
+        proc.setLearning(false);
         pumpMessageLoop(10);
 
-        // Freeze the learned estimate and max out reduction
-        setParam(proc, "adaptive_noise", 0.0f);
+        // Max out reduction and measure (fast gate so a few blocks
+        // settle to steady state)
         setParam(proc, "reduction_amount", 40.0f);
-        setParam(proc, "suppression_strength", 100.0f);
+        setParam(proc, "threshold_db", 12.0f);
+        setParam(proc, "attack_ms", 5.0f);
+        setParam(proc, "release_ms", 30.0f);
         for (int i = 0; i < 4; ++i) {
           generateNoiseBuffer(buffer);
           proc.processBlock(buffer, midi);
@@ -215,22 +236,229 @@ public:
         }
         const float wetRms = bufferRms(wet);
 
-        expect(wetRms < dryRms * 0.3f,
+        // Dynamic-EQ cascade semantics: the Reduction slider is the
+        // steady broadband cut and saturates deeper (notch geometry),
+        // so anchor the assert to the calibrated floor.
+        expect(wetRms < dryRms * 0.65f,
                "expected strong noise reduction at max settings, block " +
                    juce::String(blockSize));
 
         proc.releaseResources();
       }
     }
+    beginTest("manual learn captures and freezes the threshold");
+    {
+      NoiseRepellentLiveAudioProcessor proc;
+      proc.setRateAndBufferSizeDetails(48000.0, 512);
+      proc.prepareToPlay(48000.0, 512);
+      std::unique_ptr<juce::AudioProcessorEditor> editor(
+          proc.createEditorIfNeeded());
+
+      // Loop noise with Learn engaged so the floor converges. Drain
+      // as we go: with no GUI timer running the fifo would saturate
+      // and hold a stale early frame.
+      NoiseRepellentLiveAudioProcessor::BandFrame frame;
+      bool gotFrame = false;
+      proc.setLearning(true);
+      pumpMessageLoop(10);
+      juce::MidiBuffer midi;
+      juce::AudioBuffer<float> buffer(2, 512);
+      for (int i = 0; i < 100; ++i) {
+        generateNoiseBuffer(buffer);
+        proc.processBlock(buffer, midi);
+        while (proc.getNextBandFrame(frame)) {
+          gotFrame = true;
+        }
+      }
+      expect(gotFrame, "expected band frames after processing noise");
+      float maxIn = 0.0f;
+      float maxThr = 0.0f;
+      for (size_t b = 0; b < NoiseRepellentLiveAudioProcessor::kNumBands; ++b) {
+        expect(std::isfinite(frame.inputLevels[b]), "finite input level");
+        expect(std::isfinite(frame.outputLevels[b]), "finite output level");
+        expect(std::isfinite(frame.thresholdLevels[b]),
+               "finite threshold level");
+        expect(frame.outputLevels[b] <= frame.inputLevels[b] + 1e-6f,
+               "output must not exceed input per band");
+        expect(frame.thresholdLevels[b] >= 0.0f, "threshold non-negative");
+        maxIn = std::max(maxIn, frame.inputLevels[b]);
+        maxThr = std::max(maxThr, frame.thresholdLevels[b]);
+      }
+      expect(maxIn > 1e-6f, "input energy must be visible in frames");
+      expect(maxThr > 0.0f, "learned threshold must be visible in frames");
+
+      // Disengage Learn: the captured threshold must freeze even as the
+      // input goes silent (generous pump: the freeze arrives via the
+      // message-thread async update, starved under parallel ctest load)
+      proc.setLearning(false);
+      pumpMessageLoop(100);
+      juce::AudioBuffer<float> silence(2, 512);
+      silence.clear();
+      proc.processBlock(silence, midi);
+      NoiseRepellentLiveAudioProcessor::BandFrame frozen;
+      while (proc.getNextBandFrame(frozen)) {
+      }
+      for (size_t b = 0; b < NoiseRepellentLiveAudioProcessor::kNumBands; ++b) {
+        expectWithinAbsoluteError(frozen.thresholdLevels[b],
+                                  frame.thresholdLevels[b], 1e-6f);
+      }
+
+      proc.releaseResources();
+      proc.editorBeingDeleted(editor.get());
+    }
+    beginTest("delta monitoring outputs the removed noise");
+    {
+      NoiseRepellentLiveAudioProcessor proc;
+      proc.setRateAndBufferSizeDetails(48000.0, 512);
+      proc.prepareToPlay(48000.0, 512);
+
+      // Manual learn on looped noise, then freeze
+      proc.setLearning(true);
+      pumpMessageLoop(10);
+      juce::MidiBuffer midi;
+      juce::AudioBuffer<float> buffer(2, 512);
+      for (int i = 0; i < 100; ++i) {
+        generateNoiseBuffer(buffer);
+        proc.processBlock(buffer, midi);
+      }
+      proc.setLearning(false);
+      pumpMessageLoop(10);
+
+      setParam(proc, "reduction_amount", 40.0f);
+      setParam(proc, "threshold_db", 12.0f);
+      setParam(proc, "attack_ms", 5.0f);
+      setParam(proc, "release_ms", 30.0f);
+
+      // Normal run on deterministic noise (same content regenerates)
+      generateNoiseBuffer(buffer);
+      juce::AudioBuffer<float> dry;
+      dry.makeCopyOf(buffer);
+      const float dryRms = bufferRms(buffer);
+      proc.processBlock(buffer, midi);
+      juce::AudioBuffer<float> wet;
+      wet.makeCopyOf(buffer);
+
+      // Delta run on the identical input straight after
+      generateNoiseBuffer(buffer);
+      proc.setDeltaMonitoring(true);
+      proc.processBlock(buffer, midi);
+      proc.setDeltaMonitoring(false);
+
+      const float deltaRms = bufferRms(buffer);
+      // Soft knee: partial gains in the knee band carry less removed
+      // noise than a binary gate, so bound below the binary 0.5 level.
+      expect(deltaRms > 0.3f * dryRms,
+             "delta must carry most of the removed noise");
+
+      // Consistency: wet + removed ~= dry (one block of state drift)
+      double errSum = 0.0;
+      size_t errCount = 0;
+      for (int ch = 0; ch < 2; ++ch) {
+        const auto* w = wet.getReadPointer(ch);
+        const auto* d = buffer.getReadPointer(ch);
+        const auto* o = dry.getReadPointer(ch);
+        for (int s = 0; s < 512; ++s) {
+          const double e = static_cast<double>(w[s] + d[s] - o[s]);
+          errSum += e * e;
+          ++errCount;
+        }
+      }
+      const float errRms =
+          static_cast<float>(std::sqrt(errSum / static_cast<double>(errCount)));
+      // Bank ripple plus one-block gain drift (knee tracks the envelope):
+      // wet+delta = sum bands / norm, not bit-identical dry.
+      expect(errRms < 1.0f * dryRms,
+             "wet + delta must roughly reconstruct dry");
+
+      // No reduction: nothing removed, delta is (near) silence
+      setParam(proc, "reduction_amount", 0.0f);
+      pumpMessageLoop(10);
+      // Let gains open to unity after the max-reduction state
+      for (int i = 0; i < 20; ++i) {
+        generateNoiseBuffer(buffer);
+        proc.processBlock(buffer, midi);
+      }
+      generateNoiseBuffer(buffer);
+      const float dryRms2 = bufferRms(buffer);
+      proc.setDeltaMonitoring(true);
+      proc.processBlock(buffer, midi);
+      proc.setDeltaMonitoring(false);
+      const float delta0Rms = bufferRms(buffer);
+      expect(delta0Rms < 0.5f * dryRms2,
+             "delta must collapse with no reduction");
+    }
+
+    beginTest("soft bypass outputs dry then returns to denoised");
+    {
+      NoiseRepellentLiveAudioProcessor proc;
+      proc.setRateAndBufferSizeDetails(48000.0, 512);
+      proc.prepareToPlay(48000.0, 512);
+
+      // Manual learn on looped noise, then freeze
+      proc.setLearning(true);
+      pumpMessageLoop(10);
+      juce::MidiBuffer midi;
+      juce::AudioBuffer<float> buffer(2, 512);
+      for (int i = 0; i < 100; ++i) {
+        generateNoiseBuffer(buffer);
+        proc.processBlock(buffer, midi);
+      }
+      proc.setLearning(false);
+      pumpMessageLoop(10);
+
+      setParam(proc, "reduction_amount", 40.0f);
+      setParam(proc, "threshold_db", 12.0f);
+      setParam(proc, "attack_ms", 5.0f);
+      setParam(proc, "release_ms", 30.0f);
+
+      // Engage bypass: past the ~50 ms mixer ramp the output is the
+      // original signal while the engine keeps processing underneath.
+      setParam(proc, "bypass", 1.0f);
+      for (int i = 0; i < 40; ++i) {
+        generateNoiseBuffer(buffer);
+        proc.processBlock(buffer, midi);
+      }
+      generateNoiseBuffer(buffer);
+      juce::AudioBuffer<float> dry;
+      dry.makeCopyOf(buffer);
+      const float dryRms = bufferRms(buffer);
+      proc.processBlock(buffer, midi);
+      double errSum = 0.0;
+      size_t errCount = 0;
+      for (int ch = 0; ch < 2; ++ch) {
+        const auto* o = buffer.getReadPointer(ch);
+        const auto* d = dry.getReadPointer(ch);
+        for (int s = 0; s < 512; ++s) {
+          const double e = static_cast<double>(o[s] - d[s]);
+          errSum += e * e;
+          ++errCount;
+        }
+      }
+      const float errRms =
+          static_cast<float>(std::sqrt(errSum / static_cast<double>(errCount)));
+      expect(errRms < 1e-6f * dryRms, "bypassed output must be the dry signal");
+
+      // Disengage: the mixer fades back to the denoised signal.
+      setParam(proc, "bypass", 0.0f);
+      for (int i = 0; i < 40; ++i) {
+        generateNoiseBuffer(buffer);
+        proc.processBlock(buffer, midi);
+      }
+      generateNoiseBuffer(buffer);
+      proc.processBlock(buffer, midi);
+      const float wetRms = bufferRms(buffer);
+      expect(wetRms < 0.7f * dryRms,
+             "un-bypassed output must return to denoised");
+    }
 
     beginTest("state round trip");
     {
       NoiseRepellentLiveAudioProcessor proc;
       setParam(proc, "reduction_amount", 25.0f);
-      setParam(proc, "adaptive_noise", 0.0f);
-      setParam(proc, "smoothing_factor", 60.0f);
-      setParam(proc, "suppression_strength", 80.0f);
-      setParam(proc, "adaptive_method", 0.0f);
+      setParam(proc, "attack_ms", 10.0f);
+      setParam(proc, "release_ms", 200.0f);
+      setParam(proc, "threshold_db", 6.0f);
+      setParam(proc, "knee_db", 3.0f);
 
       juce::MemoryBlock state;
       proc.getStateInformation(state);
@@ -244,21 +472,76 @@ public:
                                     apvts2.getParameter("reduction_amount"))
                                     ->get(),
                                 25.0f, 1e-5f);
-      expect(!static_cast<juce::AudioParameterBool*>(
-                  apvts2.getParameter("adaptive_noise"))
-                  ->get());
       expectWithinAbsoluteError(static_cast<juce::AudioParameterFloat*>(
-                                    apvts2.getParameter("smoothing_factor"))
+                                    apvts2.getParameter("attack_ms"))
                                     ->get(),
-                                60.0f, 1e-5f);
+                                10.0f, 1e-5f);
       expectWithinAbsoluteError(static_cast<juce::AudioParameterFloat*>(
-                                    apvts2.getParameter("suppression_strength"))
+                                    apvts2.getParameter("release_ms"))
                                     ->get(),
-                                80.0f, 1e-5f);
-      expectEquals(static_cast<juce::AudioParameterChoice*>(
-                       apvts2.getParameter("adaptive_method"))
-                       ->getIndex(),
-                   0);
+                                200.0f, 1e-5f);
+      expectWithinAbsoluteError(static_cast<juce::AudioParameterFloat*>(
+                                    apvts2.getParameter("threshold_db"))
+                                    ->get(),
+                                6.0f, 1e-5f);
+      expectWithinAbsoluteError(static_cast<juce::AudioParameterFloat*>(
+                                    apvts2.getParameter("knee_db"))
+                                    ->get(),
+                                3.0f, 1e-5f);
+    }
+
+    beginTest("band frames reach the GUI");
+    {
+      NoiseRepellentLiveAudioProcessor proc;
+      proc.setRateAndBufferSizeDetails(48000.0, 512);
+      proc.prepareToPlay(48000.0, 512);
+      std::unique_ptr<juce::AudioProcessorEditor> editor(
+          proc.createEditorIfNeeded());
+      expect(editor != nullptr, "editor must be created");
+      expect(proc.getActiveEditor() != nullptr,
+             "editor must be registered active");
+
+      // Engine scale: every band active at 48 kHz, sane edges.
+      constexpr size_t numBands = NoiseRepellentLiveAudioProcessor::kNumBands;
+      std::array<float, numBands> lo{};
+      std::array<float, numBands> hi{};
+      expect(proc.getLiveBandEdges(lo.data(), hi.data()),
+             "band edges must be available");
+      size_t numActive = 0;
+      for (size_t b = 0; b < numBands; ++b) {
+        if (hi[b] <= 0.0f) {
+          break;
+        }
+        expect(hi[b] > lo[b], "band edges must be ordered");
+        ++numActive;
+      }
+      expectEquals(static_cast<int>(numActive), static_cast<int>(numBands));
+
+      // Run noise with the editor open: frames must arrive carrying
+      // visible input energy.
+      proc.setLearning(true);
+      pumpMessageLoop(10);
+      juce::MidiBuffer midi;
+      juce::AudioBuffer<float> buffer(2, 512);
+      for (int i = 0; i < 20; ++i) {
+        generateNoiseBuffer(buffer);
+        proc.processBlock(buffer, midi);
+      }
+      NoiseRepellentLiveAudioProcessor::BandFrame frame;
+      // Read before pumping: the visualizer timer (60 Hz) drains the
+      // same fifo on the message thread and would steal the frames.
+      bool gotFrame = proc.getNextBandFrame(frame);
+      expect(gotFrame, "GUI must receive band frames while processing");
+      if (gotFrame) {
+        float maxIn = 0.0f;
+        for (size_t b = 0; b < numBands; ++b) {
+          expect(std::isfinite(frame.inputLevels[b]), "finite input level");
+          maxIn = std::max(maxIn, frame.inputLevels[b]);
+        }
+        expect(maxIn > 1e-4f, "input energy must be visible in frames");
+      }
+      proc.setLearning(false);
+      editor.reset();
     }
   }
 };

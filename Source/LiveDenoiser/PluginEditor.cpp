@@ -40,10 +40,10 @@ NoiseRepellentLiveAudioProcessorEditor::NoiseRepellentLiveAudioProcessorEditor(
   btnDelta.setColour(juce::TextButton::buttonOnColourId,
                      NoiseRepellentLookAndFeel::kColorNoiseProfile);
   btnDelta.setTooltip(
-      "Overlay the reduction delta (input minus output) "
-      "on the spectrum display");
+      "Monitor the removed noise: outputs dry minus denoised "
+      "instead of the denoised signal");
   btnDelta.onClick = [this]() {
-    spectralVisualizer.setDeltaVisible(btnDelta.getToggleState());
+    audioProcessor.setDeltaMonitoring(btnDelta.getToggleState());
   };
 
   addAndMakeVisible(btnBypass);
@@ -62,121 +62,65 @@ NoiseRepellentLiveAudioProcessorEditor::NoiseRepellentLiveAudioProcessorEditor(
   lblReduction.setColour(juce::Label::textColourId, juce::Colour(0xffa8b3c4));
   lblReduction.setJustificationType(juce::Justification::centred);
 
-  // ── Adaptive Two-Part Button (toggle + method dropdown) ──
-  btnAdaptiveNoise.setClickingTogglesState(true);
-  btnAdaptiveNoise.setColour(juce::TextButton::buttonColourId,
-                             juce::Colour(0xff3f4757));
-  btnAdaptiveNoise.setColour(juce::TextButton::buttonOnColourId,
-                             NoiseRepellentLookAndFeel::kColorDenoising);
-  btnAdaptiveNoise.setTooltip(
-      "Continuously estimate the noise floor from the "
-      "input signal. When off, the last estimate is "
-      "frozen.");
-  addAndMakeVisible(btnAdaptiveNoise);
-
-  btnAdaptiveArrow.setColour(juce::TextButton::buttonColourId,
-                             juce::Colour(0xff353b48));
-  btnAdaptiveArrow.setTooltip("Adaptive estimation method");
-  btnAdaptiveArrow.onClick = [this]() {
-    juce::PopupMenu menu;
-    const int currentMethod = comboMethod.getSelectedId();
-    menu.addSectionHeader("ADAPTIVE ESTIMATION METHOD");
-    menu.addItem(1, "SPP-MMSE (Unbiased)", true, currentMethod == 1);
-    menu.addItem(2, "Brandt (Trimmed Mean)", true, currentMethod == 2);
-    menu.addItem(3, "Martin (Minimum Statistics)", true, currentMethod == 3);
-    menu.setLookAndFeel(&getLookAndFeel());
-    menu.showMenuAsync(
-        juce::PopupMenu::Options().withTargetComponent(&btnAdaptiveArrow),
-        [this](int result) {
-          if (result >= 1 && result <= 3) {
-            comboMethod.setSelectedId(result, juce::sendNotification);
-            if (auto* p =
-                    audioProcessor.getAPVTS().getParameter("adaptive_method"))
-              p->setValueNotifyingHost(static_cast<float>(result - 1) / 2.0f);
-            if (auto* p =
-                    audioProcessor.getAPVTS().getParameter("adaptive_noise"))
-              p->setValueNotifyingHost(1.0f);
-          }
-        });
-  };
-  addAndMakeVisible(btnAdaptiveArrow);
-
-  // ── Learn Button ──
+  // ── Learn Toggle (sticky: tracker converges while engaged) ──
   btnLearn.setClickingTogglesState(true);
   btnLearn.setColour(juce::TextButton::buttonColourId,
                      juce::Colour(0xff3f4757));
   btnLearn.setColour(juce::TextButton::buttonOnColourId,
                      NoiseRepellentLookAndFeel::kColorNoiseProfile);
   btnLearn.setTooltip(
-      "Learn the noise floor shape: loop a noise-only section with "
-      "this engaged and the learned profile (amber) converges on the "
-      "spectrum display");
+      "Learn the noise profile: loop a noise-only section while "
+      "engaged. Disengage to freeze the captured threshold (amber)");
   btnLearn.onClick = [this]() {
-    if (btnLearn.getToggleState()) {
-      spectralVisualizer.startLearning();
-    } else {
-      spectralVisualizer.stopLearning();
-    }
+    audioProcessor.setLearning(btnLearn.getToggleState());
   };
   addAndMakeVisible(btnLearn);
 
   // ── Spectrum Display ──
   addAndMakeVisible(spectralVisualizer);
 
-  // ── Advanced Panel ──
-  addAndMakeVisible(btnAdvancedToggle);
-  btnAdvancedToggle.setClickingTogglesState(true);
-  btnAdvancedToggle.setColour(juce::TextButton::buttonColourId,
-                              juce::Colour(0xff3f4757));
-  btnAdvancedToggle.setColour(juce::TextButton::buttonOnColourId,
-                              NoiseRepellentLookAndFeel::kColorNoiseProfile);
-  btnAdvancedToggle.onClick = [this]() {
-    isAdvancedVisible = btnAdvancedToggle.getToggleState();
-    updateLayout();
-  };
+  // ── Tuning Controls (always visible) ──
+  addAndMakeVisible(sliderAttack);
+  sliderAttack.setSliderStyle(juce::Slider::LinearHorizontal);
+  sliderAttack.setTextBoxStyle(juce::Slider::TextBoxRight, false, 60, 20);
+  sliderAttack.setTooltip(
+      "Gate attack: how fast bands open when signal rises above threshold");
 
-  addAndMakeVisible(groupAdvanced);
-  groupAdvanced.setVisible(isAdvancedVisible);
-  groupAdvanced.setText("ADVANCED CONTROLS");
-  groupAdvanced.setColour(juce::GroupComponent::outlineColourId,
-                          NoiseRepellentLookAndFeel::kColorPanelBorder);
-  groupAdvanced.setColour(juce::GroupComponent::textColourId,
-                          NoiseRepellentLookAndFeel::kColorFineTuning);
-  groupAdvanced.setInterceptsMouseClicks(false, false);
+  addAndMakeVisible(sliderRelease);
+  sliderRelease.setSliderStyle(juce::Slider::LinearHorizontal);
+  sliderRelease.setTextBoxStyle(juce::Slider::TextBoxRight, false, 60, 20);
+  sliderRelease.setTooltip(
+      "Gate release: how fast bands close. "
+      "Higher values sound steadier");
 
-  addAndMakeVisible(comboMethod);
-  comboMethod.setVisible(false);
-  comboMethod.setTooltip("Noise estimation strategy used when Adaptive is on");
+  addAndMakeVisible(sliderKnee);
+  sliderKnee.setSliderStyle(juce::Slider::LinearHorizontal);
+  sliderKnee.setTextBoxStyle(juce::Slider::TextBoxRight, false, 60, 20);
+  sliderKnee.setTooltip(
+      "Soft-knee width below the threshold. 0 dB is a hard gate");
 
-  addAndMakeVisible(sliderSmoothing);
-  sliderSmoothing.setVisible(isAdvancedVisible);
-  sliderSmoothing.setColour(juce::Slider::rotarySliderFillColourId,
-                            NoiseRepellentLookAndFeel::kColorDenoising);
-  sliderSmoothing.setTooltip(
-      "Temporal smoothing of the ERB band gains. "
-      "Higher values adapt slower and sound steadier");
+  addAndMakeVisible(sliderThreshold);
+  sliderThreshold.setSliderStyle(juce::Slider::LinearVertical);
+  sliderThreshold.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 80, 20);
+  sliderThreshold.setTooltip(
+      "Gate threshold offset in dB, like the full denoiser. "
+      "Higher removes more noise, lower passes more through");
 
-  addAndMakeVisible(sliderSuppression);
-  sliderSuppression.setVisible(isAdvancedVisible);
-  sliderSuppression.setColour(juce::Slider::rotarySliderFillColourId,
-                              NoiseRepellentLookAndFeel::kColorDenoising);
-  sliderSuppression.setTooltip("Oversubtraction aggressiveness");
+  for (auto* lbl : {&lblAttack, &lblRelease, &lblKnee}) {
+    addAndMakeVisible(*lbl);
+    lbl->setFont(juce::FontOptions(NoiseRepellentLookAndFeel::kFontSizeLabel,
+                                   juce::Font::bold));
+    lbl->setColour(juce::Label::textColourId,
+                   NoiseRepellentLookAndFeel::kColorDenoising);
+    lbl->setJustificationType(juce::Justification::centredLeft);
+  }
 
-  addAndMakeVisible(lblSmoothing);
-  lblSmoothing.setFont(juce::FontOptions(
+  addAndMakeVisible(lblThreshold);
+  lblThreshold.setFont(juce::FontOptions(
       NoiseRepellentLookAndFeel::kFontSizeLabel, juce::Font::bold));
-  lblSmoothing.setColour(juce::Label::textColourId,
+  lblThreshold.setColour(juce::Label::textColourId,
                          NoiseRepellentLookAndFeel::kColorDenoising);
-  lblSmoothing.setJustificationType(juce::Justification::centred);
-  lblSmoothing.setVisible(isAdvancedVisible);
-
-  addAndMakeVisible(lblSuppression);
-  lblSuppression.setFont(juce::FontOptions(
-      NoiseRepellentLookAndFeel::kFontSizeLabel, juce::Font::bold));
-  lblSuppression.setColour(juce::Label::textColourId,
-                           NoiseRepellentLookAndFeel::kColorDenoising);
-  lblSuppression.setJustificationType(juce::Justification::centred);
-  lblSuppression.setVisible(isAdvancedVisible);
+  lblThreshold.setJustificationType(juce::Justification::centred);
 
   // ── Footer ──
   addAndMakeVisible(footerTooltipLabel);
@@ -189,29 +133,27 @@ NoiseRepellentLiveAudioProcessorEditor::NoiseRepellentLiveAudioProcessorEditor(
   // Attachments
   auto& apvts = audioProcessor.getAPVTS();
   attachBypass = std::make_unique<ButtonAttachment>(apvts, "bypass", btnBypass);
-  attachAdaptive = std::make_unique<ButtonAttachment>(apvts, "adaptive_noise",
-                                                      btnAdaptiveNoise);
   attachReduction = std::make_unique<SliderAttachment>(
       apvts, "reduction_amount", sliderReduction);
-  attachMethod = std::make_unique<ComboBoxAttachment>(apvts, "adaptive_method",
-                                                      comboMethod);
-  attachSmoothing = std::make_unique<SliderAttachment>(
-      apvts, "smoothing_factor", sliderSmoothing);
-  attachSuppression = std::make_unique<SliderAttachment>(
-      apvts, "suppression_strength", sliderSuppression);
+  attachAttack =
+      std::make_unique<SliderAttachment>(apvts, "attack_ms", sliderAttack);
+  attachRelease =
+      std::make_unique<SliderAttachment>(apvts, "release_ms", sliderRelease);
+  attachKnee = std::make_unique<SliderAttachment>(apvts, "knee_db", sliderKnee);
+  attachThreshold = std::make_unique<SliderAttachment>(apvts, "threshold_db",
+                                                       sliderThreshold);
 
   // Footer tooltip follows hovered component
-  for (auto* comp : std::array<juce::Component*, 9>{
-           &sliderReduction, &btnAdaptiveNoise, &btnAdaptiveArrow, &btnLearn,
-           &btnBypass, &btnDelta, &sliderSmoothing, &sliderSuppression,
-           &btnAdvancedToggle}) {
+  for (auto* comp : std::array<juce::Component*, 8>{
+           &sliderReduction, &btnLearn, &btnBypass, &btnDelta, &sliderAttack,
+           &sliderRelease, &sliderKnee, &sliderThreshold}) {
     comp->addMouseListener(this, false);
   }
 
   setResizable(false, false);
   setResizeLimits(720, 480, 1280, 840);
-  setSize(760, 520);
-  updateLayout();
+  setSize(760, 560);
+  resized();
 }
 
 NoiseRepellentLiveAudioProcessorEditor::
@@ -240,15 +182,6 @@ void NoiseRepellentLiveAudioProcessorEditor::paint(juce::Graphics& g) {
   g.drawRect(getLocalBounds(), 1.0f);
 }
 
-void NoiseRepellentLiveAudioProcessorEditor::updateLayout() {
-  groupAdvanced.setVisible(isAdvancedVisible);
-  sliderSmoothing.setVisible(isAdvancedVisible);
-  sliderSuppression.setVisible(isAdvancedVisible);
-  lblSmoothing.setVisible(isAdvancedVisible);
-  lblSuppression.setVisible(isAdvancedVisible);
-  resized();
-}
-
 void NoiseRepellentLiveAudioProcessorEditor::resized() {
   auto area = getLocalBounds().reduced(10);
 
@@ -264,52 +197,42 @@ void NoiseRepellentLiveAudioProcessorEditor::resized() {
   auto footer = area.removeFromBottom(20);
   footerTooltipLabel.setBounds(footer);
 
-  area.removeFromBottom(6); // gap above advanced panel
+  area.removeFromBottom(6); // gap above tuning strip
 
-  // ── Advanced Panel (bottom, collapsible) ──
-  const int advancedHeight = isAdvancedVisible ? 120 : 30;
-  auto advancedArea = area.removeFromBottom(advancedHeight);
-  btnAdvancedToggle.setBounds(
-      advancedArea.removeFromTop(26).removeFromLeft(120));
-  advancedArea.removeFromTop(4); // gap below toggle
-  if (isAdvancedVisible) {
-    groupAdvanced.setBounds(advancedArea);
-    // Top inset clears the group title text
-    auto inner = advancedArea.reduced(14, 8);
-    inner.removeFromTop(16);
-    const int half = inner.getWidth() / 2;
-
-    auto col2 = inner.removeFromLeft(half);
-    lblSmoothing.setBounds(col2.removeFromTop(16));
-    const int knob2 = std::min(col2.getWidth() - 40, col2.getHeight() - 4);
-    sliderSmoothing.setBounds(col2.withSizeKeepingCentre(knob2, knob2));
-
-    auto col3 = inner;
-    lblSuppression.setBounds(col3.removeFromTop(16));
-    const int knob3 = std::min(col3.getWidth() - 40, col3.getHeight() - 4);
-    sliderSuppression.setBounds(col3.withSizeKeepingCentre(knob3, knob3));
-  }
+  // ── Tuning Strip (bottom, always visible): Attack / Release / Knee ──
+  auto tuningArea = area.removeFromBottom(52);
+  auto colAttack = tuningArea.removeFromLeft(tuningArea.getWidth() / 3);
+  auto colRelease = tuningArea.removeFromLeft(tuningArea.getWidth() / 2);
+  colAttack.removeFromRight(8); // gaps between columns
+  colRelease.removeFromRight(8);
+  lblAttack.setBounds(colAttack.removeFromTop(18));
+  sliderAttack.setBounds(colAttack);
+  lblRelease.setBounds(colRelease.removeFromTop(18));
+  sliderRelease.setBounds(colRelease);
+  lblKnee.setBounds(tuningArea.removeFromTop(18));
+  sliderKnee.setBounds(tuningArea);
 
   area.removeFromBottom(6); // gap above main area
 
-  // ── Main Area: Reduction Slider (left) + Spectrum (rest) ──
+  // ── Main Area: Reduction (left) + Spectrum (center) + Threshold
+  // (right, like the full denoiser offset bank) ──
   auto main = area;
   auto reductionCol = main.removeFromLeft(112);
   main.removeFromLeft(8); // gap between column and spectrum
+  auto thresholdCol = main.removeFromRight(95);
+  main.removeFromRight(8); // gap between spectrum and threshold
   lblReduction.setBounds(reductionCol.removeFromTop(18));
   reductionCol.removeFromTop(6);
 
-  // Learn button (full width), then Adaptive + dropdown arrow row
-  auto learnBounds = reductionCol.removeFromTop(28).reduced(12, 2);
-  btnLearn.setBounds(learnBounds);
-  reductionCol.removeFromTop(4);
-  auto adaptRow = reductionCol.removeFromTop(28).reduced(12, 2);
-  btnAdaptiveNoise.setBounds(adaptRow.removeFromLeft(adaptRow.getWidth() - 22));
-  adaptRow.removeFromLeft(4);
-  btnAdaptiveArrow.setBounds(adaptRow.removeFromRight(18));
+  // Learn toggle (full width)
+  btnLearn.setBounds(reductionCol.removeFromTop(28).reduced(12, 2));
 
   reductionCol.removeFromTop(8);
   sliderReduction.setBounds(reductionCol);
+
+  lblThreshold.setBounds(thresholdCol.removeFromTop(18));
+  thresholdCol.removeFromTop(6);
+  sliderThreshold.setBounds(thresholdCol);
 
   spectralVisualizer.setBounds(main);
 }

@@ -20,7 +20,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 #include <cmath>
-#include <cstring>
 
 NoiseRepellentLiveAudioProcessor::NoiseRepellentLiveAudioProcessor()
     : AudioProcessor(
@@ -31,22 +30,18 @@ NoiseRepellentLiveAudioProcessor::NoiseRepellentLiveAudioProcessor()
       dryWetMixer(16384) {
   bypassParameter = dynamic_cast<juce::AudioParameterBool*>(
       parameters.getParameter("bypass"));
-  adaptiveMethodParameter = dynamic_cast<juce::AudioParameterChoice*>(
-      parameters.getParameter("adaptive_method"));
 
   // Route DSP parameter changes through the message thread. bypass is
   // read atomically in processBlock and needs no listener.
-  for (const auto& id :
-       {"reduction_amount", "adaptive_noise", "adaptive_method",
-        "smoothing_factor", "suppression_strength"}) {
+  for (const auto& id : {"reduction_amount", "attack_ms", "release_ms",
+                         "threshold_db", "knee_db"}) {
     parameters.addParameterListener(id, this);
   }
 }
 
 NoiseRepellentLiveAudioProcessor::~NoiseRepellentLiveAudioProcessor() {
-  for (const auto& id :
-       {"reduction_amount", "adaptive_noise", "adaptive_method",
-        "smoothing_factor", "suppression_strength"}) {
+  for (const auto& id : {"reduction_amount", "attack_ms", "release_ms",
+                         "threshold_db", "knee_db"}) {
     parameters.removeParameterListener(id, this);
   }
   cancelPendingUpdate();
@@ -68,22 +63,21 @@ NoiseRepellentLiveAudioProcessor::createParameterLayout() {
       "reduction_amount", "Reduction",
       juce::NormalisableRange<float>(0.0f, 40.0f, 0.1f), 12.0f));
 
-  params.push_back(std::make_unique<juce::AudioParameterBool>(
-      "adaptive_noise", "Adaptive Noise", true));
-
-  params.push_back(std::make_unique<juce::AudioParameterChoice>(
-      "adaptive_method", "Estimation Method",
-      juce::StringArray{"SPP-MMSE (Unbiased)", "Brandt (Trimmed Mean)",
-                        "Martin (Min Statistics)"},
-      2));
+  params.push_back(std::make_unique<juce::AudioParameterFloat>(
+      "attack_ms", "Attack", juce::NormalisableRange<float>(0.1f, 100.0f, 0.1f),
+      5.0f));
 
   params.push_back(std::make_unique<juce::AudioParameterFloat>(
-      "smoothing_factor", "Smoothing",
-      juce::NormalisableRange<float>(0.0f, 100.0f, 1.0f), 0.0f));
+      "release_ms", "Release",
+      juce::NormalisableRange<float>(10.0f, 1000.0f, 1.0f), 100.0f));
 
   params.push_back(std::make_unique<juce::AudioParameterFloat>(
-      "suppression_strength", "Aggressiveness",
-      juce::NormalisableRange<float>(0.0f, 100.0f, 1.0f), 50.0f));
+      "threshold_db", "Threshold",
+      juce::NormalisableRange<float>(-12.0f, 12.0f, 0.1f), 0.0f));
+
+  params.push_back(std::make_unique<juce::AudioParameterFloat>(
+      "knee_db", "Knee", juce::NormalisableRange<float>(0.0f, 12.0f, 0.1f),
+      0.0f));
 
   params.push_back(std::make_unique<juce::AudioParameterBool>(
       "bypass", "Internal Bypass", false));
@@ -108,24 +102,24 @@ void NoiseRepellentLiveAudioProcessor::handleAsyncUpdate() {
 void NoiseRepellentLiveAudioProcessor::applyParameters() {
   const juce::ScopedLock sl(getCallbackLock());
 
-  SpecbleachTimeDenoiserParameters p{};
+  SpecbleachLiveDenoiserParameters p{};
   p.reduction_gain = juce::Decibels::decibelsToGain(
       -parameters.getRawParameterValue("reduction_amount")->load());
-  p.smoothing_factor =
-      parameters.getRawParameterValue("smoothing_factor")->load() / 100.0f;
-  p.adaptive_noise =
-      parameters.getRawParameterValue("adaptive_noise")->load() > 0.5f;
-  p.noise_estimation_method =
-      static_cast<SpecbleachNoiseEstimationMethod>(
-          adaptiveMethodParameter != nullptr
-              ? adaptiveMethodParameter->getIndex()
-              : 2);
-  p.suppression_strength =
-      parameters.getRawParameterValue("suppression_strength")->load() / 100.0f;
+  p.attack_time =
+      parameters.getRawParameterValue("attack_ms")->load() / 1000.0f;
+  p.release_time =
+      parameters.getRawParameterValue("release_ms")->load() / 1000.0f;
+  // Manual-learn only: the tracker runs while the Learn toggle is
+  // engaged, then the captured threshold freezes. Fast preset so a
+  // short noise loop converges.
+  p.adaptive_noise = learning.load(std::memory_order_acquire);
+  p.noise_estimation_method = SPECBLEACH_LIVE_SPP_MMSE;
+  p.threshold_db = parameters.getRawParameterValue("threshold_db")->load();
+  p.knee_db = parameters.getRawParameterValue("knee_db")->load();
 
   for (auto& engine : engines) {
     if (engine != nullptr) {
-      specbleach_time_denoiser_load_parameters(engine.get(), &p, sizeof(p));
+      specbleach_live_denoiser_load_parameters(engine.get(), &p, sizeof(p));
     }
   }
 }
@@ -150,7 +144,9 @@ void NoiseRepellentLiveAudioProcessor::ensureEnginesInitialized(
 
   for (uint32_t ch = 0; ch < channels; ++ch) {
     engines[ch].reset(
-        specbleach_time_denoiser_initialize(static_cast<uint32_t>(sampleRate)));
+        specbleach_live_denoiser_initialize(static_cast<uint32_t>(sampleRate)));
+    specbleach_live_denoiser_set_delta_monitoring(
+        engines[ch].get(), deltaMonitoring.load(std::memory_order_acquire));
   }
 
   currentSampleRate = sampleRate;
@@ -176,16 +172,8 @@ void NoiseRepellentLiveAudioProcessor::prepareToPlay(double sampleRate,
   dryWetMixer.setMixingRule(juce::dsp::DryWetMixingRule::linear);
   dryWetMixer.setWetLatency(0.0f);
 
-  // Pre-allocate persistent buffers to prevent audio-thread allocations
-  dryInputL.resize(static_cast<size_t>(std::max(samplesPerBlock, 16384)), 0.0f);
-
   applyParameters();
 
-  // Reset FFT accumulation
-  fftAccumInput.fill(0.0f);
-  fftAccumOutput.fill(0.0f);
-  fftAccumCount = 0;
-  silenceVisualCounter = 0;
   cancelPendingUpdate();
 }
 
@@ -215,115 +203,76 @@ void NoiseRepellentLiveAudioProcessor::processBlock(
 
   const bool isBypassed =
       parameters.getRawParameterValue("bypass")->load() > 0.5f;
+  const bool monitorDelta = deltaMonitoring.load(std::memory_order_acquire);
 
-  // Save dry input copy for FFT visualization before in-place processing
-  const size_t copySamples =
-      std::min(static_cast<size_t>(numSamples), dryInputL.size());
-  if (numChannels >= 1 && copySamples > 0) {
-    std::copy_n(buffer.getReadPointer(0), copySamples, dryInputL.begin());
-  }
+  const int procChannels =
+      std::min(numChannels, static_cast<int>(engines.size()));
 
   juce::dsp::AudioBlock<float> audioBlock(buffer);
   dryWetMixer.pushDrySamples(audioBlock);
 
-  if (!isBypassed) {
-    const int procChannels =
-        std::min(numChannels, static_cast<int>(engines.size()));
-    for (int ch = 0; ch < procChannels; ++ch) {
-      auto& engine = engines[static_cast<size_t>(ch)];
-      if (engine != nullptr) {
-        specbleach_time_denoiser_process(
-            engine.get(), static_cast<uint32_t>(numSamples),
-            buffer.getReadPointer(ch), buffer.getWritePointer(ch));
-      }
+  // Soft bypass: the engine always processes so gate state and the
+  // display stay live while bypassed; the DryWetMixer (~50 ms ramp)
+  // crossfades between dry and denoised without clicks.
+  for (int ch = 0; ch < procChannels; ++ch) {
+    auto& engine = engines[static_cast<size_t>(ch)];
+    if (engine != nullptr) {
+      specbleach_live_denoiser_process(
+          engine.get(), static_cast<uint32_t>(numSamples),
+          buffer.getReadPointer(ch), buffer.getWritePointer(ch));
     }
   }
 
-  // Soft crossfade bypass using JUCE DryWetMixer (wet latency is 0)
-  dryWetMixer.setWetMixProportion(isBypassed ? 0.0f : 1.0f);
+  if (monitorDelta) {
+    dryWetMixer.setWetMixProportion(1.0f);
+  } else {
+    dryWetMixer.setWetMixProportion(isBypassed ? 0.0f : 1.0f);
+  }
   dryWetMixer.mixWetSamples(audioBlock);
 
-  // Skip FFT analysis during offline rendering or when the GUI is closed
+  // Skip visualization during offline rendering or when the GUI is closed
   if (isNonRealtime() || getActiveEditor() == nullptr) {
-    fftAccumCount = 0;
     return;
   }
 
-  // Detect silence for cheap visualization frames
-  bool isSilent = true;
-  for (int ch = 0; ch < numChannels && isSilent; ++ch) {
-    const float* d = buffer.getReadPointer(ch);
-    for (int i = 0; i < numSamples; ++i) {
-      if (std::abs(d[i]) > 1e-5f) {
-        isSilent = false;
-        break;
+  // Snapshot the engine filterbank (input / post-gate / threshold levels,
+  // averaged across channels) for the RX-style band display.
+  int start1, size1, start2, size2;
+  spectralFifo.prepareToWrite(1, start1, size1, start2, size2);
+  if (size1 > 0) {
+    BandFrame& frame = spectralBuffer[static_cast<size_t>(start1)];
+    frame.inputLevels.fill(0.0f);
+    frame.outputLevels.fill(0.0f);
+    frame.thresholdLevels.fill(0.0f);
+
+    std::array<float, kNumBands> chIn{};
+    std::array<float, kNumBands> chOut{};
+    std::array<float, kNumBands> chThr{};
+    int numEngines = 0;
+    for (int ch = 0; ch < procChannels; ++ch) {
+      auto& engine = engines[static_cast<size_t>(ch)];
+      if (engine == nullptr) {
+        continue;
       }
-    }
-  }
-
-  if (isSilent) {
-    fftAccumCount = 0;
-    if ((++silenceVisualCounter % 4) == 0) {
-      int start1, size1, start2, size2;
-      spectralFifo.prepareToWrite(1, start1, size1, start2, size2);
-      if (size1 > 0) {
-        SpectralFrame& frame = spectralBuffer[static_cast<size_t>(start1)];
-        frame.inputMagnitudeDB.fill(-120.0f);
-        frame.outputMagnitudeDB.fill(-120.0f);
-        spectralFifo.finishedWrite(1);
-      }
-    }
-    return;
-  }
-
-  // Accumulate samples until a full FFT window (hop = 75%)
-  const float* inputSrc = dryInputL.data();
-  const float* outputSrc = buffer.getReadPointer(0);
-  for (int s = 0; s < numSamples && static_cast<size_t>(s) < copySamples; ++s) {
-    if (fftAccumCount < kFftSize) {
-      fftAccumInput[fftAccumCount] = inputSrc[s];
-      fftAccumOutput[fftAccumCount] = outputSrc[s];
-      fftAccumCount++;
-    }
-
-    if (fftAccumCount >= kFftSize) {
-      int start1, size1, start2, size2;
-      spectralFifo.prepareToWrite(1, start1, size1, start2, size2);
-
-      if (size1 > 0) {
-        SpectralFrame& frame = spectralBuffer[static_cast<size_t>(start1)];
-
-        std::memcpy(fftInputWork.data(), fftAccumInput.data(),
-                    kFftSize * sizeof(float));
-        std::fill(fftInputWork.begin() + kFftSize, fftInputWork.end(), 0.0f);
-        fftWindow.multiplyWithWindowingTable(fftInputWork.data(), kFftSize);
-        fftAnalyzer.performFrequencyOnlyForwardTransform(fftInputWork.data());
-        for (size_t i = 0; i < kFftBins; ++i) {
-          const float mag = fftInputWork[i] / static_cast<float>(kFftBins);
-          frame.inputMagnitudeDB[i] = 20.0f * std::log10(std::max(mag, 1e-7f));
+      if (specbleach_live_denoiser_get_band_levels(
+              engine.get(), chIn.data(), chOut.data(), chThr.data())) {
+        for (size_t b = 0; b < kNumBands; ++b) {
+          frame.inputLevels[b] += chIn[b];
+          frame.outputLevels[b] += chOut[b];
+          frame.thresholdLevels[b] += chThr[b];
         }
-
-        std::memcpy(fftOutputWork.data(), fftAccumOutput.data(),
-                    kFftSize * sizeof(float));
-        std::fill(fftOutputWork.begin() + kFftSize, fftOutputWork.end(), 0.0f);
-        fftWindow.multiplyWithWindowingTable(fftOutputWork.data(), kFftSize);
-        fftAnalyzer.performFrequencyOnlyForwardTransform(fftOutputWork.data());
-        for (size_t i = 0; i < kFftBins; ++i) {
-          const float mag = fftOutputWork[i] / static_cast<float>(kFftBins);
-          frame.outputMagnitudeDB[i] = 20.0f * std::log10(std::max(mag, 1e-7f));
-        }
-
-        spectralFifo.finishedWrite(1);
+        ++numEngines;
       }
-
-      // Shift: keep last quarter for overlap (hop = 75%)
-      constexpr size_t kHop = kFftSize / 4;
-      std::memmove(fftAccumInput.data(), fftAccumInput.data() + kHop,
-                   (kFftSize - kHop) * sizeof(float));
-      std::memmove(fftAccumOutput.data(), fftAccumOutput.data() + kHop,
-                   (kFftSize - kHop) * sizeof(float));
-      fftAccumCount = kFftSize - kHop;
     }
+    if (numEngines > 1) {
+      const float inv = 1.0f / static_cast<float>(numEngines);
+      for (size_t b = 0; b < kNumBands; ++b) {
+        frame.inputLevels[b] *= inv;
+        frame.outputLevels[b] *= inv;
+        frame.thresholdLevels[b] *= inv;
+      }
+    }
+    spectralFifo.finishedWrite(1);
   }
 }
 
@@ -342,8 +291,7 @@ void NoiseRepellentLiveAudioProcessor::processBlockBypassed(
   dryWetMixer.mixWetSamples(audioBlock);
 }
 
-bool NoiseRepellentLiveAudioProcessor::getNextSpectralFrame(
-    SpectralFrame& frame) {
+bool NoiseRepellentLiveAudioProcessor::getNextBandFrame(BandFrame& frame) {
   int start1, size1, start2, size2;
   spectralFifo.prepareToRead(1, start1, size1, start2, size2);
 
@@ -351,6 +299,42 @@ bool NoiseRepellentLiveAudioProcessor::getNextSpectralFrame(
     frame = spectralBuffer[static_cast<size_t>(start1)];
     spectralFifo.finishedRead(1);
     return true;
+  }
+  return false;
+}
+
+void NoiseRepellentLiveAudioProcessor::setLearning(bool shouldLearn) {
+  if (shouldLearn) {
+    // Fresh capture: drop the old floor so the tracker converges on
+    // the looped noise only (RT-safe flag, honored by process).
+    for (auto& engine : engines) {
+      if (engine != nullptr) {
+        specbleach_live_denoiser_reset_noise_floor(engine.get());
+      }
+    }
+  }
+  learning.store(shouldLearn, std::memory_order_release);
+  parametersDirty.store(true, std::memory_order_release);
+  triggerAsyncUpdate();
+}
+
+void NoiseRepellentLiveAudioProcessor::setDeltaMonitoring(bool shouldMonitor) {
+  deltaMonitoring.store(shouldMonitor, std::memory_order_release);
+  for (auto& engine : engines) {
+    if (engine != nullptr) {
+      specbleach_live_denoiser_set_delta_monitoring(engine.get(),
+                                                    shouldMonitor);
+    }
+  }
+}
+
+bool NoiseRepellentLiveAudioProcessor::getLiveBandEdges(float* lowerHz,
+                                                        float* upperHz) {
+  for (auto& engine : engines) {
+    if (engine != nullptr) {
+      return specbleach_live_denoiser_get_band_edges(engine.get(), lowerHz,
+                                                     upperHz);
+    }
   }
   return false;
 }

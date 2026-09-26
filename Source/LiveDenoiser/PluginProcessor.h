@@ -25,14 +25,15 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <juce_dsp/juce_dsp.h>
 #include <vector>
 
-#include "specbleach_time_denoiser.h"
+#include "specbleach_live_denoiser.h"
 
 /**
  * Zero-latency time-domain noise reduction plugin.
  *
- * Wraps libspecbleach's DSAF-MP time-domain denoiser. No profiles, no engine
- * switching, no silence gating: algorithmic latency is always zero, so
- * getLatencySamples() must never change after prepareToPlay.
+ * Wraps libspecbleach's live denoiser: a 128-band Bark-spaced time-domain
+ * multiband gate. No profiles, no engine switching, no silence gating:
+ * algorithmic latency is always zero, so getLatencySamples() must never
+ * change after prepareToPlay.
  */
 class NoiseRepellentLiveAudioProcessor
     : public juce::AudioProcessor,
@@ -95,18 +96,32 @@ public:
     return parameters;
   }
 
-  // FFT visualization constants
-  static constexpr int kFftOrder = 12;               // 2^12 = 4096 point FFT
-  static constexpr size_t kFftSize = 1 << kFftOrder; // 4096
-  static constexpr size_t kFftBins = kFftSize / 2;   // 2048 unique bins
+  // Filterbank visualization constants (matches the live engine)
+  static constexpr size_t kNumBands = SPECBLEACH_LIVE_NUM_BANDS;
 
-  // Spectral frame shared with GUI via lock-free ring buffer
-  struct SpectralFrame {
-    std::array<float, kFftBins> inputMagnitudeDB{};  // dB spectrum of input
-    std::array<float, kFftBins> outputMagnitudeDB{}; // dB spectrum of output
+  // Band frame shared with GUI via lock-free ring buffer (linear
+  // amplitudes straight from the engine's filterbank: input energy,
+  // post-gate energy, and the gate threshold being applied).
+  struct BandFrame {
+    std::array<float, kNumBands> inputLevels{};
+    std::array<float, kNumBands> outputLevels{};
+    std::array<float, kNumBands> thresholdLevels{};
   };
 
-  bool getNextSpectralFrame(SpectralFrame& frame);
+  bool getNextBandFrame(BandFrame& frame);
+
+  // Learn toggle (message thread): while engaged the engine tracker
+  // converges on the input; disengaged, the captured threshold freezes.
+  void setLearning(bool shouldLearn);
+
+  // Delta monitoring (message thread, GUI-only): when on, the plugin
+  // outputs the removed noise (dry minus denoised) instead of the
+  // denoised signal, bypassing the internal bypass.
+  void setDeltaMonitoring(bool shouldMonitor);
+
+  // Copy the engine filterbank band edges in Hz for the display scale.
+  // Returns false when no engine is ready.
+  bool getLiveBandEdges(float* lowerHz, float* upperHz);
 
   double getSampleRate() const {
     return currentSampleRate;
@@ -121,48 +136,30 @@ private:
 
   juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
 
-  struct TimeDenoiserDeleter {
-    void operator()(specbleach_time_denoiser* p) const noexcept {
-      specbleach_time_denoiser_free(p);
+  struct LiveDenoiserDeleter {
+    void operator()(specbleach_live_denoiser* p) const noexcept {
+      specbleach_live_denoiser_free(p);
     }
   };
-  using TimeDenoiserPtr =
-      std::unique_ptr<specbleach_time_denoiser, TimeDenoiserDeleter>;
+  using LiveDenoiserPtr =
+      std::unique_ptr<specbleach_live_denoiser, LiveDenoiserDeleter>;
 
   juce::AudioProcessorValueTreeState parameters;
 
   // One engine instance per channel (mono or stereo)
-  std::array<TimeDenoiserPtr, 2> engines;
+  std::array<LiveDenoiserPtr, 2> engines;
   uint32_t preparedNumChannels = 0;
 
   juce::AudioParameterBool* bypassParameter = nullptr;
-  juce::AudioParameterChoice* adaptiveMethodParameter = nullptr;
   juce::dsp::DryWetMixer<float> dryWetMixer;
   double currentSampleRate = 44100.0;
   std::atomic<bool> parametersDirty{false};
+  std::atomic<bool> learning{false};
+  std::atomic<bool> deltaMonitoring{false};
 
-  // FFT analysis for visualization (zero latency: no delay line needed)
-  juce::dsp::FFT fftAnalyzer{kFftOrder};
-  juce::dsp::WindowingFunction<float> fftWindow{
-      kFftSize, juce::dsp::WindowingFunction<float>::hann};
-  std::array<float, kFftSize * 2>
-      fftInputWork{}; // real+imag interleaved for input FFT
-  std::array<float, kFftSize * 2>
-      fftOutputWork{}; // real+imag interleaved for output FFT
-
-  // Lock-free SPSC Ring Buffer for GUI visualization
+  // Filterbank snapshots for GUI visualization
   juce::AbstractFifo spectralFifo{16};
-  std::vector<SpectralFrame> spectralBuffer{16};
-
-  // Accumulation buffer for FFT (collects samples across processBlock calls)
-  std::array<float, kFftSize> fftAccumInput{};
-  std::array<float, kFftSize> fftAccumOutput{};
-  size_t fftAccumCount = 0;
-  uint32_t silenceVisualCounter = 0;
-
-  // Persistent dry input copy for FFT visualization (no RT audio-thread
-  // allocation). Zero latency: dry is already aligned with wet output.
-  std::vector<float> dryInputL;
+  std::vector<BandFrame> spectralBuffer{16};
 
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(NoiseRepellentLiveAudioProcessor)
 };

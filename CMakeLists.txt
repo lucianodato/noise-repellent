@@ -191,6 +191,8 @@ endif()
 
 target_include_directories(NoiseRepellent PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/Source
+    ${CMAKE_CURRENT_SOURCE_DIR}/Source/Denoiser
+    ${CMAKE_CURRENT_SOURCE_DIR}/Source/Shared
 )
 
 target_sources(NoiseRepellent PRIVATE
@@ -482,6 +484,8 @@ if(ENABLE_PLUGIN_TESTS OR BUILD_TESTING)
         )
         target_include_directories(${test_name} PRIVATE
             ${CMAKE_CURRENT_SOURCE_DIR}/Source
+            ${CMAKE_CURRENT_SOURCE_DIR}/Source/Denoiser
+            ${CMAKE_CURRENT_SOURCE_DIR}/Source/Shared
             ${SPECBLEACH_SRC}/include
             ${SPECBLEACH_SRC}/extras/include
         )

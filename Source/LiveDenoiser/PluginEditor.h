@@ -51,25 +51,23 @@ private:
   juce::Slider sliderReduction{juce::Slider::LinearVertical,
                                juce::Slider::TextBoxBelow};
 
-  // Adaptive two-part button (toggle + method dropdown, like the Denoiser)
-  juce::TextButton btnAdaptiveNoise{"Adaptive"};
-  juce::TextButton btnAdaptiveArrow{juce::CharPointer_UTF8("\xe2\x96\xbc")};
-
-  // Noise floor learning (GUI-only state, no automation)
+  // Noise floor learning (sticky toggle driving the engine tracker)
   juce::TextButton btnLearn{"Learn"};
 
-  // Advanced Controls Panel (Collapsible)
-  juce::TextButton btnAdvancedToggle{"ADVANCED"};
-  juce::GroupComponent groupAdvanced{"groupAdvanced", "ADVANCED CONTROLS"};
-  // Invisible state holder for the adaptive_method attachment
-  juce::ComboBox comboMethod;
-  juce::Slider sliderSmoothing{juce::Slider::RotaryHorizontalVerticalDrag,
-                               juce::Slider::NoTextBox};
-  juce::Slider sliderSuppression{juce::Slider::RotaryHorizontalVerticalDrag,
-                                 juce::Slider::NoTextBox};
+  // Tuning Controls (gate strip + threshold bank right of display)
+  juce::Slider sliderAttack{juce::Slider::LinearHorizontal,
+                            juce::Slider::TextBoxRight};
+  juce::Slider sliderRelease{juce::Slider::LinearHorizontal,
+                             juce::Slider::TextBoxRight};
+  juce::Slider sliderKnee{juce::Slider::LinearHorizontal,
+                          juce::Slider::TextBoxRight};
+  juce::Slider sliderThreshold{juce::Slider::LinearVertical,
+                               juce::Slider::TextBoxBelow};
 
-  juce::Label lblSmoothing{"lblSmoothing", "SMOOTHING"};
-  juce::Label lblSuppression{"lblSuppression", "AGGRESSIVENESS"};
+  juce::Label lblAttack{"lblAttack", "ATTACK"};
+  juce::Label lblRelease{"lblRelease", "RELEASE"};
+  juce::Label lblKnee{"lblKnee", "KNEE"};
+  juce::Label lblThreshold{"lblThreshold", "THRESHOLD"};
 
   // Spectrum display
   LiveSpectralVisualizerComponent spectralVisualizer;
@@ -80,19 +78,13 @@ private:
   // Parameter Attachments
   using ButtonAttachment = juce::AudioProcessorValueTreeState::ButtonAttachment;
   using SliderAttachment = juce::AudioProcessorValueTreeState::SliderAttachment;
-  using ComboBoxAttachment =
-      juce::AudioProcessorValueTreeState::ComboBoxAttachment;
 
   std::unique_ptr<ButtonAttachment> attachBypass;
-  std::unique_ptr<ButtonAttachment> attachAdaptive;
   std::unique_ptr<SliderAttachment> attachReduction;
-  std::unique_ptr<ComboBoxAttachment> attachMethod;
-  std::unique_ptr<SliderAttachment> attachSmoothing;
-  std::unique_ptr<SliderAttachment> attachSuppression;
-
-  bool isAdvancedVisible = false;
-
-  void updateLayout();
+  std::unique_ptr<SliderAttachment> attachAttack;
+  std::unique_ptr<SliderAttachment> attachRelease;
+  std::unique_ptr<SliderAttachment> attachKnee;
+  std::unique_ptr<SliderAttachment> attachThreshold;
 
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(
       NoiseRepellentLiveAudioProcessorEditor)
