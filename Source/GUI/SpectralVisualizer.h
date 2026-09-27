@@ -50,6 +50,8 @@ public:
     }
   }
 
+  void setProcessingAvailable(bool available);
+
   // Spectrum axis ranges (shared by mapping helpers and paint)
   static constexpr float kAxisMinDB = -100.0f;
   static constexpr float kAxisMaxDB = -20.0f;
@@ -73,11 +75,13 @@ private:
   NoiseRepellentAudioProcessor& processor;
   NoiseRepellentAudioProcessor::SpectralFrame currentFrame;
   bool isAdvancedVisible = false;
+  bool isProcessingAvailable = false;
 
   std::array<float, NoiseRepellentAudioProcessor::kFftBins> smoothedInputDB;
   std::array<float, NoiseRepellentAudioProcessor::kFftBins> smoothedOutputDB;
+  std::array<float, NoiseRepellentAudioProcessor::kFftBins> freqSmoothedProfile{};
   bool isSmoothedInitialized = false;
-  int idleTicks = 0;
+  double lastTimerTimeSeconds = 0.0;
 
   float ledBrightness = 0.0f;
   int transientHoldTicks = 0;

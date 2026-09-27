@@ -22,6 +22,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <map>
 #include <numeric>
 #include <random>
+#include <thread>
 #include <vector>
 
 #include <juce_core/juce_core.h>
@@ -166,6 +167,9 @@ public:
     beginTest("Corrupted / Fuzzed State Ingestion Safety");
     testCorruptedStateSafety();
 
+    beginTest("State Restore Off Message Thread Keeps Profile (GH #221)");
+    testStateRestoreOffMessageThreadKeepsProfile();
+
     beginTest("Residual Listen Mode Dry Reconstruction");
     testResidualListenReconstruction();
 
@@ -201,6 +205,109 @@ public:
 
     beginTest("Offline Block Counter Only Advances On Offline Blocks");
     testOfflineBlockCounter();
+
+    beginTest("Audible Output Across Smoothing Modes And Smoothing Values");
+    testAudibleOutputMatrix();
+  }
+
+  // GitHub #222 / #223: every smoothing mode at 0% and >0% smoothing must
+  // keep producing audio when a profile is loaded and reduction is 0 dB.
+  float renderRms(NoiseRepellentAudioProcessor& proc, int blockSize,
+                  int numBlocks, int seedBase) {
+    juce::AudioBuffer<float> buffer(2, blockSize);
+    juce::MidiBuffer midi;
+    double sumSquares = 0.0;
+    int count = 0;
+    for (int b = 0; b < numBlocks; ++b) {
+      generateNoiseBuffer(buffer, 0.05f, seedBase + b);
+      proc.processBlock(buffer, midi);
+      // Skip the first blocks: STFT latency + dry/wet alignment.
+      if (b < 8)
+        continue;
+      for (int ch = 0; ch < buffer.getNumChannels(); ++ch) {
+        const auto* d = buffer.getReadPointer(ch);
+        for (int s = 0; s < blockSize; ++s)
+          sumSquares += static_cast<double>(d[s]) * d[s];
+      }
+      count += buffer.getNumChannels() * blockSize;
+    }
+    return count > 0 ? static_cast<float>(std::sqrt(sumSquares / count)) : 0.0f;
+  }
+
+  void testAudibleOutputMatrix() {
+    // Wide scan across host conditions: rate, frame size, algorithm,
+    // smoothing, low latency, and adaptive mode. Use 0 dB reductions so the
+    // check isolates accidental muting rather than expected denoising.
+    struct Case {
+      double rate;
+      float frameIdx;
+      float algo;
+      float smoothing;
+      float lowLat;
+      float adaptive;
+      float reduction;
+    };
+    std::vector<Case> cases;
+    for (double rate : {44100.0, 48000.0, 96000.0})
+      for (float frameIdx : {0.0f, 2.0f, 4.0f})
+        for (float algo : {0.0f, 2.0f})
+          for (float smoothing : {0.0f, 50.0f})
+            cases.push_back(
+                {rate, frameIdx, algo, smoothing, 0.0f, 0.0f, 0.0f});
+    for (float algo : {1.0f, 3.0f})
+      for (float smoothing : {0.0f, 50.0f})
+        cases.push_back({48000.0, 2.0f, algo, smoothing, 0.0f, 0.0f, 0.0f});
+    // Also retain the user's default reduction level while exercising the two
+    // reported algorithms with smoothing enabled.
+    for (float algo : {0.0f, 2.0f})
+      cases.push_back({48000.0, 2.0f, algo, 50.0f, 0.0f, 0.0f, 12.0f});
+    for (float algo : {0.0f, 2.0f})
+      for (float smoothing : {0.0f, 50.0f})
+        cases.push_back(
+            {48000.0, 2.0f, algo, smoothing, 1.0f, 0.0f, 0.0f});
+    for (float algo : {0.0f, 2.0f})
+      for (float smoothing : {0.0f, 50.0f})
+        cases.push_back(
+            {48000.0, 2.0f, algo, smoothing, 0.0f, 1.0f, 0.0f});
+
+    int idx = 0;
+    for (const auto& c : cases) {
+      NoiseRepellentAudioProcessor proc;
+      proc.prepareToPlay(c.rate, 512);
+      pumpMessageLoop(10);
+      setParam(proc, "frame_size", c.frameIdx);
+      setParam(proc, "low_latency", c.lowLat);
+      setParam(proc, "algorithm_mode", c.algo);
+      setParam(proc, "smoothing_factor", c.smoothing);
+      setParam(proc, "adaptive_noise", c.adaptive);
+      setParam(proc, "reduction_amount", c.reduction);
+      setParam(proc, "tonal_reduction", c.reduction);
+      if (c.adaptive < 0.5f)
+        learnProfile(proc, c.rate, 512, 25);
+      else {
+        juce::AudioBuffer<float> buf(2, 512);
+        juce::MidiBuffer midi;
+        for (int b = 0; b < 40; ++b) {
+          generateNoiseBuffer(buf, 0.05f, 70000 + b);
+          proc.processBlock(buf, midi);
+        }
+      }
+      const float rms = renderRms(proc, 512, 40, 31337 + idx);
+      juce::String ctx = "rate=" + juce::String(c.rate) +
+                         " frame=" + juce::String(c.frameIdx) +
+                         " algo=" + juce::String(c.algo) +
+                         " smooth=" + juce::String(c.smoothing) +
+                         " reduction=" + juce::String(c.reduction) +
+                         " ll=" + juce::String(c.lowLat) +
+                         " adapt=" + juce::String(c.adaptive);
+      if (rms <= 1.0e-4f)
+        fprintf(stderr, "SCAN-FAIL %s -> rms=%g\n", ctx.toRawUTF8(), rms);
+      expect(rms > 1.0e-4f,
+             ctx + ": output must be audible (rms=" + juce::String(rms) +
+                 ") [GH #222/#223]");
+      proc.releaseResources();
+      ++idx;
+    }
   }
 
 private:
@@ -368,6 +475,72 @@ private:
 
     expect(true, "Corrupted state ingestion must be safely rejected without crashing");
     proc.releaseResources();
+  }
+
+  // GitHub #221: LV2 hosts instantiate (and prepare) the plugin first, then
+  // restore state from a non-message thread (Ardour session load). If the
+  // restored state carries a structural parameter change (frame_size /
+  // low_latency), the deferred rebuild must not wipe the profile that the
+  // restore just installed in the live engine.
+  void testStateRestoreOffMessageThreadKeepsProfile() {
+    constexpr double sampleRate = 48000.0;
+    constexpr int blockSize = 512;
+
+    juce::MemoryBlock savedState;
+
+    {
+      NoiseRepellentAudioProcessor proc1;
+      proc1.prepareToPlay(sampleRate, blockSize);
+      pumpMessageLoop(10);
+
+      // Structural parameter different from the fresh-instance default so the
+      // restore triggers a frame-size rebuild.
+      auto* frameParam = proc1.getAPVTS().getParameter("frame_size");
+      expect(frameParam != nullptr, "frame_size parameter must exist");
+      if (frameParam != nullptr) {
+        const float def = frameParam->getDefaultValue();
+        float pick = def < 0.5f ? 1.0f : 0.0f;
+        frameParam->setValueNotifyingHost(pick);
+        pumpMessageLoop(10);
+      }
+      setParam(proc1, "algorithm_mode", 2.0f); // NLM + DFTT refinement
+      for (int step = 0; step < 40; ++step) pumpMessageLoop(20);
+
+      learnProfile(proc1, sampleRate, blockSize, 25);
+      expect(proc1.hasNoiseProfile(), "Proc 1 must have noise profile");
+      proc1.getStateInformation(savedState);
+      expect(savedState.getSize() > 0, "Saved state memory block must not be empty");
+    }
+
+    {
+      // LV2 ordering: instantiate/prepare first, then restore off-thread.
+      NoiseRepellentAudioProcessor proc2;
+      proc2.prepareToPlay(sampleRate, blockSize);
+      pumpMessageLoop(10);
+
+      std::thread restorer([&proc2, &savedState] {
+        proc2.setStateInformation(savedState.getData(),
+                                  static_cast<int>(savedState.getSize()));
+      });
+      restorer.join();
+      for (int step = 0; step < 40; ++step) pumpMessageLoop(20);
+
+      expect(proc2.hasNoiseProfile(),
+             "Profile must survive off-thread restore into a prepared instance [GH #221]");
+
+      juce::AudioBuffer<float> buffer(2, blockSize);
+      juce::MidiBuffer midi;
+      for (int b = 0; b < 20; ++b) {
+        generateNoiseBuffer(buffer, 0.05f, 4242 + b);
+        proc2.processBlock(buffer, midi);
+      }
+      pumpMessageLoop(20);
+
+      expect(proc2.hasNoiseProfile(),
+             "Profile must survive the deferred frame-size rebuild after restore "
+             "[GH #221]");
+      proc2.releaseResources();
+    }
   }
 
   void testResidualListenReconstruction() {

@@ -126,6 +126,7 @@ public:
     std::array<float, kFftBins> outputMagnitudeDB{}; // dB spectrum of output
     std::vector<float> tonalPeaksHz{}; // Detected tonal peak frequencies in Hz
     bool hasNoiseProfile = false;
+    bool hasNoiseFloorEstimate = false;
     bool isLinked = true;
     bool isOffsetLinked = true;
     bool reductionCurveEnabled = false;
@@ -135,6 +136,12 @@ public:
   };
 
   bool getNextSpectralFrame(SpectralFrame& frame);
+  bool isHostTransportPlaying() const {
+    return hostTransportPlaying.load(std::memory_order_relaxed);
+  }
+  bool isHostTransportStateKnown() const {
+    return hostTransportStateKnown.load(std::memory_order_relaxed);
+  }
 
   void resetNoiseProfile();
   bool hasNoiseProfile() const;
@@ -222,8 +229,16 @@ public:
   // Coalesced structural-rebuild request (frame_size/low_latency touched
   // off the message thread, e.g. LV2 automation). Consumed in processBlock.
   std::atomic<bool> frameSizeRebuildPending{false};
+  // Set while setStateInformation replaces the APVTS state: a structural
+  // parameter change coming from that restore must not arm the frame-size
+  // profile-drop gate (GH #221 — off-thread LV2 restore defers the rebuild
+  // until after the restored profile is already installed).
+  std::atomic<bool> replacingStateForRestore{false};
+  std::atomic<bool> preserveProfilesOnFrameRebuild{false};
   std::atomic<float> transientActivity{0.0f};
   std::atomic<bool> transientProtectionActive{false};
+  std::atomic<bool> hostTransportPlaying{true};
+  std::atomic<bool> hostTransportStateKnown{false};
   std::atomic<uint64_t> nonRealtimeBlockCount{0};
 
   struct PendingProfile {
