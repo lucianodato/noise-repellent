@@ -78,6 +78,12 @@ NoiseRepellentAudioProcessor::~NoiseRepellentAudioProcessor() {
 
 juce::AudioProcessorParameter*
 NoiseRepellentAudioProcessor::getBypassParameter() const {
+  if (wrapperType == wrapperType_LV2) {
+    // JUCE's LV2 wrapper mirrors lv2:enabled into this parameter on every run.
+    // Keep the plugin's own bypass control independent; the wrapper calls
+    // processBlockBypassed() for host bypass when no parameter is returned.
+    return nullptr;
+  }
   return bypassParameter;
 }
 
@@ -110,6 +116,10 @@ void NoiseRepellentAudioProcessor::parameterChanged(
     // ponytail: coalesce — LV2 delivers structural-param automation on the
     // audio thread per sub-block; one flag beats a callAsync storm that
     // resets the engine under an in-flight run().
+    // A change driven by a state restore (GH #221) must keep the profiles
+    // the restore is about to install when this deferred rebuild fires.
+    if (replacingStateForRestore.load(std::memory_order_acquire))
+      preserveProfilesOnFrameRebuild.store(true, std::memory_order_release);
     frameSizeRebuildPending.store(true, std::memory_order_release);
   }
 }
@@ -458,8 +468,9 @@ void NoiseRepellentAudioProcessor::loadParametersIfChanged(
     return; // steady state: skip the setup-only library call entirely
 
   if (!specbleach_stereo_load_parameters(engineGroup.get(), &p,
-                                         SPECBLEACH_PARAMETERS_SIZE))
+                                         SPECBLEACH_PARAMETERS_SIZE)) {
     return; // keep the old cache so the next block retries
+  }
 
   lastLoadedParams = norm;
   if (curveEnabled && p.reduction_curve_bias != nullptr &&
@@ -472,6 +483,11 @@ void NoiseRepellentAudioProcessor::loadParametersIfChanged(
 }
 
 void NoiseRepellentAudioProcessor::ensureEnginesInitialized(double sampleRate) {
+  // A profile-drop exemption armed by an off-thread state restore (GH #221)
+  // is consumed by any engine (re)build — including the early-outs below —
+  // so it can never linger to protect a later user-initiated frame switch.
+  const bool preserveForStateRestore =
+      preserveProfilesOnFrameRebuild.exchange(false, std::memory_order_acq_rel);
   // Engine width follows the bus layout (mono hosts get a 1-engine group;
   // the library supports 1 channel explicitly). Rebuild on sample-rate OR
   // channel-count change — hosts can re-layout without touching the rate.
@@ -543,8 +559,10 @@ void NoiseRepellentAudioProcessor::ensureEnginesInitialized(double sampleRate) {
   // A frame-size switch starts clean: resampling a profile captured at a
   // different resolution works poorly, so drop it and let the user re-learn
   // at native resolution. Gated on live profiles so state restores into a
-  // fresh engine (empty savedProfiles) never discard session data.
-  if (frameSizeChanged && !savedProfiles.empty()) {
+  // fresh engine (empty savedProfiles) never discard session data. A rebuild
+  // deferred from an off-thread state restore (GH #221) is exempt: session
+  // data must survive it even when it lands in a live engine first.
+  if (frameSizeChanged && !savedProfiles.empty() && !preserveForStateRestore) {
     savedProfiles.clear();
     pendingProfiles.clear();
   }
@@ -625,7 +643,8 @@ void NoiseRepellentAudioProcessor::ensureEnginesInitialized(double sampleRate) {
       interpolateCurve(numBins);
       lastLoadedCurve.reserve(interpolatedCurveBias.size());
       if (!interpolatedCurveBias.empty()) {
-        SpecbleachDenoiserParameters warm{};
+        SpecbleachDenoiserParameters warm =
+            specbleach_denoiser_get_default_parameters();
         warm.reduction_curve_enabled = true;
         warm.reduction_curve_bias = interpolatedCurveBias.data();
         warm.reduction_curve_size =
@@ -864,6 +883,18 @@ void NoiseRepellentAudioProcessor::runEngine(juce::AudioBuffer<float>& buffer,
 void NoiseRepellentAudioProcessor::processBlock(
     juce::AudioBuffer<float>& buffer, juce::MidiBuffer&) {
   juce::ScopedNoDenormals noDenormals;
+  if (auto* playHead = getPlayHead()) {
+    if (const auto position = playHead->getPosition()) {
+      hostTransportPlaying.store(position->getIsPlaying(),
+                                 std::memory_order_relaxed);
+      hostTransportStateKnown.store(true, std::memory_order_relaxed);
+    } else {
+      hostTransportStateKnown.store(false, std::memory_order_relaxed);
+    }
+  } else {
+    hostTransportStateKnown.store(false, std::memory_order_relaxed);
+  }
+
   const int numSamples = buffer.getNumSamples();
   const int numChannels = buffer.getNumChannels();
 
@@ -1008,6 +1039,7 @@ void NoiseRepellentAudioProcessor::processBlock(
           juce::SpinLock::ScopedTryLockType profileTryLock(profileLock);
           if (profileTryLock.isLocked() && engineGroup != nullptr) {
             frame.hasNoiseProfile = true;
+            frame.hasNoiseFloorEstimate = true;
             // Use the library's active (morphed, tonal-scaled) profile so the
             // line stays frozen and responsive even before the next audio
             // block.
@@ -1057,6 +1089,7 @@ void NoiseRepellentAudioProcessor::processBlock(
         } else {
           frame.noiseFloorDB.fill(-120.0f);
           frame.hasNoiseProfile = false;
+          frame.hasNoiseFloorEstimate = false;
         }
         spectralFifo.finishedWrite(1);
       }
@@ -1127,6 +1160,7 @@ void NoiseRepellentAudioProcessor::processBlock(
         const float* actualNoiseProfile = nullptr;
         uint32_t profileSize = 0;
         bool profileAvailable = false;
+        bool noiseFloorEstimateAvailable = false;
 
         const bool isLearning = learnNoise;
         bool profileHasAnyMode = false;
@@ -1164,12 +1198,17 @@ void NoiseRepellentAudioProcessor::processBlock(
                 }
               }
             }
-            profileAvailable = (actualNoiseProfile != nullptr &&
-                                profileSize > 0 && profileHasAnyMode);
+            noiseFloorEstimateAvailable =
+                actualNoiseProfile != nullptr && profileSize > 0 &&
+                (profileHasAnyMode || ep.adaptiveNoise);
+            profileAvailable = noiseFloorEstimateAvailable && profileHasAnyMode;
           }
         }
 
         frame.hasNoiseProfile = profileAvailable;
+        frame.hasNoiseFloorEstimate = isLearning
+                                          ? profileAvailable
+                                          : noiseFloorEstimateAvailable;
         frame.isLinked =
             (parameters.getRawParameterValue("link_reduction")->load() > 0.5f);
         frame.isOffsetLinked =
@@ -1194,7 +1233,7 @@ void NoiseRepellentAudioProcessor::processBlock(
         frame.isTransientProtectionActive = ep.transientProtectionEnable;
         frame.tonalPeaksHz.clear();
 
-        if (profileAvailable && actualNoiseProfile) {
+        if (frame.hasNoiseFloorEstimate && actualNoiseProfile) {
           // profileSize represents the unique spectrum from DC (0 Hz) to
           // Nyquist (Fs/2)
           size_t realProfileBins = profileSize;
@@ -1243,7 +1282,8 @@ void NoiseRepellentAudioProcessor::processBlock(
         }
       }
 
-      spectralFifo.finishedWrite(1);
+      if (size1 > 0)
+        spectralFifo.finishedWrite(size1 + size2);
 
       // Shift: keep last quarter for overlap (hop = 75%)
       constexpr size_t kHop = kFftSize / 4;
@@ -1428,7 +1468,11 @@ void NoiseRepellentAudioProcessor::setStateInformation(const void* data,
     }
 
     if (state.isValid()) {
+      // Mark the APVTS swap so parameterChanged can tell a structural change
+      // from a session restore apart from live automation (GH #221).
+      replacingStateForRestore.store(true, std::memory_order_release);
       parameters.replaceState(state);
+      replacingStateForRestore.store(false, std::memory_order_release);
     }
 
     if (profilesTree.isValid()) {

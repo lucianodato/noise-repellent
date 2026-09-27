@@ -25,6 +25,9 @@ namespace {
 const juce::String kTipDefaultInstruction =
     "Loop a noise-only segment in your DAW and click Learn Noise\nto "
     "capture a profile, then adjust reduction level.";
+const juce::String kTipAwaitingProfile =
+    "Pass-through: learn a noise profile or enable Adaptive to activate "
+    "denoising controls.";
 const juce::String kTipAdaptive =
     "Toggle continuous adaptive noise estimation.\nWorks standalone or on "
     "top of a manually learned profile.";
@@ -65,10 +68,13 @@ const juce::String kTipLearnDefault =
 const juce::String kTipResetProfile = "Reset noise profile";
 const juce::String kTipResetProfileClear =
     "Reset noise profile and clear learned data.";
+const juce::String kTipResetProfileUnavailable =
+    "There is no profile to reset. Learn a profile or enable Adaptive first.";
 const juce::String kTipAdaptiveMethod =
-    "Select Adaptive Estimation Method: SPP-MMSE (best for speech & dynamic "
-    "noise),\nBrandt (best for steady hiss & fans), or Martin (best for slow "
-    "background).";
+    "Choose how Adaptive estimates the noise floor:\n"
+    "Speech-focused (SPP-MMSE): considers speech presence when updating.\n"
+    "Slow, steady (Brandt): uses a longer rolling statistical history.\n"
+    "Balanced tracking (Martin): follows spectral minima over time.";
 // Reduction faders
 const juce::String kTipMasterReduction =
     "Adjust noise reduction level in decibels\n(0 to 40 dB across all "
@@ -316,9 +322,9 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(
     int currentMethod = static_cast<int>(comboMethod.getSelectedId());
 
     menu.addSectionHeader("ADAPTIVE ESTIMATION METHOD");
-    menu.addItem(1, "SPP-MMSE (Unbiased)", true, currentMethod == 1);
-    menu.addItem(2, "Brandt (Trimmed Mean)", true, currentMethod == 2);
-    menu.addItem(3, "Martin (Minimum Statistics)", true, currentMethod == 3);
+    menu.addItem(1, "Speech-Focused (SPP-MMSE)", true, currentMethod == 1);
+    menu.addItem(2, "Slow, Steady (Brandt)", true, currentMethod == 2);
+    menu.addItem(3, "Balanced Tracking (Martin)", true, currentMethod == 3);
 
     menu.setLookAndFeel(&getLookAndFeel());
     menu.showMenuAsync(
@@ -446,8 +452,9 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(
                           NoiseRepellentLookAndFeel::kColorFineTuning);
   groupAdvanced.setInterceptsMouseClicks(false, false);
 
-  comboMethod.addItemList({"SPP-MMSE (Unbiased)", "Brandt (Trimmed Mean)",
-                           "Martin (Min Statistics)"},
+  comboMethod.addItemList({"Speech-Focused (SPP-MMSE)",
+                           "Slow, Steady (Brandt)",
+                           "Balanced Tracking (Martin)"},
                           1);
   addAndMakeVisible(comboMethod);
 
@@ -896,9 +903,11 @@ void NoiseRepellentAudioProcessorEditor::updateProfileStatus() {
   // When bypassed, disable everything except the Bypass button itself
   bool isBypassed = btnBypass.getToggleState();
   bool pluginActive = !isBypassed;
+  const bool processingAvailable = hasProfile || isAdaptive;
+  const bool controlsActive = pluginActive && processingAvailable;
 
   // Header controls
-  btnDelta.setEnabled(pluginActive);
+  btnDelta.setEnabled(controlsActive);
   btnAdvancedToggle.setEnabled(pluginActive);
   const bool lowLatency =
       audioProcessor.isLowLatency() ||
@@ -907,21 +916,36 @@ void NoiseRepellentAudioProcessorEditor::updateProfileStatus() {
        audioProcessor.getAPVTS()
                .getRawParameterValue("low_latency")
                ->load() > 0.5f);
-  comboAlgoMode.setEnabled(pluginActive && !lowLatency);
-  if (lowLatency)
+  comboAlgoMode.setEnabled(controlsActive && !lowLatency);
+  if (!processingAvailable)
+    comboAlgoMode.setTooltip(kTipAwaitingProfile);
+  else if (lowLatency)
     comboAlgoMode.setTooltip(
         "Locked to Temporal in Low Latency mode (causal 1D-only)");
-  lblAlgoHeader.setEnabled(pluginActive);
+  else
+    comboAlgoMode.setTooltip(kTipAlgoMode);
+  lblAlgoHeader.setEnabled(controlsActive);
 
   // Noise Profile box: enabled whenever plugin is active
   bool profileEnabled = pluginActive;
   groupProfile.setEnabled(pluginActive);
+  groupDenoising.setEnabled(controlsActive);
   btnLearn.setEnabled(profileEnabled);
   btnAdaptiveNoise.setEnabled(profileEnabled);
   btnAdaptiveArrow.setEnabled(profileEnabled);
   btnResetProfile.setEnabled(profileEnabled && (hasProfile || isAdaptive));
-  sliderOffset.setEnabled(pluginActive);
-  lblOffset.setEnabled(pluginActive);
+  btnResetProfile.setTooltip(
+      (hasProfile || isAdaptive) ? kTipResetProfileClear
+                                 : kTipResetProfileUnavailable);
+  sliderOffset.setEnabled(controlsActive);
+  lblOffset.setEnabled(controlsActive);
+  if (!processingAvailable) {
+    btnDelta.setTooltip(kTipAwaitingProfile);
+    sliderOffset.setTooltip(kTipAwaitingProfile);
+    lblOffset.setTooltip(kTipAwaitingProfile);
+  } else {
+    btnDelta.setTooltip(kTipDelta);
+  }
 
   // Aggressiveness (Profile Morphing) enabled in Noise Profile box when a
   // manual profile exists and Advanced Controls is ON
@@ -940,7 +964,7 @@ void NoiseRepellentAudioProcessorEditor::updateProfileStatus() {
   // Reduction controls (low-latency 512-sample frame is too coarse for
   // independent tonal/broadband control: unlinking is unavailable)
   bool canUnlink = (!isAdaptive || hasProfile) && !lowLatency;
-  bool allowUnlink = pluginActive && canUnlink;
+  bool allowUnlink = controlsActive && canUnlink;
   btnLink.setEnabled(allowUnlink);
 
   if (!canUnlink && !btnLink.getToggleState()) {
@@ -950,18 +974,23 @@ void NoiseRepellentAudioProcessorEditor::updateProfileStatus() {
       linkParam->setValueNotifyingHost(1.0f);
   }
 
-  if (canUnlink) {
+  if (!processingAvailable) {
+    btnLink.setTooltip(kTipAwaitingProfile);
+    btnLinkOffset.setTooltip(kTipAwaitingProfile);
+  } else if (canUnlink) {
     btnLink.setTooltip(kTipLink);
+    btnLinkOffset.setTooltip(kTipLink);
   } else {
     btnLink.setTooltip(kTipLinkUnlinkedDisabled);
+    btnLinkOffset.setTooltip(kTipLinkUnlinkedDisabled);
   }
 
-  lblReductionHeader.setEnabled(pluginActive);
-  sliderMasterRed.setEnabled(pluginActive);
-  lblMasterRed.setEnabled(pluginActive);
+  lblReductionHeader.setEnabled(controlsActive);
+  sliderMasterRed.setEnabled(controlsActive);
+  lblMasterRed.setEnabled(controlsActive);
 
   bool isLinked = btnLink.getToggleState();
-  bool tonalEnabled = pluginActive && !isLinked && allowUnlink;
+  bool tonalEnabled = controlsActive && !isLinked && allowUnlink;
   sliderTonalRed.setEnabled(tonalEnabled);
   lblTonalRed.setEnabled(tonalEnabled);
 
@@ -973,11 +1002,16 @@ void NoiseRepellentAudioProcessorEditor::updateProfileStatus() {
   const juce::String kTipTonalReduction =
       "Adjust reduction level for tonal noise components\n(0 to 40 dB).";
 
-  lblReductionHeader.setTooltip(kTipMasterReduction);
-  sliderMasterRed.setTooltip(kTipMasterReduction);
-  lblMasterRed.setTooltip(kTipMasterReduction);
-  sliderTonalRed.setTooltip(kTipTonalReduction);
-  lblTonalRed.setTooltip(kTipTonalReduction);
+  lblReductionHeader.setTooltip(processingAvailable ? kTipMasterReduction
+                                                    : kTipAwaitingProfile);
+  sliderMasterRed.setTooltip(processingAvailable ? kTipMasterReduction
+                                                  : kTipAwaitingProfile);
+  lblMasterRed.setTooltip(processingAvailable ? kTipMasterReduction
+                                               : kTipAwaitingProfile);
+  sliderTonalRed.setTooltip(processingAvailable ? kTipTonalReduction
+                                                 : kTipAwaitingProfile);
+  lblTonalRed.setTooltip(processingAvailable ? kTipTonalReduction
+                                              : kTipAwaitingProfile);
 
   // Threshold Offset controls
   btnLinkOffset.setEnabled(allowUnlink);
@@ -991,36 +1025,57 @@ void NoiseRepellentAudioProcessorEditor::updateProfileStatus() {
   }
 
   bool isOffsetLinked = btnLinkOffset.getToggleState();
-  bool tonalOffsetEnabled = pluginActive && !isOffsetLinked && allowUnlink;
+  bool tonalOffsetEnabled = controlsActive && !isOffsetLinked && allowUnlink;
   sliderTonalOffset.setEnabled(tonalOffsetEnabled);
   lblTonalOffset.setEnabled(tonalOffsetEnabled);
 
 
-  lblOffset.setTooltip((isOffsetLinked ? kTipThreshold : kTipMasterOffsetUnlinked));
-  sliderOffset.setTooltip((isOffsetLinked ? kTipThreshold : kTipMasterOffsetUnlinked));
-  lblMasterOffset.setTooltip((isOffsetLinked ? kTipThreshold : kTipMasterOffsetUnlinked));
-  sliderTonalOffset.setTooltip(kTipTonalOffset);
-  lblTonalOffset.setTooltip(kTipTonalOffset);
+  const juce::String offsetTip =
+      isOffsetLinked ? kTipThreshold : kTipMasterOffsetUnlinked;
+  lblOffset.setTooltip(processingAvailable ? offsetTip : kTipAwaitingProfile);
+  sliderOffset.setTooltip(processingAvailable ? offsetTip
+                                               : kTipAwaitingProfile);
+  lblMasterOffset.setTooltip(processingAvailable ? offsetTip
+                                                  : kTipAwaitingProfile);
+  sliderTonalOffset.setTooltip(processingAvailable ? kTipTonalOffset
+                                                    : kTipAwaitingProfile);
+  lblTonalOffset.setTooltip(processingAvailable ? kTipTonalOffset
+                                                 : kTipAwaitingProfile);
 
-  btnCurveToggle.setEnabled(pluginActive);
-  btnResetCurve.setEnabled(pluginActive && btnCurveToggle.getToggleState());
+  btnCurveToggle.setEnabled(controlsActive);
+  btnResetCurve.setEnabled(controlsActive && btnCurveToggle.getToggleState());
+  btnCurveToggle.setTooltip(processingAvailable ? kTipCurveToggle
+                                                : kTipAwaitingProfile);
+  btnResetCurve.setTooltip(processingAvailable ? kTipResetCurve
+                                               : kTipAwaitingProfile);
 
   // Advanced controls
-  sliderSmoothing.setEnabled(pluginActive);
-  sliderMasking.setEnabled(pluginActive);
-  sliderWhitening.setEnabled(pluginActive);
-  lblSmoothing.setEnabled(pluginActive);
-  lblMasking.setEnabled(pluginActive);
-  lblWhitening.setEnabled(pluginActive);
-  comboMethod.setEnabled(pluginActive);
-  lblMethod.setEnabled(pluginActive);
-  groupAdvanced.setEnabled(pluginActive);
+  sliderSmoothing.setEnabled(controlsActive);
+  sliderMasking.setEnabled(controlsActive);
+  sliderWhitening.setEnabled(controlsActive);
+  lblSmoothing.setEnabled(controlsActive);
+  lblMasking.setEnabled(controlsActive);
+  lblWhitening.setEnabled(controlsActive);
+  comboMethod.setEnabled(controlsActive);
+  lblMethod.setEnabled(controlsActive);
+  groupAdvanced.setEnabled(controlsActive);
+  spectralVisualizer.setProcessingAvailable(processingAvailable);
 
   bool is2D = (comboAlgoMode.getSelectedItemIndex() >= 1);
   const juce::String smoothingTip = is2D ? kTipSmoothing2D : kTipSmoothing;
 
-  sliderSmoothing.setTooltip(smoothingTip);
-  lblSmoothing.setTooltip(smoothingTip);
+  sliderSmoothing.setTooltip(processingAvailable ? smoothingTip
+                                                 : kTipAwaitingProfile);
+  lblSmoothing.setTooltip(processingAvailable ? smoothingTip
+                                              : kTipAwaitingProfile);
+  sliderMasking.setTooltip(processingAvailable ? kTipMasking
+                                               : kTipAwaitingProfile);
+  lblMasking.setTooltip(processingAvailable ? kTipMasking
+                                            : kTipAwaitingProfile);
+  sliderWhitening.setTooltip(processingAvailable ? kTipWhitening
+                                                 : kTipAwaitingProfile);
+  lblWhitening.setTooltip(processingAvailable ? kTipWhitening
+                                              : kTipAwaitingProfile);
 
   // Status label (HUD overlay on FFT spectrum chart)
   bool isDelta = btnDelta.getToggleState();
