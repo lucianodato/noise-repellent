@@ -24,6 +24,10 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 namespace {
 
+const juce::String kNoProfileTooltip =
+    "Pass-through: learn a noise profile or enable Adaptive to activate "
+    "denoising.";
+
 // Tooltip strings (single source; getTooltip() only selects among these)
 const juce::String kTpBadgeTip =
     "Transient Protection (TP): Click to toggle.\n"
@@ -43,30 +47,60 @@ SpectralVisualizerComponent::~SpectralVisualizerComponent() {
   stopTimer();
 }
 
+void SpectralVisualizerComponent::setProcessingAvailable(bool available) {
+  if (isProcessingAvailable == available)
+    return;
+
+  isProcessingAvailable = available;
+  if (!available) {
+    activeDragTarget = DragTarget::None;
+    activeNodeIndex = -1;
+  }
+  repaint();
+}
+
 void SpectralVisualizerComponent::timerCallback() {
+  const double nowSeconds = juce::Time::getMillisecondCounterHiRes() * 0.001;
+  const double elapsedSeconds =
+      lastTimerTimeSeconds > 0.0
+          ? juce::jlimit(0.0, 0.25, nowSeconds - lastTimerTimeSeconds)
+          : 1.0 / 60.0;
+  lastTimerTimeSeconds = nowSeconds;
+
   bool frameReceived = processor.getNextSpectralFrame(currentFrame);
-  if (frameReceived) {
-    const size_t numBins = NoiseRepellentAudioProcessor::kFftBins;
+  const size_t numBins = NoiseRepellentAudioProcessor::kFftBins;
+  constexpr float kAttackAlpha = 0.35f;
+  constexpr float kReleaseAlpha = 0.10f;
+  const float releaseAlpha = static_cast<float>(
+      1.0 - std::pow(1.0 - kReleaseAlpha, elapsedSeconds * 60.0));
+  const bool hostStopped = processor.isHostTransportStateKnown() &&
+                           !processor.isHostTransportPlaying();
+  const bool shouldDecay = hostStopped && isSmoothedInitialized;
 
-    if (!isSmoothedInitialized) {
-      smoothedInputDB = currentFrame.inputMagnitudeDB;
-      smoothedOutputDB = currentFrame.outputMagnitudeDB;
-      isSmoothedInitialized = true;
-    } else {
-      // Asymmetric Exponential Moving Average (Fast Attack, Smooth Fluid Decay)
-      constexpr float kAttackAlpha = 0.35f; // Fast response to audio transients
-      constexpr float kReleaseAlpha =
-          0.10f; // Smooth, liquid decay on falling signals
-
-      for (size_t i = 0; i < numBins; ++i) {
-        float targetIn = currentFrame.inputMagnitudeDB[i];
-        float alphaIn =
-            (targetIn > smoothedInputDB[i]) ? kAttackAlpha : kReleaseAlpha;
+  if (frameReceived && !isSmoothedInitialized) {
+    smoothedInputDB = currentFrame.inputMagnitudeDB;
+    smoothedOutputDB = currentFrame.outputMagnitudeDB;
+    isSmoothedInitialized = true;
+  } else if (isSmoothedInitialized) {
+    // Preserve the original per-frame smoothing while playing. When stopped,
+    // decay only the displayed spectra using elapsed time, regardless of any
+    // synthetic silent FFT frames the processor may continue to publish.
+    for (size_t i = 0; i < numBins; ++i) {
+      if (shouldDecay) {
+        smoothedInputDB[i] +=
+            releaseAlpha * (kAxisMinDB - smoothedInputDB[i]);
+        smoothedOutputDB[i] +=
+            releaseAlpha * (kAxisMinDB - smoothedOutputDB[i]);
+      } else if (frameReceived) {
+        const float targetIn = currentFrame.inputMagnitudeDB[i];
+        const float alphaIn = targetIn > smoothedInputDB[i] ? kAttackAlpha
+                                                            : kReleaseAlpha;
         smoothedInputDB[i] += alphaIn * (targetIn - smoothedInputDB[i]);
 
-        float targetOut = currentFrame.outputMagnitudeDB[i];
-        float alphaOut =
-            (targetOut > smoothedOutputDB[i]) ? kAttackAlpha : kReleaseAlpha;
+        const float targetOut = currentFrame.outputMagnitudeDB[i];
+        const float alphaOut = targetOut > smoothedOutputDB[i]
+                                   ? kAttackAlpha
+                                   : kReleaseAlpha;
         smoothedOutputDB[i] += alphaOut * (targetOut - smoothedOutputDB[i]);
       }
     }
@@ -84,7 +118,8 @@ void SpectralVisualizerComponent::timerCallback() {
   } else {
     // Synchronize transient detection LED strictly with the displayed
     // visualizer FFT frame
-    float targetIntensity = currentFrame.transientIntensity;
+    float targetIntensity =
+        frameReceived ? currentFrame.transientIntensity : 0.0f;
 
     // Trigger LED strictly when high-confidence transient is present in the
     // displayed frame
@@ -98,11 +133,15 @@ void SpectralVisualizerComponent::timerCallback() {
     }
   }
 
-  if (frameReceived || transientHoldTicks > 0 || ledBrightness > 0.0f) {
-    idleTicks = 0;
-    repaint();
-  } else if (idleTicks < 30) {
-    idleTicks++;
+  const bool spectrumAboveFloor =
+      isSmoothedInitialized &&
+      (std::any_of(smoothedInputDB.begin(), smoothedInputDB.end(),
+                   [](float value) { return value > SpectralVisualizerComponent::kAxisMinDB + 0.1f; }) ||
+       std::any_of(smoothedOutputDB.begin(), smoothedOutputDB.end(),
+                   [](float value) { return value > SpectralVisualizerComponent::kAxisMinDB + 0.1f; }));
+  if (frameReceived || (shouldDecay && spectrumAboveFloor) ||
+      transientHoldTicks > 0 ||
+      ledBrightness > 0.0f) {
     repaint();
   }
 }
@@ -214,7 +253,7 @@ void SpectralVisualizerComponent::paint(juce::Graphics& g) {
                                        freqSmoothedInput.data(), numBins);
   smoothBinsLogarithmicFrequencyDomain(smoothedOutputDB.data(),
                                        freqSmoothedOutput.data(), numBins);
-  if (currentFrame.hasNoiseProfile) {
+  if (currentFrame.hasNoiseProfile || currentFrame.hasNoiseFloorEstimate) {
     smoothBinsLogarithmicFrequencyDomain(currentFrame.noiseFloorDB.data(),
                                          freqSmoothedProfile.data(), numBins);
   }
@@ -320,7 +359,7 @@ void SpectralVisualizerComponent::paint(juce::Graphics& g) {
   }
 
   // 3. Noise Floor Profile Curve (Solid Warm Amber Line)
-  if (currentFrame.hasNoiseProfile) {
+  if (currentFrame.hasNoiseProfile || currentFrame.hasNoiseFloorEstimate) {
     juce::Path noisePath =
         buildLogFreqPath(freqSmoothedProfile.data(), numBins);
     g.setColour(NoiseRepellentLookAndFeel::kColorNoiseProfile);
@@ -382,7 +421,8 @@ void SpectralVisualizerComponent::paint(juce::Graphics& g) {
   }
 
   // 3b. Reduction Curve Bias Overlay & Nodes (Only shown in Advanced mode)
-  if (isAdvancedVisible && currentFrame.reductionCurveEnabled) {
+  if (isProcessingAvailable && isAdvancedVisible &&
+      currentFrame.reductionCurveEnabled) {
     const auto& nodes = processor.getCurveNodes();
     if (nodes.size() >= 2) {
       auto nodeToPoint = [&](const NoiseRepellentAudioProcessor::CurveNode& n)
@@ -477,6 +517,29 @@ void SpectralVisualizerComponent::paint(juce::Graphics& g) {
     }
   }
 
+  if (!isProcessingAvailable && w > 40.0f && h > 48.0f) {
+    const float cardWidth = std::min(440.0f, w - 20.0f);
+    constexpr float cardHeight = 60.0f;
+    const auto card = juce::Rectangle<float>(
+        (w - cardWidth) * 0.5f, (h - cardHeight) * 0.5f, cardWidth,
+        cardHeight);
+    g.setColour(juce::Colour(0xe6222833));
+    g.fillRoundedRectangle(card, 7.0f);
+    g.setColour(juce::Colour(NoiseRepellentLookAndFeel::kColorNoiseProfile)
+                    .withAlpha(0.75f));
+    g.drawRoundedRectangle(card, 7.0f, 1.2f);
+
+    auto textArea = card.reduced(10.0f, 5.0f);
+    g.setColour(juce::Colour(NoiseRepellentLookAndFeel::kColorNoiseProfile));
+    g.setFont(juce::FontOptions(14.0f, juce::Font::bold));
+    g.drawText("NO PROFILE - PASS-THROUGH", textArea.removeFromTop(25.0f),
+               juce::Justification::centred, false);
+    g.setColour(juce::Colour(NoiseRepellentLookAndFeel::kColorLegendText));
+    g.setFont(juce::FontOptions(11.5f, juce::Font::plain));
+    g.drawText("Learn Noise or enable Adaptive to start denoising", textArea,
+               juce::Justification::centred, false);
+  }
+
   // 4. Tonal Peak Markers (Dashed vertical lines with staggered multi-tier
   // frequency tags; shown ONLY in Advanced mode when Reduction or Threshold
   // Offset is UNLINKED)
@@ -547,7 +610,8 @@ void SpectralVisualizerComponent::paint(juce::Graphics& g) {
         isAdvancedVisible &&
         (!currentFrame.isLinked || !currentFrame.isOffsetLinked);
     const bool showCurveSwatch =
-        isAdvancedVisible && currentFrame.reductionCurveEnabled;
+        isProcessingAvailable && isAdvancedVisible &&
+        currentFrame.reductionCurveEnabled;
     const float padding = 10.0f;
     const float swatch1W = 10.0f + 4.0f + 32.0f + 14.0f; // Input (60)
     const float swatch2W = 12.0f + 4.0f + 38.0f + 14.0f; // Profile (68)
@@ -727,6 +791,9 @@ void SpectralVisualizerComponent::mouseDown(const juce::MouseEvent& e) {
   activeNodeIndex = -1;
   dragStartPos = e.position;
 
+  if (!isProcessingAvailable)
+    return;
+
   const float w = static_cast<float>(getWidth());
   const float h = static_cast<float>(getHeight());
 
@@ -790,6 +857,9 @@ void SpectralVisualizerComponent::mouseDown(const juce::MouseEvent& e) {
 }
 
 void SpectralVisualizerComponent::mouseDrag(const juce::MouseEvent& e) {
+  if (!isProcessingAvailable)
+    return;
+
   const float w = static_cast<float>(getWidth());
   const float h = static_cast<float>(getHeight());
 
@@ -808,6 +878,9 @@ void SpectralVisualizerComponent::mouseUp(const juce::MouseEvent&) {
 }
 
 void SpectralVisualizerComponent::mouseDoubleClick(const juce::MouseEvent& e) {
+  if (!isProcessingAvailable)
+    return;
+
   if (isAdvancedVisible && currentFrame.reductionCurveEnabled) {
     const auto& nodes = processor.getCurveNodes();
     const float w = static_cast<float>(getWidth());
@@ -826,6 +899,11 @@ void SpectralVisualizerComponent::mouseDoubleClick(const juce::MouseEvent& e) {
 }
 
 void SpectralVisualizerComponent::mouseMove(const juce::MouseEvent& e) {
+  if (!isProcessingAvailable) {
+    setMouseCursor(juce::MouseCursor::NormalCursor);
+    return;
+  }
+
   const float w = static_cast<float>(getWidth());
   juce::Rectangle<float> badgeBounds = getTpBadgeBounds();
 
@@ -841,6 +919,9 @@ void SpectralVisualizerComponent::mouseExit(const juce::MouseEvent&) {
 }
 
 juce::String SpectralVisualizerComponent::getTooltip() {
+  if (!isProcessingAvailable)
+    return kNoProfileTooltip;
+
   if (isAdvancedVisible) {
     const float w = static_cast<float>(getWidth());
     const juce::Rectangle<float> badge = getTpBadgeBounds();
