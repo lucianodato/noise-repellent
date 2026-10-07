@@ -110,8 +110,10 @@ public:
 
   bool getNextBandFrame(BandFrame& frame);
 
-  // Learn toggle (message thread): while engaged the engine tracker
-  // converges on the input; disengaged, the captured threshold freezes.
+  // Learn toggle (message thread): routes through the automatable
+  // "learning" parameter. While engaged the engine tracker converges
+  // on the input (floor reset on the 0->1 edge); disengaged, the
+  // captured threshold freezes.
   void setLearning(bool shouldLearn);
 
   // Delta monitoring (message thread, GUI-only): when on, the plugin

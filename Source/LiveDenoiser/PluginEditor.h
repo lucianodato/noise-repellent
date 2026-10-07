@@ -54,19 +54,12 @@ private:
   // Noise floor learning (sticky toggle driving the engine tracker)
   juce::TextButton btnLearn{"Learn"};
 
-  // Tuning Controls (gate strip + threshold bank right of display)
-  juce::Slider sliderAttack{juce::Slider::LinearHorizontal,
-                            juce::Slider::TextBoxRight};
-  juce::Slider sliderRelease{juce::Slider::LinearHorizontal,
-                             juce::Slider::TextBoxRight};
-  juce::Slider sliderKnee{juce::Slider::LinearHorizontal,
-                          juce::Slider::TextBoxRight};
+  // Threshold bank right of display. Attack/Release/Knee are handled
+  // automatically at tuned defaults (no UI, cf. RX Voice De-noise);
+  // the APVTS params stay for host/session compatibility.
   juce::Slider sliderThreshold{juce::Slider::LinearVertical,
                                juce::Slider::TextBoxBelow};
 
-  juce::Label lblAttack{"lblAttack", "ATTACK"};
-  juce::Label lblRelease{"lblRelease", "RELEASE"};
-  juce::Label lblKnee{"lblKnee", "KNEE"};
   juce::Label lblThreshold{"lblThreshold", "THRESHOLD"};
 
   // Spectrum display
@@ -80,10 +73,8 @@ private:
   using SliderAttachment = juce::AudioProcessorValueTreeState::SliderAttachment;
 
   std::unique_ptr<ButtonAttachment> attachBypass;
+  std::unique_ptr<ButtonAttachment> attachLearn;
   std::unique_ptr<SliderAttachment> attachReduction;
-  std::unique_ptr<SliderAttachment> attachAttack;
-  std::unique_ptr<SliderAttachment> attachRelease;
-  std::unique_ptr<SliderAttachment> attachKnee;
   std::unique_ptr<SliderAttachment> attachThreshold;
 
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(

@@ -34,14 +34,14 @@ NoiseRepellentLiveAudioProcessor::NoiseRepellentLiveAudioProcessor()
   // Route DSP parameter changes through the message thread. bypass is
   // read atomically in processBlock and needs no listener.
   for (const auto& id : {"reduction_amount", "attack_ms", "release_ms",
-                         "threshold_db", "knee_db"}) {
+                         "threshold_db", "knee_db", "learning"}) {
     parameters.addParameterListener(id, this);
   }
 }
 
 NoiseRepellentLiveAudioProcessor::~NoiseRepellentLiveAudioProcessor() {
   for (const auto& id : {"reduction_amount", "attack_ms", "release_ms",
-                         "threshold_db", "knee_db"}) {
+                         "threshold_db", "knee_db", "learning"}) {
     parameters.removeParameterListener(id, this);
   }
   cancelPendingUpdate();
@@ -82,6 +82,13 @@ NoiseRepellentLiveAudioProcessor::createParameterLayout() {
   params.push_back(std::make_unique<juce::AudioParameterBool>(
       "bypass", "Internal Bypass", false));
 
+  // Learn is automatable (mirrors RX Voice De-noise "Adaptive Mode") so
+  // hosts can drive learn-then-freeze: 1.0 adapts (+ resets the floor on
+  // the 0->1 edge), 0.0 freezes. Appended last so existing indices 0-5
+  // are unchanged.
+  params.push_back(
+      std::make_unique<juce::AudioParameterBool>("learning", "Learn", false));
+
   return {params.begin(), params.end()};
 }
 
@@ -109,10 +116,22 @@ void NoiseRepellentLiveAudioProcessor::applyParameters() {
       parameters.getRawParameterValue("attack_ms")->load() / 1000.0f;
   p.release_time =
       parameters.getRawParameterValue("release_ms")->load() / 1000.0f;
-  // Manual-learn only: the tracker runs while the Learn toggle is
-  // engaged, then the captured threshold freezes. Fast preset so a
-  // short noise loop converges.
-  p.adaptive_noise = learning.load(std::memory_order_acquire);
+  // Learn toggle as an automatable parameter: the tracker runs while
+  // engaged, then the captured threshold freezes on disengage. The 0->1
+  // edge drops the old floor so the tracker converges on the looped
+  // noise only. Fast preset so a short noise loop converges.
+  const bool wantLearn =
+      parameters.getRawParameterValue("learning")->load() > 0.5f;
+  if (wantLearn && !learning.load(std::memory_order_acquire)) {
+    // Fresh capture (RT-safe flag, honored by process).
+    for (auto& engine : engines) {
+      if (engine != nullptr) {
+        specbleach_live_denoiser_reset_noise_floor(engine.get());
+      }
+    }
+  }
+  learning.store(wantLearn, std::memory_order_release);
+  p.adaptive_noise = wantLearn;
   p.noise_estimation_method = SPECBLEACH_LIVE_SPP_MMSE;
   p.threshold_db = parameters.getRawParameterValue("threshold_db")->load();
   p.knee_db = parameters.getRawParameterValue("knee_db")->load();
@@ -304,18 +323,12 @@ bool NoiseRepellentLiveAudioProcessor::getNextBandFrame(BandFrame& frame) {
 }
 
 void NoiseRepellentLiveAudioProcessor::setLearning(bool shouldLearn) {
-  if (shouldLearn) {
-    // Fresh capture: drop the old floor so the tracker converges on
-    // the looped noise only (RT-safe flag, honored by process).
-    for (auto& engine : engines) {
-      if (engine != nullptr) {
-        specbleach_live_denoiser_reset_noise_floor(engine.get());
-      }
-    }
+  // Route through the automatable parameter so hosts, state, and the GUI
+  // button stay in sync; the floor reset happens on the 0->1 edge in
+  // applyParameters().
+  if (auto* param = parameters.getParameter("learning")) {
+    param->setValueNotifyingHost(shouldLearn ? 1.0f : 0.0f);
   }
-  learning.store(shouldLearn, std::memory_order_release);
-  parametersDirty.store(true, std::memory_order_release);
-  triggerAsyncUpdate();
 }
 
 void NoiseRepellentLiveAudioProcessor::setDeltaMonitoring(bool shouldMonitor) {

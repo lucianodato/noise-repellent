@@ -71,49 +71,18 @@ NoiseRepellentLiveAudioProcessorEditor::NoiseRepellentLiveAudioProcessorEditor(
   btnLearn.setTooltip(
       "Learn the noise profile: loop a noise-only section while "
       "engaged. Disengage to freeze the captured threshold (amber)");
-  btnLearn.onClick = [this]() {
-    audioProcessor.setLearning(btnLearn.getToggleState());
-  };
   addAndMakeVisible(btnLearn);
 
   // ── Spectrum Display ──
   addAndMakeVisible(spectralVisualizer);
 
-  // ── Tuning Controls (always visible) ──
-  addAndMakeVisible(sliderAttack);
-  sliderAttack.setSliderStyle(juce::Slider::LinearHorizontal);
-  sliderAttack.setTextBoxStyle(juce::Slider::TextBoxRight, false, 60, 20);
-  sliderAttack.setTooltip(
-      "Gate attack: how fast bands open when signal rises above threshold");
-
-  addAndMakeVisible(sliderRelease);
-  sliderRelease.setSliderStyle(juce::Slider::LinearHorizontal);
-  sliderRelease.setTextBoxStyle(juce::Slider::TextBoxRight, false, 60, 20);
-  sliderRelease.setTooltip(
-      "Gate release: how fast bands close. "
-      "Higher values sound steadier");
-
-  addAndMakeVisible(sliderKnee);
-  sliderKnee.setSliderStyle(juce::Slider::LinearHorizontal);
-  sliderKnee.setTextBoxStyle(juce::Slider::TextBoxRight, false, 60, 20);
-  sliderKnee.setTooltip(
-      "Soft-knee width below the threshold. 0 dB is a hard gate");
-
+  // ── Threshold (smoothing is automatic at tuned defaults) ──
   addAndMakeVisible(sliderThreshold);
   sliderThreshold.setSliderStyle(juce::Slider::LinearVertical);
   sliderThreshold.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 80, 20);
   sliderThreshold.setTooltip(
       "Gate threshold offset in dB, like the full denoiser. "
       "Higher removes more noise, lower passes more through");
-
-  for (auto* lbl : {&lblAttack, &lblRelease, &lblKnee}) {
-    addAndMakeVisible(*lbl);
-    lbl->setFont(juce::FontOptions(NoiseRepellentLookAndFeel::kFontSizeLabel,
-                                   juce::Font::bold));
-    lbl->setColour(juce::Label::textColourId,
-                   NoiseRepellentLookAndFeel::kColorDenoising);
-    lbl->setJustificationType(juce::Justification::centredLeft);
-  }
 
   addAndMakeVisible(lblThreshold);
   lblThreshold.setFont(juce::FontOptions(
@@ -133,20 +102,16 @@ NoiseRepellentLiveAudioProcessorEditor::NoiseRepellentLiveAudioProcessorEditor(
   // Attachments
   auto& apvts = audioProcessor.getAPVTS();
   attachBypass = std::make_unique<ButtonAttachment>(apvts, "bypass", btnBypass);
+  attachLearn = std::make_unique<ButtonAttachment>(apvts, "learning", btnLearn);
   attachReduction = std::make_unique<SliderAttachment>(
       apvts, "reduction_amount", sliderReduction);
-  attachAttack =
-      std::make_unique<SliderAttachment>(apvts, "attack_ms", sliderAttack);
-  attachRelease =
-      std::make_unique<SliderAttachment>(apvts, "release_ms", sliderRelease);
-  attachKnee = std::make_unique<SliderAttachment>(apvts, "knee_db", sliderKnee);
   attachThreshold = std::make_unique<SliderAttachment>(apvts, "threshold_db",
                                                        sliderThreshold);
 
   // Footer tooltip follows hovered component
-  for (auto* comp : std::array<juce::Component*, 8>{
-           &sliderReduction, &btnLearn, &btnBypass, &btnDelta, &sliderAttack,
-           &sliderRelease, &sliderKnee, &sliderThreshold}) {
+  for (auto* comp : std::array<juce::Component*, 5>{
+           &sliderReduction, &btnLearn, &btnBypass, &btnDelta,
+           &sliderThreshold}) {
     comp->addMouseListener(this, false);
   }
 
@@ -196,21 +161,6 @@ void NoiseRepellentLiveAudioProcessorEditor::resized() {
   // ── Footer ──
   auto footer = area.removeFromBottom(20);
   footerTooltipLabel.setBounds(footer);
-
-  area.removeFromBottom(6); // gap above tuning strip
-
-  // ── Tuning Strip (bottom, always visible): Attack / Release / Knee ──
-  auto tuningArea = area.removeFromBottom(52);
-  auto colAttack = tuningArea.removeFromLeft(tuningArea.getWidth() / 3);
-  auto colRelease = tuningArea.removeFromLeft(tuningArea.getWidth() / 2);
-  colAttack.removeFromRight(8); // gaps between columns
-  colRelease.removeFromRight(8);
-  lblAttack.setBounds(colAttack.removeFromTop(18));
-  sliderAttack.setBounds(colAttack);
-  lblRelease.setBounds(colRelease.removeFromTop(18));
-  sliderRelease.setBounds(colRelease);
-  lblKnee.setBounds(tuningArea.removeFromTop(18));
-  sliderKnee.setBounds(tuningArea);
 
   area.removeFromBottom(6); // gap above main area
 

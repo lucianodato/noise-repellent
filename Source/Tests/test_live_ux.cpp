@@ -53,6 +53,23 @@ void setParam(NoiseRepellentLiveAudioProcessor& proc,
   pumpMessageLoop(5);
 }
 
+// Finds a button by its label through the component tree, the way a UI
+// driver locates controls (no access to the editor's private members).
+juce::Button* findButtonByText(juce::Component* root,
+                               const juce::String& text) {
+  if (auto* b = dynamic_cast<juce::Button*>(root)) {
+    if (b->getButtonText() == text) {
+      return b;
+    }
+  }
+  for (auto* child : root->getChildren()) {
+    if (auto* found = findButtonByText(child, text)) {
+      return found;
+    }
+  }
+  return nullptr;
+}
+
 float bufferRms(const juce::AudioBuffer<float>& buffer) {
   double sum = 0.0;
   size_t count = 0;
@@ -100,9 +117,9 @@ public:
       NoiseRepellentLiveAudioProcessor proc;
       auto& apvts = proc.getAPVTS();
 
-      const char* expectedIds[] = {"reduction_amount", "attack_ms",
-                                   "release_ms",       "threshold_db",
-                                   "knee_db",          "bypass"};
+      const char* expectedIds[] = {
+          "reduction_amount", "attack_ms", "release_ms", "threshold_db",
+          "knee_db",          "bypass",    "learning"};
       for (const auto* id : expectedIds) {
         expect(apvts.getParameter(id) != nullptr,
                juce::String("missing parameter: ") + id);
@@ -111,7 +128,7 @@ public:
       // No stale parameters from the main plugin (Live learns manually:
       // no adaptive_noise / adaptive_method)
       const int numParams = static_cast<int>(proc.getParameters().size());
-      expectEquals(numParams, 6);
+      expectEquals(numParams, 7);
 
       auto* reduction = static_cast<juce::AudioParameterFloat*>(
           apvts.getParameter("reduction_amount"));
@@ -142,6 +159,10 @@ public:
       auto* bypass =
           static_cast<juce::AudioParameterBool*>(apvts.getParameter("bypass"));
       expect(!bypass->get());
+
+      auto* learning = static_cast<juce::AudioParameterBool*>(
+          apvts.getParameter("learning"));
+      expect(!learning->get());
     }
 
     beginTest("bus layout support");
@@ -306,6 +327,61 @@ public:
       proc.releaseResources();
       proc.editorBeingDeleted(editor.get());
     }
+
+    beginTest("learn button click drives the tracker");
+    {
+      // Same chain as a user (or UI-driver) mouse click: real editor,
+      // button found by label, toggle notification through the button
+      // attachment into the engine. No direct setLearning() calls.
+      NoiseRepellentLiveAudioProcessor proc;
+      proc.setRateAndBufferSizeDetails(48000.0, 512);
+      proc.prepareToPlay(48000.0, 512);
+      std::unique_ptr<juce::AudioProcessorEditor> editor(
+          proc.createEditorIfNeeded());
+
+      juce::Button* learn = findButtonByText(editor.get(), "Learn");
+      expect(learn != nullptr, "learn button must exist in the editor");
+      if (learn == nullptr) {
+        return;
+      }
+      expect(!learn->getToggleState(), "learn starts disengaged");
+
+      // Click ON: floor resets and converges on looped noise.
+      learn->setToggleState(true, juce::sendNotification);
+      pumpMessageLoop(50);
+      juce::MidiBuffer midi;
+      juce::AudioBuffer<float> buffer(2, 512);
+      NoiseRepellentLiveAudioProcessor::BandFrame frame;
+      for (int i = 0; i < 100; ++i) {
+        generateNoiseBuffer(buffer);
+        proc.processBlock(buffer, midi);
+        while (proc.getNextBandFrame(frame)) {
+        }
+      }
+      float maxThr = 0.0f;
+      for (size_t b = 0; b < NoiseRepellentLiveAudioProcessor::kNumBands; ++b) {
+        maxThr = std::max(maxThr, frame.thresholdLevels[b]);
+      }
+      expect(maxThr > 0.0f, "button click must engage learning");
+
+      // Click OFF: the captured threshold freezes on silence.
+      learn->setToggleState(false, juce::sendNotification);
+      pumpMessageLoop(50);
+      juce::AudioBuffer<float> silence(2, 512);
+      silence.clear();
+      proc.processBlock(silence, midi);
+      NoiseRepellentLiveAudioProcessor::BandFrame frozen;
+      while (proc.getNextBandFrame(frozen)) {
+      }
+      for (size_t b = 0; b < NoiseRepellentLiveAudioProcessor::kNumBands; ++b) {
+        expectWithinAbsoluteError(frozen.thresholdLevels[b],
+                                  frame.thresholdLevels[b], 1e-6f);
+      }
+
+      proc.releaseResources();
+      proc.editorBeingDeleted(editor.get());
+    }
+
     beginTest("delta monitoring outputs the removed noise");
     {
       NoiseRepellentLiveAudioProcessor proc;
