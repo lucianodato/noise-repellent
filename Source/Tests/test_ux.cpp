@@ -27,8 +27,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <juce_events/juce_events.h>
 #include <juce_gui_basics/juce_gui_basics.h>
 
-#include "PluginEditor.h"
-#include "PluginProcessor.h"
+#include "../Denoiser/PluginEditor.h"
+#include "../Denoiser/PluginProcessor.h"
 
 namespace {
 
