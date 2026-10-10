@@ -903,8 +903,8 @@ void NoiseRepellentAudioProcessor::runEngine(juce::AudioBuffer<float>& buffer,
 void NoiseRepellentAudioProcessor::processBlock(
     juce::AudioBuffer<float>& buffer, juce::MidiBuffer&) {
   juce::ScopedNoDenormals noDenormals;
-  if (const auto* playHead = getPlayHead()) {
-    if (const auto position = playHead->getPosition()) {
+  if (const auto* hostPlayHead = getPlayHead()) {
+    if (const auto position = hostPlayHead->getPosition()) {
       hostTransportPlaying.store(position->getIsPlaying(),
                                  std::memory_order_relaxed);
       hostTransportStateKnown.store(true, std::memory_order_relaxed);
