@@ -18,6 +18,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
 #include <cmath>
+#include <memory>
 #include <numeric>
 #include <random>
 
@@ -56,14 +57,13 @@ void setParam(NoiseRepellentAudioProcessor& proc, const juce::String& paramId,
 
 struct ScopedEditor {
   NoiseRepellentAudioProcessor& proc;
-  juce::AudioProcessorEditor* editor = nullptr;
+  std::unique_ptr<juce::AudioProcessorEditor> editor;
   explicit ScopedEditor(NoiseRepellentAudioProcessor& p)
       : proc(p), editor(p.createEditorIfNeeded()) {
   }
   ~ScopedEditor() {
     if (editor != nullptr) {
-      proc.editorBeingDeleted(editor);
-      delete editor;
+      proc.editorBeingDeleted(editor.get());
     }
   }
 };

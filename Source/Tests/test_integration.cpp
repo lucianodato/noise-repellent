@@ -18,11 +18,14 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
 #include <cmath>
+#include <cstring>
 #include <limits>
 #include <map>
+#include <memory>
 #include <numeric>
 #include <random>
 #include <thread>
+#include <utility>
 #include <vector>
 
 #include <juce_core/juce_core.h>
@@ -49,13 +52,12 @@ void setParam(NoiseRepellentAudioProcessor& proc, const juce::String& paramId,
 
 struct ScopedEditor {
   NoiseRepellentAudioProcessor& proc;
-  juce::AudioProcessorEditor* editor = nullptr;
+  std::unique_ptr<juce::AudioProcessorEditor> editor;
   explicit ScopedEditor(NoiseRepellentAudioProcessor& p)
       : proc(p), editor(p.createEditorIfNeeded()) {}
   ~ScopedEditor() {
     if (editor != nullptr) {
-      proc.editorBeingDeleted(editor);
-      delete editor;
+      proc.editorBeingDeleted(editor.get());
     }
   }
 };
@@ -132,8 +134,11 @@ extractStateProfiles(const juce::MemoryBlock& state) {
         !mb.fromBase64Encoding(base64Data) || mb.getSize() == 0)
       continue;
     const size_t count = mb.getSize() / sizeof(float);
-    const float* data = reinterpret_cast<const float*>(mb.getData());
-    out[{channel, mode}] = std::vector<float>(data, data + count);
+    if (count == 0)
+      continue;
+    std::vector<float> data(count);
+    std::memcpy(data.data(), mb.getData(), count * sizeof(float));
+    out[{channel, mode}] = std::move(data);
   }
   return out;
 }

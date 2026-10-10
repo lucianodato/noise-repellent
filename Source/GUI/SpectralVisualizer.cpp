@@ -20,6 +20,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "SpectralVisualizer.h"
 #include "LookAndFeel.h"
 #include <algorithm>
+#include <array>
 #include <cmath>
 
 namespace {
@@ -107,7 +108,7 @@ void SpectralVisualizerComponent::timerCallback() {
   }
 
   // Synchronize transient detection active state and LED activity
-  auto* transientParam =
+  const auto* transientParam =
       processor.getAPVTS().getRawParameterValue("transient_protection_enable");
   transientProtectionActive =
       (transientParam != nullptr && transientParam->load() > 0.5f);
@@ -237,7 +238,7 @@ void SpectralVisualizerComponent::paint(juce::Graphics& g) {
   const float minFreq = SpectralVisualizerComponent::kAxisMinFreq;
   const float maxFreq = SpectralVisualizerComponent::kAxisMaxFreq;
 
-  const double sampleRate = processor.getSampleRate();
+  const double sampleRate = processor.getEngineSampleRate();
   const size_t numBins = NoiseRepellentAudioProcessor::kFftBins;
   const float binWidth =
       static_cast<float>(sampleRate) /
@@ -275,8 +276,9 @@ void SpectralVisualizerComponent::paint(juce::Graphics& g) {
   }
 
   // Frequency X-grid (logarithmic)
-  static const float freqs[] = {50,   100,  200,   500,  1000,
-                                2000, 5000, 10000, 20000};
+  static constexpr std::array freqs = {50.0f,   100.0f,  200.0f,  500.0f,
+                                       1000.0f, 2000.0f, 5000.0f, 10000.0f,
+                                       20000.0f};
   for (float f : freqs) {
     float x = freqToX(f, w, minFreq, maxFreq);
     g.setColour(juce::Colour(NoiseRepellentLookAndFeel::kColorGridLine));
@@ -436,8 +438,8 @@ void SpectralVisualizerComponent::paint(juce::Graphics& g) {
       g.setColour(
           NoiseRepellentLookAndFeel::kColorReductionCurve.withAlpha(0.35f));
       juce::Line<float> zeroLine(0.0f, h * 0.5f, w, h * 0.5f);
-      float dashLen[] = {4.0f, 4.0f};
-      g.drawDashedLine(zeroLine, dashLen, 2, 1.0f);
+      constexpr std::array dashLen = {4.0f, 4.0f};
+      g.drawDashedLine(zeroLine, dashLen.data(), 2, 1.0f);
 
       // Draw smooth cubic spline curve path using JUCE Path cubicTo
       juce::Path curvePath;
@@ -497,7 +499,7 @@ void SpectralVisualizerComponent::paint(juce::Graphics& g) {
       // Draw dB Reference Y-Scale for Reduction Curve on Right Margin
       const float scaleX = w - 42.0f;
       const float textX = w - 38.0f;
-      static const int biasLevels[] = {+24, +12, 0, -12, -24}; // +/-kCurveMaxBiasDB
+      static constexpr std::array biasLevels = {+24, +12, 0, -12, -24}; // +/-kCurveMaxBiasDB
 
       for (int biasVal : biasLevels) {
         float ny =
@@ -549,7 +551,7 @@ void SpectralVisualizerComponent::paint(juce::Graphics& g) {
     // 3 Y-tiers starting at Y = 42.0f to guarantee zero collision with top HUD
     // overlay bar
     constexpr float kStartTagY = 42.0f;
-    float lastTagRight[3] = {-100.0f, -100.0f, -100.0f};
+    std::array lastTagRight = {-100.0f, -100.0f, -100.0f};
 
     for (float peakHz : currentFrame.tonalPeaksHz) {
       float x = freqToX(peakHz, w, minFreq, maxFreq);
@@ -558,9 +560,9 @@ void SpectralVisualizerComponent::paint(juce::Graphics& g) {
 
       // Dashed vertical line across the display
       juce::Line<float> line(x, 0.0f, x, h);
-      float dashLengths[] = {3.0f, 3.0f};
+      constexpr std::array dashLengths = {3.0f, 3.0f};
       g.setColour(NoiseRepellentLookAndFeel::kColorTonalPeaks.withAlpha(0.75f));
-      g.drawDashedLine(line, dashLengths, 2, 1.5f);
+      g.drawDashedLine(line, dashLengths.data(), 2, 1.5f);
 
       // Frequency Tag Badge
       juce::String tag = peakHz >= 1000.0f
@@ -677,8 +679,8 @@ void SpectralVisualizerComponent::paint(juce::Graphics& g) {
         g.setColour(NoiseRepellentLookAndFeel::kColorTonalPeaks);
         juce::Line<float> dashLine(curX, legendY + 11.0f, curX + 12.0f,
                                    legendY + 11.0f);
-        float dLen[] = {2.0f, 2.0f};
-        g.drawDashedLine(dashLine, dLen, 2, 1.5f);
+        constexpr std::array dLen = {2.0f, 2.0f};
+        g.drawDashedLine(dashLine, dLen.data(), 2, 1.5f);
         curX += 16.0f;
         g.setColour(juce::Colour(NoiseRepellentLookAndFeel::kColorLegendText));
         g.drawText("Tonal Peaks", static_cast<int>(curX),
@@ -904,7 +906,6 @@ void SpectralVisualizerComponent::mouseMove(const juce::MouseEvent& e) {
     return;
   }
 
-  const float w = static_cast<float>(getWidth());
   juce::Rectangle<float> badgeBounds = getTpBadgeBounds();
 
   if (isAdvancedVisible && badgeBounds.contains(e.position)) {
@@ -923,7 +924,6 @@ juce::String SpectralVisualizerComponent::getTooltip() {
     return kNoProfileTooltip;
 
   if (isAdvancedVisible) {
-    const float w = static_cast<float>(getWidth());
     const juce::Rectangle<float> badge = getTpBadgeBounds();
     const float badgeX = badge.getX();
     const float badgeY = badge.getY();

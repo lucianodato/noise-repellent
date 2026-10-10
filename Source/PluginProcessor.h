@@ -28,16 +28,17 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "specbleach_stereo.hpp" // self-guarding for C++; do NOT wrap in extern "C"
 #include "specbleach_version.h"
 
-class NoiseRepellentAudioProcessor : public juce::AudioProcessor,
-                                        private juce::AudioProcessorValueTreeState::Listener {
+class NoiseRepellentAudioProcessor
+    : public juce::AudioProcessor,
+      private juce::AudioProcessorValueTreeState::Listener {
 public:
   NoiseRepellentAudioProcessor();
   ~NoiseRepellentAudioProcessor() override;
 
   // Stepped STFT frame-size options (ms) exposed in the Options menu.
   // Index 2 (46 ms) is the legacy default.
-  static constexpr float kFrameSizeOptionsMs[5] = {23.0f, 32.0f, 46.0f,
-                                                  64.0f, 93.0f};
+  static constexpr std::array<float, 5> kFrameSizeOptionsMs = {
+      23.0f, 32.0f, 46.0f, 64.0f, 93.0f};
   static constexpr int kDefaultFrameSizeIndex = 2;
   // Low-latency mode: fixed 512-sample frame (~10.7 ms at 48 kHz,
   // ~11.6 ms at 44.1 kHz), causal 1D-only, zero look-ahead.
@@ -50,6 +51,8 @@ public:
 
   bool isBusesLayoutSupported(const BusesLayout& layouts) const override;
 
+  using juce::AudioProcessor::processBlock;
+  using juce::AudioProcessor::processBlockBypassed;
   void processBlock(juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
   void processBlockBypassed(juce::AudioBuffer<float>&,
                             juce::MidiBuffer&) override;
@@ -146,7 +149,7 @@ public:
   void resetNoiseProfile();
   bool hasNoiseProfile() const;
 
-  double getSampleRate() const {
+  double getEngineSampleRate() const {
     return currentSampleRate;
   }
 
@@ -166,7 +169,7 @@ public:
     return transientProtectionActive.load(std::memory_order_relaxed);
   }
 
- private:
+private:
   void ensureEnginesInitialized(double sampleRate);
   void updateLatencyReporting();
   void rebuildForFrameSizeChange(bool onAudioThread = false);

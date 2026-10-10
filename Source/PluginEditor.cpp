@@ -18,6 +18,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
 #include "PluginEditor.h"
+#include <array>
 
 namespace {
 
@@ -159,7 +160,7 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(
     bool lowLatencyVal =
         (lowLatencyParam != nullptr && lowLatencyParam->getValue() > 0.5f);
     int frameSizeIdx = 2;
-    if (auto* choice = dynamic_cast<juce::AudioParameterChoice*>(
+    if (const auto* choice = dynamic_cast<juce::AudioParameterChoice*>(
             frameSizeParam))
       frameSizeIdx = choice->getIndex();
 
@@ -208,7 +209,7 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(
     menu.addSectionHeader("FRAME SIZE (BIGGER = FINER DETAIL + MORE LATENCY)");
     // Guidance baked into the labels: PopupMenu items have no tooltip
     // support, and latency in ms is sample-rate independent (always 2x).
-    static constexpr const char* kFrameSizeNames[5] = {
+    static constexpr std::array<const char*, 5> kFrameSizeNames = {
         "23 ms - preserve transients",
         "32 ms - general purpose",
         "46 ms - stationary noise, default",
@@ -659,7 +660,7 @@ kTipAlgoMode);
   footerTooltipLabel.setJustificationType(juce::Justification::left);
   addAndMakeVisible(footerTooltipLabel);
 
-  auto* showTooltipsParam =
+  const auto* showTooltipsParam =
       audioProcessor.getAPVTS().getRawParameterValue("show_tooltips");
   if (showTooltipsParam == nullptr || showTooltipsParam->load() > 0.5f) {
     footerTooltipLabel.setText(
@@ -676,7 +677,7 @@ kTipAlgoMode);
 
 void NoiseRepellentAudioProcessorEditor::mouseEnter(
     const juce::MouseEvent& event) {
-  auto* showTooltipsParam =
+  const auto* showTooltipsParam =
       audioProcessor.getAPVTS().getRawParameterValue("show_tooltips");
   if (showTooltipsParam != nullptr && showTooltipsParam->load() < 0.5f) {
     footerTooltipLabel.setText({}, juce::dontSendNotification);
@@ -734,7 +735,7 @@ void NoiseRepellentAudioProcessorEditor::mouseMove(
 
 void NoiseRepellentAudioProcessorEditor::mouseExit(
     const juce::MouseEvent& /*event*/) {
-  auto* showTooltipsParam =
+  const auto* showTooltipsParam =
       audioProcessor.getAPVTS().getRawParameterValue("show_tooltips");
   if (showTooltipsParam != nullptr && showTooltipsParam->load() > 0.5f) {
     footerTooltipLabel.setText(
@@ -760,7 +761,7 @@ void NoiseRepellentAudioProcessorEditor::parameterChanged(
 }
 
 void NoiseRepellentAudioProcessorEditor::handleAsyncUpdate() {
-  auto* showTooltipsParam =
+  const auto* showTooltipsParam =
       audioProcessor.getAPVTS().getRawParameterValue("show_tooltips");
   if (showTooltipsParam != nullptr && showTooltipsParam->load() > 0.5f) {
     footerTooltipLabel.setText(
@@ -817,9 +818,9 @@ void NoiseRepellentAudioProcessorEditor::updateLayout() {
   btnAdvancedToggle.setButtonText(juce::CharPointer_UTF8(
       isAdvancedVisible ? "ADVANCED \xe2\x96\xb2" : "ADVANCED \xe2\x96\xbc"));
 
-  auto* showTooltipsParam =
+  const auto* showTooltipsParam =
       audioProcessor.getAPVTS().getRawParameterValue("show_tooltips");
-  auto* showHudParam =
+  const auto* showHudParam =
       audioProcessor.getAPVTS().getRawParameterValue("show_hud");
 
   bool showTooltips =
@@ -857,7 +858,7 @@ void NoiseRepellentAudioProcessorEditor::updateSliderLabels() {
 }
 
 void NoiseRepellentAudioProcessorEditor::updateProfileStatus() {
-  auto* adaptParam =
+  const auto* adaptParam =
       audioProcessor.getAPVTS().getRawParameterValue("adaptive_noise");
   bool isAdaptive = adaptParam != nullptr && adaptParam->load() > 0.5f;
   bool isLearning = btnLearn.getToggleState();
@@ -1328,9 +1329,9 @@ void NoiseRepellentAudioProcessorEditor::resized() {
   area.removeFromTop(kSectionGap);
 
   // Footer bar
-  auto* showTooltipsParam =
+  const auto* showTooltipsParam =
       audioProcessor.getAPVTS().getRawParameterValue("show_tooltips");
-  auto* showHudParam =
+  const auto* showHudParam =
       audioProcessor.getAPVTS().getRawParameterValue("show_hud");
 
   bool showTooltips =
