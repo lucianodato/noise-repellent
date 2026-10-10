@@ -275,7 +275,7 @@ private:
       std::mt19937 gen(303);
       std::normal_distribution<float> dist(0.0f, 0.05f);
 
-      while (keepRunning.load(std::memory_order_relaxed)) {
+      while (keepRunning.load()) {
         for (int ch = 0; ch < 2; ++ch) {
           auto* w = buffer.getWritePointer(ch);
           for (int s = 0; s < bs; ++s) {
@@ -283,7 +283,7 @@ private:
           }
         }
         proc.processBlock(buffer, midi);
-        blocksProcessed.fetch_add(1, std::memory_order_relaxed);
+        blocksProcessed.fetch_add(1);
       }
     });
 
@@ -322,7 +322,7 @@ private:
       pumpMessageLoop(1);
     }
 
-    keepRunning.store(false, std::memory_order_relaxed);
+    keepRunning.store(false);
     audioThread.join();
 
     expect(blocksProcessed.load() > 100, "Audio thread must have processed blocks during parameter storm");

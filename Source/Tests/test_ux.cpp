@@ -102,7 +102,7 @@ private:
     std::thread audioThread([&]() {
       juce::AudioBuffer<float> buffer(2, blockSize);
       juce::MidiBuffer midi;
-      while (keepRunning.load(std::memory_order_relaxed)) {
+      while (keepRunning.load()) {
         generateNoiseBuffer(buffer, 0.05f);
         proc.processBlock(buffer, midi);
       }
@@ -118,7 +118,7 @@ private:
       pumpMessageLoop(5);
     }
 
-    keepRunning.store(false, std::memory_order_relaxed);
+    keepRunning.store(false);
     audioThread.join();
 
     expect(true, "Editor lifecycle stress completed cleanly");
