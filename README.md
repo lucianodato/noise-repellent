@@ -1,7 +1,7 @@
 # Noise Repellent
 
 [![CI Build](https://github.com/lucianodato/noise-repellent/actions/workflows/build.yml/badge.svg)](https://github.com/lucianodato/noise-repellent/actions/workflows/build.yml)
-[![codecov](https://codecov.io/gh/lucianodato/noise-repellent/graph/badge.svg?token=krKa2evPqh)](https://codecov.io/gh/lucianodato/noise-repellent)
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=lucianodato_noise-repellent&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=lucianodato_noise-repellent)
 ![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/lucianodato/noise-repellent?utm_source=oss&utm_medium=github&utm_campaign=lucianodato%2Fnoise-repellent&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)
 
 A multi-format audio plugin (VST3, AU, LV2) for real-time spectral noise reduction, built with [JUCE](https://juce.com/) and powered by the [libspecbleach](https://github.com/lucianodato/libspecbleach) DSP engine.
