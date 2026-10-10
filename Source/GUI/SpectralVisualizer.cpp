@@ -72,7 +72,7 @@ void SpectralVisualizerComponent::timerCallback() {
   const size_t numBins = NoiseRepellentAudioProcessor::kFftBins;
   constexpr float kAttackAlpha = 0.35f;
   constexpr float kReleaseAlpha = 0.10f;
-  const float releaseAlpha = static_cast<float>(
+  const auto releaseAlpha = static_cast<float>(
       1.0 - std::pow(1.0 - kReleaseAlpha, elapsedSeconds * 60.0));
   const bool hostStopped = processor.isHostTransportStateKnown() &&
                            !processor.isHostTransportPlaying();
@@ -148,10 +148,11 @@ void SpectralVisualizerComponent::timerCallback() {
 }
 
 void SpectralVisualizerComponent::resized() {
+  // Nothing to lay out: no child components, painting uses live bounds.
 }
 
 juce::Rectangle<float> SpectralVisualizerComponent::getTpBadgeBounds() const {
-  const float w = static_cast<float>(getWidth());
+  const auto w = static_cast<float>(getWidth());
   return {w - kBadgeW - kBadgeMargin, kBadgeTop, kBadgeW, kBadgeH};
 }
 
@@ -231,7 +232,7 @@ static void smoothBinsLogarithmicFrequencyDomain(const float* src, float* dst,
 void SpectralVisualizerComponent::paint(juce::Graphics& g) {
   g.fillAll(juce::Colour(0xff232832));
 
-  const float w = static_cast<float>(getWidth());
+  const auto w = static_cast<float>(getWidth());
   const float h = static_cast<float>(getHeight());
   const float minDB = SpectralVisualizerComponent::kAxisMinDB;
   const float maxDB = SpectralVisualizerComponent::kAxisMaxDB;
@@ -446,8 +447,7 @@ void SpectralVisualizerComponent::paint(juce::Graphics& g) {
       juce::Point<float> pStart = nodeToPoint(nodes.front());
       curvePath.startNewSubPath(pStart);
 
-      size_t numNodes = nodes.size();
-      if (numNodes == 2) {
+      if (size_t numNodes = nodes.size(); numNodes == 2) {
         curvePath.lineTo(nodeToPoint(nodes.back()));
       } else {
         std::vector<juce::Point<float>> pts(numNodes);
@@ -488,8 +488,8 @@ void SpectralVisualizerComponent::paint(juce::Graphics& g) {
       g.strokePath(curvePath, juce::PathStrokeType(2.2f));
 
       // Draw nodes
-      for (size_t i = 0; i < nodes.size(); ++i) {
-        juce::Point<float> pt = nodeToPoint(nodes[i]);
+      for (const auto& node : nodes) {
+        const auto pt = nodeToPoint(node);
         g.setColour(NoiseRepellentLookAndFeel::kColorReductionCurve);
         g.fillEllipse(pt.x - 5.0f, pt.y - 5.0f, 10.0f, 10.0f);
         g.setColour(juce::Colours::white);
@@ -620,10 +620,9 @@ void SpectralVisualizerComponent::paint(juce::Graphics& g) {
     const float swatch3W =
         12.0f + 4.0f + 40.0f +
         ((showTonalSwatch || showCurveSwatch) ? 14.0f : 0.0f); // Output
+    const float tonalSuffixW = showCurveSwatch ? 14.0f : 0.0f;
     const float swatch4W =
-        showTonalSwatch
-            ? (12.0f + 4.0f + 64.0f + (showCurveSwatch ? 14.0f : 0.0f))
-            : 0.0f; // Tonal Peaks
+        showTonalSwatch ? (12.0f + 4.0f + 64.0f + tonalSuffixW) : 0.0f; // Tonal Peaks
     const float swatch5W =
         showCurveSwatch ? (12.0f + 4.0f + 38.0f) : 0.0f; // Curve (54)
 
@@ -677,8 +676,8 @@ void SpectralVisualizerComponent::paint(juce::Graphics& g) {
       if (showTonalSwatch) {
         curX += 14.0f;
         g.setColour(NoiseRepellentLookAndFeel::kColorTonalPeaks);
-        juce::Line<float> dashLine(curX, legendY + 11.0f, curX + 12.0f,
-                                   legendY + 11.0f);
+        juce::Line dashLine(curX, legendY + 11.0f, curX + 12.0f,
+                            legendY + 11.0f);
         constexpr std::array dLen = {2.0f, 2.0f};
         g.drawDashedLine(dashLine, dLen.data(), 2, 1.5f);
         curX += 16.0f;
@@ -705,7 +704,7 @@ void SpectralVisualizerComponent::paint(juce::Graphics& g) {
   // 6. Transient Protection (TP) LED Indicator & Button (Top-Right Corner:
   // click to toggle ON/OFF, only visible in Advanced mode)
   if (isAdvancedVisible) {
-    const juce::Rectangle<float> badge = getTpBadgeBounds();
+    const auto badge = getTpBadgeBounds();
     const float badgeX = badge.getX();
     const float badgeY = badge.getY();
     const float badgeW = badge.getWidth();
@@ -729,7 +728,7 @@ void SpectralVisualizerComponent::paint(juce::Graphics& g) {
         // Map ledBrightness to LED glow and color
         // Full bright for broadband transients (1.0), soft glow for localized
         // clicks (0.2 - 0.5) Completely off (dark) when ledBrightness == 0.0f
-        juce::Colour activeLedColour =
+        auto activeLedColour =
             juce::Colour(0xffff9933); // Amber-Orange transient light
 
         if (ledBrightness > 0.05f) {

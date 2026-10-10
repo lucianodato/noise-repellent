@@ -87,11 +87,13 @@ public:
     return 0;
   }
   void setCurrentProgram(int) override {
+    // Single-state plugin: exactly one program, nothing to select.
   }
   const juce::String getProgramName(int) override {
     return {};
   }
   void changeProgramName(int, const juce::String&) override {
+    // Single-state plugin: no program names to change.
   }
 
   void getStateInformation(juce::MemoryBlock& destData) override;
@@ -290,7 +292,11 @@ private:
   uint32_t lastReportedLatency = 0; // constant per frame size / smoothing mode
 
   juce::AudioParameterBool* bypassParameter = nullptr;
-  juce::dsp::DryWetMixer<float> dryWetMixer;
+  // Dry-delay headroom must exceed the worst-case engine latency:
+  // 93 ms at 192 kHz needs 35712 samples (latency = 2x frame).
+  // setWetLatency() silently clamps past this ceiling, which
+  // misaligns dry/wet and skips on bypass toggles.
+  juce::dsp::DryWetMixer<float> dryWetMixer{65536};
 
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(NoiseRepellentAudioProcessor)
 };
