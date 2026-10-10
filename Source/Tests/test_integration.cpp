@@ -54,7 +54,8 @@ struct ScopedEditor {
   NoiseRepellentAudioProcessor& proc;
   std::unique_ptr<juce::AudioProcessorEditor> editor;
   explicit ScopedEditor(NoiseRepellentAudioProcessor& p)
-      : proc(p), editor(p.createEditorIfNeeded()) {}
+      : proc(p), editor(p.createEditorIfNeeded()) {
+  }
   ~ScopedEditor() {
     if (editor != nullptr) {
       proc.editorBeingDeleted(editor.get());
@@ -62,7 +63,8 @@ struct ScopedEditor {
   }
 };
 
-void generateNoiseBuffer(juce::AudioBuffer<float>& buffer, float rms = 0.05f, int seed = 42) {
+void generateNoiseBuffer(juce::AudioBuffer<float>& buffer, float rms = 0.05f,
+                         int seed = 42) {
   std::mt19937 gen(static_cast<uint32_t>(seed));
   std::normal_distribution<float> dist(0.0f, rms);
   for (int ch = 0; ch < buffer.getNumChannels(); ++ch) {
@@ -100,22 +102,23 @@ void learnStereoDistinctProfiles(NoiseRepellentAudioProcessor& proc,
     std::mt19937 genL(static_cast<uint32_t>(3000 + b));
     std::normal_distribution<float> distL(0.0f, 0.06f);
     auto* left = buffer.getWritePointer(0);
-    for (int s = 0; s < blockSize; ++s) left[s] = distL(genL);
+    for (int s = 0; s < blockSize; ++s)
+      left[s] = distL(genL);
     std::mt19937 genR(static_cast<uint32_t>(9000 + b));
     std::normal_distribution<float> distR(0.0f, 0.015f);
     auto* right = buffer.getWritePointer(1);
-    for (int s = 0; s < blockSize; ++s) right[s] = distR(genR);
+    for (int s = 0; s < blockSize; ++s)
+      right[s] = distR(genR);
     proc.processBlock(buffer, midi);
   }
 }
 
 // (channel, mode) -> profile magnitudes decoded from a saved state block.
-std::map<std::pair<int, int>, std::vector<float>>
-extractStateProfiles(const juce::MemoryBlock& state) {
+std::map<std::pair<int, int>, std::vector<float>> extractStateProfiles(
+    const juce::MemoryBlock& state) {
   std::map<std::pair<int, int>, std::vector<float>> out;
-  std::unique_ptr<juce::XmlElement> xml(
-      juce::AudioProcessor::getXmlFromBinary(state.getData(),
-                                             (int)state.getSize()));
+  std::unique_ptr<juce::XmlElement> xml(juce::AudioProcessor::getXmlFromBinary(
+      state.getData(), (int)state.getSize()));
   if (xml == nullptr)
     return out;
   juce::ValueTree tree = juce::ValueTree::fromXml(*xml);
@@ -156,8 +159,8 @@ float maxAbsDiff(const std::vector<float>& a, const std::vector<float>& b) {
 
 class IntegrationTest : public juce::UnitTest {
 public:
-  IntegrationTest()
-      : juce::UnitTest("Integration Tests", "NoiseRepellent") {}
+  IntegrationTest() : juce::UnitTest("Integration Tests", "NoiseRepellent") {
+  }
 
   void runTest() override {
     beginTest("Full State Save and Restore Roundtrip (1D Mode)");
@@ -268,12 +271,10 @@ public:
       cases.push_back({48000.0, 2.0f, algo, 50.0f, 0.0f, 0.0f, 12.0f});
     for (float algo : {0.0f, 2.0f})
       for (float smoothing : {0.0f, 50.0f})
-        cases.push_back(
-            {48000.0, 2.0f, algo, smoothing, 1.0f, 0.0f, 0.0f});
+        cases.push_back({48000.0, 2.0f, algo, smoothing, 1.0f, 0.0f, 0.0f});
     for (float algo : {0.0f, 2.0f})
       for (float smoothing : {0.0f, 50.0f})
-        cases.push_back(
-            {48000.0, 2.0f, algo, smoothing, 0.0f, 1.0f, 0.0f});
+        cases.push_back({48000.0, 2.0f, algo, smoothing, 0.0f, 1.0f, 0.0f});
 
     int idx = 0;
     for (const auto& c : cases) {
@@ -307,9 +308,8 @@ public:
                          " adapt=" + juce::String(c.adaptive);
       if (rms <= 1.0e-4f)
         fprintf(stderr, "SCAN-FAIL %s -> rms=%g\n", ctx.toRawUTF8(), rms);
-      expect(rms > 1.0e-4f,
-             ctx + ": output must be audible (rms=" + juce::String(rms) +
-                 ") [GH #222/#223]");
+      expect(rms > 1.0e-4f, ctx + ": output must be audible (rms=" +
+                                juce::String(rms) + ") [GH #222/#223]");
       proc.releaseResources();
       ++idx;
     }
@@ -342,7 +342,8 @@ private:
       expect(proc1.hasNoiseProfile(), "Proc 1 must have noise profile");
 
       proc1.getStateInformation(savedState);
-      expect(savedState.getSize() > 0, "Saved state memory block must not be empty");
+      expect(savedState.getSize() > 0,
+             "Saved state memory block must not be empty");
     }
 
     {
@@ -352,17 +353,21 @@ private:
 
       expect(!proc2.hasNoiseProfile(), "Proc 2 must start with no profile");
 
-      proc2.setStateInformation(savedState.getData(), static_cast<int>(savedState.getSize()));
+      proc2.setStateInformation(savedState.getData(),
+                                static_cast<int>(savedState.getSize()));
       pumpMessageLoop(20);
 
-      expect(proc2.hasNoiseProfile(), "Proc 2 must restore noise profile from state");
+      expect(proc2.hasNoiseProfile(),
+             "Proc 2 must restore noise profile from state");
 
-      auto* pReduction = proc2.getAPVTS().getRawParameterValue("reduction_amount");
+      auto* pReduction =
+          proc2.getAPVTS().getRawParameterValue("reduction_amount");
       auto* pAgg = proc2.getAPVTS().getRawParameterValue("aggressiveness");
       auto* pSmooth = proc2.getAPVTS().getRawParameterValue("smoothing_factor");
 
-      expect(pReduction != nullptr && std::abs(pReduction->load() - 18.0f) < 0.2f,
-             "Restored reduction_amount must match");
+      expect(
+          pReduction != nullptr && std::abs(pReduction->load() - 18.0f) < 0.2f,
+          "Restored reduction_amount must match");
       expect(pAgg != nullptr && std::abs(pAgg->load() - 0.7f) < 0.05f,
              "Restored aggressiveness must match");
       expect(pSmooth != nullptr && std::abs(pSmooth->load() - 45.0f) < 0.5f,
@@ -370,7 +375,8 @@ private:
 
       // Verify restored curve nodes
       const auto& restoredNodes = proc2.getCurveNodes();
-      expectEquals(static_cast<int>(restoredNodes.size()), 4, "Restored curve nodes count must match");
+      expectEquals(static_cast<int>(restoredNodes.size()), 4,
+                   "Restored curve nodes count must match");
       if (restoredNodes.size() == 4) {
         expectWithinAbsoluteError(restoredNodes[1].normX, 0.25f, 0.01f);
         expectWithinAbsoluteError(restoredNodes[1].biasDB, -6.0f, 0.01f);
@@ -392,13 +398,15 @@ private:
       pumpMessageLoop(10);
 
       setParam(proc1, "algorithm_mode", 1.0f); // 2D NLM
-      for (int step = 0; step < 40; ++step) pumpMessageLoop(20);
+      for (int step = 0; step < 40; ++step)
+        pumpMessageLoop(20);
 
       learnProfile(proc1, sampleRate, blockSize, 25);
       expect(proc1.hasNoiseProfile(), "Proc 1 (2D) must have noise profile");
 
       proc1.getStateInformation(savedState);
-      expect(savedState.getSize() > 0, "Saved state memory block must not be empty");
+      expect(savedState.getSize() > 0,
+             "Saved state memory block must not be empty");
     }
 
     {
@@ -406,13 +414,17 @@ private:
       proc2.prepareToPlay(sampleRate, blockSize);
       pumpMessageLoop(10);
 
-      proc2.setStateInformation(savedState.getData(), static_cast<int>(savedState.getSize()));
-      for (int step = 0; step < 40; ++step) pumpMessageLoop(20);
+      proc2.setStateInformation(savedState.getData(),
+                                static_cast<int>(savedState.getSize()));
+      for (int step = 0; step < 40; ++step)
+        pumpMessageLoop(20);
 
-      expect(proc2.hasNoiseProfile(), "Proc 2 must restore noise profile in 2D mode");
+      expect(proc2.hasNoiseProfile(),
+             "Proc 2 must restore noise profile in 2D mode");
 
       auto* pAlgo = proc2.getAPVTS().getRawParameterValue("algorithm_mode");
-      expect(pAlgo != nullptr && std::round(pAlgo->load()) == 1.0f, "Restored algorithm mode must be 2D");
+      expect(pAlgo != nullptr && std::round(pAlgo->load()) == 1.0f,
+             "Restored algorithm mode must be 2D");
     }
   }
 
@@ -435,10 +447,12 @@ private:
       proc96k.prepareToPlay(96000.0, 512);
       pumpMessageLoop(10);
 
-      proc96k.setStateInformation(savedState.getData(), static_cast<int>(savedState.getSize()));
+      proc96k.setStateInformation(savedState.getData(),
+                                  static_cast<int>(savedState.getSize()));
       pumpMessageLoop(20);
 
-      expect(proc96k.hasNoiseProfile(), "Profile must be present after cross-sample-rate restore");
+      expect(proc96k.hasNoiseProfile(),
+             "Profile must be present after cross-sample-rate restore");
 
       juce::AudioBuffer<float> buffer(2, 512);
       juce::MidiBuffer midi;
@@ -450,7 +464,8 @@ private:
         for (int ch = 0; ch < 2; ++ch) {
           const auto* r = buffer.getReadPointer(ch);
           for (int s = 0; s < 512; ++s) {
-            expect(!std::isnan(r[s]), "Cross sample rate processed output must not be NaN");
+            expect(!std::isnan(r[s]),
+                   "Cross sample rate processed output must not be NaN");
           }
         }
       }
@@ -471,14 +486,21 @@ private:
 
     // 3. Random binary garbage
     std::vector<uint8_t> garbage(1024);
-    for (size_t i = 0; i < garbage.size(); ++i) garbage[i] = static_cast<uint8_t>(i * 37 + 13);
+    for (size_t i = 0; i < garbage.size(); ++i)
+      garbage[i] = static_cast<uint8_t>(i * 37 + 13);
     proc.setStateInformation(garbage.data(), static_cast<int>(garbage.size()));
 
     // 4. Invalid Base64 in profile node
-    const char* invalidB64 = "<PARAMETERS><LEARNED_PROFILES><CHANNEL_PROFILE channel=\"0\" mode=\"0\" size=\"100\" data=\"!@#$%^&*()\"/></LEARNED_PROFILES></PARAMETERS>";
-    proc.setStateInformation(invalidB64, static_cast<int>(std::strlen(invalidB64)));
+    const char* invalidB64 =
+        "<PARAMETERS><LEARNED_PROFILES><CHANNEL_PROFILE channel=\"0\" "
+        "mode=\"0\" size=\"100\" "
+        "data=\"!@#$%^&*()\"/></LEARNED_PROFILES></PARAMETERS>";
+    proc.setStateInformation(invalidB64,
+                             static_cast<int>(std::strlen(invalidB64)));
 
-    expect(true, "Corrupted state ingestion must be safely rejected without crashing");
+    expect(
+        true,
+        "Corrupted state ingestion must be safely rejected without crashing");
     proc.releaseResources();
   }
 
@@ -509,12 +531,14 @@ private:
         pumpMessageLoop(10);
       }
       setParam(proc1, "algorithm_mode", 2.0f); // NLM + DFTT refinement
-      for (int step = 0; step < 40; ++step) pumpMessageLoop(20);
+      for (int step = 0; step < 40; ++step)
+        pumpMessageLoop(20);
 
       learnProfile(proc1, sampleRate, blockSize, 25);
       expect(proc1.hasNoiseProfile(), "Proc 1 must have noise profile");
       proc1.getStateInformation(savedState);
-      expect(savedState.getSize() > 0, "Saved state memory block must not be empty");
+      expect(savedState.getSize() > 0,
+             "Saved state memory block must not be empty");
     }
 
     {
@@ -528,10 +552,12 @@ private:
                                   static_cast<int>(savedState.getSize()));
       });
       restorer.join();
-      for (int step = 0; step < 40; ++step) pumpMessageLoop(20);
+      for (int step = 0; step < 40; ++step)
+        pumpMessageLoop(20);
 
       expect(proc2.hasNoiseProfile(),
-             "Profile must survive off-thread restore into a prepared instance [GH #221]");
+             "Profile must survive off-thread restore into a prepared instance "
+             "[GH #221]");
 
       juce::AudioBuffer<float> buffer(2, blockSize);
       juce::MidiBuffer midi;
@@ -541,9 +567,10 @@ private:
       }
       pumpMessageLoop(20);
 
-      expect(proc2.hasNoiseProfile(),
-             "Profile must survive the deferred frame-size rebuild after restore "
-             "[GH #221]");
+      expect(
+          proc2.hasNoiseProfile(),
+          "Profile must survive the deferred frame-size rebuild after restore "
+          "[GH #221]");
       proc2.releaseResources();
     }
   }
@@ -564,7 +591,8 @@ private:
     // Share identical state
     juce::MemoryBlock state;
     procDenoise.getStateInformation(state);
-    procResidual.setStateInformation(state.getData(), static_cast<int>(state.getSize()));
+    procResidual.setStateInformation(state.getData(),
+                                     static_cast<int>(state.getSize()));
     pumpMessageLoop(10);
 
     setParam(procDenoise, "residual_listen", 0.0f);
@@ -640,9 +668,11 @@ private:
       gotFrame = true;
     }
 
-    expect(gotFrame, "Should have retrieved spectral frame with active reduction curve");
+    expect(gotFrame,
+           "Should have retrieved spectral frame with active reduction curve");
     if (gotFrame) {
-      expect(frame.reductionCurveEnabled, "Frame must reflect reductionCurveEnabled = true");
+      expect(frame.reductionCurveEnabled,
+             "Frame must reflect reductionCurveEnabled = true");
     }
 
     proc.releaseResources();
@@ -652,7 +682,8 @@ private:
     constexpr double sampleRate = 48000.0;
     constexpr int blockSize = 512;
 
-    const std::vector<float> methods = {0.0f, 1.0f, 2.0f}; // SPP-MMSE, Brandt, Martin
+    const std::vector<float> methods = {0.0f, 1.0f,
+                                        2.0f}; // SPP-MMSE, Brandt, Martin
 
     for (float method : methods) {
       NoiseRepellentAudioProcessor proc;
@@ -673,8 +704,10 @@ private:
         for (int ch = 0; ch < 2; ++ch) {
           const auto* r = buffer.getReadPointer(ch);
           for (int s = 0; s < blockSize; ++s) {
-            expect(!std::isnan(r[s]), "Adaptive mode processed output must not be NaN");
-            expect(!std::isinf(r[s]), "Adaptive mode processed output must not be Inf");
+            expect(!std::isnan(r[s]),
+                   "Adaptive mode processed output must not be NaN");
+            expect(!std::isinf(r[s]),
+                   "Adaptive mode processed output must not be Inf");
           }
         }
       }
@@ -714,7 +747,8 @@ private:
       auto* left = stereoBuffer.getWritePointer(0);
       std::mt19937 gen(456);
       std::normal_distribution<float> dist(0.0f, 0.05f);
-      for (int s = 0; s < blockSize; ++s) left[s] = dist(gen);
+      for (int s = 0; s < blockSize; ++s)
+        left[s] = dist(gen);
 
       proc.processBlock(stereoBuffer, midi);
 
@@ -861,7 +895,35 @@ private:
              "Restored left/right profiles must remain distinct");
     }
 
+    // Restoring stereo state into a mono engine must retain the unavailable
+    // right-channel profile until a later stereo rebuild can load it.
+    NoiseRepellentAudioProcessor restoredMono;
+    expect(restoredMono.setBusesLayout(monoLayout),
+           "Restored processor must accept a mono layout");
+    restoredMono.prepareToPlay(sampleRate, blockSize);
+    restoredMono.setStateInformation(stereoState.getData(),
+                                     static_cast<int>(stereoState.getSize()));
+    expect(restoredMono.hasNoiseProfile(),
+           "Mono restore must load its available channel profile");
+    expect(restoredMono.setBusesLayout(stereoLayout),
+           "Restored processor must widen back to stereo");
+    restoredMono.prepareToPlay(sampleRate, blockSize);
+
+    juce::MemoryBlock widenedState;
+    restoredMono.getStateInformation(widenedState);
+    const auto widenedProfiles = extractStateProfiles(widenedState);
+    expect(widenedProfiles.count({1, probeMode}) > 0,
+           "Pending right-channel profile must load after widening");
+    if (widenedProfiles.count({1, probeMode}) > 0) {
+      expectWithinAbsoluteError(
+          maxAbsDiff(widenedProfiles.at({1, probeMode}),
+                     before.at({1, probeMode})),
+          0.0f, 1e-6f,
+          "Pending right-channel profile must restore without alteration");
+    }
+
     proc.releaseResources();
+    restoredMono.releaseResources();
   }
 
   void testTransientProtection() {
@@ -891,7 +953,8 @@ private:
 
     float transientAct = proc.consumeTransientActivity();
     // Transient activity should be reported or preserved safely
-    expect(!std::isnan(transientAct), "Transient activity must be a valid number");
+    expect(!std::isnan(transientAct),
+           "Transient activity must be a valid number");
 
     proc.releaseResources();
   }
@@ -1011,12 +1074,12 @@ private:
     expect(proc.getAPVTS().getRawParameterValue("smoothing_factor")->load() ==
                30.0f,
            "Low latency must set smoothing to 30");
-    expect(proc.getAPVTS().getRawParameterValue("aggressiveness")->load() ==
-               1.0f,
-           "Low latency must set aggressiveness to 1");
-    expect(proc.getAPVTS().getRawParameterValue("masking_depth")->load() ==
-               0.0f,
-           "Low latency must set masking to 0");
+    expect(
+        proc.getAPVTS().getRawParameterValue("aggressiveness")->load() == 1.0f,
+        "Low latency must set aggressiveness to 1");
+    expect(
+        proc.getAPVTS().getRawParameterValue("masking_depth")->load() == 0.0f,
+        "Low latency must set masking to 0");
 
     // Audio must keep flowing without NaNs after the rebuild, including
     // at extreme smoothing (capped release must not pad or blow up).
@@ -1044,12 +1107,12 @@ private:
     expect(proc.getAPVTS().getRawParameterValue("smoothing_factor")->load() ==
                0.0f,
            "Leaving low latency must restore smoothing default");
-    expect(proc.getAPVTS().getRawParameterValue("aggressiveness")->load() ==
-               0.5f,
-           "Leaving low latency must restore aggressiveness default");
-    expect(proc.getAPVTS().getRawParameterValue("masking_depth")->load() ==
-               100.0f,
-           "Leaving low latency must restore masking default");
+    expect(
+        proc.getAPVTS().getRawParameterValue("aggressiveness")->load() == 0.5f,
+        "Leaving low latency must restore aggressiveness default");
+    expect(
+        proc.getAPVTS().getRawParameterValue("masking_depth")->load() == 100.0f,
+        "Leaving low latency must restore masking default");
 
     proc.releaseResources();
   }
@@ -1083,35 +1146,33 @@ private:
     constexpr double sampleRate = 48000.0;
     constexpr int blockSize = 512;
 
-  // Low-latency leg: uniform curve must shape the 512-sample engine output.
-  {
-    NoiseRepellentAudioProcessor proc;
-    ScopedEditor editor(proc);
-    proc.prepareToPlay(sampleRate, blockSize);
-    pumpMessageLoop(10);
+    // Low-latency leg: uniform curve must shape the 512-sample engine output.
+    {
+      NoiseRepellentAudioProcessor proc;
+      ScopedEditor editor(proc);
+      proc.prepareToPlay(sampleRate, blockSize);
+      pumpMessageLoop(10);
 
-    setParam(proc, "low_latency", 1.0f);
-    pumpMessageLoop(50);
-    expect(proc.getLatencySamples() == 512,
-           "Low-latency engine must report 512 samples");
+      setParam(proc, "low_latency", 1.0f);
+      pumpMessageLoop(50);
+      expect(proc.getLatencySamples() == 512,
+             "Low-latency engine must report 512 samples");
 
-    learnProfile(proc, sampleRate, blockSize, 25);
+      learnProfile(proc, sampleRate, blockSize, 25);
 
-    // Flat curve (all zeros): baseline output level.
-    setParam(proc, "reduction_curve_enabled", 1.0f);
-    proc.setCurveNodes({{0.0f, 0.0f}, {1.0f, 0.0f}});
-    const float rmsFlat =
-        runAndMeasureRms(proc, blockSize, 25, 10, 41000);
+      // Flat curve (all zeros): baseline output level.
+      setParam(proc, "reduction_curve_enabled", 1.0f);
+      proc.setCurveNodes({{0.0f, 0.0f}, {1.0f, 0.0f}});
+      const float rmsFlat = runAndMeasureRms(proc, blockSize, 25, 10, 41000);
 
-    // Uniform +24 dB extra reduction: output must drop hard.
-    proc.setCurveNodes({{0.0f, 24.0f}, {1.0f, 24.0f}});
-    const float rmsCut =
-        runAndMeasureRms(proc, blockSize, 25, 10, 42000);
+      // Uniform +24 dB extra reduction: output must drop hard.
+      proc.setCurveNodes({{0.0f, 24.0f}, {1.0f, 24.0f}});
+      const float rmsCut = runAndMeasureRms(proc, blockSize, 25, 10, 42000);
 
-    expect(rmsCut < rmsFlat * 0.5f,
-           "Uniform +24 dB curve must clearly reduce low-latency output");
-    proc.releaseResources();
-  }
+      expect(rmsCut < rmsFlat * 0.5f,
+             "Uniform +24 dB curve must clearly reduce low-latency output");
+      proc.releaseResources();
+    }
   }
 
   void testBypassToggleAlignment() {
@@ -1168,10 +1229,10 @@ private:
               peakVal, latency);
       expect(peakVal > 0.1f,
              juce::String(what) + ": impulse must come through");
-      expect(static_cast<int>(std::abs(static_cast<int>(peakIdx) - latency)) <=
-                 2,
-             juce::String(what) +
-                 ": impulse must land on the reported latency, not jump");
+      expect(
+          static_cast<int>(std::abs(static_cast<int>(peakIdx) - latency)) <= 2,
+          juce::String(what) +
+              ": impulse must land on the reported latency, not jump");
     };
 
     // Baseline: unbypassed wet path delay.
