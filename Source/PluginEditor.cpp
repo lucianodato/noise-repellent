@@ -756,7 +756,7 @@ NoiseRepellentAudioProcessorEditor::~NoiseRepellentAudioProcessorEditor() {
 void NoiseRepellentAudioProcessorEditor::parameterChanged(
     const juce::String& parameterID, float /*newValue*/) {
   if (parameterID == "show_tooltips") {
-    tooltipStateDirty.store(true, std::memory_order_relaxed);
+    tooltipStateDirty.store(true);
   }
 }
 
@@ -1119,7 +1119,7 @@ void NoiseRepellentAudioProcessorEditor::updateProfileStatus() {
 }
 
 void NoiseRepellentAudioProcessorEditor::timerCallback() {
-  if (tooltipStateDirty.exchange(false, std::memory_order_relaxed)) {
+  if (tooltipStateDirty.exchange(false)) {
     triggerAsyncUpdate();
   }
 

@@ -140,10 +140,10 @@ public:
 
   bool getNextSpectralFrame(SpectralFrame& frame);
   bool isHostTransportPlaying() const {
-    return hostTransportPlaying.load(std::memory_order_relaxed);
+    return hostTransportPlaying.load();
   }
   bool isHostTransportStateKnown() const {
-    return hostTransportStateKnown.load(std::memory_order_relaxed);
+    return hostTransportStateKnown.load();
   }
 
   void resetNoiseProfile();
@@ -154,7 +154,7 @@ public:
   }
 
   float consumeTransientActivity() {
-    return transientActivity.exchange(0.0f, std::memory_order_relaxed);
+    return transientActivity.exchange(0.0f);
   }
 
   // Counts blocks processed while the host reports non-realtime mode.
@@ -162,11 +162,11 @@ public:
   // leave isNonRealtime() stuck on while idle, so the UI gates its offline
   // indicator on this counter advancing, not on the raw flag.
   uint64_t getNonRealtimeBlockCount() const {
-    return nonRealtimeBlockCount.load(std::memory_order_relaxed);
+    return nonRealtimeBlockCount.load();
   }
 
   bool isTransientProtectionActive() const {
-    return transientProtectionActive.load(std::memory_order_relaxed);
+    return transientProtectionActive.load();
   }
 
 private:
