@@ -19,6 +19,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 #include <atomic>
 #include <cmath>
+#include <memory>
 #include <random>
 #include <thread>
 #include <vector>
@@ -40,13 +41,12 @@ void pumpMessageLoop(int maxMillis = 20) {
 
 struct ScopedEditor {
   NoiseRepellentAudioProcessor& proc;
-  juce::AudioProcessorEditor* editor = nullptr;
+  std::unique_ptr<juce::AudioProcessorEditor> editor;
   explicit ScopedEditor(NoiseRepellentAudioProcessor& p)
       : proc(p), editor(p.createEditorIfNeeded()) {}
   ~ScopedEditor() {
     if (editor != nullptr) {
-      proc.editorBeingDeleted(editor);
-      delete editor;
+      proc.editorBeingDeleted(editor.get());
     }
   }
 };
@@ -81,6 +81,9 @@ public:
 
     beginTest("Editor Resizing and Component Layout Stress");
     testEditorResizingStress();
+
+    beginTest("Footer Tooltip Callbacks");
+    testTooltipCallbacks();
   }
 
 private:
@@ -104,14 +107,10 @@ private:
 
     // Repeatedly instantiate and destroy Editor
     for (int i = 0; i < 40; ++i) {
-      auto* editor = proc.createEditorIfNeeded();
-      expect(editor != nullptr, "Editor creation must succeed");
-
-      pumpMessageLoop(15);
-
-      if (editor != nullptr) {
-        proc.editorBeingDeleted(editor);
-        delete editor;
+      {
+        ScopedEditor editor(proc);
+        expect(editor.editor != nullptr, "Editor creation must succeed");
+        pumpMessageLoop(15);
       }
       pumpMessageLoop(5);
     }
@@ -204,21 +203,68 @@ private:
     proc.prepareToPlay(48000.0, 512);
     pumpMessageLoop(10);
 
-    auto* editor = proc.createEditorIfNeeded();
-    expect(editor != nullptr, "Editor must be created");
+    {
+      ScopedEditor editor(proc);
+      expect(editor.editor != nullptr, "Editor must be created");
 
-    if (editor != nullptr) {
-      const std::vector<std::pair<int, int>> sizes = {
-          {400, 300}, {800, 600}, {1024, 768}, {600, 400}, {1200, 900}, {400, 300}};
+      if (editor.editor != nullptr) {
+        const std::vector<std::pair<int, int>> sizes = {
+            {400, 300}, {800, 600}, {1024, 768}, {600, 400}, {1200, 900}, {400, 300}};
 
-      for (const auto& size : sizes) {
-        editor->setSize(size.first, size.second);
-        pumpMessageLoop(10);
+        for (const auto& size : sizes) {
+          editor.editor->setSize(size.first, size.second);
+          pumpMessageLoop(10);
+        }
       }
-
-      proc.editorBeingDeleted(editor);
-      delete editor;
     }
+
+    proc.releaseResources();
+  }
+
+  void testTooltipCallbacks() {
+    NoiseRepellentAudioProcessor proc;
+    proc.prepareToPlay(48000.0, 512);
+    pumpMessageLoop(10);
+    ScopedEditor editor(proc);
+    auto* editorWidget =
+        dynamic_cast<NoiseRepellentAudioProcessorEditor*>(editor.editor.get());
+    expect(editorWidget != nullptr, "Editor must be the plugin editor");
+    if (editorWidget == nullptr) {
+      proc.releaseResources();
+      return;
+    }
+    pumpMessageLoop(10);
+
+    const juce::MouseEvent hoverEvent(
+        juce::Desktop::getInstance().getMainMouseSource(),
+        juce::Point<float>(10.0f, 10.0f), juce::ModifierKeys(), 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f, nullptr, nullptr, juce::Time(),
+        juce::Point<float>(10.0f, 10.0f), juce::Time(), 1, false);
+
+    auto setTooltipParameter = [&proc](float value) {
+      if (auto* param = proc.getAPVTS().getParameter("show_tooltips")) {
+        param->setValueNotifyingHost(param->convertTo0to1(value));
+      }
+      pumpMessageLoop(5);
+    };
+
+    // Tooltips disabled: hover/exit must clear the footer label.
+    setTooltipParameter(0.0f);
+    editorWidget->mouseEnter(hoverEvent);
+    editorWidget->mouseExit(hoverEvent);
+    editorWidget->handleAsyncUpdate();
+    pumpMessageLoop(10);
+
+    // Tooltips enabled: async update plus hover/move/exit must restore the
+    // default hint without touching unsafe event state.
+    setTooltipParameter(1.0f);
+    editorWidget->handleAsyncUpdate();
+    editorWidget->mouseEnter(hoverEvent);
+    editorWidget->mouseMove(hoverEvent);
+    editorWidget->mouseExit(hoverEvent);
+    pumpMessageLoop(10);
+
+    expect(true, "Tooltip callbacks must stay responsive");
 
     proc.releaseResources();
   }

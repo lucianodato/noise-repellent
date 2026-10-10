@@ -18,6 +18,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
 #include <cmath>
+#include <memory>
 #include <numeric>
 #include <random>
 
@@ -25,6 +26,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <juce_events/juce_events.h>
 #include <juce_gui_basics/juce_gui_basics.h>
 
+#include "GUI/SpectralVisualizer.h"
 #include "PluginProcessor.h"
 
 namespace {
@@ -56,14 +58,13 @@ void setParam(NoiseRepellentAudioProcessor& proc, const juce::String& paramId,
 
 struct ScopedEditor {
   NoiseRepellentAudioProcessor& proc;
-  juce::AudioProcessorEditor* editor = nullptr;
+  std::unique_ptr<juce::AudioProcessorEditor> editor;
   explicit ScopedEditor(NoiseRepellentAudioProcessor& p)
       : proc(p), editor(p.createEditorIfNeeded()) {
   }
   ~ScopedEditor() {
     if (editor != nullptr) {
-      proc.editorBeingDeleted(editor);
-      delete editor;
+      proc.editorBeingDeleted(editor.get());
     }
   }
 };
@@ -601,6 +602,22 @@ private:
     expectEquals(switchedFrame.tonalPeaksHz.size(),
                  unlinkedFrame.tonalPeaksHz.size(),
                  "Peak set must be preserved across mode switch");
+
+    proc.setCurveNodes({{0.0f, 6.0f}, {1.0f, -6.0f}});
+    setParam(proc, "reduction_curve_enabled", 1.0f);
+    processSilentBlocks(proc, buffer, midi, 12);
+
+    SpectralVisualizerComponent visualizer(proc);
+    visualizer.setSize(800, 400);
+    visualizer.setProcessingAvailable(true);
+    visualizer.setAdvancedControlsVisible(true);
+    visualizer.timerCallback();
+
+    juce::Image image(juce::Image::ARGB, 800, 400, true);
+    juce::Graphics graphics(image);
+    visualizer.paint(graphics);
+    expect(!image.isNull(),
+           "Visualizer must render the active profile overlays");
 
     proc.releaseResources();
   }

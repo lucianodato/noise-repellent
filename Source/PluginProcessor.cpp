@@ -21,6 +21,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "PluginEditor.h"
 #include <cmath>
 #include <cstring>
+#include <utility>
 
 namespace {
 
@@ -73,7 +74,7 @@ NoiseRepellentAudioProcessor::NoiseRepellentAudioProcessor()
 NoiseRepellentAudioProcessor::~NoiseRepellentAudioProcessor() {
   parameters.removeParameterListener("frame_size", this);
   parameters.removeParameterListener("low_latency", this);
-  releaseResources();
+  dryWetMixer.reset();
 }
 
 juce::AudioProcessorParameter*
@@ -88,7 +89,7 @@ NoiseRepellentAudioProcessor::getBypassParameter() const {
 }
 
 float NoiseRepellentAudioProcessor::getFrameSizeMs() const {
-  if (auto* choice = dynamic_cast<juce::AudioParameterChoice*>(
+  if (const auto* choice = dynamic_cast<juce::AudioParameterChoice*>(
           parameters.getParameter("frame_size"))) {
     const int index = choice->getIndex();
     if (index >= 0 && index < 5)
@@ -98,7 +99,7 @@ float NoiseRepellentAudioProcessor::getFrameSizeMs() const {
 }
 
 bool NoiseRepellentAudioProcessor::isLowLatency() const {
-  if (auto* p = parameters.getRawParameterValue("low_latency"))
+  if (const auto* p = parameters.getRawParameterValue("low_latency"))
     return p->load() > 0.5f;
   return false;
 }
@@ -360,7 +361,7 @@ void NoiseRepellentAudioProcessor::interpolateCurve(uint32_t numBins) {
     return;
   }
 
-  double sr = getSampleRate();
+  double sr = getEngineSampleRate();
   if (sr <= 0.0)
     sr = 48000.0;
   float nyquist = static_cast<float>(sr * 0.5);
@@ -451,9 +452,28 @@ void NoiseRepellentAudioProcessor::loadParametersIfChanged(
     const SpecbleachDenoiserParameters& p, bool curveEnabled) {
   SpecbleachDenoiserParameters norm = p;
   norm.reduction_curve_bias = nullptr; // compared via lastLoadedCurve instead
+  const auto& cached = lastLoadedParams;
+  // Compare values rather than object bytes because the struct may contain padding.
   const bool sameStruct =
-      paramsCacheValid &&
-      std::memcmp(&norm, &lastLoadedParams, sizeof(norm)) == 0;
+      paramsCacheValid && norm.learn_noise == cached.learn_noise &&
+      norm.residual_listen == cached.residual_listen &&
+      norm.reduction_gain == cached.reduction_gain &&
+      norm.smoothing_factor == cached.smoothing_factor &&
+      norm.smoothing_mode == cached.smoothing_mode &&
+      norm.dftt_strength == cached.dftt_strength &&
+      norm.whitening_factor == cached.whitening_factor &&
+      norm.adaptive_noise == cached.adaptive_noise &&
+      norm.noise_estimation_method == cached.noise_estimation_method &&
+      norm.masking_depth == cached.masking_depth &&
+      norm.suppression_strength == cached.suppression_strength &&
+      norm.aggressiveness == cached.aggressiveness &&
+      norm.tonal_reduction_gain == cached.tonal_reduction_gain &&
+      norm.transient_protection_enable == cached.transient_protection_enable &&
+      norm.noise_profile_scale == cached.noise_profile_scale &&
+      norm.reduction_curve_bias == cached.reduction_curve_bias &&
+      norm.reduction_curve_enabled == cached.reduction_curve_enabled &&
+      norm.reduction_curve_size == cached.reduction_curve_size &&
+      norm.tonal_noise_profile_scale == cached.tonal_noise_profile_scale;
   bool sameCurve = true;
   if (curveEnabled && p.reduction_curve_bias != nullptr &&
       p.reduction_curve_size > 0) {
@@ -863,11 +883,11 @@ void NoiseRepellentAudioProcessor::runEngine(juce::AudioBuffer<float>& buffer,
   const uint32_t groupChannels =
       std::min<uint32_t>(specbleach_stereo_get_channel_count(engineGroup.get()),
                          static_cast<uint32_t>(numChannels));
-  const float* inPtrs[2] = {nullptr, nullptr};
+  std::array<const float*, 2> inPtrs{};
   for (uint32_t ch = 0; ch < groupChannels && ch < 2u; ++ch)
     inPtrs[ch] = buffer.getReadPointer(static_cast<int>(ch));
 
-  float* outPtrs[2] = {nullptr, nullptr};
+  std::array<float*, 2> outPtrs{};
   for (uint32_t ch = 0; ch < groupChannels && ch < 2u; ++ch)
     outPtrs[ch] = buffer.getWritePointer(static_cast<int>(ch));
 
@@ -877,14 +897,14 @@ void NoiseRepellentAudioProcessor::runEngine(juce::AudioBuffer<float>& buffer,
   loadParametersIfChanged(ep.p, ep.curveEnabled);
   specbleach_stereo_process(engineGroup.get(),
                             static_cast<uint32_t>(buffer.getNumSamples()),
-                            inPtrs, outPtrs);
+                            inPtrs.data(), outPtrs.data());
 }
 
 void NoiseRepellentAudioProcessor::processBlock(
     juce::AudioBuffer<float>& buffer, juce::MidiBuffer&) {
   juce::ScopedNoDenormals noDenormals;
-  if (auto* playHead = getPlayHead()) {
-    if (const auto position = playHead->getPosition()) {
+  if (const auto* hostPlayHead = getPlayHead()) {
+    if (const auto position = hostPlayHead->getPosition()) {
       hostTransportPlaying.store(position->getIsPlaying(),
                                  std::memory_order_relaxed);
       hostTransportStateKnown.store(true, std::memory_order_relaxed);
@@ -1434,7 +1454,8 @@ void NoiseRepellentAudioProcessor::setStateInformation(const void* data,
       curveTree = state.getChildWithName("REDUCTION_CURVE");
     }
     if (!curveTree.isValid()) {
-      juce::XmlElement* xmlCurve = xmlState->getChildByName("REDUCTION_CURVE");
+      const juce::XmlElement* xmlCurve =
+          xmlState->getChildByName("REDUCTION_CURVE");
       if (xmlCurve != nullptr) {
         curveTree = juce::ValueTree::fromXml(*xmlCurve);
       }
@@ -1460,7 +1481,7 @@ void NoiseRepellentAudioProcessor::setStateInformation(const void* data,
     }
 
     if (!profilesTree.isValid()) {
-      juce::XmlElement* xmlProfiles =
+      const juce::XmlElement* xmlProfiles =
           xmlState->getChildByName("LEARNED_PROFILES");
       if (xmlProfiles != nullptr) {
         profilesTree = juce::ValueTree::fromXml(*xmlProfiles);
@@ -1498,21 +1519,22 @@ void NoiseRepellentAudioProcessor::setStateInformation(const void* data,
           juce::MemoryBlock mb;
           if (mb.fromBase64Encoding(base64Data) &&
               mb.getSize() >= size * sizeof(float)) {
-            const float* floatArray =
-                reinterpret_cast<const float*>(mb.getData());
+            std::vector<float> floatArray(size);
+            std::memcpy(floatArray.data(), mb.getData(), size * sizeof(float));
 
             // Narrow (or not yet created) engines cannot take this channel —
             // keep it pending for a later, wider rebuild instead of dropping
             // it.
             if (!loadProfileResampledChecked(
-                    engineGroup.get(), channel, floatArray, size, blockCount,
+                    engineGroup.get(), channel, floatArray.data(), size,
+                    blockCount,
                     static_cast<SpecbleachProfileMode>(mode))) {
               PendingProfile pp;
               pp.channel = channel;
               pp.mode = mode;
               pp.size = size;
               pp.blockCount = blockCount;
-              pp.data.assign(floatArray, floatArray + size);
+              pp.data = std::move(floatArray);
               pendingProfiles.push_back(std::move(pp));
             }
           }

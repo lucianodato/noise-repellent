@@ -36,7 +36,7 @@ public:
 
   void paint(juce::Graphics&) override;
   void paintOverChildren(juce::Graphics&) override;
-  void resized() override;
+  void resized() final;
   void timerCallback() override;
   void mouseEnter(const juce::MouseEvent&) override;
   void mouseMove(const juce::MouseEvent&) override;
