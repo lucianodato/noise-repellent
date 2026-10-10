@@ -19,7 +19,7 @@ jobs:
     name: Test & Coverage (Linux)
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4.3.1
         with:
           submodules: recursive
           fetch-depth: 0
@@ -46,6 +46,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=Debug \
             -DENABLE_PLUGIN_TESTS=ON \
             -DENABLE_COVERAGE=ON \
+            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache \
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
 
@@ -68,12 +69,19 @@ jobs:
             --gcov-ignore-errors=no_working_dir_found \
             --gcov-ignore-parse-errors=all
 
-      - name: Upload Coverage to Codecov
-        uses: codecov/codecov-action@v5
+      - name: Cache SonarQube packages
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        uses: actions/cache@v4.3.0
         with:
-          files: build-test/coverage.xml
-          fail_ci_if_error: true
-          token: ${{ secrets.CODECOV_TOKEN }}
+          path: ~/.sonar/cache
+          key: ${{ runner.os }}-sonar
+          restore-keys: ${{ runner.os }}-sonar
+
+      - name: SonarCloud analysis
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        uses: SonarSource/sonarqube-scan-action@v8.3.0
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
   build-macos:
     name: macOS (Universal arm64 + x86_64)
