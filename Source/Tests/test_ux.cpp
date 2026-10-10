@@ -252,6 +252,7 @@ private:
     setTooltipParameter(0.0f);
     editorWidget->mouseEnter(hoverEvent);
     editorWidget->mouseExit(hoverEvent);
+    editorWidget->handleAsyncUpdate();
     pumpMessageLoop(10);
 
     // Tooltips enabled: async update plus hover/move/exit must restore the

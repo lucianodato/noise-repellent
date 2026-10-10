@@ -155,6 +155,19 @@ float maxAbsDiff(const std::vector<float>& a, const std::vector<float>& b) {
   return m;
 }
 
+struct FakePlayHead : public juce::AudioPlayHead {
+  bool hasPosition = true;
+
+  juce::Optional<juce::AudioPlayHead::PositionInfo> getPosition()
+      const override {
+    if (!hasPosition)
+      return {};
+    juce::AudioPlayHead::PositionInfo info;
+    info.setIsPlaying(true);
+    return info;
+  }
+};
+
 } // namespace
 
 class IntegrationTest : public juce::UnitTest {
@@ -192,6 +205,9 @@ public:
 
     beginTest("Mono Bus Layout (Single-Engine Group)");
     testMonoBusLayout();
+
+    beginTest("Host Transport State Reporting");
+    testHostTransportStateReporting();
 
     beginTest("Stereo-Mono-Stereo Distinct Profile Restore");
     testStereoMonoStereoDistinctRestore();
@@ -824,6 +840,45 @@ private:
 
     proc.releaseResources();
     proc2.releaseResources();
+  }
+
+  void testHostTransportStateReporting() {
+    NoiseRepellentAudioProcessor proc;
+    constexpr double sampleRate = 48000.0;
+    constexpr int blockSize = 512;
+    proc.prepareToPlay(sampleRate, blockSize);
+    pumpMessageLoop(10);
+
+    juce::AudioBuffer<float> buffer(2, blockSize);
+    juce::MidiBuffer midi;
+
+    // No playhead installed: transport state must stay unknown.
+    proc.processBlock(buffer, midi);
+    expect(!proc.isHostTransportStateKnown(),
+           "Missing host playhead must leave transport state unknown");
+
+    // Playhead reporting a playing position.
+    FakePlayHead playingHead;
+    proc.setPlayHead(&playingHead);
+    proc.processBlock(buffer, midi);
+    expect(proc.isHostTransportStateKnown(),
+           "Host playhead must mark transport state known");
+    expect(proc.isHostTransportPlaying(),
+           "Playing host transport must be reported as playing");
+
+    // Playhead without a position: the state is genuinely unknown, so it
+    // must not gate the visualizer's stopped-decay path. The last known
+    // playing flag is intentionally left stale because it is only ever read
+    // while the state is known.
+    FakePlayHead positionLessHead;
+    positionLessHead.hasPosition = false;
+    proc.setPlayHead(&positionLessHead);
+    proc.processBlock(buffer, midi);
+    expect(!proc.isHostTransportStateKnown(),
+           "Playhead without position must leave transport state unknown");
+
+    proc.setPlayHead(nullptr);
+    proc.releaseResources();
   }
 
   void testStereoMonoStereoDistinctRestore() {
