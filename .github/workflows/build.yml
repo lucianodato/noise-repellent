@@ -34,7 +34,7 @@ jobs:
             libxinerama-dev libxrandr-dev libfontconfig1-dev libfreetype6-dev
 
       - name: Setup ccache
-        uses: hendrikmuhs/ccache-action@5ebbd400eff9e74630f759d94ddd7b6c26299639 # v1.2
+        uses: hendrikmuhs/ccache-action@v1.2
         with:
           key: ${{ runner.os }}-test-ccache
           max-size: 2000M
@@ -71,7 +71,7 @@ jobs:
 
       - name: Cache SonarQube packages
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        uses: actions/cache@v4.3.0
         with:
           path: ~/.sonar/cache
           key: ${{ runner.os }}-sonar
@@ -110,7 +110,7 @@ jobs:
           echo "Building version: ${VERSION} (CMake base ${BASE_VER})"
 
       - name: Setup ccache
-        uses: hendrikmuhs/ccache-action@5ebbd400eff9e74630f759d94ddd7b6c26299639 # v1.2
+        uses: hendrikmuhs/ccache-action@v1.2
         with:
           key: ${{ runner.os }}-ccache
           max-size: 2000M
@@ -314,12 +314,12 @@ jobs:
             --scripts pkg_scripts \
             "NoiseRepellent-macOS-Universal-${PLUGIN_VERSION}.pkg"
 
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@v4
         with:
           name: noise-repellent-macOS-installer-${{ steps.extract_version.outputs.version }}
           path: NoiseRepellent-macOS-Universal-${{ steps.extract_version.outputs.version }}.pkg
 
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@v4
         with:
           name: noise-repellent-macOS-zip-${{ steps.extract_version.outputs.version }}
           path: noise-repellent-macOS-Universal-${{ steps.extract_version.outputs.version }}.zip
@@ -366,7 +366,7 @@ jobs:
             libxinerama-dev libxrandr-dev libfontconfig1-dev libfreetype6-dev
 
       - name: Setup ccache
-        uses: hendrikmuhs/ccache-action@5ebbd400eff9e74630f759d94ddd7b6c26299639 # v1.2
+        uses: hendrikmuhs/ccache-action@v1.2
         with:
           key: ${{ runner.os }}-ccache
           max-size: 2000M
@@ -518,12 +518,12 @@ jobs:
 
           cd staging && tar -czvf "../noise-repellent-linux-x86_64-${PLUGIN_VERSION}.tar.gz" *
 
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@v4
         with:
           name: noise-repellent-linux-deb-${{ steps.extract_version.outputs.version }}
           path: noise-repellent_${{ steps.extract_version.outputs.version }}_amd64.deb
 
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@v4
         with:
           name: noise-repellent-linux-tarball-${{ steps.extract_version.outputs.version }}
           path: noise-repellent-linux-x86_64-${{ steps.extract_version.outputs.version }}.tar.gz
@@ -571,7 +571,7 @@ jobs:
         uses: ilammy/msvc-dev-cmd@v1
 
       - name: Setup ccache
-        uses: hendrikmuhs/ccache-action@5ebbd400eff9e74630f759d94ddd7b6c26299639 # v1.2
+        uses: hendrikmuhs/ccache-action@v1.2
         with:
           key: ${{ runner.os }}-ccache
           max-size: 2000M
@@ -730,13 +730,13 @@ jobs:
           mv Output/NoiseRepellent-Win64-Installer.exe "Output/NoiseRepellent-Win64-Installer-${PLUGIN_VERSION}.exe"
 
       - name: Upload Installer Artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@v4
         with:
           name: noise-repellent-win64-installer-${{ steps.extract_version.outputs.version }}
           path: Output/NoiseRepellent-Win64-Installer-${{ steps.extract_version.outputs.version }}.exe
 
       - name: Upload Zip Artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@v4
         with:
           name: noise-repellent-win64-zip-${{ steps.extract_version.outputs.version }}
           path: noise-repellent-windows-x64-${{ steps.extract_version.outputs.version }}.zip
