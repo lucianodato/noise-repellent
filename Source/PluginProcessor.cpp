@@ -119,9 +119,9 @@ void NoiseRepellentAudioProcessor::parameterChanged(
     // resets the engine under an in-flight run().
     // A change driven by a state restore (GH #221) must keep the profiles
     // the restore is about to install when this deferred rebuild fires.
-    if (replacingStateForRestore.load(std::memory_order_acquire))
-      preserveProfilesOnFrameRebuild.store(true, std::memory_order_release);
-    frameSizeRebuildPending.store(true, std::memory_order_release);
+    if (replacingStateForRestore.load())
+      preserveProfilesOnFrameRebuild.store(true);
+    frameSizeRebuildPending.store(true);
   }
 }
 
@@ -507,7 +507,7 @@ void NoiseRepellentAudioProcessor::ensureEnginesInitialized(double sampleRate) {
   // is consumed by any engine (re)build — including the early-outs below —
   // so it can never linger to protect a later user-initiated frame switch.
   const bool preserveForStateRestore =
-      preserveProfilesOnFrameRebuild.exchange(false, std::memory_order_acq_rel);
+      preserveProfilesOnFrameRebuild.exchange(false);
   // Engine width follows the bus layout (mono hosts get a 1-engine group;
   // the library supports 1 channel explicitly). Rebuild on sample-rate OR
   // channel-count change — hosts can re-layout without touching the rate.
@@ -905,14 +905,13 @@ void NoiseRepellentAudioProcessor::processBlock(
   juce::ScopedNoDenormals noDenormals;
   if (const auto* hostPlayHead = getPlayHead()) {
     if (const auto position = hostPlayHead->getPosition()) {
-      hostTransportPlaying.store(position->getIsPlaying(),
-                                 std::memory_order_relaxed);
-      hostTransportStateKnown.store(true, std::memory_order_relaxed);
+      hostTransportPlaying.store(position->getIsPlaying());
+      hostTransportStateKnown.store(true);
     } else {
-      hostTransportStateKnown.store(false, std::memory_order_relaxed);
+      hostTransportStateKnown.store(false);
     }
   } else {
-    hostTransportStateKnown.store(false, std::memory_order_relaxed);
+    hostTransportStateKnown.store(false);
   }
 
   const int numSamples = buffer.getNumSamples();
@@ -923,12 +922,12 @@ void NoiseRepellentAudioProcessor::processBlock(
 
   // Track genuinely in-progress offline renders (see getNonRealtimeBlockCount).
   if (isNonRealtime())
-    nonRealtimeBlockCount.fetch_add(1, std::memory_order_relaxed);
+    nonRealtimeBlockCount.fetch_add(1);
 
   // Single coalesced structural rebuild, serialized with runEngine below —
   // the race-free funnel for off-message-thread frame_size/low_latency
   // changes (LV2 automation). Never concurrent, never a storm.
-  if (frameSizeRebuildPending.exchange(false, std::memory_order_acq_rel))
+  if (frameSizeRebuildPending.exchange(false))
     rebuildForFrameSizeChange(/*onAudioThread=*/true);
 
   const bool isBypassed =
@@ -1009,10 +1008,8 @@ void NoiseRepellentAudioProcessor::processBlock(
   if (engineGroup != nullptr)
     reportedTransientIntensity =
         specbleach_stereo_get_transient_intensity(engineGroup.get());
-  transientActivity.store(reportedTransientIntensity,
-                          std::memory_order_relaxed);
-  transientProtectionActive.store(ep.transientProtectionEnable,
-                                  std::memory_order_relaxed);
+  transientActivity.store(reportedTransientIntensity);
+  transientProtectionActive.store(ep.transientProtectionEnable);
 
   // Apply Soft Crossfade Bypass using JUCE DryWetMixer (with dry latency
   // compensation)
@@ -1327,7 +1324,7 @@ void NoiseRepellentAudioProcessor::processBlockBypassed(
     return;
 
   if (isNonRealtime())
-    nonRealtimeBlockCount.fetch_add(1, std::memory_order_relaxed);
+    nonRealtimeBlockCount.fetch_add(1);
 
   juce::dsp::AudioBlock<float> audioBlock(buffer);
   dryWetMixer.pushDrySamples(audioBlock);
@@ -1491,9 +1488,9 @@ void NoiseRepellentAudioProcessor::setStateInformation(const void* data,
     if (state.isValid()) {
       // Mark the APVTS swap so parameterChanged can tell a structural change
       // from a session restore apart from live automation (GH #221).
-      replacingStateForRestore.store(true, std::memory_order_release);
+      replacingStateForRestore.store(true);
       parameters.replaceState(state);
-      replacingStateForRestore.store(false, std::memory_order_release);
+      replacingStateForRestore.store(false);
     }
 
     if (profilesTree.isValid()) {
