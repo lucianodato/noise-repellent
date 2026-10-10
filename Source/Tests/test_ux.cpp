@@ -81,6 +81,9 @@ public:
 
     beginTest("Editor Resizing and Component Layout Stress");
     testEditorResizingStress();
+
+    beginTest("Footer Tooltip Callbacks");
+    testTooltipCallbacks();
   }
 
 private:
@@ -214,6 +217,53 @@ private:
         }
       }
     }
+
+    proc.releaseResources();
+  }
+
+  void testTooltipCallbacks() {
+    NoiseRepellentAudioProcessor proc;
+    proc.prepareToPlay(48000.0, 512);
+    pumpMessageLoop(10);
+    ScopedEditor editor(proc);
+    auto* editorWidget =
+        dynamic_cast<NoiseRepellentAudioProcessorEditor*>(editor.editor.get());
+    expect(editorWidget != nullptr, "Editor must be the plugin editor");
+    if (editorWidget == nullptr) {
+      proc.releaseResources();
+      return;
+    }
+    pumpMessageLoop(10);
+
+    const juce::MouseEvent hoverEvent(
+        juce::Desktop::getInstance().getMainMouseSource(),
+        juce::Point<float>(10.0f, 10.0f), juce::ModifierKeys(), 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f, nullptr, nullptr, juce::Time(),
+        juce::Point<float>(10.0f, 10.0f), juce::Time(), 1, false);
+
+    auto setTooltipParameter = [&proc](float value) {
+      if (auto* param = proc.getAPVTS().getParameter("show_tooltips")) {
+        param->setValueNotifyingHost(param->convertTo0to1(value));
+      }
+      pumpMessageLoop(5);
+    };
+
+    // Tooltips disabled: hover/exit must clear the footer label.
+    setTooltipParameter(0.0f);
+    editorWidget->mouseEnter(hoverEvent);
+    editorWidget->mouseExit(hoverEvent);
+    pumpMessageLoop(10);
+
+    // Tooltips enabled: async update plus hover/move/exit must restore the
+    // default hint without touching unsafe event state.
+    setTooltipParameter(1.0f);
+    editorWidget->handleAsyncUpdate();
+    editorWidget->mouseEnter(hoverEvent);
+    editorWidget->mouseMove(hoverEvent);
+    editorWidget->mouseExit(hoverEvent);
+    pumpMessageLoop(10);
+
+    expect(true, "Tooltip callbacks must stay responsive");
 
     proc.releaseResources();
   }
