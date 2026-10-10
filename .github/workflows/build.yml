@@ -80,6 +80,8 @@ jobs:
       - name: SonarCloud analysis
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         uses: SonarSource/sonarqube-scan-action@v8.3.0
+        with:
+          args: -Dsonar.qualitygate.wait=true
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
