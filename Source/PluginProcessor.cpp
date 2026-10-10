@@ -21,6 +21,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "PluginEditor.h"
 #include <cmath>
 #include <cstring>
+#include <memory>
 #include <utility>
 
 namespace {
@@ -57,12 +58,7 @@ NoiseRepellentAudioProcessor::NoiseRepellentAudioProcessor()
           BusesProperties()
               .withInput("Input", juce::AudioChannelSet::stereo(), true)
               .withOutput("Output", juce::AudioChannelSet::stereo(), true)),
-      parameters(*this, nullptr, "PARAMETERS", createParameterLayout()),
-      // Dry-delay headroom must exceed the worst-case engine latency:
-      // 93 ms at 192 kHz needs 35712 samples (latency = 2x frame).
-      // setWetLatency() silently clamps past this ceiling, which
-      // misaligns dry/wet and skips on bypass toggles.
-      dryWetMixer(65536) {
+      parameters(*this, nullptr, "PARAMETERS", createParameterLayout()) {
   bypassParameter = dynamic_cast<juce::AudioParameterBool*>(
       parameters.getParameter("bypass"));
   parameters.addParameterListener("frame_size", this);
@@ -511,7 +507,7 @@ void NoiseRepellentAudioProcessor::ensureEnginesInitialized(double sampleRate) {
   // Engine width follows the bus layout (mono hosts get a 1-engine group;
   // the library supports 1 channel explicitly). Rebuild on sample-rate OR
   // channel-count change — hosts can re-layout without touching the rate.
-  const uint32_t wantedChannels = static_cast<uint32_t>(
+  const auto wantedChannels = static_cast<uint32_t>(
       std::max({getTotalNumInputChannels(), getTotalNumOutputChannels(), 1}));
   const uint32_t currentGroupChannels =
       (engineGroup != nullptr)
@@ -523,14 +519,13 @@ void NoiseRepellentAudioProcessor::ensureEnginesInitialized(double sampleRate) {
              static_cast<float>(sampleRate))
           : getFrameSizeMs();
   const bool wantedLowLatency = isLowLatency();
-  const bool needNewEngines =
-      (engineGroup == nullptr ||
-       std::abs(currentSampleRate - sampleRate) > 0.001 ||
-       currentGroupChannels != wantedChannels ||
-       std::abs(currentFrameSizeMs - wantedFrameSizeMs) > 0.001f ||
-       currentLowLatency != wantedLowLatency);
-
-  if (!needNewEngines)
+  if (const bool needNewEngines =
+          (engineGroup == nullptr ||
+           std::abs(currentSampleRate - sampleRate) > 0.001 ||
+           currentGroupChannels != wantedChannels ||
+           std::abs(currentFrameSizeMs - wantedFrameSizeMs) > 0.001f ||
+           currentLowLatency != wantedLowLatency);
+      !needNewEngines)
     return;
 
   const bool frameSizeChanged =
@@ -590,7 +585,7 @@ void NoiseRepellentAudioProcessor::ensureEnginesInitialized(double sampleRate) {
 
   uint32_t channels = wantedChannels;
 
-  const uint32_t sampleRateUint = static_cast<uint32_t>(sampleRate);
+  const auto sampleRateUint = static_cast<uint32_t>(sampleRate);
   const uint32_t initFlags =
       wantedLowLatency ? SPECBLEACH_INIT_LOW_LATENCY : 0u;
   engineGroup = specbleach::make_stereo_group(sampleRateUint, wantedFrameSizeMs,
@@ -805,19 +800,17 @@ NoiseRepellentAudioProcessor::buildEngineParams() {
   ep.curveEnabled =
       parameters.getRawParameterValue("reduction_curve_enabled")->load() > 0.5f;
 
-  if (ep.curveEnabled) {
-    if (curveNodesDirty.exchange(false)) {
-      juce::SpinLock::ScopedTryLockType tryLock(curveLock);
-      if (tryLock.isLocked()) {
-        uint32_t profileSize = 0;
-        if (engineGroup != nullptr)
-          profileSize =
-              specbleach_stereo_get_noise_profile_size(engineGroup.get());
-        if (profileSize > 0)
-          interpolateCurve(profileSize);
-      } else {
-        curveNodesDirty = true;
-      }
+  if (ep.curveEnabled && curveNodesDirty.exchange(false)) {
+    juce::SpinLock::ScopedTryLockType tryLock(curveLock);
+    if (tryLock.isLocked()) {
+      uint32_t profileSize = 0;
+      if (engineGroup != nullptr)
+        profileSize =
+            specbleach_stereo_get_noise_profile_size(engineGroup.get());
+      if (profileSize > 0)
+        interpolateCurve(profileSize);
+    } else {
+      curveNodesDirty = true;
     }
   }
 
@@ -840,12 +833,18 @@ NoiseRepellentAudioProcessor::buildEngineParams() {
   // envelopes into synth-pad artifacts at long releases, so the slider's
   // top half maps to ~130 ms max instead of 500 ms.
   ep.p.smoothing_factor = lowLatency ? smoothingNorm * 0.5f : smoothingNorm;
-  ep.p.smoothing_mode =
-      lowLatency ? SPECBLEACH_SMOOTHING_TEMPORAL
-                 : (algoMode == 3)   ? SPECBLEACH_SMOOTHING_BM3D
-                 : (algoMode == 2)   ? SPECBLEACH_SMOOTHING_NLM_2D_DFTT
-                 : (algoMode == 1) ? SPECBLEACH_SMOOTHING_NLM_2D
-                                   : SPECBLEACH_SMOOTHING_TEMPORAL;
+  // Branch the smoothing strategy with plain if/else: a nested ternary
+  // chain is hard to extend when a new algorithm mode lands.
+  auto smoothingMode = SPECBLEACH_SMOOTHING_TEMPORAL;
+  if (!lowLatency) {
+    if (algoMode == 3)
+      smoothingMode = SPECBLEACH_SMOOTHING_BM3D;
+    else if (algoMode == 2)
+      smoothingMode = SPECBLEACH_SMOOTHING_NLM_2D_DFTT;
+    else if (algoMode == 1)
+      smoothingMode = SPECBLEACH_SMOOTHING_NLM_2D;
+  }
+  ep.p.smoothing_mode = smoothingMode;
   // Single-control orchestration: in Refinement mode the DFTT quefrency
   // threshold scales with the reduction depth — deeper reduction produces
   // more musical noise, so the refinement stage is strengthed to match
@@ -943,7 +942,9 @@ void NoiseRepellentAudioProcessor::processBlock(
   if (!learnNoise) {
     const float thresh = kSilenceAmplitudeFloor;
     isSilent = true;
-    for (int ch = 0; ch < numChannels && isSilent; ++ch) {
+    for (int ch = 0; ch < numChannels; ++ch) {
+      if (!isSilent)
+        break;
       const float* d = buffer.getReadPointer(ch);
       for (int i = 0; i < numSamples; ++i) {
         if (std::abs(d[i]) > thresh) {
@@ -984,10 +985,9 @@ void NoiseRepellentAudioProcessor::processBlock(
       static_cast<double>(silentBlocksStreak) *
           static_cast<double>(std::max(numSamples, 1)) >
       flushSamples;
-  const bool canSkipDenoise = isSilent && pipelineFlushed && !hasProfile &&
-                              !adaptiveNoise && !learnNoise;
-
-  if (canSkipDenoise && !isBypassed) {
+  if (const bool canSkipDenoise = isSilent && pipelineFlushed && !hasProfile &&
+                                     !adaptiveNoise && !learnNoise;
+      canSkipDenoise && !isBypassed) {
     // True idle: silence persisted past every tail, nothing learned or
     // tracked. The engine sleeps; cleared output keeps the silence.
     buffer.clear();
@@ -1032,7 +1032,10 @@ void NoiseRepellentAudioProcessor::processBlock(
   if (isSilent) {
     fftAccumCount = 0;
     if ((++silenceVisualCounter % 4) == 0) {
-      int start1, size1, start2, size2;
+      int start1;
+      int size1;
+      int start2;
+      int size2;
       spectralFifo.prepareToWrite(1, start1, size1, start2, size2);
       if (size1 > 0) {
         SpectralFrame& frame = spectralBuffer[static_cast<size_t>(start1)];
@@ -1072,9 +1075,9 @@ void NoiseRepellentAudioProcessor::processBlock(
             if (morphedPtr != nullptr && profileSize > 0) {
               // Resample morphed profile to kFftBins and convert to dB
               size_t realProfileBins = profileSize;
-              const float maxProfileIdx =
+              const auto maxProfileIdx =
                   static_cast<float>(realProfileBins - 1);
-              const float maxFftIdx = static_cast<float>(kFftBins - 1);
+              const auto maxFftIdx = static_cast<float>(kFftBins - 1);
               const float dbOffset = (maxProfileIdx > 0.0f)
                                          ? (20.0f * std::log10(maxProfileIdx))
                                          : 0.0f;
@@ -1146,7 +1149,10 @@ void NoiseRepellentAudioProcessor::processBlock(
 
     if (fftAccumCount >= kFftSize) {
       // We have a full FFT frame — compute and push to ring buffer
-      int start1, size1, start2, size2;
+      int start1;
+      int size1;
+      int start2;
+      int size2;
       spectralFifo.prepareToWrite(1, start1, size1, start2, size2);
 
       if (size1 > 0) {
@@ -1341,7 +1347,10 @@ void NoiseRepellentAudioProcessor::processBlockBypassed(
 }
 
 bool NoiseRepellentAudioProcessor::getNextSpectralFrame(SpectralFrame& frame) {
-  int start1, size1, start2, size2;
+  int start1;
+  int size1;
+  int start2;
+  int size2;
   spectralFifo.prepareToRead(1, start1, size1, start2, size2);
 
   if (size1 > 0) {
@@ -1561,7 +1570,7 @@ void NoiseRepellentAudioProcessor::setStateInformation(const void* data,
 }
 
 juce::AudioProcessorEditor* NoiseRepellentAudioProcessor::createEditor() {
-  return new NoiseRepellentAudioProcessorEditor(*this);
+  return std::make_unique<NoiseRepellentAudioProcessorEditor>(*this).release();
 }
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter() {

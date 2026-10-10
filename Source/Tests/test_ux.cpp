@@ -84,6 +84,9 @@ public:
 
     beginTest("Footer Tooltip Callbacks");
     testTooltipCallbacks();
+
+    beginTest("LookAndFeel Button and ComboBox Render Paths");
+    testLookAndFeelRenderPaths();
   }
 
 private:
@@ -267,6 +270,47 @@ private:
     expect(true, "Tooltip callbacks must stay responsive");
 
     proc.releaseResources();
+  }
+
+  void testLookAndFeelRenderPaths() {
+    // Software-rendered paint paths: covers the button background branches
+    // (on/off/fallback colours, highlight/down states) and the combo-box
+    // arrow layout, all headlessly on an image-backed Graphics context.
+    NoiseRepellentLookAndFeel lnf;
+    juce::Image img(juce::Image::RGB, 120, 60, true);
+    juce::Graphics g(img);
+
+    juce::TextButton onBtn("on");
+    onBtn.setSize(100, 24);
+    onBtn.setToggleState(true, juce::dontSendNotification);
+    onBtn.setColour(juce::TextButton::buttonOnColourId,
+                    juce::Colour(0xff112233));
+    lnf.drawButtonBackground(g, onBtn, juce::Colours::black, false, false);
+
+    juce::TextButton translucentOnBtn("translucentOn");
+    translucentOnBtn.setSize(100, 24);
+    translucentOnBtn.setToggleState(true, juce::dontSendNotification);
+    translucentOnBtn.setColour(juce::TextButton::buttonOnColourId,
+                               juce::Colour(0x00112233));
+    lnf.drawButtonBackground(g, translucentOnBtn, juce::Colours::black, false,
+                             false);
+
+    juce::TextButton offBtn("off");
+    offBtn.setSize(100, 24);
+    offBtn.setToggleState(false, juce::dontSendNotification);
+    offBtn.setColour(juce::TextButton::buttonColourId,
+                     juce::Colour(0xff445566));
+    lnf.drawButtonBackground(g, offBtn, juce::Colours::black, true, false);
+    offBtn.setColour(juce::TextButton::buttonColourId,
+                     juce::Colour(0x00445566));
+    lnf.drawButtonBackground(g, offBtn, juce::Colours::transparentBlack,
+                             false, true);
+
+    juce::ComboBox box;
+    box.setSize(100, 24);
+    lnf.drawComboBox(g, 100, 24, false, 70, 2, 26, 20, box);
+
+    expect(true, "LookAndFeel paint paths must render without crashing");
   }
 };
 

@@ -148,7 +148,7 @@ private:
   void updateLayout();
   void updateSliderLabels();
   void updateProfileStatus();
-  void showAboutBox();
+  void showAboutBox() const;
 
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(
       NoiseRepellentAudioProcessorEditor)

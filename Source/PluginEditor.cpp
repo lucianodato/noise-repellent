@@ -18,6 +18,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
 #include "PluginEditor.h"
+#include "PluginProcessor.h"
 #include <array>
 
 namespace {
@@ -119,7 +120,6 @@ const juce::String kTipMorphingUnavailable =
     "learned noise profile is captured.";
 
 } // namespace
-#include "PluginProcessor.h"
 
 NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(
     NoiseRepellentAudioProcessor& p)
@@ -196,7 +196,7 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(
     juce::PopupMenu::Item lowLatItem("Low Latency (512, live use)");
     lowLatItem.itemID = 8;
     lowLatItem.isTicked = lowLatencyVal;
-    lowLatItem.action = [this, lowLatencyParam, lowLatencyVal]() {
+    lowLatItem.action = [lowLatencyParam, lowLatencyVal]() {
       if (lowLatencyParam != nullptr) {
         lowLatencyParam->beginChangeGesture();
         lowLatencyParam->setValueNotifyingHost(lowLatencyVal ? 0.0f : 1.0f);
@@ -220,7 +220,7 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(
       frameItem.itemID = 3 + i;
       frameItem.isTicked = (i == frameSizeIdx);
       frameItem.isEnabled = !lowLatencyVal;
-      frameItem.action = [this, frameSizeParam, i]() {
+      frameItem.action = [frameSizeParam, i]() {
         if (frameSizeParam != nullptr) {
           frameSizeParam->beginChangeGesture();
           frameSizeParam->setValueNotifyingHost(static_cast<float>(i) / 4.0f);
@@ -660,9 +660,9 @@ kTipAlgoMode);
   footerTooltipLabel.setJustificationType(juce::Justification::left);
   addAndMakeVisible(footerTooltipLabel);
 
-  const auto* showTooltipsParam =
-      audioProcessor.getAPVTS().getRawParameterValue("show_tooltips");
-  if (showTooltipsParam == nullptr || showTooltipsParam->load() > 0.5f) {
+  if (const auto* showTooltipsParam =
+          audioProcessor.getAPVTS().getRawParameterValue("show_tooltips");
+      showTooltipsParam == nullptr || showTooltipsParam->load() > 0.5f) {
     footerTooltipLabel.setText(
         kTipDefaultInstruction,
         juce::dontSendNotification);
@@ -674,12 +674,11 @@ kTipAlgoMode);
   // Register mouse listener AFTER all child components are added
   addMouseListener(this, true);
 }
-
 void NoiseRepellentAudioProcessorEditor::mouseEnter(
     const juce::MouseEvent& event) {
-  const auto* showTooltipsParam =
-      audioProcessor.getAPVTS().getRawParameterValue("show_tooltips");
-  if (showTooltipsParam != nullptr && showTooltipsParam->load() < 0.5f) {
+  if (const auto* showTooltipsParam =
+          audioProcessor.getAPVTS().getRawParameterValue("show_tooltips");
+      showTooltipsParam != nullptr && showTooltipsParam->load() < 0.5f) {
     footerTooltipLabel.setText({}, juce::dontSendNotification);
     return;
   }
@@ -707,7 +706,7 @@ void NoiseRepellentAudioProcessorEditor::mouseEnter(
       juce::dontSendNotification);
 }
 
-void NoiseRepellentAudioProcessorEditor::showAboutBox() {
+void NoiseRepellentAudioProcessorEditor::showAboutBox() const {
 #ifdef JucePlugin_VersionString
   const juce::String pluginVersion = JucePlugin_VersionString;
 #else
@@ -735,9 +734,9 @@ void NoiseRepellentAudioProcessorEditor::mouseMove(
 
 void NoiseRepellentAudioProcessorEditor::mouseExit(
     const juce::MouseEvent& /*event*/) {
-  const auto* showTooltipsParam =
-      audioProcessor.getAPVTS().getRawParameterValue("show_tooltips");
-  if (showTooltipsParam != nullptr && showTooltipsParam->load() > 0.5f) {
+  if (const auto* showTooltipsParam =
+          audioProcessor.getAPVTS().getRawParameterValue("show_tooltips");
+      showTooltipsParam != nullptr && showTooltipsParam->load() > 0.5f) {
     footerTooltipLabel.setText(
         kTipDefaultInstruction,
         juce::dontSendNotification);
@@ -761,9 +760,9 @@ void NoiseRepellentAudioProcessorEditor::parameterChanged(
 }
 
 void NoiseRepellentAudioProcessorEditor::handleAsyncUpdate() {
-  const auto* showTooltipsParam =
-      audioProcessor.getAPVTS().getRawParameterValue("show_tooltips");
-  if (showTooltipsParam != nullptr && showTooltipsParam->load() > 0.5f) {
+  if (const auto* showTooltipsParam =
+          audioProcessor.getAPVTS().getRawParameterValue("show_tooltips");
+      showTooltipsParam != nullptr && showTooltipsParam->load() > 0.5f) {
     footerTooltipLabel.setText(
         kTipDefaultInstruction,
         juce::dontSendNotification);
@@ -995,23 +994,23 @@ void NoiseRepellentAudioProcessorEditor::updateProfileStatus() {
   sliderTonalRed.setEnabled(tonalEnabled);
   lblTonalRed.setEnabled(tonalEnabled);
 
-  const juce::String kTipMasterReduction =
+  const juce::String masterReductionTip =
       isLinked
           ? "Adjust noise reduction level in decibels\n(0 to 40 dB across all "
             "bands)."
           : "Adjust broadband noise reduction level in decibels\n(0 to 40 dB).";
-  const juce::String kTipTonalReduction =
+  const juce::String tonalReductionTip =
       "Adjust reduction level for tonal noise components\n(0 to 40 dB).";
 
-  lblReductionHeader.setTooltip(processingAvailable ? kTipMasterReduction
+  lblReductionHeader.setTooltip(processingAvailable ? masterReductionTip
                                                     : kTipAwaitingProfile);
-  sliderMasterRed.setTooltip(processingAvailable ? kTipMasterReduction
+  sliderMasterRed.setTooltip(processingAvailable ? masterReductionTip
                                                   : kTipAwaitingProfile);
-  lblMasterRed.setTooltip(processingAvailable ? kTipMasterReduction
+  lblMasterRed.setTooltip(processingAvailable ? masterReductionTip
                                                : kTipAwaitingProfile);
-  sliderTonalRed.setTooltip(processingAvailable ? kTipTonalReduction
+  sliderTonalRed.setTooltip(processingAvailable ? tonalReductionTip
                                                  : kTipAwaitingProfile);
-  lblTonalRed.setTooltip(processingAvailable ? kTipTonalReduction
+  lblTonalRed.setTooltip(processingAvailable ? tonalReductionTip
                                               : kTipAwaitingProfile);
 
   // Threshold Offset controls
@@ -1284,9 +1283,8 @@ void NoiseRepellentAudioProcessorEditor::resized() {
 
   constexpr int kAlgoWidth = 210;
   int kProfileWidth = buttonsWidth + 12;
-  int combinedHeaderWidth = kAlgoWidth + kHeaderGap + kProfileWidth;
-
-  if (availMiddleWidth > combinedHeaderWidth) {
+  if (int combinedHeaderWidth = kAlgoWidth + kHeaderGap + kProfileWidth;
+      availMiddleWidth > combinedHeaderWidth) {
     int leftPad = (availMiddleWidth - combinedHeaderWidth) / 2;
     headerArea.removeFromLeft(leftPad);
   }

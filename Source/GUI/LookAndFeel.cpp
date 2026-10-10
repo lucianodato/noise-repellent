@@ -137,11 +137,11 @@ void NoiseRepellentLookAndFeel::drawButtonBackground(
 
   juce::Colour base;
   if (isOn) {
-    juce::Colour onCol =
+    auto onCol =
         button.findColour(juce::TextButton::buttonOnColourId, false);
     base = onCol.isOpaque() ? onCol : kColorNoiseProfile;
   } else {
-    juce::Colour offCol =
+    auto offCol =
         button.findColour(juce::TextButton::buttonColourId, false);
     base = (offCol.isOpaque() && !offCol.isTransparent())
                ? offCol
@@ -244,8 +244,8 @@ void NoiseRepellentLookAndFeel::drawComboBox(juce::Graphics& g, int width,
   g.setColour(findColour(juce::ComboBox::outlineColourId));
   g.drawRoundedRectangle(boxBounds, cornerSize, 1.0f);
 
-  juce::Rectangle<float> arrowZone((float)buttonX, (float)buttonY,
-                                   (float)buttonW, (float)buttonH);
+  juce::Rectangle arrowZone((float)buttonX, (float)buttonY,
+                            (float)buttonW, (float)buttonH);
   juce::Path path;
   path.addTriangle(arrowZone.getCentreX() - 4.0f, arrowZone.getCentreY() - 2.0f,
                    arrowZone.getCentreX() + 4.0f, arrowZone.getCentreY() - 2.0f,
