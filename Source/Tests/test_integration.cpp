@@ -352,7 +352,7 @@ private:
       // Add custom reduction curve
       std::vector<NoiseRepellentAudioProcessor::CurveNode> nodes = {
           {0.0f, 0.0f}, {0.25f, -6.0f}, {0.75f, 12.0f}, {1.0f, 0.0f}};
-      proc1.setCurveNodes(nodes);
+      proc1.curve.setNodes(nodes);
 
       learnProfile(proc1, sampleRate, blockSize, 25);
       expect(proc1.hasNoiseProfile(), "Proc 1 must have noise profile");
@@ -390,7 +390,7 @@ private:
              "Restored smoothing_factor must match");
 
       // Verify restored curve nodes
-      const auto& restoredNodes = proc2.getCurveNodes();
+      const auto& restoredNodes = proc2.curve.nodes();
       expectEquals(static_cast<int>(restoredNodes.size()), 4,
                    "Restored curve nodes count must match");
       if (restoredNodes.size() == 4) {
@@ -668,7 +668,7 @@ private:
         {0.5f, 0.0f},
         {0.8f, 24.0f}, // +24 dB extra reduction above 80% Nyquist
         {1.0f, 24.0f}};
-    proc.setCurveNodes(nodes);
+    proc.curve.setNodes(nodes);
 
     juce::AudioBuffer<float> buffer(2, blockSize);
     juce::MidiBuffer midi;
@@ -680,7 +680,7 @@ private:
 
     NoiseRepellentAudioProcessor::SpectralFrame frame;
     bool gotFrame = false;
-    while (proc.getNextSpectralFrame(frame)) {
+    while (proc.viz.getNextFrame(frame)) {
       gotFrame = true;
     }
 
@@ -854,16 +854,16 @@ private:
 
     // No playhead installed: transport state must stay unknown.
     proc.processBlock(buffer, midi);
-    expect(!proc.isHostTransportStateKnown(),
+    expect(!proc.status.isHostTransportStateKnown(),
            "Missing host playhead must leave transport state unknown");
 
     // Playhead reporting a playing position.
     FakePlayHead playingHead;
     proc.setPlayHead(&playingHead);
     proc.processBlock(buffer, midi);
-    expect(proc.isHostTransportStateKnown(),
+    expect(proc.status.isHostTransportStateKnown(),
            "Host playhead must mark transport state known");
-    expect(proc.isHostTransportPlaying(),
+    expect(proc.status.isHostTransportPlaying(),
            "Playing host transport must be reported as playing");
 
     // Playhead without a position: the state is genuinely unknown, so it
@@ -874,7 +874,7 @@ private:
     positionLessHead.hasPosition = false;
     proc.setPlayHead(&positionLessHead);
     proc.processBlock(buffer, midi);
-    expect(!proc.isHostTransportStateKnown(),
+    expect(!proc.status.isHostTransportStateKnown(),
            "Playhead without position must leave transport state unknown");
 
     proc.setPlayHead(nullptr);
@@ -1006,7 +1006,7 @@ private:
     proc.processBlock(buffer, midi);
     pumpMessageLoop(5);
 
-    float transientAct = proc.consumeTransientActivity();
+    float transientAct = proc.status.consumeTransientActivity();
     // Transient activity should be reported or preserved safely
     expect(!std::isnan(transientAct),
            "Transient activity must be a valid number");
@@ -1217,11 +1217,11 @@ private:
 
       // Flat curve (all zeros): baseline output level.
       setParam(proc, "reduction_curve_enabled", 1.0f);
-      proc.setCurveNodes({{0.0f, 0.0f}, {1.0f, 0.0f}});
+      proc.curve.setNodes({{0.0f, 0.0f}, {1.0f, 0.0f}});
       const float rmsFlat = runAndMeasureRms(proc, blockSize, 25, 10, 41000);
 
       // Uniform +24 dB extra reduction: output must drop hard.
-      proc.setCurveNodes({{0.0f, 24.0f}, {1.0f, 24.0f}});
+      proc.curve.setNodes({{0.0f, 24.0f}, {1.0f, 24.0f}});
       const float rmsCut = runAndMeasureRms(proc, blockSize, 25, 10, 42000);
 
       expect(rmsCut < rmsFlat * 0.5f,
@@ -1313,16 +1313,16 @@ private:
     juce::MidiBuffer midi;
     generateNoiseBuffer(buffer, 0.05f, 777);
 
-    expect(proc.getNonRealtimeBlockCount() == 0, "Counter must start at zero");
+    expect(proc.status.getNonRealtimeBlockCount() == 0, "Counter must start at zero");
 
     proc.processBlock(buffer, midi);
-    expect(proc.getNonRealtimeBlockCount() == 0,
+    expect(proc.status.getNonRealtimeBlockCount() == 0,
            "Realtime blocks must not advance the offline counter");
 
     proc.setNonRealtime(true);
     proc.processBlock(buffer, midi);
     proc.processBlock(buffer, midi);
-    expect(proc.getNonRealtimeBlockCount() == 2,
+    expect(proc.status.getNonRealtimeBlockCount() == 2,
            "Offline blocks must advance the offline counter");
     proc.setNonRealtime(false);
 

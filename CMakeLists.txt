@@ -179,6 +179,10 @@ target_include_directories(NoiseRepellent PRIVATE
 target_sources(NoiseRepellent PRIVATE
     Source/PluginProcessor.cpp
     Source/PluginProcessor.h
+    Source/ProcessorSubsystems.cpp
+    Source/ProcessorSubsystems.h
+    Source/VisualizationFeed.cpp
+    Source/VisualizationFeed.h
     Source/PluginEditor.cpp
     Source/PluginEditor.h
     Source/GUI/LookAndFeel.cpp
@@ -408,6 +412,8 @@ if(ENABLE_PLUGIN_TESTS OR BUILD_TESTING)
     add_executable(test_ux_invariants
         Source/Tests/test_ux_invariants.cpp
         Source/PluginProcessor.cpp
+        Source/ProcessorSubsystems.cpp
+        Source/VisualizationFeed.cpp
         Source/PluginEditor.cpp
         Source/GUI/LookAndFeel.cpp
         Source/GUI/SpectralVisualizer.cpp
@@ -446,6 +452,8 @@ if(ENABLE_PLUGIN_TESTS OR BUILD_TESTING)
     add_executable(test_performance
         Source/Tests/test_performance.cpp
         Source/PluginProcessor.cpp
+        Source/ProcessorSubsystems.cpp
+        Source/VisualizationFeed.cpp
         Source/PluginEditor.cpp
         Source/GUI/LookAndFeel.cpp
         Source/GUI/SpectralVisualizer.cpp
@@ -484,6 +492,8 @@ if(ENABLE_PLUGIN_TESTS OR BUILD_TESTING)
     add_executable(test_stress
         Source/Tests/test_stress.cpp
         Source/PluginProcessor.cpp
+        Source/ProcessorSubsystems.cpp
+        Source/VisualizationFeed.cpp
         Source/PluginEditor.cpp
         Source/GUI/LookAndFeel.cpp
         Source/GUI/SpectralVisualizer.cpp
@@ -522,6 +532,8 @@ if(ENABLE_PLUGIN_TESTS OR BUILD_TESTING)
     add_executable(test_integration
         Source/Tests/test_integration.cpp
         Source/PluginProcessor.cpp
+        Source/ProcessorSubsystems.cpp
+        Source/VisualizationFeed.cpp
         Source/PluginEditor.cpp
         Source/GUI/LookAndFeel.cpp
         Source/GUI/SpectralVisualizer.cpp
@@ -560,6 +572,8 @@ if(ENABLE_PLUGIN_TESTS OR BUILD_TESTING)
     add_executable(test_ux
         Source/Tests/test_ux.cpp
         Source/PluginProcessor.cpp
+        Source/ProcessorSubsystems.cpp
+        Source/VisualizationFeed.cpp
         Source/PluginEditor.cpp
         Source/GUI/LookAndFeel.cpp
         Source/GUI/SpectralVisualizer.cpp
@@ -594,6 +608,86 @@ if(ENABLE_PLUGIN_TESTS OR BUILD_TESTING)
         endif()
     endif()
     add_test(NAME test_ux COMMAND test_ux)
+
+    add_executable(test_gui_coverage
+        Source/Tests/test_gui_coverage.cpp
+        Source/PluginProcessor.cpp
+        Source/ProcessorSubsystems.cpp
+        Source/VisualizationFeed.cpp
+        Source/PluginEditor.cpp
+        Source/GUI/LookAndFeel.cpp
+        Source/GUI/SpectralVisualizer.cpp
+    )
+    target_compile_definitions(test_gui_coverage PRIVATE
+        JUCE_MODAL_LOOPS_PERMITTED=1
+        JucePlugin_Name="Noise Repellent"
+        JUCE_WEB_BROWSER=0
+        JUCE_USE_CURL=0
+        JUCE_VST3_CAN_REPLACE_VST2=0
+    )
+    target_include_directories(test_gui_coverage PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/Source
+    )
+    target_link_libraries(test_gui_coverage PRIVATE
+        ${SPECBLEACH_TARGET}
+        ${SPECBLEACH_EXTRAS_TARGET}
+        juce::juce_audio_utils
+        juce::juce_audio_processors
+        juce::juce_dsp
+        juce::juce_gui_extra
+        juce::juce_gui_basics
+        juce::juce_graphics
+        juce::juce_events
+        juce::juce_core
+    )
+    if(UNIX AND NOT APPLE)
+        if(USE_SYSTEM_FREETYPE)
+            target_link_libraries(test_gui_coverage PRIVATE Freetype::Freetype)
+        elseif(NOT USE_SYSTEM_JUCE)
+            target_link_libraries(test_gui_coverage PRIVATE freetype)
+        endif()
+    endif()
+    add_test(NAME test_gui_coverage COMMAND test_gui_coverage)
+
+    add_executable(test_processor_coverage
+        Source/Tests/test_processor_coverage.cpp
+        Source/PluginProcessor.cpp
+        Source/ProcessorSubsystems.cpp
+        Source/VisualizationFeed.cpp
+        Source/PluginEditor.cpp
+        Source/GUI/LookAndFeel.cpp
+        Source/GUI/SpectralVisualizer.cpp
+    )
+    target_compile_definitions(test_processor_coverage PRIVATE
+        JUCE_MODAL_LOOPS_PERMITTED=1
+        JucePlugin_Name="Noise Repellent"
+        JUCE_WEB_BROWSER=0
+        JUCE_USE_CURL=0
+        JUCE_VST3_CAN_REPLACE_VST2=0
+    )
+    target_include_directories(test_processor_coverage PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/Source
+    )
+    target_link_libraries(test_processor_coverage PRIVATE
+        ${SPECBLEACH_TARGET}
+        ${SPECBLEACH_EXTRAS_TARGET}
+        juce::juce_audio_utils
+        juce::juce_audio_processors
+        juce::juce_dsp
+        juce::juce_gui_extra
+        juce::juce_gui_basics
+        juce::juce_graphics
+        juce::juce_events
+        juce::juce_core
+    )
+    if(UNIX AND NOT APPLE)
+        if(USE_SYSTEM_FREETYPE)
+            target_link_libraries(test_processor_coverage PRIVATE Freetype::Freetype)
+        elseif(NOT USE_SYSTEM_JUCE)
+            target_link_libraries(test_processor_coverage PRIVATE freetype)
+        endif()
+    endif()
+    add_test(NAME test_processor_coverage COMMAND test_processor_coverage)
 endif()
 
 

@@ -19,6 +19,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 #include "PluginEditor.h"
 #include "PluginProcessor.h"
+#include "specbleach_version.h"
 #include <array>
 
 namespace {
@@ -46,9 +47,9 @@ const juce::String kTipThreshold =
 const juce::String kTipAbout = "About Noise Repellent";
 const juce::String kTipPreferences = "Preferences";
 const juce::String kTipPreferencesMenu = "Plugin preferences menu.";
-const juce::String kTipAlgoMode =
+const juce::String kTipAlgoMode = juce::String::fromUTF8(
     "Four methods, same controls — none outranks the others.\n"
-    "Temporal: fast; NLM: detail; + DFTT: tonal; BM3D: steady.";
+    "Temporal: fast; NLM: detail; + DFTT: tonal; BM3D: steady.");
 const juce::String kTipAdvancedToggle =
     "Toggle Advanced DSP Controls (Smoothing, Masking, Whitening, "
     "Aggressiveness).";
@@ -121,6 +122,117 @@ const juce::String kTipMorphingUnavailable =
 
 } // namespace
 
+namespace {
+
+// Frame-size entries share one parameter write path.
+void addFrameSizeMenuItems(juce::PopupMenu& menu,
+                           juce::RangedAudioParameter* frameSizeParam,
+                           int frameSizeIdx, bool lowLatencyVal) {
+  // Guidance baked into the labels: PopupMenu items have no tooltip
+  // support, and latency in ms is sample-rate independent (always 2x).
+  static constexpr std::array<const char*, 5> kFrameSizeNames = {
+      "23 ms - preserve transients",
+      "32 ms - general purpose",
+      "46 ms - stationary noise, default",
+      "64 ms - tonal detail: hum & whine",
+      "93 ms - max resolution"};
+  for (int i = 0; i < 5; ++i) {
+    juce::PopupMenu::Item frameItem(kFrameSizeNames[i]);
+    frameItem.itemID = 3 + i;
+    frameItem.isTicked = (i == frameSizeIdx);
+    frameItem.isEnabled = !lowLatencyVal;
+    frameItem.action = [frameSizeParam, i]() {
+      if (frameSizeParam != nullptr) {
+        frameSizeParam->beginChangeGesture();
+        frameSizeParam->setValueNotifyingHost(static_cast<float>(i) / 4.0f);
+        frameSizeParam->endChangeGesture();
+      }
+    };
+    menu.addItem(frameItem);
+  }
+}
+
+// Learn button appearance follows capture / profile state.
+void styleLearnButton(juce::TextButton& btn, bool isLearning, bool hasProfile) {
+  if (isLearning) {
+    btn.setButtonText("Learning...");
+    btn.setColour(juce::TextButton::buttonColourId,
+                  juce::Colour(NoiseRepellentLookAndFeel::kColorLearnActive)); // Active Learning Red
+    btn.setColour(juce::TextButton::buttonOnColourId,
+                  juce::Colour(NoiseRepellentLookAndFeel::kColorLearnActive));
+    btn.setTooltip(kTipLearnCapturing);
+  } else if (hasProfile) {
+    btn.setButtonText("+ Learn");
+    btn.setColour(juce::TextButton::buttonColourId,
+                  NoiseRepellentLookAndFeel::kColorNoiseProfile);
+    btn.setColour(juce::TextButton::buttonOnColourId,
+                  NoiseRepellentLookAndFeel::kColorNoiseProfile);
+    btn.setTooltip(kTipLearnAccumulate);
+  } else {
+    btn.setButtonText("Learn Noise");
+    btn.setColour(juce::TextButton::buttonColourId,
+                  juce::Colour(NoiseRepellentLookAndFeel::kColorLearnCTA)); // Prominent Crimson Red CTA
+    btn.setColour(juce::TextButton::buttonOnColourId,
+                  juce::Colour(NoiseRepellentLookAndFeel::kColorLearnActive)); // Active Learning Red
+    btn.setTooltip(kTipLearnDefault);
+  }
+  btn.repaint();
+}
+
+void styleAdaptiveButton(juce::TextButton& btn, bool isAdaptive) {
+  if (isAdaptive) {
+    btn.setColour(juce::TextButton::buttonColourId,
+                  NoiseRepellentLookAndFeel::kColorDenoising);
+    btn.setColour(juce::TextButton::buttonOnColourId,
+                  NoiseRepellentLookAndFeel::kColorDenoising);
+  } else {
+    btn.setColour(juce::TextButton::buttonColourId,
+                  juce::Colour(NoiseRepellentLookAndFeel::kColorButtonOff));
+    btn.setColour(juce::TextButton::buttonOnColourId,
+                  NoiseRepellentLookAndFeel::kColorDenoising);
+  }
+  btn.repaint();
+}
+
+// Status label (HUD overlay on FFT spectrum chart)
+void setProfileStatusText(juce::Label& lbl, bool isBypassed, bool isDelta,
+                          bool isLearning, bool isAdaptive, bool hasProfile) {
+  if (isBypassed) {
+    lbl.setText("STATUS: BYPASSED", juce::dontSendNotification);
+    lbl.setColour(juce::Label::textColourId,
+                  juce::Colour(NoiseRepellentLookAndFeel::kColorInactiveText));
+  } else if (isDelta) {
+    lbl.setText("STATUS: DELTA (RESIDUAL LISTEN)", juce::dontSendNotification);
+    lbl.setColour(juce::Label::textColourId,
+                  NoiseRepellentLookAndFeel::kColorTonalPeaks);
+  } else if (isLearning) {
+    lbl.setText("STATUS: CAPTURING NOISE PROFILE...",
+                juce::dontSendNotification);
+    lbl.setColour(juce::Label::textColourId,
+                  juce::Colour(NoiseRepellentLookAndFeel::kColorLearnActive));
+  } else if (isAdaptive && hasProfile) {
+    lbl.setText("STATUS: HYBRID (ADAPTIVE + PROFILE)",
+                juce::dontSendNotification);
+    lbl.setColour(juce::Label::textColourId,
+                  NoiseRepellentLookAndFeel::kColorNoiseProfile);
+  } else if (isAdaptive) {
+    lbl.setText("STATUS: CONTINUOUS ADAPTIVE", juce::dontSendNotification);
+    lbl.setColour(juce::Label::textColourId,
+                  NoiseRepellentLookAndFeel::kColorDenoising);
+  } else if (hasProfile) {
+    lbl.setText("STATUS: STATIONARY NOISE PROFILE", juce::dontSendNotification);
+    lbl.setColour(juce::Label::textColourId,
+                  NoiseRepellentLookAndFeel::kColorNoiseProfile);
+  } else {
+    lbl.setText("STATUS: NO PROFILE (PASS-THROUGH)",
+                juce::dontSendNotification);
+    lbl.setColour(juce::Label::textColourId,
+                  juce::Colour(NoiseRepellentLookAndFeel::kColorInactiveText));
+  }
+}
+
+} // namespace
+
 NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(
     NoiseRepellentAudioProcessor& p)
     : AudioProcessorEditor(&p), audioProcessor(p), spectralVisualizer(p) {
@@ -133,523 +245,375 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(
 
   // Brand Header (accessible button opening the About box with dependency
   // versions)
-  brandButton.setName(NoiseRepellentLookAndFeel::kBrandButtonName);
-  brandButton.setButtonText("NOISE REPELLENT");
-  brandButton.setTooltip(kTipAbout);
-  brandButton.setMouseCursor(juce::MouseCursor::PointingHandCursor);
-  brandButton.onClick = [this]() { showAboutBox(); };
-  addAndMakeVisible(brandButton);
+  header.brandButton.setName(NoiseRepellentLookAndFeel::kBrandButtonName);
+  header.brandButton.setButtonText("NOISE REPELLENT");
+  header.brandButton.setTooltip(kTipAbout);
+  header.brandButton.setMouseCursor(juce::MouseCursor::PointingHandCursor);
+  header.brandButton.onClick = [this]() { showAboutBox(); };
+  addAndMakeVisible(header.brandButton);
 
   // Preferences Header Button
-  addAndMakeVisible(btnPreferences);
-  btnPreferences.setTooltip(kTipPreferences);
-  btnPreferences.setColour(juce::TextButton::buttonColourId,
+  addAndMakeVisible(header.btnPreferences);
+  header.btnPreferences.setTooltip(kTipPreferences);
+  header.btnPreferences.setColour(juce::TextButton::buttonColourId,
                            juce::Colour(0xff3a4150));
-  btnPreferences.onClick = [this]() {
-    auto* tooltipParam =
-        audioProcessor.getAPVTS().getParameter("show_tooltips");
-    auto* hudParam = audioProcessor.getAPVTS().getParameter("show_hud");
-    auto* frameSizeParam =
-        audioProcessor.getAPVTS().getParameter("frame_size");
-    auto* lowLatencyParam =
-        audioProcessor.getAPVTS().getParameter("low_latency");
-
-    bool tooltipVal =
-        (tooltipParam != nullptr && tooltipParam->getValue() > 0.5f);
-    bool hudVal = (hudParam != nullptr && hudParam->getValue() > 0.5f);
-    bool lowLatencyVal =
-        (lowLatencyParam != nullptr && lowLatencyParam->getValue() > 0.5f);
-    int frameSizeIdx = 2;
-    if (const auto* choice = dynamic_cast<juce::AudioParameterChoice*>(
-            frameSizeParam))
-      frameSizeIdx = choice->getIndex();
-
-    juce::PopupMenu menu;
-
-    juce::PopupMenu::Item item1("Show Tooltips");
-    item1.itemID = 1;
-    item1.isTicked = tooltipVal;
-    item1.action = [this, tooltipParam, tooltipVal]() {
-      if (tooltipParam != nullptr) {
-        tooltipParam->beginChangeGesture();
-        tooltipParam->setValueNotifyingHost(tooltipVal ? 0.0f : 1.0f);
-        tooltipParam->endChangeGesture();
-        updateLayout();
-      }
-    };
-    menu.addItem(item1);
-
-    juce::PopupMenu::Item item2("Show HUD Status");
-    item2.itemID = 2;
-    item2.isTicked = hudVal;
-    item2.action = [this, hudParam, hudVal]() {
-      if (hudParam != nullptr) {
-        hudParam->beginChangeGesture();
-        hudParam->setValueNotifyingHost(hudVal ? 0.0f : 1.0f);
-        hudParam->endChangeGesture();
-        updateLayout();
-      }
-    };
-    menu.addItem(item2);
-
-    menu.addSeparator();
-    juce::PopupMenu::Item lowLatItem("Low Latency (512, live use)");
-    lowLatItem.itemID = 8;
-    lowLatItem.isTicked = lowLatencyVal;
-    lowLatItem.action = [lowLatencyParam, lowLatencyVal]() {
-      if (lowLatencyParam != nullptr) {
-        lowLatencyParam->beginChangeGesture();
-        lowLatencyParam->setValueNotifyingHost(lowLatencyVal ? 0.0f : 1.0f);
-        lowLatencyParam->endChangeGesture();
-      }
-    };
-    menu.addItem(lowLatItem);
-
-    menu.addSeparator();
-    menu.addSectionHeader("FRAME SIZE (BIGGER = FINER DETAIL + MORE LATENCY)");
-    // Guidance baked into the labels: PopupMenu items have no tooltip
-    // support, and latency in ms is sample-rate independent (always 2x).
-    static constexpr std::array<const char*, 5> kFrameSizeNames = {
-        "23 ms - preserve transients",
-        "32 ms - general purpose",
-        "46 ms - stationary noise, default",
-        "64 ms - tonal detail: hum & whine",
-        "93 ms - max resolution"};
-    for (int i = 0; i < 5; ++i) {
-      juce::PopupMenu::Item frameItem(kFrameSizeNames[i]);
-      frameItem.itemID = 3 + i;
-      frameItem.isTicked = (i == frameSizeIdx);
-      frameItem.isEnabled = !lowLatencyVal;
-      frameItem.action = [frameSizeParam, i]() {
-        if (frameSizeParam != nullptr) {
-          frameSizeParam->beginChangeGesture();
-          frameSizeParam->setValueNotifyingHost(static_cast<float>(i) / 4.0f);
-          frameSizeParam->endChangeGesture();
-        }
-      };
-      menu.addItem(frameItem);
-    }
-
-    menu.setLookAndFeel(&getLookAndFeel());
-    menu.showMenuAsync(
-        juce::PopupMenu::Options().withTargetComponent(&btnPreferences));
-  };
+  header.btnPreferences.onClick = [this]() { showPreferencesMenu(); };
 
   // Algorithm Mode Label & Dropdown
-  lblAlgoHeader.setFont(juce::FontOptions(
+  header.lblAlgoHeader.setFont(juce::FontOptions(
       NoiseRepellentLookAndFeel::kFontSizeLabel, juce::Font::bold));
-  lblAlgoHeader.setColour(juce::Label::textColourId,
+  header.lblAlgoHeader.setColour(juce::Label::textColourId,
                           NoiseRepellentLookAndFeel::kColorDenoising);
-  lblAlgoHeader.setJustificationType(juce::Justification::centred);
-  addAndMakeVisible(lblAlgoHeader);
+  header.lblAlgoHeader.setJustificationType(juce::Justification::centred);
+  addAndMakeVisible(header.lblAlgoHeader);
 
-  comboAlgoMode.addItemList(
+  header.comboAlgoMode.addItemList(
       {"Temporal (Fast / Low CPU)", "Patch-Based NLM (Texture & Detail)",
        "NLM + DFTT Refinement (Tonal / Difficult)",
        "Collaborative BM3D (Smooth / Steady)"},
       1);
-  addAndMakeVisible(comboAlgoMode);
-  comboAlgoMode.onChange = [this]() { updateLayout(); };
+  addAndMakeVisible(header.comboAlgoMode);
+  header.comboAlgoMode.onChange = [this]() { updateLayout(); };
 
   // Header Action Toggles
   isAdvancedVisible =
       audioProcessor.getAPVTS().getRawParameterValue("show_advanced")->load() >
       0.5f;
-  btnAdvancedToggle.setClickingTogglesState(true);
-  addAndMakeVisible(btnAdvancedToggle);
-  btnAdvancedToggle.setColour(juce::TextButton::buttonColourId,
+  header.btnAdvancedToggle.setClickingTogglesState(true);
+  addAndMakeVisible(header.btnAdvancedToggle);
+  header.btnAdvancedToggle.setColour(juce::TextButton::buttonColourId,
                               juce::Colour(NoiseRepellentLookAndFeel::kColorButtonOff));
-  btnAdvancedToggle.setColour(juce::TextButton::buttonOnColourId,
+  header.btnAdvancedToggle.setColour(juce::TextButton::buttonOnColourId,
                               NoiseRepellentLookAndFeel::kColorNoiseProfile);
-  btnAdvancedToggle.onClick = [this]() {
-    isAdvancedVisible = btnAdvancedToggle.getToggleState();
+  header.btnAdvancedToggle.onClick = [this]() {
+    isAdvancedVisible = header.btnAdvancedToggle.getToggleState();
     updateLayout();
   };
 
-  btnDelta.setClickingTogglesState(true);
-  btnDelta.setColour(juce::TextButton::buttonColourId,
+  header.btnDelta.setClickingTogglesState(true);
+  header.btnDelta.setColour(juce::TextButton::buttonColourId,
                      juce::Colour(NoiseRepellentLookAndFeel::kColorButtonOff));
-  btnDelta.setColour(juce::TextButton::buttonOnColourId,
+  header.btnDelta.setColour(juce::TextButton::buttonOnColourId,
                      NoiseRepellentLookAndFeel::kColorNoiseProfile);
-  addAndMakeVisible(btnDelta);
-  btnDelta.onClick = [this]() { updateLayout(); };
+  addAndMakeVisible(header.btnDelta);
+  header.btnDelta.onClick = [this]() { updateLayout(); };
 
-  btnBypass.setClickingTogglesState(true);
-  btnBypass.setColour(juce::TextButton::buttonColourId,
+  header.btnBypass.setClickingTogglesState(true);
+  header.btnBypass.setColour(juce::TextButton::buttonColourId,
                       juce::Colour(NoiseRepellentLookAndFeel::kColorButtonOff));
-  btnBypass.setColour(juce::TextButton::buttonOnColourId,
+  header.btnBypass.setColour(juce::TextButton::buttonOnColourId,
                       NoiseRepellentLookAndFeel::kColorNoiseProfile);
-  addAndMakeVisible(btnBypass);
-  btnBypass.onClick = [this]() { updateLayout(); };
+  addAndMakeVisible(header.btnBypass);
+  header.btnBypass.onClick = [this]() { updateLayout(); };
 
   // Beginner Module 1: Noise Profile
-  addAndMakeVisible(groupProfile);
-  groupProfile.setText("NOISE PROFILE");
-  groupProfile.setColour(juce::GroupComponent::outlineColourId,
+  addAndMakeVisible(profile.groupProfile);
+  profile.groupProfile.setText("NOISE PROFILE");
+  profile.groupProfile.setColour(juce::GroupComponent::outlineColourId,
                          NoiseRepellentLookAndFeel::kColorPanelBorder);
-  groupProfile.setColour(juce::GroupComponent::textColourId,
+  profile.groupProfile.setColour(juce::GroupComponent::textColourId,
                          NoiseRepellentLookAndFeel::kColorFineTuning);
-  groupProfile.setInterceptsMouseClicks(false, false);
+  profile.groupProfile.setInterceptsMouseClicks(false, false);
 
-  btnLearn.setClickingTogglesState(true);
-  addAndMakeVisible(btnLearn);
-  btnLearn.setColour(
+  profile.btnLearn.setClickingTogglesState(true);
+  addAndMakeVisible(profile.btnLearn);
+  profile.btnLearn.setColour(
       juce::TextButton::buttonColourId,
       juce::Colour(NoiseRepellentLookAndFeel::kColorLearnCTA)); // Prominent Studio Crimson Red CTA
-  btnLearn.setColour(juce::TextButton::buttonOnColourId,
+  profile.btnLearn.setColour(juce::TextButton::buttonOnColourId,
                      juce::Colour(NoiseRepellentLookAndFeel::kColorLearnActive)); // Active Learning Red
-  btnLearn.onClick = [this]() { updateProfileStatus(); };
+  profile.btnLearn.onClick = [this]() { updateProfileStatus(); };
 
-  btnAdaptiveNoise.setClickingTogglesState(true);
-  btnAdaptiveNoise.setButtonText("Adaptive");
-  btnAdaptiveNoise.setTooltip(
+  profile.btnAdaptiveNoise.setClickingTogglesState(true);
+  profile.btnAdaptiveNoise.setButtonText("Adaptive");
+  profile.btnAdaptiveNoise.setTooltip(
       kTipAdaptive);
-  addAndMakeVisible(btnAdaptiveNoise);
-  btnAdaptiveNoise.setColour(juce::TextButton::buttonColourId,
+  addAndMakeVisible(profile.btnAdaptiveNoise);
+  profile.btnAdaptiveNoise.setColour(juce::TextButton::buttonColourId,
                              juce::Colour(NoiseRepellentLookAndFeel::kColorButtonOff));
-  btnAdaptiveNoise.setColour(juce::TextButton::buttonOnColourId,
+  profile.btnAdaptiveNoise.setColour(juce::TextButton::buttonOnColourId,
                              NoiseRepellentLookAndFeel::kColorDenoising);
-  btnAdaptiveNoise.onClick = [this]() {
+  profile.btnAdaptiveNoise.onClick = [this]() {
     updateLayout();
     updateProfileStatus();
   };
 
-  addAndMakeVisible(btnAdaptiveArrow);
-  btnAdaptiveArrow.setTooltip(kTipAdaptiveMethod);
-  btnAdaptiveArrow.setColour(juce::TextButton::buttonColourId,
+  addAndMakeVisible(profile.btnAdaptiveArrow);
+  profile.btnAdaptiveArrow.setTooltip(kTipAdaptiveMethod);
+  profile.btnAdaptiveArrow.setColour(juce::TextButton::buttonColourId,
                              juce::Colour(0xff353b48));
-  btnAdaptiveArrow.onClick = [this]() {
-    juce::PopupMenu menu;
-    int currentMethod = static_cast<int>(comboMethod.getSelectedId());
+  profile.btnAdaptiveArrow.onClick = [this]() { showAdaptiveMethodMenu(); };
 
-    menu.addSectionHeader("ADAPTIVE ESTIMATION METHOD");
-    menu.addItem(1, "Speech-Focused (SPP-MMSE)", true, currentMethod == 1);
-    menu.addItem(2, "Slow, Steady (Brandt)", true, currentMethod == 2);
-    menu.addItem(3, "Balanced Tracking (Martin)", true, currentMethod == 3);
-
-    menu.setLookAndFeel(&getLookAndFeel());
-    menu.showMenuAsync(
-        juce::PopupMenu::Options().withTargetComponent(&btnAdaptiveArrow),
-        [this](int result) {
-          if (result >= 1 && result <= 3) {
-            int methodIdx = result - 1;
-            comboMethod.setSelectedId(result, juce::sendNotification);
-            if (auto* p =
-                    audioProcessor.getAPVTS().getParameter("adaptive_method"))
-              p->setValueNotifyingHost(static_cast<float>(methodIdx) / 2.0f);
-            if (auto* p =
-                    audioProcessor.getAPVTS().getParameter("adaptive_noise"))
-              p->setValueNotifyingHost(1.0f);
-            updateLayout();
-            updateProfileStatus();
-          }
-        });
-  };
-
-  addAndMakeVisible(btnResetProfile);
-  btnResetProfile.setTooltip(kTipResetProfile);
-  btnResetProfile.onClick = [this]() {
-    audioProcessor.resetNoiseProfile();
-    if (auto* pLearn = audioProcessor.getAPVTS().getParameter("learn_noise"))
-      pLearn->setValueNotifyingHost(0.0f);
-    if (auto* pAdapt = audioProcessor.getAPVTS().getParameter("adaptive_noise"))
-      pAdapt->setValueNotifyingHost(0.0f);
-    updateLayout();
-    updateProfileStatus();
-  };
+  addAndMakeVisible(profile.btnResetProfile);
+  profile.btnResetProfile.setTooltip(kTipResetProfile);
+  profile.btnResetProfile.onClick = [this]() { handleResetProfileClick(); };
 
   // Profile Status Label (HUD Overlay on Chart)
-  addAndMakeVisible(lblProfileStatus);
-  lblProfileStatus.setFont(juce::FontOptions(
+  addAndMakeVisible(profile.lblProfileStatus);
+  profile.lblProfileStatus.setFont(juce::FontOptions(
       NoiseRepellentLookAndFeel::kFontSizeLabel, juce::Font::bold));
-  lblProfileStatus.setColour(juce::Label::textColourId,
+  profile.lblProfileStatus.setColour(juce::Label::textColourId,
                              NoiseRepellentLookAndFeel::kColorNoiseProfile);
-  lblProfileStatus.setJustificationType(juce::Justification::centredRight);
-  lblProfileStatus.setText("STATUS: STATIONARY NOISE PROFILE",
+  profile.lblProfileStatus.setJustificationType(juce::Justification::centredRight);
+  profile.lblProfileStatus.setText("STATUS: STATIONARY NOISE PROFILE",
                            juce::dontSendNotification);
 
   // Beginner Module 2: Denoising & Resizable Canvas
-  addAndMakeVisible(groupDenoising);
-  groupDenoising.setText("");
-  groupDenoising.setColour(juce::GroupComponent::outlineColourId,
+  addAndMakeVisible(denoising.groupDenoising);
+  denoising.groupDenoising.setText("");
+  denoising.groupDenoising.setColour(juce::GroupComponent::outlineColourId,
                            NoiseRepellentLookAndFeel::kColorPanelBorder);
-  groupDenoising.setColour(juce::GroupComponent::textColourId,
+  denoising.groupDenoising.setColour(juce::GroupComponent::textColourId,
                            NoiseRepellentLookAndFeel::kColorFineTuning);
-  groupDenoising.setInterceptsMouseClicks(false, false);
+  denoising.groupDenoising.setInterceptsMouseClicks(false, false);
 
-  lblReductionHeader.setFont(juce::FontOptions(
+  denoising.lblReductionHeader.setFont(juce::FontOptions(
       NoiseRepellentLookAndFeel::kFontSizeLabel, juce::Font::bold));
-  lblReductionHeader.setColour(juce::Label::textColourId,
+  denoising.lblReductionHeader.setColour(juce::Label::textColourId,
                                NoiseRepellentLookAndFeel::kColorDenoising);
-  lblReductionHeader.setJustificationType(juce::Justification::centred);
-  addAndMakeVisible(lblReductionHeader);
+  denoising.lblReductionHeader.setJustificationType(juce::Justification::centred);
+  addAndMakeVisible(denoising.lblReductionHeader);
 
-  addAndMakeVisible(btnLink);
+  addAndMakeVisible(denoising.btnLink);
   // Attachment must be created before onClick is assigned: ButtonAttachment
   // calls setToggleState(sendNotification) during construction to sync from
   // APVTS, which would fire onClick and reset reduction params to default.
-  attachLink = std::make_unique<ButtonAttachment>(audioProcessor.getAPVTS(),
-                                                  "link_reduction", btnLink);
-  btnLink.setButtonText(btnLink.getToggleState() ? "Linked" : "Unlinked");
-  btnLink.onClick = [this]() {
-    bool isLinked = btnLink.getToggleState();
-    btnLink.setButtonText(isLinked ? "Linked" : "Unlinked");
-    if (isLinked) {
-      // Reset reduction parameters to default when relinked
-      if (auto* pMaster =
-              audioProcessor.getAPVTS().getParameter("reduction_amount"))
-        pMaster->setValueNotifyingHost(pMaster->getDefaultValue());
-      if (auto* pTonal =
-              audioProcessor.getAPVTS().getParameter("tonal_reduction"))
-        pTonal->setValueNotifyingHost(pTonal->getDefaultValue());
-    }
-    updateLayout();
-  };
+  attachments.attachLink = std::make_unique<ButtonAttachment>(audioProcessor.getAPVTS(),
+                                                  "link_reduction", denoising.btnLink);
+  denoising.btnLink.setButtonText(denoising.btnLink.getToggleState() ? "Linked" : "Unlinked");
+  denoising.btnLink.onClick = [this]() { handleLinkToggled(); };
 
-  btnCurveToggle.setClickingTogglesState(true);
-  btnCurveToggle.setTooltip(kTipCurveToggle);
-  addAndMakeVisible(btnCurveToggle);
-  btnCurveToggle.onClick = [this]() { updateLayout(); };
+  denoising.btnCurveToggle.setClickingTogglesState(true);
+  denoising.btnCurveToggle.setTooltip(kTipCurveToggle);
+  addAndMakeVisible(denoising.btnCurveToggle);
+  denoising.btnCurveToggle.onClick = [this]() { updateLayout(); };
 
-  btnResetCurve.setTooltip(kTipResetCurve);
-  addAndMakeVisible(btnResetCurve);
-  btnResetCurve.onClick = [this]() {
-    audioProcessor.resetCurveNodes();
+  denoising.btnResetCurve.setTooltip(kTipResetCurve);
+  addAndMakeVisible(denoising.btnResetCurve);
+  denoising.btnResetCurve.onClick = [this]() {
+    audioProcessor.curve.resetNodes();
     spectralVisualizer.repaint();
   };
 
-  lblMasterRed.setText("BROADBAND", juce::dontSendNotification);
-  lblMasterRed.setFont(juce::FontOptions(
+  denoising.lblMasterRed.setText("BROADBAND", juce::dontSendNotification);
+  denoising.lblMasterRed.setFont(juce::FontOptions(
       NoiseRepellentLookAndFeel::kFontSizeLabel, juce::Font::bold));
-  lblMasterRed.setColour(juce::Label::textColourId,
+  denoising.lblMasterRed.setColour(juce::Label::textColourId,
                          NoiseRepellentLookAndFeel::kColorDenoising);
-  lblMasterRed.setJustificationType(juce::Justification::centred);
-  addAndMakeVisible(lblMasterRed);
+  denoising.lblMasterRed.setJustificationType(juce::Justification::centred);
+  addAndMakeVisible(denoising.lblMasterRed);
 
-  lblTonalRed.setText("TONAL", juce::dontSendNotification);
-  lblTonalRed.setFont(juce::FontOptions(
+  denoising.lblTonalRed.setText("TONAL", juce::dontSendNotification);
+  denoising.lblTonalRed.setFont(juce::FontOptions(
       NoiseRepellentLookAndFeel::kFontSizeLabel, juce::Font::bold));
-  lblTonalRed.setColour(juce::Label::textColourId,
+  denoising.lblTonalRed.setColour(juce::Label::textColourId,
                         NoiseRepellentLookAndFeel::kColorDenoising);
-  lblTonalRed.setJustificationType(juce::Justification::centred);
-  addAndMakeVisible(lblTonalRed);
+  denoising.lblTonalRed.setJustificationType(juce::Justification::centred);
+  addAndMakeVisible(denoising.lblTonalRed);
 
-  sliderMasterRed.setColour(juce::Slider::rotarySliderFillColourId,
+  denoising.sliderMasterRed.setColour(juce::Slider::rotarySliderFillColourId,
                             NoiseRepellentLookAndFeel::kColorDenoising);
-  sliderTonalRed.setColour(juce::Slider::rotarySliderFillColourId,
+  denoising.sliderTonalRed.setColour(juce::Slider::rotarySliderFillColourId,
                            NoiseRepellentLookAndFeel::kColorDenoising);
 
-  addAndMakeVisible(sliderMasterRed);
-  addAndMakeVisible(sliderTonalRed);
+  addAndMakeVisible(denoising.sliderMasterRed);
+  addAndMakeVisible(denoising.sliderTonalRed);
 
   addAndMakeVisible(spectralVisualizer);
 
   // Collapsible Module 3: Advanced Controls
-  addAndMakeVisible(groupAdvanced);
-  groupAdvanced.setText("ADVANCED CONTROLS");
-  groupAdvanced.setColour(juce::GroupComponent::outlineColourId,
+  addAndMakeVisible(advanced.groupAdvanced);
+  advanced.groupAdvanced.setText("ADVANCED CONTROLS");
+  advanced.groupAdvanced.setColour(juce::GroupComponent::outlineColourId,
                           NoiseRepellentLookAndFeel::kColorPanelBorder);
-  groupAdvanced.setColour(juce::GroupComponent::textColourId,
+  advanced.groupAdvanced.setColour(juce::GroupComponent::textColourId,
                           NoiseRepellentLookAndFeel::kColorFineTuning);
-  groupAdvanced.setInterceptsMouseClicks(false, false);
+  advanced.groupAdvanced.setInterceptsMouseClicks(false, false);
 
-  comboMethod.addItemList({"Speech-Focused (SPP-MMSE)",
+  advanced.comboMethod.addItemList({"Speech-Focused (SPP-MMSE)",
                            "Slow, Steady (Brandt)",
                            "Balanced Tracking (Martin)"},
                           1);
-  addAndMakeVisible(comboMethod);
+  addAndMakeVisible(advanced.comboMethod);
 
-  lblMethod.setFont(juce::FontOptions(NoiseRepellentLookAndFeel::kFontSizeLabel,
+  advanced.lblMethod.setFont(juce::FontOptions(NoiseRepellentLookAndFeel::kFontSizeLabel,
                                       juce::Font::bold));
-  lblMethod.setColour(juce::Label::textColourId,
+  advanced.lblMethod.setColour(juce::Label::textColourId,
                       NoiseRepellentLookAndFeel::kColorDenoising);
-  lblMethod.setJustificationType(juce::Justification::left);
-  addAndMakeVisible(lblMethod);
+  advanced.lblMethod.setJustificationType(juce::Justification::left);
+  addAndMakeVisible(advanced.lblMethod);
 
-  lblOffset.setFont(juce::FontOptions(NoiseRepellentLookAndFeel::kFontSizeLabel,
+  profile.lblOffset.setFont(juce::FontOptions(NoiseRepellentLookAndFeel::kFontSizeLabel,
                                       juce::Font::bold));
-  lblOffset.setColour(juce::Label::textColourId,
+  profile.lblOffset.setColour(juce::Label::textColourId,
                       NoiseRepellentLookAndFeel::kColorDenoising);
-  lblOffset.setJustificationType(juce::Justification::centred);
-  sliderOffset.setColour(juce::Slider::rotarySliderFillColourId,
+  profile.lblOffset.setJustificationType(juce::Justification::centred);
+  profile.sliderOffset.setColour(juce::Slider::rotarySliderFillColourId,
                          NoiseRepellentLookAndFeel::kColorNoiseProfile);
-  addAndMakeVisible(sliderOffset);
-  addAndMakeVisible(lblOffset);
+  addAndMakeVisible(profile.sliderOffset);
+  addAndMakeVisible(profile.lblOffset);
 
-  lblMasterOffset.setText("BROADBAND", juce::dontSendNotification);
-  lblMasterOffset.setFont(juce::FontOptions(
+  profile.lblMasterOffset.setText("BROADBAND", juce::dontSendNotification);
+  profile.lblMasterOffset.setFont(juce::FontOptions(
       NoiseRepellentLookAndFeel::kFontSizeLabel, juce::Font::bold));
-  lblMasterOffset.setColour(juce::Label::textColourId,
+  profile.lblMasterOffset.setColour(juce::Label::textColourId,
                             NoiseRepellentLookAndFeel::kColorNoiseProfile);
-  lblMasterOffset.setJustificationType(juce::Justification::centred);
-  addAndMakeVisible(lblMasterOffset);
+  profile.lblMasterOffset.setJustificationType(juce::Justification::centred);
+  addAndMakeVisible(profile.lblMasterOffset);
 
-  lblTonalOffset.setText("TONAL", juce::dontSendNotification);
-  lblTonalOffset.setFont(juce::FontOptions(
+  profile.lblTonalOffset.setText("TONAL", juce::dontSendNotification);
+  profile.lblTonalOffset.setFont(juce::FontOptions(
       NoiseRepellentLookAndFeel::kFontSizeLabel, juce::Font::bold));
-  lblTonalOffset.setColour(juce::Label::textColourId,
+  profile.lblTonalOffset.setColour(juce::Label::textColourId,
                            NoiseRepellentLookAndFeel::kColorTonalPeaks);
-  lblTonalOffset.setJustificationType(juce::Justification::centred);
-  addAndMakeVisible(lblTonalOffset);
+  profile.lblTonalOffset.setJustificationType(juce::Justification::centred);
+  addAndMakeVisible(profile.lblTonalOffset);
 
-  sliderTonalOffset.setColour(juce::Slider::rotarySliderFillColourId,
+  profile.sliderTonalOffset.setColour(juce::Slider::rotarySliderFillColourId,
                               NoiseRepellentLookAndFeel::kColorTonalPeaks);
 
-  addAndMakeVisible(sliderTonalOffset);
+  addAndMakeVisible(profile.sliderTonalOffset);
 
-  addAndMakeVisible(btnLinkOffset);
+  addAndMakeVisible(profile.btnLinkOffset);
   // Attachment must be created before onClick is assigned (same reasoning as
   // the reduction link button above).
-  attachLinkOffset = std::make_unique<ButtonAttachment>(
-      audioProcessor.getAPVTS(), "link_threshold_offset", btnLinkOffset);
-  btnLinkOffset.setButtonText(btnLinkOffset.getToggleState() ? "Linked"
+  attachments.attachLinkOffset = std::make_unique<ButtonAttachment>(
+      audioProcessor.getAPVTS(), "link_threshold_offset", profile.btnLinkOffset);
+  profile.btnLinkOffset.setButtonText(profile.btnLinkOffset.getToggleState() ? "Linked"
                                                              : "Unlinked");
-  btnLinkOffset.onClick = [this]() {
-    bool isLinked = btnLinkOffset.getToggleState();
-    btnLinkOffset.setButtonText(isLinked ? "Linked" : "Unlinked");
-    if (isLinked) {
-      // Reset threshold offset parameters to default when relinked
-      if (auto* pMaster =
-              audioProcessor.getAPVTS().getParameter("noise_profile_offset"))
-        pMaster->setValueNotifyingHost(pMaster->getDefaultValue());
-      if (auto* pTonal = audioProcessor.getAPVTS().getParameter(
-              "tonal_noise_profile_offset"))
-        pTonal->setValueNotifyingHost(pTonal->getDefaultValue());
-    }
-    updateLayout();
-  };
+  profile.btnLinkOffset.onClick = [this]() { handleLinkOffsetToggled(); };
 
-  lblAggressiveness.setFont(juce::FontOptions(
+  advanced.lblAggressiveness.setFont(juce::FontOptions(
       NoiseRepellentLookAndFeel::kFontSizeLabel, juce::Font::bold));
-  lblAggressiveness.setColour(juce::Label::textColourId,
+  advanced.lblAggressiveness.setColour(juce::Label::textColourId,
                               NoiseRepellentLookAndFeel::kColorDenoising);
-  lblAggressiveness.setJustificationType(juce::Justification::centred);
-  sliderAggressiveness.setColour(juce::Slider::rotarySliderFillColourId,
+  advanced.lblAggressiveness.setJustificationType(juce::Justification::centred);
+  advanced.sliderAggressiveness.setColour(juce::Slider::rotarySliderFillColourId,
                                  NoiseRepellentLookAndFeel::kColorDenoising);
-  addAndMakeVisible(sliderAggressiveness);
-  addAndMakeVisible(lblAggressiveness);
+  addAndMakeVisible(advanced.sliderAggressiveness);
+  addAndMakeVisible(advanced.lblAggressiveness);
 
-  sliderSmoothing.setColour(juce::Slider::rotarySliderFillColourId,
+  advanced.sliderSmoothing.setColour(juce::Slider::rotarySliderFillColourId,
                             NoiseRepellentLookAndFeel::kColorDenoising);
-  sliderMasking.setColour(juce::Slider::rotarySliderFillColourId,
+  advanced.sliderMasking.setColour(juce::Slider::rotarySliderFillColourId,
                           NoiseRepellentLookAndFeel::kColorDenoising);
-  sliderWhitening.setColour(juce::Slider::rotarySliderFillColourId,
+  advanced.sliderWhitening.setColour(juce::Slider::rotarySliderFillColourId,
                             NoiseRepellentLookAndFeel::kColorDenoising);
 
-  addAndMakeVisible(sliderSmoothing);
-  addAndMakeVisible(sliderMasking);
-  addAndMakeVisible(sliderWhitening);
+  addAndMakeVisible(advanced.sliderSmoothing);
+  addAndMakeVisible(advanced.sliderMasking);
+  addAndMakeVisible(advanced.sliderWhitening);
 
-  lblSmoothing.setFont(juce::FontOptions(
+  advanced.lblSmoothing.setFont(juce::FontOptions(
       NoiseRepellentLookAndFeel::kFontSizeLabel, juce::Font::bold));
-  lblSmoothing.setColour(juce::Label::textColourId,
+  advanced.lblSmoothing.setColour(juce::Label::textColourId,
                          NoiseRepellentLookAndFeel::kColorDenoising);
-  lblSmoothing.setJustificationType(juce::Justification::centred);
-  addAndMakeVisible(lblSmoothing);
+  advanced.lblSmoothing.setJustificationType(juce::Justification::centred);
+  addAndMakeVisible(advanced.lblSmoothing);
 
-  lblMasking.setFont(juce::FontOptions(
+  advanced.lblMasking.setFont(juce::FontOptions(
       NoiseRepellentLookAndFeel::kFontSizeLabel, juce::Font::bold));
-  lblMasking.setColour(juce::Label::textColourId,
+  advanced.lblMasking.setColour(juce::Label::textColourId,
                        NoiseRepellentLookAndFeel::kColorDenoising);
-  lblMasking.setJustificationType(juce::Justification::centred);
-  addAndMakeVisible(lblMasking);
+  advanced.lblMasking.setJustificationType(juce::Justification::centred);
+  addAndMakeVisible(advanced.lblMasking);
 
-  lblWhitening.setFont(juce::FontOptions(
+  advanced.lblWhitening.setFont(juce::FontOptions(
       NoiseRepellentLookAndFeel::kFontSizeLabel, juce::Font::bold));
-  lblWhitening.setColour(juce::Label::textColourId,
+  advanced.lblWhitening.setColour(juce::Label::textColourId,
                          NoiseRepellentLookAndFeel::kColorDenoising);
-  lblWhitening.setJustificationType(juce::Justification::centred);
-  addAndMakeVisible(lblWhitening);
+  advanced.lblWhitening.setJustificationType(juce::Justification::centred);
+  addAndMakeVisible(advanced.lblWhitening);
 
   // Advanced Controls Toggle Button
-  btnAdvancedToggle.setClickingTogglesState(true);
-  btnAdvancedToggle.setButtonText("ADVANCED");
-  btnAdvancedToggle.setTooltip(kTipAdvancedToggle);
-  addAndMakeVisible(btnAdvancedToggle);
-  btnAdvancedToggle.onClick = [this]() {
-    isAdvancedVisible = btnAdvancedToggle.getToggleState();
+  header.btnAdvancedToggle.setClickingTogglesState(true);
+  header.btnAdvancedToggle.setButtonText("ADVANCED");
+  header.btnAdvancedToggle.setTooltip(kTipAdvancedToggle);
+  addAndMakeVisible(header.btnAdvancedToggle);
+  header.btnAdvancedToggle.onClick = [this]() {
+    isAdvancedVisible = header.btnAdvancedToggle.getToggleState();
     updateLayout();
   };
 
   // Parameter APVTS Attachments
   auto& apvts = audioProcessor.getAPVTS();
 
-  attachAlgoMode = std::make_unique<ComboBoxAttachment>(apvts, "algorithm_mode",
-                                                        comboAlgoMode);
-  attachLearn =
-      std::make_unique<ButtonAttachment>(apvts, "learn_noise", btnLearn);
-  attachAdaptive = std::make_unique<ButtonAttachment>(apvts, "adaptive_noise",
-                                                      btnAdaptiveNoise);
-  attachCurveToggle = std::make_unique<ButtonAttachment>(
-      apvts, "reduction_curve_enabled", btnCurveToggle);
-  attachDelta =
-      std::make_unique<ButtonAttachment>(apvts, "residual_listen", btnDelta);
-  attachBypass = std::make_unique<ButtonAttachment>(apvts, "bypass", btnBypass);
-  attachShowAdvanced = std::make_unique<ButtonAttachment>(
-      apvts, "show_advanced", btnAdvancedToggle);
+  attachments.attachAlgoMode = std::make_unique<ComboBoxAttachment>(apvts, "algorithm_mode",
+                                                        header.comboAlgoMode);
+  attachments.attachLearn =
+      std::make_unique<ButtonAttachment>(apvts, "learn_noise", profile.btnLearn);
+  attachments.attachAdaptive = std::make_unique<ButtonAttachment>(apvts, "adaptive_noise",
+                                                      profile.btnAdaptiveNoise);
+  attachments.attachCurveToggle = std::make_unique<ButtonAttachment>(
+      apvts, "reduction_curve_enabled", denoising.btnCurveToggle);
+  attachments.attachDelta =
+      std::make_unique<ButtonAttachment>(apvts, "residual_listen", header.btnDelta);
+  attachments.attachBypass = std::make_unique<ButtonAttachment>(apvts, "bypass", header.btnBypass);
+  attachments.attachShowAdvanced = std::make_unique<ButtonAttachment>(
+      apvts, "show_advanced", header.btnAdvancedToggle);
 
-  attachMethod = std::make_unique<ComboBoxAttachment>(apvts, "adaptive_method",
-                                                      comboMethod);
+  attachments.attachMethod = std::make_unique<ComboBoxAttachment>(apvts, "adaptive_method",
+                                                      advanced.comboMethod);
 
-  attachMasterRed = std::make_unique<SliderAttachment>(
-      apvts, "reduction_amount", sliderMasterRed);
-  attachTonalRed = std::make_unique<SliderAttachment>(apvts, "tonal_reduction",
-                                                      sliderTonalRed);
-  attachOffset = std::make_unique<SliderAttachment>(
-      apvts, "noise_profile_offset", sliderOffset);
-  attachTonalOffset = std::make_unique<SliderAttachment>(
-      apvts, "tonal_noise_profile_offset", sliderTonalOffset);
-  attachSmoothing = std::make_unique<SliderAttachment>(
-      apvts, "smoothing_factor", sliderSmoothing);
-  attachMasking =
-      std::make_unique<SliderAttachment>(apvts, "masking_depth", sliderMasking);
-  attachWhitening = std::make_unique<SliderAttachment>(
-      apvts, "whitening_factor", sliderWhitening);
-  attachAggressiveness = std::make_unique<SliderAttachment>(
-      apvts, "aggressiveness", sliderAggressiveness);
+  attachments.attachMasterRed = std::make_unique<SliderAttachment>(
+      apvts, "reduction_amount", denoising.sliderMasterRed);
+  attachments.attachTonalRed = std::make_unique<SliderAttachment>(apvts, "tonal_reduction",
+                                                      denoising.sliderTonalRed);
+  attachments.attachOffset = std::make_unique<SliderAttachment>(
+      apvts, "noise_profile_offset", profile.sliderOffset);
+  attachments.attachTonalOffset = std::make_unique<SliderAttachment>(
+      apvts, "tonal_noise_profile_offset", profile.sliderTonalOffset);
+  attachments.attachSmoothing = std::make_unique<SliderAttachment>(
+      apvts, "smoothing_factor", advanced.sliderSmoothing);
+  attachments.attachMasking =
+      std::make_unique<SliderAttachment>(apvts, "masking_depth", advanced.sliderMasking);
+  attachments.attachWhitening = std::make_unique<SliderAttachment>(
+      apvts, "whitening_factor", advanced.sliderWhitening);
+  attachments.attachAggressiveness = std::make_unique<SliderAttachment>(
+      apvts, "aggressiveness", advanced.sliderAggressiveness);
 
   // Control Tooltip Descriptions
-  btnPreferences.setTooltip(kTipPreferencesMenu);
-  comboAlgoMode.setTooltip(
+  header.btnPreferences.setTooltip(kTipPreferencesMenu);
+  header.comboAlgoMode.setTooltip(
 kTipAlgoMode);
-  lblAlgoHeader.setTooltip(
+  header.lblAlgoHeader.setTooltip(
 kTipAlgoMode);
-  btnAdvancedToggle.setTooltip(kTipAdvancedShow);
-  btnLearn.setTooltip(kTipLearnInitial);
-  btnResetProfile.setTooltip(kTipResetProfileClear);
-  btnAdaptiveNoise.setTooltip(
+  header.btnAdvancedToggle.setTooltip(kTipAdvancedShow);
+  profile.btnLearn.setTooltip(kTipLearnInitial);
+  profile.btnResetProfile.setTooltip(kTipResetProfileClear);
+  profile.btnAdaptiveNoise.setTooltip(
       kTipAdaptive);
-  btnAdaptiveArrow.setTooltip(kTipAdaptiveMethod);
-  comboMethod.setTooltip(kTipAdaptiveMethod);
-  lblMethod.setTooltip(kTipAdaptiveMethod);
+  profile.btnAdaptiveArrow.setTooltip(kTipAdaptiveMethod);
+  advanced.comboMethod.setTooltip(kTipAdaptiveMethod);
+  advanced.lblMethod.setTooltip(kTipAdaptiveMethod);
 
-  sliderMasterRed.setTooltip(kTipMasterReduction);
-  lblMasterRed.setTooltip(kTipMasterReduction);
-  lblReductionHeader.setTooltip(kTipMasterReduction);
-  sliderTonalRed.setTooltip(kTipTonalReduction);
-  lblTonalRed.setTooltip(kTipTonalReduction);
+  denoising.sliderMasterRed.setTooltip(kTipMasterReduction);
+  denoising.lblMasterRed.setTooltip(kTipMasterReduction);
+  denoising.lblReductionHeader.setTooltip(kTipMasterReduction);
+  denoising.sliderTonalRed.setTooltip(kTipTonalReduction);
+  denoising.lblTonalRed.setTooltip(kTipTonalReduction);
 
-  sliderOffset.setTooltip(kTipThreshold);
-  lblOffset.setTooltip(kTipThreshold);
-  sliderAggressiveness.setTooltip(kTipAggressiveness);
-  lblAggressiveness.setTooltip(kTipAggressiveness);
-  btnDelta.setTooltip(kTipDelta);
-  btnBypass.setTooltip(kTipBypass);
+  profile.sliderOffset.setTooltip(kTipThreshold);
+  profile.lblOffset.setTooltip(kTipThreshold);
+  advanced.sliderAggressiveness.setTooltip(kTipAggressiveness);
+  advanced.lblAggressiveness.setTooltip(kTipAggressiveness);
+  header.btnDelta.setTooltip(kTipDelta);
+  header.btnBypass.setTooltip(kTipBypass);
 
-  sliderSmoothing.setTooltip(kTipSmoothing);
-  sliderMasking.setTooltip(kTipMasking);
-  sliderWhitening.setTooltip(kTipWhitening);
-  btnLink.setTooltip(kTipLink);
-  btnCurveToggle.setTooltip(kTipCurveOverlay);
-  btnResetCurve.setTooltip(kTipResetCurve);
+  advanced.sliderSmoothing.setTooltip(kTipSmoothing);
+  advanced.sliderMasking.setTooltip(kTipMasking);
+  advanced.sliderWhitening.setTooltip(kTipWhitening);
+  denoising.btnLink.setTooltip(kTipLink);
+  denoising.btnCurveToggle.setTooltip(kTipCurveOverlay);
+  denoising.btnResetCurve.setTooltip(kTipResetCurve);
 
   // Initial Layout update
-  isAdvancedVisible = btnAdvancedToggle.getToggleState();
+  isAdvancedVisible = header.btnAdvancedToggle.getToggleState();
   updateLayout();
   updateSliderLabels();
   // Seed the offline-activity baseline so a stale kOffline flag (e.g. from
   // Audacity's load-time setupProcessing) doesn't flash the overlay on open.
-  lastSeenOfflineBlockCount = audioProcessor.getNonRealtimeBlockCount();
+  lastSeenOfflineBlockCount = audioProcessor.status.getNonRealtimeBlockCount();
   startTimerHz(30);
 
   // Initial default instruction text
@@ -674,6 +638,144 @@ kTipAlgoMode);
   // Register mouse listener AFTER all child components are added
   addMouseListener(this, true);
 }
+
+void NoiseRepellentAudioProcessorEditor::showPreferencesMenu() {
+  auto* tooltipParam =
+      audioProcessor.getAPVTS().getParameter("show_tooltips");
+  auto* hudParam = audioProcessor.getAPVTS().getParameter("show_hud");
+  auto* frameSizeParam =
+      audioProcessor.getAPVTS().getParameter("frame_size");
+  auto* lowLatencyParam =
+      audioProcessor.getAPVTS().getParameter("low_latency");
+
+  bool tooltipVal =
+      (tooltipParam != nullptr && tooltipParam->getValue() > 0.5f);
+  bool hudVal = (hudParam != nullptr && hudParam->getValue() > 0.5f);
+  bool lowLatencyVal =
+      (lowLatencyParam != nullptr && lowLatencyParam->getValue() > 0.5f);
+  int frameSizeIdx = 2;
+  if (const auto* choice = dynamic_cast<juce::AudioParameterChoice*>(
+          frameSizeParam))
+    frameSizeIdx = choice->getIndex();
+
+  juce::PopupMenu menu;
+
+  juce::PopupMenu::Item item1("Show Tooltips");
+  item1.itemID = 1;
+  item1.isTicked = tooltipVal;
+  item1.action = [this, tooltipParam, tooltipVal]() {
+    if (tooltipParam != nullptr) {
+      tooltipParam->beginChangeGesture();
+      tooltipParam->setValueNotifyingHost(tooltipVal ? 0.0f : 1.0f);
+      tooltipParam->endChangeGesture();
+      updateLayout();
+    }
+  };
+  menu.addItem(item1);
+
+  juce::PopupMenu::Item item2("Show HUD Status");
+  item2.itemID = 2;
+  item2.isTicked = hudVal;
+  item2.action = [this, hudParam, hudVal]() {
+    if (hudParam != nullptr) {
+      hudParam->beginChangeGesture();
+      hudParam->setValueNotifyingHost(hudVal ? 0.0f : 1.0f);
+      hudParam->endChangeGesture();
+      updateLayout();
+    }
+  };
+  menu.addItem(item2);
+
+  menu.addSeparator();
+  juce::PopupMenu::Item lowLatItem("Low Latency (512, live use)");
+  lowLatItem.itemID = 8;
+  lowLatItem.isTicked = lowLatencyVal;
+  lowLatItem.action = [lowLatencyParam, lowLatencyVal]() {
+    if (lowLatencyParam != nullptr) {
+      lowLatencyParam->beginChangeGesture();
+      lowLatencyParam->setValueNotifyingHost(lowLatencyVal ? 0.0f : 1.0f);
+      lowLatencyParam->endChangeGesture();
+    }
+  };
+  menu.addItem(lowLatItem);
+
+  menu.addSeparator();
+  menu.addSectionHeader("FRAME SIZE (BIGGER = FINER DETAIL + MORE LATENCY)");
+  addFrameSizeMenuItems(menu, frameSizeParam, frameSizeIdx, lowLatencyVal);
+
+  menu.setLookAndFeel(&getLookAndFeel());
+  menu.showMenuAsync(
+      juce::PopupMenu::Options().withTargetComponent(&header.btnPreferences));
+}
+
+void NoiseRepellentAudioProcessorEditor::showAdaptiveMethodMenu() {
+  juce::PopupMenu menu;
+  auto currentMethod = advanced.comboMethod.getSelectedId();
+
+  menu.addSectionHeader("ADAPTIVE ESTIMATION METHOD");
+  menu.addItem(1, "Speech-Focused (SPP-MMSE)", true, currentMethod == 1);
+  menu.addItem(2, "Slow, Steady (Brandt)", true, currentMethod == 2);
+  menu.addItem(3, "Balanced Tracking (Martin)", true, currentMethod == 3);
+
+  menu.setLookAndFeel(&getLookAndFeel());
+  menu.showMenuAsync(
+      juce::PopupMenu::Options().withTargetComponent(&profile.btnAdaptiveArrow),
+      [this](int result) {
+        if (result >= 1 && result <= 3) {
+          int methodIdx = result - 1;
+          advanced.comboMethod.setSelectedId(result, juce::sendNotification);
+          if (auto* p =
+                  audioProcessor.getAPVTS().getParameter("adaptive_method"))
+            p->setValueNotifyingHost(static_cast<float>(methodIdx) / 2.0f);
+          if (auto* p =
+                  audioProcessor.getAPVTS().getParameter("adaptive_noise"))
+            p->setValueNotifyingHost(1.0f);
+          updateLayout();
+          updateProfileStatus();
+        }
+      });
+}
+
+void NoiseRepellentAudioProcessorEditor::handleResetProfileClick() {
+  audioProcessor.resetNoiseProfile();
+  if (auto* pLearn = audioProcessor.getAPVTS().getParameter("learn_noise"))
+    pLearn->setValueNotifyingHost(0.0f);
+  if (auto* pAdapt = audioProcessor.getAPVTS().getParameter("adaptive_noise"))
+    pAdapt->setValueNotifyingHost(0.0f);
+  updateLayout();
+  updateProfileStatus();
+}
+
+void NoiseRepellentAudioProcessorEditor::handleLinkToggled() {
+  bool isLinked = denoising.btnLink.getToggleState();
+  denoising.btnLink.setButtonText(isLinked ? "Linked" : "Unlinked");
+  if (isLinked) {
+    // Reset reduction parameters to default when relinked
+    if (auto* pMaster =
+            audioProcessor.getAPVTS().getParameter("reduction_amount"))
+      pMaster->setValueNotifyingHost(pMaster->getDefaultValue());
+    if (auto* pTonal =
+            audioProcessor.getAPVTS().getParameter("tonal_reduction"))
+      pTonal->setValueNotifyingHost(pTonal->getDefaultValue());
+  }
+  updateLayout();
+}
+
+void NoiseRepellentAudioProcessorEditor::handleLinkOffsetToggled() {
+  bool isLinked = profile.btnLinkOffset.getToggleState();
+  profile.btnLinkOffset.setButtonText(isLinked ? "Linked" : "Unlinked");
+  if (isLinked) {
+    // Reset threshold offset parameters to default when relinked
+    if (auto* pMaster =
+            audioProcessor.getAPVTS().getParameter("noise_profile_offset"))
+      pMaster->setValueNotifyingHost(pMaster->getDefaultValue());
+    if (auto* pTonal = audioProcessor.getAPVTS().getParameter(
+            "tonal_noise_profile_offset"))
+      pTonal->setValueNotifyingHost(pTonal->getDefaultValue());
+  }
+  updateLayout();
+}
+
 void NoiseRepellentAudioProcessorEditor::mouseEnter(
     const juce::MouseEvent& event) {
   if (const auto* showTooltipsParam =
@@ -684,8 +786,8 @@ void NoiseRepellentAudioProcessorEditor::mouseEnter(
   }
 
   juce::Component* comp = event.originalComponent;
-  if (comp == nullptr || comp == this || comp == &groupProfile ||
-      comp == &groupDenoising || comp == &groupAdvanced) {
+  if (comp == nullptr || comp == this || comp == &profile.groupProfile ||
+      comp == &denoising.groupDenoising || comp == &advanced.groupAdvanced) {
     comp = getComponentAt(event.getEventRelativeTo(this).getPosition());
   }
 
@@ -773,48 +875,48 @@ void NoiseRepellentAudioProcessorEditor::handleAsyncUpdate() {
 }
 
 void NoiseRepellentAudioProcessorEditor::updateLayout() {
-  bool isLinked = btnLink.getToggleState();
-  bool isCurveOn = btnCurveToggle.getToggleState();
+  bool isLinked = denoising.btnLink.getToggleState();
+  bool isCurveOn = denoising.btnCurveToggle.getToggleState();
 
-  sliderMasterRed.setVisible(true);
-  sliderTonalRed.setVisible(isAdvancedVisible && !isLinked);
+  denoising.sliderMasterRed.setVisible(true);
+  denoising.sliderTonalRed.setVisible(isAdvancedVisible && !isLinked);
 
-  lblMasterRed.setVisible(isAdvancedVisible && !isLinked);
-  lblTonalRed.setVisible(isAdvancedVisible && !isLinked);
+  denoising.lblMasterRed.setVisible(isAdvancedVisible && !isLinked);
+  denoising.lblTonalRed.setVisible(isAdvancedVisible && !isLinked);
 
-  btnLink.setVisible(isAdvancedVisible);
-  btnCurveToggle.setVisible(isAdvancedVisible);
-  btnResetCurve.setVisible(isAdvancedVisible && isCurveOn);
+  denoising.btnLink.setVisible(isAdvancedVisible);
+  denoising.btnCurveToggle.setVisible(isAdvancedVisible);
+  denoising.btnResetCurve.setVisible(isAdvancedVisible && isCurveOn);
 
-  sliderOffset.setVisible(true);
-  lblOffset.setVisible(true);
+  profile.sliderOffset.setVisible(true);
+  profile.lblOffset.setVisible(true);
 
-  bool isOffsetLinked = !isAdvancedVisible || btnLinkOffset.getToggleState();
-  sliderTonalOffset.setVisible(isAdvancedVisible && !isOffsetLinked);
-  lblMasterOffset.setVisible(isAdvancedVisible && !isOffsetLinked);
-  lblTonalOffset.setVisible(isAdvancedVisible && !isOffsetLinked);
-  btnLinkOffset.setVisible(isAdvancedVisible);
+  bool isOffsetLinked = !isAdvancedVisible || profile.btnLinkOffset.getToggleState();
+  profile.sliderTonalOffset.setVisible(isAdvancedVisible && !isOffsetLinked);
+  profile.lblMasterOffset.setVisible(isAdvancedVisible && !isOffsetLinked);
+  profile.lblTonalOffset.setVisible(isAdvancedVisible && !isOffsetLinked);
+  profile.btnLinkOffset.setVisible(isAdvancedVisible);
 
-  sliderAggressiveness.setVisible(isAdvancedVisible);
-  lblAggressiveness.setVisible(isAdvancedVisible);
+  advanced.sliderAggressiveness.setVisible(isAdvancedVisible);
+  advanced.lblAggressiveness.setVisible(isAdvancedVisible);
 
-  groupAdvanced.setVisible(isAdvancedVisible);
-  btnLearn.setVisible(true);
-  btnAdaptiveNoise.setVisible(true);
-  btnAdaptiveArrow.setVisible(isAdvancedVisible);
-  btnResetProfile.setVisible(true);
-  comboMethod.setVisible(false);
-  lblMethod.setVisible(false);
-  sliderSmoothing.setVisible(isAdvancedVisible);
-  lblSmoothing.setVisible(isAdvancedVisible);
-  sliderMasking.setVisible(isAdvancedVisible);
-  lblMasking.setVisible(isAdvancedVisible);
-  sliderWhitening.setVisible(isAdvancedVisible);
-  lblWhitening.setVisible(isAdvancedVisible);
+  advanced.groupAdvanced.setVisible(isAdvancedVisible);
+  profile.btnLearn.setVisible(true);
+  profile.btnAdaptiveNoise.setVisible(true);
+  profile.btnAdaptiveArrow.setVisible(isAdvancedVisible);
+  profile.btnResetProfile.setVisible(true);
+  advanced.comboMethod.setVisible(false);
+  advanced.lblMethod.setVisible(false);
+  advanced.sliderSmoothing.setVisible(isAdvancedVisible);
+  advanced.lblSmoothing.setVisible(isAdvancedVisible);
+  advanced.sliderMasking.setVisible(isAdvancedVisible);
+  advanced.lblMasking.setVisible(isAdvancedVisible);
+  advanced.sliderWhitening.setVisible(isAdvancedVisible);
+  advanced.lblWhitening.setVisible(isAdvancedVisible);
 
   spectralVisualizer.setAdvancedControlsVisible(isAdvancedVisible);
 
-  btnAdvancedToggle.setButtonText(juce::CharPointer_UTF8(
+  header.btnAdvancedToggle.setButtonText(juce::CharPointer_UTF8(
       isAdvancedVisible ? "ADVANCED \xe2\x96\xb2" : "ADVANCED \xe2\x96\xbc"));
 
   const auto* showTooltipsParam =
@@ -827,32 +929,32 @@ void NoiseRepellentAudioProcessorEditor::updateLayout() {
   bool showHud = (showHudParam == nullptr || showHudParam->load() > 0.5f);
 
   footerTooltipLabel.setVisible(showTooltips);
-  lblProfileStatus.setVisible(showHud);
+  profile.lblProfileStatus.setVisible(showHud);
 
   resized();
 }
 
 void NoiseRepellentAudioProcessorEditor::updateSliderLabels() {
   bool isCompact = getWidth() < 900;
-  lblOffset.setText(isCompact ? "THRESH" : "THRESHOLD",
+  profile.lblOffset.setText(isCompact ? "THRESH" : "THRESHOLD",
                     juce::dontSendNotification);
-  lblAggressiveness.setText(
-      "AGGRESSIVENESS: " + juce::String(sliderAggressiveness.getValue(), 1),
+  advanced.lblAggressiveness.setText(
+      "AGGRESSIVENESS: " + juce::String(advanced.sliderAggressiveness.getValue(), 1),
       juce::dontSendNotification);
-  lblSmoothing.setText(
+  advanced.lblSmoothing.setText(
       "SMOOTHING: " +
-          juce::String(static_cast<int>(sliderSmoothing.getValue())) + "%",
+          juce::String(static_cast<int>(advanced.sliderSmoothing.getValue())) + "%",
       juce::dontSendNotification);
-  lblMasking.setText(
+  advanced.lblMasking.setText(
       isCompact
           ? "MASKING: " +
-                juce::String(static_cast<int>(sliderMasking.getValue())) + "%"
+                juce::String(static_cast<int>(advanced.sliderMasking.getValue())) + "%"
           : "MASKING PROTECT: " +
-                juce::String(static_cast<int>(sliderMasking.getValue())) + "%",
+                juce::String(static_cast<int>(advanced.sliderMasking.getValue())) + "%",
       juce::dontSendNotification);
-  lblWhitening.setText(
+  advanced.lblWhitening.setText(
       "WHITENING: " +
-          juce::String(static_cast<int>(sliderWhitening.getValue())) + "%",
+          juce::String(static_cast<int>(advanced.sliderWhitening.getValue())) + "%",
       juce::dontSendNotification);
 }
 
@@ -860,55 +962,18 @@ void NoiseRepellentAudioProcessorEditor::updateProfileStatus() {
   const auto* adaptParam =
       audioProcessor.getAPVTS().getRawParameterValue("adaptive_noise");
   bool isAdaptive = adaptParam != nullptr && adaptParam->load() > 0.5f;
-  bool isLearning = btnLearn.getToggleState();
+  bool isLearning = profile.btnLearn.getToggleState();
   bool hasProfile = audioProcessor.hasNoiseProfile();
 
-  if (isLearning) {
-    btnLearn.setButtonText("Learning...");
-    btnLearn.setColour(juce::TextButton::buttonColourId,
-                       juce::Colour(NoiseRepellentLookAndFeel::kColorLearnActive)); // Active Learning Red
-    btnLearn.setColour(juce::TextButton::buttonOnColourId,
-                       juce::Colour(NoiseRepellentLookAndFeel::kColorLearnActive));
-    btnLearn.setTooltip(kTipLearnCapturing);
-  } else if (hasProfile) {
-    btnLearn.setButtonText("+ Learn");
-    btnLearn.setColour(juce::TextButton::buttonColourId,
-                       NoiseRepellentLookAndFeel::kColorNoiseProfile);
-    btnLearn.setColour(juce::TextButton::buttonOnColourId,
-                       NoiseRepellentLookAndFeel::kColorNoiseProfile);
-    btnLearn.setTooltip(kTipLearnAccumulate);
-  } else {
-    btnLearn.setButtonText("Learn Noise");
-    btnLearn.setColour(juce::TextButton::buttonColourId,
-                       juce::Colour(NoiseRepellentLookAndFeel::kColorLearnCTA)); // Prominent Crimson Red CTA
-    btnLearn.setColour(juce::TextButton::buttonOnColourId,
-                       juce::Colour(NoiseRepellentLookAndFeel::kColorLearnActive)); // Active Learning Red
-    btnLearn.setTooltip(kTipLearnDefault);
-  }
-  btnLearn.repaint();
-
-  if (isAdaptive) {
-    btnAdaptiveNoise.setColour(juce::TextButton::buttonColourId,
-                               NoiseRepellentLookAndFeel::kColorDenoising);
-    btnAdaptiveNoise.setColour(juce::TextButton::buttonOnColourId,
-                               NoiseRepellentLookAndFeel::kColorDenoising);
-  } else {
-    btnAdaptiveNoise.setColour(juce::TextButton::buttonColourId,
-                               juce::Colour(NoiseRepellentLookAndFeel::kColorButtonOff));
-    btnAdaptiveNoise.setColour(juce::TextButton::buttonOnColourId,
-                               NoiseRepellentLookAndFeel::kColorDenoising);
-  }
-  btnAdaptiveNoise.repaint();
+  styleLearnButton(profile.btnLearn, isLearning, hasProfile);
+  styleAdaptiveButton(profile.btnAdaptiveNoise, isAdaptive);
 
   // When bypassed, disable everything except the Bypass button itself
-  bool isBypassed = btnBypass.getToggleState();
+  bool isBypassed = header.btnBypass.getToggleState();
   bool pluginActive = !isBypassed;
   const bool processingAvailable = hasProfile || isAdaptive;
   const bool controlsActive = pluginActive && processingAvailable;
 
-  // Header controls
-  btnDelta.setEnabled(controlsActive);
-  btnAdvancedToggle.setEnabled(pluginActive);
   const bool lowLatency =
       audioProcessor.isLowLatency() ||
       (audioProcessor.getAPVTS().getRawParameterValue("low_latency") !=
@@ -916,83 +981,111 @@ void NoiseRepellentAudioProcessorEditor::updateProfileStatus() {
        audioProcessor.getAPVTS()
                .getRawParameterValue("low_latency")
                ->load() > 0.5f);
-  comboAlgoMode.setEnabled(controlsActive && !lowLatency);
+
+  applyHeaderStates(controlsActive, pluginActive, processingAvailable,
+                    lowLatency);
+  applyProfileStates(pluginActive, controlsActive, processingAvailable,
+                     isAdaptive, hasProfile);
+  applyReductionStates(controlsActive, processingAvailable, lowLatency,
+                       isAdaptive, hasProfile);
+  applyOffsetStates(controlsActive, processingAvailable, lowLatency, isAdaptive,
+                    hasProfile);
+  applyAdvancedStates(controlsActive, processingAvailable);
+  setProfileStatusText(profile.lblProfileStatus, isBypassed, header.btnDelta.getToggleState(),
+                       isLearning, isAdaptive, hasProfile);
+}
+
+void NoiseRepellentAudioProcessorEditor::applyHeaderStates(
+    bool controlsActive, bool pluginActive, bool processingAvailable,
+    bool lowLatency) {
+  // Header controls
+  header.btnDelta.setEnabled(controlsActive);
+  header.btnAdvancedToggle.setEnabled(pluginActive);
+  header.comboAlgoMode.setEnabled(controlsActive && !lowLatency);
   if (!processingAvailable)
-    comboAlgoMode.setTooltip(kTipAwaitingProfile);
+    header.comboAlgoMode.setTooltip(kTipAwaitingProfile);
   else if (lowLatency)
-    comboAlgoMode.setTooltip(
+    header.comboAlgoMode.setTooltip(
         "Locked to Temporal in Low Latency mode (causal 1D-only)");
   else
-    comboAlgoMode.setTooltip(kTipAlgoMode);
-  lblAlgoHeader.setEnabled(controlsActive);
+    header.comboAlgoMode.setTooltip(kTipAlgoMode);
+  header.lblAlgoHeader.setEnabled(controlsActive);
+}
 
+void NoiseRepellentAudioProcessorEditor::applyProfileStates(
+    bool pluginActive, bool controlsActive, bool processingAvailable,
+    bool isAdaptive, bool hasProfile) {
   // Noise Profile box: enabled whenever plugin is active
   bool profileEnabled = pluginActive;
-  groupProfile.setEnabled(pluginActive);
-  groupDenoising.setEnabled(controlsActive);
-  btnLearn.setEnabled(profileEnabled);
-  btnAdaptiveNoise.setEnabled(profileEnabled);
-  btnAdaptiveArrow.setEnabled(profileEnabled);
-  btnResetProfile.setEnabled(profileEnabled && (hasProfile || isAdaptive));
-  btnResetProfile.setTooltip(
+  profile.groupProfile.setEnabled(pluginActive);
+  denoising.groupDenoising.setEnabled(controlsActive);
+  profile.btnLearn.setEnabled(profileEnabled);
+  profile.btnAdaptiveNoise.setEnabled(profileEnabled);
+  profile.btnAdaptiveArrow.setEnabled(profileEnabled);
+  profile.btnResetProfile.setEnabled(profileEnabled && (hasProfile || isAdaptive));
+  profile.btnResetProfile.setTooltip(
       (hasProfile || isAdaptive) ? kTipResetProfileClear
                                  : kTipResetProfileUnavailable);
-  sliderOffset.setEnabled(controlsActive);
-  lblOffset.setEnabled(controlsActive);
+  profile.sliderOffset.setEnabled(controlsActive);
+  profile.lblOffset.setEnabled(controlsActive);
   if (!processingAvailable) {
-    btnDelta.setTooltip(kTipAwaitingProfile);
-    sliderOffset.setTooltip(kTipAwaitingProfile);
-    lblOffset.setTooltip(kTipAwaitingProfile);
+    header.btnDelta.setTooltip(kTipAwaitingProfile);
+    profile.sliderOffset.setTooltip(kTipAwaitingProfile);
+    profile.lblOffset.setTooltip(kTipAwaitingProfile);
   } else {
-    btnDelta.setTooltip(kTipDelta);
+    header.btnDelta.setTooltip(kTipDelta);
   }
 
   // Aggressiveness (Profile Morphing) enabled in Noise Profile box when a
   // manual profile exists and Advanced Controls is ON
   bool aggressivenessEnabled = pluginActive && isAdvancedVisible && hasProfile;
-  sliderAggressiveness.setEnabled(aggressivenessEnabled);
-  lblAggressiveness.setEnabled(aggressivenessEnabled);
+  advanced.sliderAggressiveness.setEnabled(aggressivenessEnabled);
+  advanced.lblAggressiveness.setEnabled(aggressivenessEnabled);
 
   if (aggressivenessEnabled) {
-    sliderAggressiveness.setTooltip(kTipAggressiveness);
-    lblAggressiveness.setTooltip(kTipAggressiveness);
+    advanced.sliderAggressiveness.setTooltip(kTipAggressiveness);
+    advanced.lblAggressiveness.setTooltip(kTipAggressiveness);
   } else {
-    sliderAggressiveness.setTooltip(kTipMorphingUnavailable);
-    lblAggressiveness.setTooltip(kTipMorphingUnavailable);
+    advanced.sliderAggressiveness.setTooltip(kTipMorphingUnavailable);
+    advanced.lblAggressiveness.setTooltip(kTipMorphingUnavailable);
   }
+}
 
+void NoiseRepellentAudioProcessorEditor::applyReductionStates(
+    bool controlsActive, bool processingAvailable, bool lowLatency,
+    bool isAdaptive, bool hasProfile) {
   // Reduction controls (low-latency 512-sample frame is too coarse for
   // independent tonal/broadband control: unlinking is unavailable)
   bool canUnlink = (!isAdaptive || hasProfile) && !lowLatency;
   bool allowUnlink = controlsActive && canUnlink;
-  btnLink.setEnabled(allowUnlink);
+  denoising.btnLink.setEnabled(allowUnlink);
 
-  if (!canUnlink && !btnLink.getToggleState()) {
-    btnLink.setToggleState(true, juce::dontSendNotification);
+  if (!canUnlink && !denoising.btnLink.getToggleState()) {
+    denoising.btnLink.setToggleState(true, juce::dontSendNotification);
     if (auto* linkParam =
             audioProcessor.getAPVTS().getParameter("link_reduction"))
       linkParam->setValueNotifyingHost(1.0f);
   }
 
   if (!processingAvailable) {
-    btnLink.setTooltip(kTipAwaitingProfile);
-    btnLinkOffset.setTooltip(kTipAwaitingProfile);
+    denoising.btnLink.setTooltip(kTipAwaitingProfile);
+    profile.btnLinkOffset.setTooltip(kTipAwaitingProfile);
   } else if (canUnlink) {
-    btnLink.setTooltip(kTipLink);
-    btnLinkOffset.setTooltip(kTipLink);
+    denoising.btnLink.setTooltip(kTipLink);
+    profile.btnLinkOffset.setTooltip(kTipLink);
   } else {
-    btnLink.setTooltip(kTipLinkUnlinkedDisabled);
-    btnLinkOffset.setTooltip(kTipLinkUnlinkedDisabled);
+    denoising.btnLink.setTooltip(kTipLinkUnlinkedDisabled);
+    profile.btnLinkOffset.setTooltip(kTipLinkUnlinkedDisabled);
   }
 
-  lblReductionHeader.setEnabled(controlsActive);
-  sliderMasterRed.setEnabled(controlsActive);
-  lblMasterRed.setEnabled(controlsActive);
+  denoising.lblReductionHeader.setEnabled(controlsActive);
+  denoising.sliderMasterRed.setEnabled(controlsActive);
+  denoising.lblMasterRed.setEnabled(controlsActive);
 
-  bool isLinked = btnLink.getToggleState();
+  bool isLinked = denoising.btnLink.getToggleState();
   bool tonalEnabled = controlsActive && !isLinked && allowUnlink;
-  sliderTonalRed.setEnabled(tonalEnabled);
-  lblTonalRed.setEnabled(tonalEnabled);
+  denoising.sliderTonalRed.setEnabled(tonalEnabled);
+  denoising.lblTonalRed.setEnabled(tonalEnabled);
 
   const juce::String masterReductionTip =
       isLinked
@@ -1002,119 +1095,91 @@ void NoiseRepellentAudioProcessorEditor::updateProfileStatus() {
   const juce::String tonalReductionTip =
       "Adjust reduction level for tonal noise components\n(0 to 40 dB).";
 
-  lblReductionHeader.setTooltip(processingAvailable ? masterReductionTip
+  denoising.lblReductionHeader.setTooltip(processingAvailable ? masterReductionTip
                                                     : kTipAwaitingProfile);
-  sliderMasterRed.setTooltip(processingAvailable ? masterReductionTip
+  denoising.sliderMasterRed.setTooltip(processingAvailable ? masterReductionTip
                                                   : kTipAwaitingProfile);
-  lblMasterRed.setTooltip(processingAvailable ? masterReductionTip
+  denoising.lblMasterRed.setTooltip(processingAvailable ? masterReductionTip
                                                : kTipAwaitingProfile);
-  sliderTonalRed.setTooltip(processingAvailable ? tonalReductionTip
+  denoising.sliderTonalRed.setTooltip(processingAvailable ? tonalReductionTip
                                                  : kTipAwaitingProfile);
-  lblTonalRed.setTooltip(processingAvailable ? tonalReductionTip
+  denoising.lblTonalRed.setTooltip(processingAvailable ? tonalReductionTip
                                               : kTipAwaitingProfile);
 
-  // Threshold Offset controls
-  btnLinkOffset.setEnabled(allowUnlink);
+}
 
-  if (!canUnlink && !btnLinkOffset.getToggleState()) {
-    btnLinkOffset.setToggleState(true, juce::dontSendNotification);
-    btnLinkOffset.setButtonText("Linked");
+void NoiseRepellentAudioProcessorEditor::applyOffsetStates(
+    bool controlsActive, bool processingAvailable, bool lowLatency,
+    bool isAdaptive, bool hasProfile) {
+  // Threshold Offset controls
+  bool canUnlink = (!isAdaptive || hasProfile) && !lowLatency;
+  bool allowUnlink = controlsActive && canUnlink;
+  profile.btnLinkOffset.setEnabled(allowUnlink);
+
+  if (!canUnlink && !profile.btnLinkOffset.getToggleState()) {
+    profile.btnLinkOffset.setToggleState(true, juce::dontSendNotification);
+    profile.btnLinkOffset.setButtonText("Linked");
     if (auto* linkOffsetParam =
             audioProcessor.getAPVTS().getParameter("link_threshold_offset"))
       linkOffsetParam->setValueNotifyingHost(1.0f);
   }
 
-  bool isOffsetLinked = btnLinkOffset.getToggleState();
+  bool isOffsetLinked = profile.btnLinkOffset.getToggleState();
   bool tonalOffsetEnabled = controlsActive && !isOffsetLinked && allowUnlink;
-  sliderTonalOffset.setEnabled(tonalOffsetEnabled);
-  lblTonalOffset.setEnabled(tonalOffsetEnabled);
+  profile.sliderTonalOffset.setEnabled(tonalOffsetEnabled);
+  profile.lblTonalOffset.setEnabled(tonalOffsetEnabled);
 
 
   const juce::String offsetTip =
       isOffsetLinked ? kTipThreshold : kTipMasterOffsetUnlinked;
-  lblOffset.setTooltip(processingAvailable ? offsetTip : kTipAwaitingProfile);
-  sliderOffset.setTooltip(processingAvailable ? offsetTip
+  profile.lblOffset.setTooltip(processingAvailable ? offsetTip : kTipAwaitingProfile);
+  profile.sliderOffset.setTooltip(processingAvailable ? offsetTip
                                                : kTipAwaitingProfile);
-  lblMasterOffset.setTooltip(processingAvailable ? offsetTip
+  profile.lblMasterOffset.setTooltip(processingAvailable ? offsetTip
                                                   : kTipAwaitingProfile);
-  sliderTonalOffset.setTooltip(processingAvailable ? kTipTonalOffset
+  profile.sliderTonalOffset.setTooltip(processingAvailable ? kTipTonalOffset
                                                     : kTipAwaitingProfile);
-  lblTonalOffset.setTooltip(processingAvailable ? kTipTonalOffset
+  profile.lblTonalOffset.setTooltip(processingAvailable ? kTipTonalOffset
                                                  : kTipAwaitingProfile);
 
-  btnCurveToggle.setEnabled(controlsActive);
-  btnResetCurve.setEnabled(controlsActive && btnCurveToggle.getToggleState());
-  btnCurveToggle.setTooltip(processingAvailable ? kTipCurveToggle
+  denoising.btnCurveToggle.setEnabled(controlsActive);
+  denoising.btnResetCurve.setEnabled(controlsActive && denoising.btnCurveToggle.getToggleState());
+  denoising.btnCurveToggle.setTooltip(processingAvailable ? kTipCurveToggle
                                                 : kTipAwaitingProfile);
-  btnResetCurve.setTooltip(processingAvailable ? kTipResetCurve
+  denoising.btnResetCurve.setTooltip(processingAvailable ? kTipResetCurve
                                                : kTipAwaitingProfile);
 
+}
+
+void NoiseRepellentAudioProcessorEditor::applyAdvancedStates(
+    bool controlsActive, bool processingAvailable) {
   // Advanced controls
-  sliderSmoothing.setEnabled(controlsActive);
-  sliderMasking.setEnabled(controlsActive);
-  sliderWhitening.setEnabled(controlsActive);
-  lblSmoothing.setEnabled(controlsActive);
-  lblMasking.setEnabled(controlsActive);
-  lblWhitening.setEnabled(controlsActive);
-  comboMethod.setEnabled(controlsActive);
-  lblMethod.setEnabled(controlsActive);
-  groupAdvanced.setEnabled(controlsActive);
+  advanced.sliderSmoothing.setEnabled(controlsActive);
+  advanced.sliderMasking.setEnabled(controlsActive);
+  advanced.sliderWhitening.setEnabled(controlsActive);
+  advanced.lblSmoothing.setEnabled(controlsActive);
+  advanced.lblMasking.setEnabled(controlsActive);
+  advanced.lblWhitening.setEnabled(controlsActive);
+  advanced.comboMethod.setEnabled(controlsActive);
+  advanced.lblMethod.setEnabled(controlsActive);
+  advanced.groupAdvanced.setEnabled(controlsActive);
   spectralVisualizer.setProcessingAvailable(processingAvailable);
 
-  bool is2D = (comboAlgoMode.getSelectedItemIndex() >= 1);
+  bool is2D = (header.comboAlgoMode.getSelectedItemIndex() >= 1);
   const juce::String smoothingTip = is2D ? kTipSmoothing2D : kTipSmoothing;
 
-  sliderSmoothing.setTooltip(processingAvailable ? smoothingTip
+  advanced.sliderSmoothing.setTooltip(processingAvailable ? smoothingTip
                                                  : kTipAwaitingProfile);
-  lblSmoothing.setTooltip(processingAvailable ? smoothingTip
+  advanced.lblSmoothing.setTooltip(processingAvailable ? smoothingTip
                                               : kTipAwaitingProfile);
-  sliderMasking.setTooltip(processingAvailable ? kTipMasking
+  advanced.sliderMasking.setTooltip(processingAvailable ? kTipMasking
                                                : kTipAwaitingProfile);
-  lblMasking.setTooltip(processingAvailable ? kTipMasking
+  advanced.lblMasking.setTooltip(processingAvailable ? kTipMasking
                                             : kTipAwaitingProfile);
-  sliderWhitening.setTooltip(processingAvailable ? kTipWhitening
+  advanced.sliderWhitening.setTooltip(processingAvailable ? kTipWhitening
                                                  : kTipAwaitingProfile);
-  lblWhitening.setTooltip(processingAvailable ? kTipWhitening
+  advanced.lblWhitening.setTooltip(processingAvailable ? kTipWhitening
                                               : kTipAwaitingProfile);
-
-  // Status label (HUD overlay on FFT spectrum chart)
-  bool isDelta = btnDelta.getToggleState();
-
-  if (isBypassed) {
-    lblProfileStatus.setText("STATUS: BYPASSED", juce::dontSendNotification);
-    lblProfileStatus.setColour(juce::Label::textColourId,
-                               juce::Colour(NoiseRepellentLookAndFeel::kColorInactiveText));
-  } else if (isDelta) {
-    lblProfileStatus.setText("STATUS: DELTA (RESIDUAL LISTEN)",
-                             juce::dontSendNotification);
-    lblProfileStatus.setColour(juce::Label::textColourId,
-                               NoiseRepellentLookAndFeel::kColorTonalPeaks);
-  } else if (isLearning) {
-    lblProfileStatus.setText("STATUS: CAPTURING NOISE PROFILE...",
-                             juce::dontSendNotification);
-    lblProfileStatus.setColour(juce::Label::textColourId,
-                               juce::Colour(NoiseRepellentLookAndFeel::kColorLearnActive));
-  } else if (isAdaptive && hasProfile) {
-    lblProfileStatus.setText("STATUS: HYBRID (ADAPTIVE + PROFILE)",
-                             juce::dontSendNotification);
-    lblProfileStatus.setColour(juce::Label::textColourId,
-                               NoiseRepellentLookAndFeel::kColorNoiseProfile);
-  } else if (isAdaptive) {
-    lblProfileStatus.setText("STATUS: CONTINUOUS ADAPTIVE",
-                             juce::dontSendNotification);
-    lblProfileStatus.setColour(juce::Label::textColourId,
-                               NoiseRepellentLookAndFeel::kColorDenoising);
-  } else if (hasProfile) {
-    lblProfileStatus.setText("STATUS: STATIONARY NOISE PROFILE",
-                             juce::dontSendNotification);
-    lblProfileStatus.setColour(juce::Label::textColourId,
-                               NoiseRepellentLookAndFeel::kColorNoiseProfile);
-  } else {
-    lblProfileStatus.setText("STATUS: NO PROFILE (PASS-THROUGH)",
-                             juce::dontSendNotification);
-    lblProfileStatus.setColour(juce::Label::textColourId,
-                               juce::Colour(NoiseRepellentLookAndFeel::kColorInactiveText));
-  }
 }
 
 void NoiseRepellentAudioProcessorEditor::timerCallback() {
@@ -1126,7 +1191,7 @@ void NoiseRepellentAudioProcessorEditor::timerCallback() {
   // to kRealtime when its realtime stack runs, so the raw non-realtime flag
   // is stuck on while the editor sits idle. Treat offline as active only
   // while offline blocks are actually flowing through the processor.
-  const uint64_t offlineBlocks = audioProcessor.getNonRealtimeBlockCount();
+  const uint64_t offlineBlocks = audioProcessor.status.getNonRealtimeBlockCount();
   const bool isOffline = audioProcessor.isNonRealtime() &&
                          (offlineBlocks != lastSeenOfflineBlockCount);
   lastSeenOfflineBlockCount = offlineBlocks;
@@ -1145,23 +1210,23 @@ void NoiseRepellentAudioProcessorEditor::paint(juce::Graphics& g) {
   if (isAdvancedVisible) {
     g.setColour(NoiseRepellentLookAndFeel::kColorPanelBorder);
 
-    float topY = (float)groupAdvanced.getY() + 22.0f;
-    float bottomY = (float)groupAdvanced.getBottom() - 10.0f;
+    float topY = (float)advanced.groupAdvanced.getY() + 22.0f;
+    float bottomY = (float)advanced.groupAdvanced.getBottom() - 10.0f;
 
     // 3 Separator lines between 4 controls in Advanced Controls
-    if (sliderSmoothing.getWidth() > 0 && sliderMasking.getWidth() > 0) {
+    if (advanced.sliderSmoothing.getWidth() > 0 && advanced.sliderMasking.getWidth() > 0) {
       float x0 =
-          (float)(sliderSmoothing.getRight() + sliderMasking.getX()) / 2.0f;
+          (float)(advanced.sliderSmoothing.getRight() + advanced.sliderMasking.getX()) / 2.0f;
       g.drawVerticalLine(juce::roundToInt(x0), topY, bottomY);
     }
-    if (sliderMasking.getWidth() > 0 && sliderWhitening.getWidth() > 0) {
+    if (advanced.sliderMasking.getWidth() > 0 && advanced.sliderWhitening.getWidth() > 0) {
       float x1 =
-          (float)(sliderMasking.getRight() + sliderWhitening.getX()) / 2.0f;
+          (float)(advanced.sliderMasking.getRight() + advanced.sliderWhitening.getX()) / 2.0f;
       g.drawVerticalLine(juce::roundToInt(x1), topY, bottomY);
     }
-    if (sliderWhitening.getWidth() > 0 && sliderAggressiveness.getWidth() > 0) {
+    if (advanced.sliderWhitening.getWidth() > 0 && advanced.sliderAggressiveness.getWidth() > 0) {
       float x2 =
-          (float)(sliderWhitening.getRight() + sliderAggressiveness.getX()) /
+          (float)(advanced.sliderWhitening.getRight() + advanced.sliderAggressiveness.getX()) /
           2.0f;
       g.drawVerticalLine(juce::roundToInt(x2), topY, bottomY);
     }
@@ -1228,7 +1293,6 @@ void NoiseRepellentAudioProcessorEditor::resized() {
   constexpr int kGroupTitleH = 10;
   constexpr int kProfileBtnH = 24;
   constexpr int kSectionGap = 8;
-  constexpr int kFooterGap = 8;
   constexpr int kAdvPanelH = 68;
   constexpr int kAdvLabelH = 16;
   constexpr int kAdvLabelGap = 2;
@@ -1244,7 +1308,6 @@ void NoiseRepellentAudioProcessorEditor::resized() {
   constexpr int kCurveResetW = 22;
   constexpr int kCurveResetGap = 2;
   constexpr int kBankGutter = 10;
-  constexpr int kFooterSplitPct = 55;
   constexpr int kAdvTitleH = 12;
 
   auto area = getLocalBounds().reduced(kOuterMargin);
@@ -1253,17 +1316,17 @@ void NoiseRepellentAudioProcessorEditor::resized() {
   auto headerArea = area.removeFromTop(kHeaderH);
 
   // Left Title & Options Block
-  brandButton.setBounds(
+  header.brandButton.setBounds(
       headerArea.removeFromLeft(kBrandW).withSizeKeepingCentre(kBrandW, kBrandH));
   headerArea.removeFromLeft(kTitleGap);
-  btnPreferences.setBounds(
+  header.btnPreferences.setBounds(
       headerArea.removeFromLeft(kPrefsBtn).withSizeKeepingCentre(kPrefsBtn, kPrefsBtn));
 
   // Right Action Buttons Block
-  btnBypass.setBounds(
+  header.btnBypass.setBounds(
       headerArea.removeFromRight(kBypassW).withSizeKeepingCentre(kBypassW, kHeaderBtnH));
   headerArea.removeFromRight(kHeaderBtnGap);
-  btnDelta.setBounds(
+  header.btnDelta.setBounds(
       headerArea.removeFromRight(kDeltaW).withSizeKeepingCentre(kDeltaW, kHeaderBtnH));
 
   constexpr int kHeaderGap = 16;
@@ -1293,15 +1356,15 @@ void NoiseRepellentAudioProcessorEditor::resized() {
   auto algoCol = headerArea.removeFromLeft(kAlgoWidth);
   int algoYPad = std::max(0, (algoCol.getHeight() - kAlgoColH) / 2);
   algoCol.removeFromTop(algoYPad);
-  lblAlgoHeader.setBounds(algoCol.removeFromTop(kAlgoLabelH));
+  header.lblAlgoHeader.setBounds(algoCol.removeFromTop(kAlgoLabelH));
   algoCol.removeFromTop(kAlgoLabelGap);
-  comboAlgoMode.setBounds(algoCol.removeFromTop(kAlgoComboH));
+  header.comboAlgoMode.setBounds(algoCol.removeFromTop(kAlgoComboH));
 
   headerArea.removeFromLeft(kHeaderGap);
 
   // Encapsulated Noise Profile Group Box in Header
   auto profileGroupArea = headerArea.removeFromLeft(kProfileWidth);
-  groupProfile.setBounds(profileGroupArea);
+  profile.groupProfile.setBounds(profileGroupArea);
 
   auto profileInner = profileGroupArea.reduced(kGroupPadX, kGroupPadY);
   profileInner.removeFromTop(kGroupTitleH);
@@ -1309,61 +1372,31 @@ void NoiseRepellentAudioProcessorEditor::resized() {
   auto profileRow = profileInner;
 
   auto bLearn = profileRow.removeFromLeft(kLearnW);
-  btnLearn.setBounds(bLearn.withSizeKeepingCentre(kLearnW, kProfileBtnH));
+  profile.btnLearn.setBounds(bLearn.withSizeKeepingCentre(kLearnW, kProfileBtnH));
   profileRow.removeFromLeft(kBtnGap);
 
   auto bAdapt = profileRow.removeFromLeft(kAdaptW);
-  btnAdaptiveNoise.setBounds(bAdapt.withSizeKeepingCentre(kAdaptW, kProfileBtnH));
+  profile.btnAdaptiveNoise.setBounds(bAdapt.withSizeKeepingCentre(kAdaptW, kProfileBtnH));
 
   if (isAdvancedVisible) {
     auto bAdaptArrow = profileRow.removeFromLeft(kArrowW);
-    btnAdaptiveArrow.setBounds(bAdaptArrow.withSizeKeepingCentre(kArrowW, kProfileBtnH));
+    profile.btnAdaptiveArrow.setBounds(bAdaptArrow.withSizeKeepingCentre(kArrowW, kProfileBtnH));
   }
   profileRow.removeFromLeft(kBtnGap);
 
   auto bReset = profileRow.removeFromLeft(kResetW);
-  btnResetProfile.setBounds(bReset.withSizeKeepingCentre(kResetW, kProfileBtnH));
+  profile.btnResetProfile.setBounds(bReset.withSizeKeepingCentre(kResetW, kProfileBtnH));
 
   area.removeFromTop(kSectionGap);
 
   // Footer bar
-  const auto* showTooltipsParam =
-      audioProcessor.getAPVTS().getRawParameterValue("show_tooltips");
-  const auto* showHudParam =
-      audioProcessor.getAPVTS().getRawParameterValue("show_hud");
-
-  bool showTooltips =
-      (showTooltipsParam == nullptr || showTooltipsParam->load() > 0.5f);
-  bool showHud = (showHudParam == nullptr || showHudParam->load() > 0.5f);
-  bool showFooter = showTooltips || showHud;
-
-  footerTooltipLabel.setVisible(showTooltips);
-  lblProfileStatus.setVisible(showHud);
-
-  if (showFooter) {
-    constexpr int kFooterHeight = 34;
-    auto footerArea = area.removeFromBottom(kFooterHeight);
-    area.removeFromBottom(kFooterGap);
-
-    if (showTooltips && showHud) {
-      auto leftFooter =
-          footerArea.removeFromLeft(footerArea.getWidth() * kFooterSplitPct / 100);
-      footerTooltipLabel.setBounds(leftFooter);
-      lblProfileStatus.setBounds(footerArea);
-      lblProfileStatus.setJustificationType(juce::Justification::centredRight);
-    } else if (showTooltips) {
-      footerTooltipLabel.setBounds(footerArea);
-    } else if (showHud) {
-      lblProfileStatus.setBounds(footerArea);
-      lblProfileStatus.setJustificationType(juce::Justification::centredRight);
-    }
-  }
+  layoutFooterBar(area);
 
   // Bottom Collapsible Advanced Panel (4 Controls: Smoothing, Masking,
   // Whitening, Aggressiveness)
   if (isAdvancedVisible) {
     auto advArea = area.removeFromBottom(kAdvPanelH);
-    groupAdvanced.setBounds(advArea);
+    advanced.groupAdvanced.setBounds(advArea);
 
     auto advInner = advArea.reduced(kInnerPad, kGroupPadY);
     advInner.removeFromTop(kAdvTitleH);
@@ -1375,68 +1408,68 @@ void NoiseRepellentAudioProcessorEditor::resized() {
 
     // 1. Smoothing Slider
     auto s1 = advInner.removeFromLeft(itemW);
-    lblSmoothing.setBounds(s1.removeFromTop(kAdvLabelH));
+    advanced.lblSmoothing.setBounds(s1.removeFromTop(kAdvLabelH));
     s1.removeFromTop(kAdvLabelGap);
-    sliderSmoothing.setBounds(s1.removeFromTop(kAdvSliderH));
+    advanced.sliderSmoothing.setBounds(s1.removeFromTop(kAdvSliderH));
 
     // 2. Masking Slider
     advInner.removeFromLeft(kGapW);
     auto s2 = advInner.removeFromLeft(itemW);
-    lblMasking.setBounds(s2.removeFromTop(kAdvLabelH));
+    advanced.lblMasking.setBounds(s2.removeFromTop(kAdvLabelH));
     s2.removeFromTop(kAdvLabelGap);
-    sliderMasking.setBounds(s2.removeFromTop(kAdvSliderH));
+    advanced.sliderMasking.setBounds(s2.removeFromTop(kAdvSliderH));
 
     // 3. Whitening Slider
     advInner.removeFromLeft(kGapW);
     auto s3 = advInner.removeFromLeft(itemW);
-    lblWhitening.setBounds(s3.removeFromTop(kAdvLabelH));
+    advanced.lblWhitening.setBounds(s3.removeFromTop(kAdvLabelH));
     s3.removeFromTop(kAdvLabelGap);
-    sliderWhitening.setBounds(s3.removeFromTop(kAdvSliderH));
+    advanced.sliderWhitening.setBounds(s3.removeFromTop(kAdvSliderH));
 
     // 4. Aggressiveness Slider
     advInner.removeFromLeft(kGapW);
     auto s4 = advInner;
-    lblAggressiveness.setBounds(s4.removeFromTop(kAdvLabelH));
+    advanced.lblAggressiveness.setBounds(s4.removeFromTop(kAdvLabelH));
     s4.removeFromTop(kAdvLabelGap);
-    sliderAggressiveness.setBounds(s4.removeFromTop(kAdvSliderH));
+    advanced.sliderAggressiveness.setBounds(s4.removeFromTop(kAdvSliderH));
 
     area.removeFromBottom(kSectionGap);
   }
 
   // Main Denoising & Spectrum Canvas
-  groupDenoising.setBounds(area);
+  denoising.groupDenoising.setBounds(area);
 
   auto denoiseInner = area.reduced(kInnerPad);
   denoiseInner.removeFromTop(kGroupTitleH);
 
-  bool isLinked = !isAdvancedVisible || btnLink.getToggleState();
+  bool isLinked = !isAdvancedVisible || denoising.btnLink.getToggleState();
   int faderBankWidth = isLinked ? kBankLinkedW : kBankUnlinkedW;
 
   auto faderBankArea = denoiseInner.removeFromLeft(faderBankWidth);
-  lblReductionHeader.setBounds(faderBankArea.removeFromTop(kBankLabelH));
+  denoising.lblReductionHeader.setBounds(faderBankArea.removeFromTop(kBankLabelH));
   faderBankArea.removeFromTop(kBankLabelGap);
 
   if (isAdvancedVisible) {
-    btnLink.setBounds(faderBankArea.removeFromTop(kBankBtnH));
+    denoising.btnLink.setBounds(faderBankArea.removeFromTop(kBankBtnH));
     faderBankArea.removeFromTop(kBankBtnGap);
 
     // Carve bottom area of faderBankArea for Curve split button [ Curve ][ ↺ ]
-    bool isCurveOn = btnCurveToggle.getToggleState();
+    bool isCurveOn = denoising.btnCurveToggle.getToggleState();
     auto faderBottomArea = faderBankArea.removeFromBottom(kBankBtnH);
     faderBankArea.removeFromBottom(kBankBtnGap);
 
     if (isCurveOn) {
-      btnCurveToggle.setBounds(
+      denoising.btnCurveToggle.setBounds(
           faderBottomArea.removeFromLeft(faderBottomArea.getWidth() - kCurveResetW));
       faderBottomArea.removeFromLeft(kCurveResetGap);
-      btnResetCurve.setBounds(faderBottomArea);
+      denoising.btnResetCurve.setBounds(faderBottomArea);
     } else {
-      btnCurveToggle.setBounds(faderBottomArea);
+      denoising.btnCurveToggle.setBounds(faderBottomArea);
     }
   }
 
   if (isLinked) {
-    sliderMasterRed.setBounds(faderBankArea);
+    denoising.sliderMasterRed.setBounds(faderBankArea);
   } else {
     int colW = (faderBankArea.getWidth() - kBankSplitGap) / 2;
 
@@ -1444,30 +1477,30 @@ void NoiseRepellentAudioProcessorEditor::resized() {
     faderBankArea.removeFromLeft(kBankSplitGap);
     auto rightCol = faderBankArea;
 
-    lblMasterRed.setBounds(leftCol.removeFromTop(kBankLabelH));
+    denoising.lblMasterRed.setBounds(leftCol.removeFromTop(kBankLabelH));
     leftCol.removeFromTop(kBankLabelGap);
-    sliderMasterRed.setBounds(leftCol);
+    denoising.sliderMasterRed.setBounds(leftCol);
 
-    lblTonalRed.setBounds(rightCol.removeFromTop(kBankLabelH));
+    denoising.lblTonalRed.setBounds(rightCol.removeFromTop(kBankLabelH));
     rightCol.removeFromTop(kBankLabelGap);
-    sliderTonalRed.setBounds(rightCol);
+    denoising.sliderTonalRed.setBounds(rightCol);
   }
 
   denoiseInner.removeFromLeft(kBankGutter);
 
   // Right-side Threshold (Noise Profile Offset) vertical fader bank (symmetric
   // to reduction sliders on left)
-  bool isOffsetLinked = !isAdvancedVisible || btnLinkOffset.getToggleState();
+  bool isOffsetLinked = !isAdvancedVisible || profile.btnLinkOffset.getToggleState();
   int offsetBankWidth = isOffsetLinked ? kBankLinkedW : kBankUnlinkedW;
 
   auto offsetBankArea = denoiseInner.removeFromRight(offsetBankWidth);
   denoiseInner.removeFromRight(kBankGutter);
 
-  lblOffset.setBounds(offsetBankArea.removeFromTop(kBankLabelH));
+  profile.lblOffset.setBounds(offsetBankArea.removeFromTop(kBankLabelH));
   offsetBankArea.removeFromTop(kBankLabelGap);
 
   if (isAdvancedVisible) {
-    btnLinkOffset.setBounds(offsetBankArea.removeFromTop(kBankBtnH));
+    profile.btnLinkOffset.setBounds(offsetBankArea.removeFromTop(kBankBtnH));
     offsetBankArea.removeFromTop(kBankBtnGap);
   }
 
@@ -1475,10 +1508,10 @@ void NoiseRepellentAudioProcessorEditor::resized() {
   // threshold slider
   auto offsetBottomArea = offsetBankArea.removeFromBottom(kBankBtnH);
   offsetBankArea.removeFromBottom(kBankBtnGap);
-  btnAdvancedToggle.setBounds(offsetBottomArea);
+  header.btnAdvancedToggle.setBounds(offsetBottomArea);
 
   if (isOffsetLinked) {
-    sliderOffset.setBounds(offsetBankArea);
+    profile.sliderOffset.setBounds(offsetBankArea);
   } else {
     int colW = (offsetBankArea.getWidth() - kBankSplitGap) / 2;
 
@@ -1486,17 +1519,56 @@ void NoiseRepellentAudioProcessorEditor::resized() {
     offsetBankArea.removeFromLeft(kBankSplitGap);
     auto rightCol = offsetBankArea;
 
-    lblMasterOffset.setBounds(leftCol.removeFromTop(kBankLabelH));
+    profile.lblMasterOffset.setBounds(leftCol.removeFromTop(kBankLabelH));
     leftCol.removeFromTop(kBankLabelGap);
-    sliderOffset.setBounds(leftCol);
+    profile.sliderOffset.setBounds(leftCol);
 
-    lblTonalOffset.setBounds(rightCol.removeFromTop(kBankLabelH));
+    profile.lblTonalOffset.setBounds(rightCol.removeFromTop(kBankLabelH));
     rightCol.removeFromTop(kBankLabelGap);
-    sliderTonalOffset.setBounds(rightCol);
+    profile.sliderTonalOffset.setBounds(rightCol);
   }
 
   spectralVisualizer.setBounds(denoiseInner);
 
-  btnPreferences.toFront(false);
+  header.btnPreferences.toFront(false);
   footerTooltipLabel.toFront(false);
+}
+
+void NoiseRepellentAudioProcessorEditor::layoutFooterBar(
+    juce::Rectangle<int>& area) {
+  // Layout metrics (pixel geometry; values define the look, names the intent)
+  constexpr int kFooterGap = 8;
+  constexpr int kFooterSplitPct = 55;
+  constexpr int kFooterHeight = 34;
+
+  const auto* showTooltipsParam =
+      audioProcessor.getAPVTS().getRawParameterValue("show_tooltips");
+  const auto* showHudParam =
+      audioProcessor.getAPVTS().getRawParameterValue("show_hud");
+
+  bool showTooltips =
+      (showTooltipsParam == nullptr || showTooltipsParam->load() > 0.5f);
+  bool showHud = (showHudParam == nullptr || showHudParam->load() > 0.5f);
+  bool showFooter = showTooltips || showHud;
+
+  footerTooltipLabel.setVisible(showTooltips);
+  profile.lblProfileStatus.setVisible(showHud);
+
+  if (showFooter) {
+    auto footerArea = area.removeFromBottom(kFooterHeight);
+    area.removeFromBottom(kFooterGap);
+
+    if (showTooltips && showHud) {
+      auto leftFooter =
+          footerArea.removeFromLeft(footerArea.getWidth() * kFooterSplitPct / 100);
+      footerTooltipLabel.setBounds(leftFooter);
+      profile.lblProfileStatus.setBounds(footerArea);
+      profile.lblProfileStatus.setJustificationType(juce::Justification::centredRight);
+    } else if (showTooltips) {
+      footerTooltipLabel.setBounds(footerArea);
+    } else if (showHud) {
+      profile.lblProfileStatus.setBounds(footerArea);
+      profile.lblProfileStatus.setJustificationType(juce::Justification::centredRight);
+    }
+  }
 }
