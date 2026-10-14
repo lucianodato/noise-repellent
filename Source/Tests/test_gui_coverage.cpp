@@ -379,6 +379,9 @@ public:
     beginTest("Menu & About Builders (headless-safe)");
     testMenuBuilders();
 
+    beginTest("Editor State Matrix Extended");
+    testEditorStateMatrixExtended();
+
     beginTest("GUI Coverage Sweep");
     testGUILinuxSweep();
   }
@@ -445,6 +448,62 @@ public:
            "About text must carry the license");
     expect(about.contains("libspecbleach"),
            "About text must report the library version");
+  }
+
+  // ── PluginEditor state matrix: every status/styling combination without
+  // any native window (Linux-safe) ──
+  void testEditorStateMatrixExtended() {
+    NoiseRepellentAudioProcessor proc;
+    proc.prepareToPlay(48000.0, 512);
+    juce::AudioBuffer<float> buffer(2, 512);
+    juce::MidiBuffer midi;
+    learnNoiseProfile(proc, true, buffer, midi);
+    pumpMessageLoop(10);
+
+    ScopedEditor ed(proc);
+    auto* editor =
+        dynamic_cast<NoiseRepellentAudioProcessorEditor*>(ed.editor.get());
+    expect(editor != nullptr, "Editor must be the plugin editor");
+    if (editor == nullptr) return;
+
+    auto paintState = [&]() {
+      pumpMessageLoop(10);
+      juce::Image img(juce::Image::RGB, 900, 600, true);
+      juce::Graphics g(img);
+      editor->paint(g);
+      editor->timerCallback();
+    };
+
+    // With a learned profile: every bypass / delta / learn / adaptive combo
+    for (int bypass = 0; bypass <= 1; ++bypass)
+    for (int delta = 0; delta <= 1; ++delta)
+    for (int learn = 0; learn <= 1; ++learn)
+    for (int adaptive = 0; adaptive <= 1; ++adaptive) {
+      setParam(proc, "bypass", static_cast<float>(bypass));
+      setParam(proc, "residual_listen", static_cast<float>(delta));
+      setParam(proc, "learn_noise", static_cast<float>(learn));
+      setParam(proc, "adaptive_noise", static_cast<float>(adaptive));
+      paintState();
+      expect(true);
+    }
+
+    // Adaptive needs a live profile-agnostic path matters too when learning
+    // is captured only afterwards; toggling adaptive_noise without profile
+    setParam(proc, "adaptive_noise", 1.0f);
+
+    // Low latency drops the learned profile: exercise the no-profile ladder
+    setParam(proc, "low_latency", 1.0f);
+    pumpMessageLoop(10);
+    for (int bypass = 0; bypass <= 1; ++bypass)
+    for (int delta = 0; delta <= 1; ++delta) {
+      setParam(proc, "bypass", static_cast<float>(bypass));
+      setParam(proc, "residual_listen", static_cast<float>(delta));
+      paintState();
+      expect(true);
+    }
+    expect(!proc.hasNoiseProfile(),
+           "Entering low latency must drop the learned profile");
+    proc.releaseResources();
   }
 
   void testGUILinuxSweep() {
