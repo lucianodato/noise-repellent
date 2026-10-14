@@ -608,13 +608,17 @@ private:
 
     // Reduction curve toggle + reset
     parts.curveToggle->triggerClick();
-    pumpMessageLoop(30);
+    for (int _i = 0; _i < 10 && rawParam(proc, "reduction_curve_enabled") < 0.5f; ++_i) {
+      pumpMessageLoop(20);
+    }
     expectEquals(rawParam(proc, "reduction_curve_enabled"), 1.0f,
                  "Curve click must enable the reduction curve");
     proc.curve.setNodes({{0.0f, 6.0f}, {0.5f, -6.0f}, {1.0f, 3.0f}});
     pumpMessageLoop(10);
     parts.resetCurve->triggerClick();
-    pumpMessageLoop(30);
+    for (int _i = 0; _i < 10 && static_cast<int>(proc.curve.nodes().size()) != 2; ++_i) {
+      pumpMessageLoop(20);
+    }
     expectEquals(static_cast<int>(proc.curve.nodes().size()), 2,
                  "Curve reset must restore the flat boundary nodes");
     expectWithinAbsoluteError(proc.curve.nodes()[0].biasDB, 0.0f, 0.001f,
