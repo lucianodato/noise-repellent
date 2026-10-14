@@ -321,7 +321,7 @@ void NoiseRepellentAudioProcessor::rebuildForFrameSizeChange(
   // message-thread entry).
   if (!onAudioThread)
     suspendProcessing(true);
-  const uint32_t wantedChannels = static_cast<uint32_t>(
+  const auto wantedChannels = static_cast<uint32_t>(
       std::max({getTotalNumInputChannels(), getTotalNumOutputChannels(), 1}));
   engine.ensureInitialized(status.currentSampleRate, wantedChannels,
                            isLowLatency(), getFrameSizeMs());
@@ -356,7 +356,7 @@ void NoiseRepellentAudioProcessor::updateLatencyReporting() {
 
 void NoiseRepellentAudioProcessor::prepareToPlay(double sampleRate,
                                                  int samplesPerBlock) {
-  const uint32_t wantedChannels = static_cast<uint32_t>(
+  const auto wantedChannels = static_cast<uint32_t>(
       std::max({getTotalNumInputChannels(), getTotalNumOutputChannels(), 1}));
   engine.ensureInitialized(sampleRate, wantedChannels, isLowLatency(),
                            getFrameSizeMs());

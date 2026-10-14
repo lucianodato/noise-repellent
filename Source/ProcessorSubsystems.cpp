@@ -424,8 +424,8 @@ void ProfileStore::captureLive(specbleach_stereo* group,
           specbleach_stereo_get_profile_block_count_for_channel(
               group, channel, profileMode);
       if (profile != nullptr && profileSize > 0) {
-        out.push_back({static_cast<int>(channel), mode, profileSize, blockCount,
-                       std::vector<float>(profile, profile + profileSize)});
+        out.emplace_back(static_cast<int>(channel), mode, profileSize, blockCount,
+                         std::vector<float>(profile, profile + profileSize));
       }
     }
   }

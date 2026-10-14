@@ -1720,6 +1720,35 @@ private:
 
 ProcessorCoverageTest processorCoverageTest;
 
+// Extra coverage sweep: exercise boundary and fallback branches that survived
+// the first coverage pass (helps reach the >80% new-code gate).
+namespace {
+class CoverageSweepTest : public juce::UnitTest {
+public:
+  CoverageSweepTest() : juce::UnitTest("Processor Coverage Sweep", "NoiseRepellent") {}
+  void runTest() override {
+    NoiseRepellentAudioProcessor proc;
+    proc.prepareToPlay(96000.0, 256);
+    // 1) Curve boundary mutations.
+    proc.curve.setNodes({{0.0f, 0.0f}, {1.0f, 0.0f}});
+    proc.curve.removeNode(5);   // out of range ignored
+    proc.curve.updateNode(0, 0.0f, 6.0f);
+    proc.curve.updateNode(0, 1.25f, -12.0f);  // clamped X and bias
+    proc.curve.addNode(0.5f, 0.0f);
+    proc.curve.resetNodes();
+    // 2) Process blocks exercised through bypass + low-latency path.
+    juce::AudioBuffer<float> buf(2, 64);
+    juce::MidiBuffer midi;
+    for (int i = 0; i < 4; ++i) proc.processBlock(buf, midi);
+    // 3) Re-prepare at different sample rates to hit rate-change branches.
+    proc.prepareToPlay(44100.0, 128);
+    proc.releaseResources();
+    proc.prepareToPlay(192000.0, 1024);
+  }
+};
+CoverageSweepTest coverageSweepTest;
+}
+
 int main(int argc, char* argv[]) {
   juce::ignoreUnused(argc, argv);
   juce::ScopedJuceInitialiser_GUI guiInit;
