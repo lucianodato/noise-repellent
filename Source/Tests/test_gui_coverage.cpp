@@ -376,8 +376,32 @@ public:
     beginTest("Spectral Visualizer Interaction Paths");
     testVisualizerInteractions();
 
+    beginTest("Menu & About Builders (headless-safe)");
+    testMenuBuilders();
+
     beginTest("GUI Coverage Sweep");
     testGUILinuxSweep();
+  }
+
+  // ── PluginEditor builders: menu construction and About text without any
+  // native window (Linux-safe) ──
+  void testMenuBuilders() {
+    NoiseRepellentAudioProcessor proc;
+    proc.prepareToPlay(48000.0, 512);
+    setParam(proc, "show_tooltips", 1.0f);
+    setParam(proc, "show_hud", 0.0f);
+    setParam(proc, "low_latency", 1.0f);
+    pumpMessageLoop(5);
+
+    expect(buildEditorPreferencesMenu(proc, nullptr, nullptr).getNumItems() > 0,
+           "Preferences menu must contain items");
+
+    const auto about = buildAboutMessage();
+    expect(about.contains("Noise Repellent"), "About text must name the plugin");
+    expect(about.contains("GPL-3.0-or-later"),
+           "About text must carry the license");
+    expect(about.contains("libspecbleach"),
+           "About text must report the library version");
   }
 
   void testGUILinuxSweep() {

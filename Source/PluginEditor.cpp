@@ -233,6 +233,107 @@ void setProfileStatusText(juce::Label& lbl, bool isBypassed, bool isDelta,
 
 } // namespace
 
+// Menu construction without showing it: PopupMenu building needs no display,
+// so Linux tests can exercise it (only showMenuAsync requires X11).
+juce::PopupMenu buildEditorPreferencesMenu(
+    NoiseRepellentAudioProcessor& processor,
+    juce::LookAndFeel* menuLookAndFeel,
+    const std::function<void()>& relayout) {
+  auto* tooltipParam =
+      processor.getAPVTS().getParameter("show_tooltips");
+  auto* hudParam = processor.getAPVTS().getParameter("show_hud");
+  auto* frameSizeParam =
+      processor.getAPVTS().getParameter("frame_size");
+  auto* lowLatencyParam =
+      processor.getAPVTS().getParameter("low_latency");
+
+  bool tooltipVal =
+      (tooltipParam != nullptr && tooltipParam->getValue() > 0.5f);
+  bool hudVal = (hudParam != nullptr && hudParam->getValue() > 0.5f);
+  bool lowLatencyVal =
+      (lowLatencyParam != nullptr && lowLatencyParam->getValue() > 0.5f);
+  int frameSizeIdx = 2;
+  if (const auto* choice = dynamic_cast<juce::AudioParameterChoice*>(
+          frameSizeParam))
+    frameSizeIdx = choice->getIndex();
+
+  juce::PopupMenu menu;
+
+  juce::PopupMenu::Item item1("Show Tooltips");
+  item1.itemID = 1;
+  item1.isTicked = tooltipVal;
+  item1.action = [tooltipParam, tooltipVal, relayout]() {
+    if (tooltipParam != nullptr) {
+      tooltipParam->beginChangeGesture();
+      tooltipParam->setValueNotifyingHost(tooltipVal ? 0.0f : 1.0f);
+      tooltipParam->endChangeGesture();
+      if (relayout != nullptr) {
+        relayout();
+      }
+    }
+  };
+  menu.addItem(item1);
+
+  juce::PopupMenu::Item item2("Show HUD Status");
+  item2.itemID = 2;
+  item2.isTicked = hudVal;
+  item2.action = [hudParam, hudVal, relayout]() {
+    if (hudParam != nullptr) {
+      hudParam->beginChangeGesture();
+      hudParam->setValueNotifyingHost(hudVal ? 0.0f : 1.0f);
+      hudParam->endChangeGesture();
+      if (relayout != nullptr) {
+        relayout();
+      }
+    }
+  };
+  menu.addItem(item2);
+
+  menu.addSeparator();
+  juce::PopupMenu::Item lowLatItem("Low Latency (512, live use)");
+  lowLatItem.itemID = 8;
+  lowLatItem.isTicked = lowLatencyVal;
+  lowLatItem.action = [lowLatencyParam, lowLatencyVal]() {
+    if (lowLatencyParam != nullptr) {
+      lowLatencyParam->beginChangeGesture();
+      lowLatencyParam->setValueNotifyingHost(lowLatencyVal ? 0.0f : 1.0f);
+      lowLatencyParam->endChangeGesture();
+    }
+  };
+  menu.addItem(lowLatItem);
+
+  menu.addSeparator();
+  menu.addSectionHeader("FRAME SIZE (BIGGER = FINER DETAIL + MORE LATENCY)");
+  addFrameSizeMenuItems(menu, frameSizeParam, frameSizeIdx, lowLatencyVal);
+
+  if (menuLookAndFeel != nullptr) {
+    menu.setLookAndFeel(menuLookAndFeel);
+  }
+  return menu;
+}
+
+// Dialog text assembly is pure string building; only showing the alert
+// window needs a display.
+juce::String buildAboutMessage() {
+#ifdef JucePlugin_VersionString
+  const juce::String pluginVersion = JucePlugin_VersionString;
+#else
+  const juce::String pluginVersion = "dev";
+#endif
+  const juce::String builtAgainst = SPECBLEACH_VERSION_STRING;
+  const juce::String expectedBanner =
+      juce::String("libspecbleach ") + builtAgainst;
+  const char* runtime = specbleach_get_version_string();
+  juce::String message;
+  message << "Noise Repellent " << pluginVersion << " (GPL-3.0-or-later)\n\n"
+          << "Built against libspecbleach " << builtAgainst << "\n"
+          << "Loaded libspecbleach: "
+          << (runtime != nullptr ? runtime : "unknown");
+  if (runtime != nullptr && juce::String(runtime) != expectedBanner)
+    message << "\n\nNote: the loaded library differs from the build version.";
+  return message;
+}
+
 NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(
     NoiseRepellentAudioProcessor& p)
     : AudioProcessorEditor(&p), audioProcessor(p), spectralVisualizer(p) {
@@ -640,72 +741,10 @@ kTipAlgoMode);
 }
 
 void NoiseRepellentAudioProcessorEditor::showPreferencesMenu() {
-  auto* tooltipParam =
-      audioProcessor.getAPVTS().getParameter("show_tooltips");
-  auto* hudParam = audioProcessor.getAPVTS().getParameter("show_hud");
-  auto* frameSizeParam =
-      audioProcessor.getAPVTS().getParameter("frame_size");
-  auto* lowLatencyParam =
-      audioProcessor.getAPVTS().getParameter("low_latency");
-
-  bool tooltipVal =
-      (tooltipParam != nullptr && tooltipParam->getValue() > 0.5f);
-  bool hudVal = (hudParam != nullptr && hudParam->getValue() > 0.5f);
-  bool lowLatencyVal =
-      (lowLatencyParam != nullptr && lowLatencyParam->getValue() > 0.5f);
-  int frameSizeIdx = 2;
-  if (const auto* choice = dynamic_cast<juce::AudioParameterChoice*>(
-          frameSizeParam))
-    frameSizeIdx = choice->getIndex();
-
-  juce::PopupMenu menu;
-
-  juce::PopupMenu::Item item1("Show Tooltips");
-  item1.itemID = 1;
-  item1.isTicked = tooltipVal;
-  item1.action = [this, tooltipParam, tooltipVal]() {
-    if (tooltipParam != nullptr) {
-      tooltipParam->beginChangeGesture();
-      tooltipParam->setValueNotifyingHost(tooltipVal ? 0.0f : 1.0f);
-      tooltipParam->endChangeGesture();
-      updateLayout();
-    }
-  };
-  menu.addItem(item1);
-
-  juce::PopupMenu::Item item2("Show HUD Status");
-  item2.itemID = 2;
-  item2.isTicked = hudVal;
-  item2.action = [this, hudParam, hudVal]() {
-    if (hudParam != nullptr) {
-      hudParam->beginChangeGesture();
-      hudParam->setValueNotifyingHost(hudVal ? 0.0f : 1.0f);
-      hudParam->endChangeGesture();
-      updateLayout();
-    }
-  };
-  menu.addItem(item2);
-
-  menu.addSeparator();
-  juce::PopupMenu::Item lowLatItem("Low Latency (512, live use)");
-  lowLatItem.itemID = 8;
-  lowLatItem.isTicked = lowLatencyVal;
-  lowLatItem.action = [lowLatencyParam, lowLatencyVal]() {
-    if (lowLatencyParam != nullptr) {
-      lowLatencyParam->beginChangeGesture();
-      lowLatencyParam->setValueNotifyingHost(lowLatencyVal ? 0.0f : 1.0f);
-      lowLatencyParam->endChangeGesture();
-    }
-  };
-  menu.addItem(lowLatItem);
-
-  menu.addSeparator();
-  menu.addSectionHeader("FRAME SIZE (BIGGER = FINER DETAIL + MORE LATENCY)");
-  addFrameSizeMenuItems(menu, frameSizeParam, frameSizeIdx, lowLatencyVal);
-
-  menu.setLookAndFeel(&getLookAndFeel());
-  menu.showMenuAsync(
-      juce::PopupMenu::Options().withTargetComponent(&header.btnPreferences));
+  buildEditorPreferencesMenu(audioProcessor, &getLookAndFeel(),
+                       [this]() { updateLayout(); })
+      .showMenuAsync(juce::PopupMenu::Options().withTargetComponent(
+          &header.btnPreferences));
 }
 
 void NoiseRepellentAudioProcessorEditor::showAdaptiveMethodMenu() {
@@ -809,24 +848,9 @@ void NoiseRepellentAudioProcessorEditor::mouseEnter(
 }
 
 void NoiseRepellentAudioProcessorEditor::showAboutBox() const {
-#ifdef JucePlugin_VersionString
-  const juce::String pluginVersion = JucePlugin_VersionString;
-#else
-  const juce::String pluginVersion = "dev";
-#endif
-  const juce::String builtAgainst = SPECBLEACH_VERSION_STRING;
-  const juce::String expectedBanner =
-      juce::String("libspecbleach ") + builtAgainst;
-  const char* runtime = specbleach_get_version_string();
-  juce::String message;
-  message << "Noise Repellent " << pluginVersion << " (GPL-3.0-or-later)\n\n"
-          << "Built against libspecbleach " << builtAgainst << "\n"
-          << "Loaded libspecbleach: "
-          << (runtime != nullptr ? runtime : "unknown");
-  if (runtime != nullptr && juce::String(runtime) != expectedBanner)
-    message << "\n\nNote: the loaded library differs from the build version.";
-  juce::AlertWindow::showMessageBoxAsync(juce::MessageBoxIconType::InfoIcon,
-                                         "About Noise Repellent", message, "OK");
+  juce::AlertWindow::showMessageBoxAsync(
+      juce::MessageBoxIconType::InfoIcon, "About Noise Repellent",
+      buildAboutMessage(), "OK");
 }
 
 void NoiseRepellentAudioProcessorEditor::mouseMove(

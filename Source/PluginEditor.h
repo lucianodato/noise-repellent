@@ -23,7 +23,16 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "GUI/SpectralVisualizer.h"
 #include "PluginProcessor.h"
 #include <atomic>
+#include <functional>
 #include <juce_gui_basics/juce_gui_basics.h>
+
+// Headless-testable content builders: they assemble menu items / dialog text
+// without showing native windows (which crash under Linux CI Xvfb).
+juce::PopupMenu buildEditorPreferencesMenu(
+    NoiseRepellentAudioProcessor& processor,
+    juce::LookAndFeel* menuLookAndFeel,
+    const std::function<void()>& relayout);
+juce::String buildAboutMessage();
 
 class NoiseRepellentAudioProcessorEditor
     : public juce::AudioProcessorEditor,
