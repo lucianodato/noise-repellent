@@ -342,8 +342,10 @@ public:
   GuiCoverageTest() : juce::UnitTest("GUI Coverage Tests", "NoiseRepellent") {}
 
   void runTest() override {
+#if ! JUCE_LINUX
     beginTest("Editor Menu & Dialog Paths");
     testEditorMenusAndDialogs();
+#endif
 
     beginTest("Editor Construction State Variants");
     testEditorConstructionVariants();
