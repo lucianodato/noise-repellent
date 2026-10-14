@@ -122,11 +122,12 @@ void processBlocks(NoiseRepellentAudioProcessor& proc,
 }
 
 void learnNoiseProfile(NoiseRepellentAudioProcessor& proc, bool tonal,
-                       juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi) {
+                       juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi,
+                       float freqHz = 440.0f) {
   setParam(proc, "learn_noise", 1.0f);
   for (int i = 0; i < 50; ++i) {
     if (tonal) {
-      generateTonalBuffer(buffer, 48000.0);
+      generateTonalBuffer(buffer, 48000.0, freqHz);
     } else {
       generateNoiseBuffer(buffer, 0.05f);
     }
@@ -441,6 +442,25 @@ public:
       expectWithinAbsoluteError(rawParam(proc2, "adaptive_noise"), 1.0f,
                                 0.0001f,
                                 "Method choice must enable adaptive noise");
+
+      // Reset-curve button: interior-only nodes grow the boundary pair,
+      // and the button handler must restore the default two-node curve.
+      proc2.curve.setNodes({{0.4f, 2.0f}, {0.6f, -2.0f}});
+      expect(static_cast<int>(proc2.curve.nodes().size()) > 2,
+             "interior-only nodes must be boundary-padded");
+      editor->denoising.btnResetCurve.onClick();
+      pumpMessageLoop(5);
+      expectEquals(static_cast<int>(proc2.curve.nodes().size()), 2,
+                   "reset-curve button must restore the boundary pair");
+    }
+
+    {
+      // Passing a real LookAndFeel covers the menu LAF wiring branches.
+      juce::LookAndFeel_V4 laf;
+      expect(buildEditorPreferencesMenu(proc, &laf, []() {}).getNumItems() > 0,
+             "Preferences menu must build with a custom look-and-feel");
+      expect(buildAdaptiveMethodMenu(1, &laf).getNumItems() >= 3,
+             "Adaptive method menu must build with a custom look-and-feel");
     }
 
     expect(buildAdaptiveMethodMenu(2, nullptr).getNumItems() >= 3,
@@ -564,6 +584,34 @@ public:
     viz.mouseDown(makeEvent(viz, &viz, badge.getCentre()));
     paintViz();
     viz.mouseDown(makeEvent(viz, &viz, badge.getCentre()));
+    paintViz();
+    expect(true);
+
+    // Two-node curve at the boundaries: the direct lineTo fast path
+    setParam(proc, "reduction_curve_enabled", 1.0f);
+    proc.curve.setNodes({{0.0f, -3.0f}, {1.0f, 4.0f}});
+    expectEquals(static_cast<int>(proc.curve.nodes().size()), 2,
+                 "boundary nodes must stay two for the fast path");
+    paintViz();
+
+    // Unlinked offsets + 4 kHz tonal profile: tonal peak markers draw with
+    // both the "k" and "Hz" tag branches, and a dense multi-node curve
+    // exercises every interior segment branch of the reduction path
+    setParam(proc, "link_reduction", 0.0f);
+    setParam(proc, "link_threshold_offset", 0.0f);
+    learnNoiseProfile(proc, true, buffer, midi, 4000.0f);
+    proc.curve.setNodes({{0.15f, 6.0f}, {0.35f, -2.0f}, {0.5f, 9.0f},
+                         {0.65f, -6.0f}, {0.85f, 4.0f}});
+    setParam(proc, "reduction_curve_enabled", 1.0f);
+    processBlocks(proc, buffer, midi, 60);
+    paintViz();
+    paintViz();
+    expect(true);
+
+    // Monotonic curve: consecutive secants share a sign, exercising the
+    // averaged-slope branch of the spline builder.
+    proc.curve.setNodes({{0.2f, 2.0f}, {0.4f, 5.0f},
+                         {0.6f, 9.0f}, {0.8f, 14.0f}});
     paintViz();
     expect(true);
   }

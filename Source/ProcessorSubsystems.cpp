@@ -126,20 +126,13 @@ void interpolateCurveInto(const std::vector<CurveNode>& curveNodes,
   if (interpolatedCurveBias.size() != numBins)
     interpolatedCurveBias.resize(numBins, 0.0f);
 
-  if (curveNodes.empty()) {
-    std::ranges::fill(interpolatedCurveBias, 0.0f);
-    return;
-  }
-
+  // setNodes/resetNodes/addNode/updateNode always keep a boundary pair, so
+  // empty and single-node fills are unreachable.
   auto sortedNodes = curveNodes;
   std::ranges::sort(sortedNodes,
                     [](const CurveNode& a, const CurveNode& b) { return a.normX < b.normX; });
 
   const size_t numNodes = sortedNodes.size();
-  if (numNodes == 1) {
-    std::ranges::fill(interpolatedCurveBias, sortedNodes.front().biasDB);
-    return;
-  }
 
   double sr = sampleRate;
   if (sr <= 0.0)

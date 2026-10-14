@@ -270,8 +270,8 @@ bool NoiseRepellentAudioProcessor::isLowLatency() const {
 
 void NoiseRepellentAudioProcessor::parameterChanged(
     const juce::String& parameterID, float /*newValue*/) {
-  if (parameterID != "frame_size" && parameterID != "low_latency")
-    return;
+  // Only frame_size and low_latency listeners are attached (the APVTS
+  // notifies per-parameter, so a structural guard here would be dead).
   // APVTS listeners run on the message thread for non-automatable params
   // touched from the Options menu; state restore happens before
   // prepareToPlay so there is nothing live to rebuild yet.

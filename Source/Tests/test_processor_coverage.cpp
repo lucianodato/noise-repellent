@@ -249,6 +249,9 @@ public:
     beginTest("Off-Thread Restore Preserves Profile (GH #221 flags)");
     testOffThreadRestorePreserve();
 
+    beginTest("Rebuild And Restore Edge Matrix");
+    testRebuildAndRestoreEdgeMatrix();
+
     beginTest("Visualization Feed Direct Paths");
     testVizFeedDirect();
 
@@ -443,6 +446,9 @@ private:
     curve.setNodes({{0.0f, 1.0f}, {1.0f, -1.0f}});
     expectEquals(static_cast<int>(curve.nodes().size()), 2,
                  "explicit boundaries are kept as-is");
+    curve.setNodes({});
+    expectEquals(static_cast<int>(curve.nodes().size()), 2,
+                 "empty input restores the boundary pair");
 
     // addNode clamps and sorts (duplicates exercise zero-width segments)
     curve.addNode(0.5f, 100.0f);
@@ -1341,6 +1347,88 @@ private:
     expect(proc.hasNoiseProfile(),
            "restored profile must survive the deferred rebuild [GH #221]");
     proc.releaseResources();
+  }
+
+  void testRebuildAndRestoreEdgeMatrix() {
+    // SR-change rebuild with a live profile AND a populated curve:
+    // profiles are resampled into the new engine and the curve warm-up
+    // (interpolate + reserve + warm load) runs against the fresh group.
+    {
+      NoiseRepellentAudioProcessor proc;
+      proc.prepareToPlay(48000.0, 512);
+      pumpMessageLoop(10);
+      learnShortProfile(proc);
+      expect(proc.hasNoiseProfile(), "profile must be learned");
+      proc.curve.setNodes({{0.3f, 2.0f}, {0.7f, -3.0f}});
+      proc.prepareToPlay(44100.0, 512);
+      pumpMessageLoop(10);
+      expect(proc.hasNoiseProfile(),
+             "live profile must survive a rate-change rebuild");
+      expect(proc.curve.biasSize() > 0,
+             "curve must be re-interpolated for the rebuilt engine");
+      proc.releaseResources();
+    }
+
+    // Live frame-size switch: the engine rebuild starts clean by design,
+    // dropping the live profile instead of resampling it.
+    {
+      NoiseRepellentAudioProcessor proc;
+      proc.prepareToPlay(48000.0, 512);
+      pumpMessageLoop(10);
+      learnShortProfile(proc);
+      expect(proc.hasNoiseProfile(), "profile must be learned");
+      setParam(proc, "frame_size", 1.0f);
+      pumpMessageLoop(10);
+      expect(!proc.hasNoiseProfile(),
+             "frame-size switch must start clean (live profiles are dropped)");
+      setParam(proc, "frame_size", 0.0f);
+      proc.releaseResources();
+    }
+
+    // Plain-XML state restore with leading whitespace exercises the trim
+    // branch; total garbage exercises the reject branch — neither may throw.
+    {
+      NoiseRepellentAudioProcessor proc;
+      restorePlainXml(proc, "   <PARAMETERS><PARAM id=\"x\" value=\"1\"/>"
+                            "</PARAMETERS>   ");
+      const char junk[] = "\x01\x02 not xml at all <<>>";
+      proc.setStateInformation(junk, static_cast<int>(sizeof(junk) - 1));
+    }
+
+    // Unsupported bus layouts must be rejected on both guard terms.
+    {
+      NoiseRepellentAudioProcessor proc;
+      juce::AudioProcessor::BusesLayout quad;
+      quad.inputBuses.add(juce::AudioChannelSet::quadraphonic());
+      quad.outputBuses.add(juce::AudioChannelSet::quadraphonic());
+      expect(!proc.setBusesLayout(quad), "quadraphonic layout is rejected");
+      juce::AudioProcessor::BusesLayout mismatched;
+      mismatched.inputBuses.add(juce::AudioChannelSet::stereo());
+      mismatched.outputBuses.add(juce::AudioChannelSet::mono());
+      expect(!proc.setBusesLayout(mismatched),
+             "input/output channel mismatch is rejected");
+    }
+
+    // Channel-profile node missing every attribute: property defaults must
+    // reject cleanly (zero size, empty data) without touching the engine.
+    {
+      NoiseRepellentAudioProcessor proc;
+      restorePlainXml(
+          proc,
+          "<PARAMETERS><LEARNED_PROFILES><CHANNEL_PROFILE channel=\"0\"/>"
+          "</LEARNED_PROFILES></PARAMETERS>");
+      expect(!proc.hasNoiseProfile(), "bare profile node must be rejected");
+      proc.prepareToPlay(48000.0, 512);
+      pumpMessageLoop(10);
+      const std::vector<float> data = makeProfileData(32);
+      const juce::String goodB64 = base64Of(data);
+      restorePlainXml(proc, "<PARAMETERS><LEARNED_PROFILES>" +
+                                 profileEntryXml(0, 1, 32, 5, goodB64) +
+                                 "</LEARNED_PROFILES></PARAMETERS>");
+      expect(proc.hasNoiseProfile(),
+             "valid entry after a rejected bare node must still load");
+      proc.releaseResources();
+    }
   }
 
   void testVizFeedDirect() {

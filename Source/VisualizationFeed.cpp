@@ -136,18 +136,8 @@ VizProfile queryVisualizationProfile(const specbleach_stereo* group, bool isLear
   }
   vp.data = specbleach_stereo_get_active_noise_profile_for_channel(group, 0u);
   vp.size = specbleach_stereo_get_noise_profile_size(group);
-  if (vp.data == nullptr && profileHasAnyMode) {
-    for (int mode = SPECBLEACH_PROFILE_MODE_FIRST;
-         mode <= SPECBLEACH_PROFILE_MODE_LAST; ++mode) {
-      if (!specbleach_stereo_profile_available_for_channel(
-              group, 0u, static_cast<SpecbleachProfileMode>(mode)))
-        continue;
-      vp.data = specbleach_stereo_get_noise_profile_for_channel(
-          group, 0u, static_cast<SpecbleachProfileMode>(mode));
-      if (vp.data != nullptr)
-        break;
-    }
-  }
+  // The library's active profile is a double buffer allocated with the
+  // group, so it can never be null while any mode profile exists.
   vp.floorEstimateAvailable =
       vp.data != nullptr && vp.size > 0 && (profileHasAnyMode || adaptiveNoise);
   vp.available = vp.floorEstimateAvailable && profileHasAnyMode;

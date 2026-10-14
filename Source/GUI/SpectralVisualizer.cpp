@@ -279,14 +279,6 @@ bool toggleTransientProtection(NoiseRepellentAudioProcessor& processor,
     newState = transientParam->get();
     return true;
   }
-  if (auto* param = processor.getAPVTS().getParameter(
-          "transient_protection_enable")) {
-    float currentVal = param->getValue();
-    float newVal = (currentVal > 0.5f) ? 0.0f : 1.0f;
-    param->setValueNotifyingHost(newVal);
-    newState = (newVal > 0.5f);
-    return true;
-  }
   return false;
 }
 
@@ -523,8 +515,7 @@ juce::Path buildCurveSplinePath(
 void drawReductionCurve(
     juce::Graphics& g, const SpectrumLayout& layout,
     const std::vector<NoiseRepellentAudioProcessor::CurveNode>& nodes) {
-  if (nodes.size() < 2)
-    return;
+  // The curve state always keeps a boundary pair, so nodes.size() >= 2.
 
   // Draw zero-bias centerline (dashed soft green)
   g.setColour(

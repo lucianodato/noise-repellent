@@ -68,6 +68,8 @@ private:
   using ComboBoxAttachment =
       juce::AudioProcessorValueTreeState::ComboBoxAttachment;
 
+  friend class GuiCoverageTest; // headless coverage tests poke internal controls
+
   // Controls are grouped in one struct per UI section
   struct HeaderControls {
     juce::TextButton brandButton;
