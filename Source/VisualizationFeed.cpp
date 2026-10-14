@@ -265,15 +265,14 @@ void fillFrozenProfileSection(VizState& viz, const ProfileStore& profiles,
   frame.hasNoiseFloorEstimate = true;
   // Use the library's active (morphed, tonal-scaled) profile so the
   // line stays frozen and responsive even before the next audio block.
+  // The active profile is a double buffer allocated together with the
+  // group's profiles, so with profiles.has(group) true it is never null
+  // and its size is always positive (no defensive fallback needed).
   const float* morphedPtr =
       specbleach_stereo_get_active_noise_profile_for_channel(viz.group, 0u);
-  if (const uint32_t profileSize = specbleach_stereo_get_noise_profile_size(viz.group);
-      morphedPtr != nullptr && profileSize > 0) {
-    // Resample morphed profile to kFftBins and convert to dB
-    fillNoiseFloorFromProfile(morphedPtr, profileSize, frame.noiseFloorDB);
-  } else {
-    frame.noiseFloorDB.fill(-120.0f);
-  }
+  fillNoiseFloorFromProfile(
+      morphedPtr, specbleach_stereo_get_noise_profile_size(viz.group),
+      frame.noiseFloorDB);
   // Tonal peaks for silent when unlinked
   if ((!frame.isLinked || !frame.isOffsetLinked) && frame.hasNoiseProfile)
     fillTonalPeaks(frame, viz.group);
