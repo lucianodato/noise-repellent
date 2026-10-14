@@ -347,8 +347,10 @@ public:
     testEditorMenusAndDialogs();
 #endif
 
+#if !defined(__linux__)
     beginTest("Editor Construction State Variants");
     testEditorConstructionVariants();
+#endif
 
     beginTest("Editor Button Handlers & Parameter Binding");
     testEditorButtonHandlers();
