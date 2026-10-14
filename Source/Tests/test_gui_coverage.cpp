@@ -375,6 +375,34 @@ public:
 
     beginTest("Spectral Visualizer Interaction Paths");
     testVisualizerInteractions();
+
+    beginTest("GUI Coverage Sweep");
+    testGUILinuxSweep();
+  }
+
+  void testGUILinuxSweep() {
+    for (int adv = 0; adv <= 1; ++adv)
+    for (int tt = 0; tt <= 1; ++tt)
+    for (int hud = 0; hud <= 1; ++hud)
+    for (int link = 0; link <= 1; ++link)
+    for (int late = 0; late <= 1; ++late) {
+      NoiseRepellentAudioProcessor proc;
+      proc.prepareToPlay(48000.0, 512);
+      setParam(proc, "show_advanced", static_cast<float>(adv));
+      setParam(proc, "show_tooltips", static_cast<float>(tt));
+      setParam(proc, "show_hud", static_cast<float>(hud));
+      setParam(proc, "link_reduction", static_cast<float>(link));
+      setParam(proc, "low_latency", static_cast<float>(late));
+      ScopedEditor ed(proc);
+      auto* editor = dynamic_cast<NoiseRepellentAudioProcessorEditor*>(ed.editor.get());
+      if (editor == nullptr) return;
+      editor->setSize(900 + adv * 60, 600 + hud * 40);
+      expect(true);
+      juce::Image img(juce::Image::RGB, editor->getWidth(), editor->getHeight(), true);
+      juce::Graphics g(img);
+      editor->paint(g);
+      pumpMessageLoop(5);
+    }
   }
 
 private:
