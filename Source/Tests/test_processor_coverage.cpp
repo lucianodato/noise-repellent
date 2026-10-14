@@ -1361,7 +1361,7 @@ private:
         .adaptiveNoise = false,
         .transientIntensity = 0.5f,
         .transientProtectionActive = true};
-    proc.viz.feed(in, input.data(), output.data(), input.size());
+    proc.viz.feed(in, std::span<const float>(input.data(), input.size()), std::span<const float>(output.data(), output.size()));
     NoiseRepellentAudioProcessor::SpectralFrame frame;
     auto drainAll = [&frame, &proc] {
       while (proc.viz.getNextFrame(frame)) {
@@ -1378,7 +1378,7 @@ private:
     // Profile-lock contention: the previous frame's floor is retained
     {
       juce::SpinLock::ScopedLockType guard(proc.profiles.lock());
-      proc.viz.feed(in, input.data(), nullptr, 1024);
+      proc.viz.feed(in, std::span<const float>(input.data(), 1024), std::span<const float>());
     }
     expect(proc.viz.getNextFrame(frame),
            "contention must still push the spectral frame");
@@ -1424,7 +1424,7 @@ private:
     drainAll();
     VisualizationFeed::FeedInput inLearning = inGroup;
     inLearning.isLearning = true;
-    proc.viz.feed(inLearning, input.data(), output.data(), input.size());
+    proc.viz.feed(inLearning, std::span<const float>(input.data(), input.size()), std::span<const float>(output.data(), output.size()));
     drainAll();
     expect(frame.hasNoiseProfile, "learning frame sees the rolling profile");
     expect(frame.hasNoiseFloorEstimate,
@@ -1432,7 +1432,7 @@ private:
 
     // Full FFT path with a stored profile: floor + tonal peaks are filled
     drainAll();
-    proc.viz.feed(inGroup, input.data(), output.data(), input.size());
+    proc.viz.feed(inGroup, std::span<const float>(input.data(), input.size()), std::span<const float>(output.data(), output.size()));
     drainAll();
     expect(frame.hasNoiseProfile, "profile frame reports the stored profile");
     expect(frame.hasNoiseFloorEstimate,
@@ -1500,7 +1500,7 @@ private:
         .adaptiveNoise = true,
         .transientIntensity = 0.0f,
         .transientProtectionActive = false};
-    adaptive.viz.feed(inAdaptive, input.data(), output.data(), input.size());
+    adaptive.viz.feed(inAdaptive, std::span<const float>(input.data(), input.size()), std::span<const float>(output.data(), output.size()));
     expect(adaptive.viz.getNextFrame(frame),
            "adaptive feed must push a frame");
     expect(!frame.hasNoiseProfile,
@@ -1511,7 +1511,7 @@ private:
     // Fill the 16-slot ring buffer: full-frame pushes and silent pushes must
     // both tolerate a full FIFO
     for (int i = 0; i < 20; ++i) {
-      adaptive.viz.feed(inAdaptive, input.data(), output.data(), 1024);
+      adaptive.viz.feed(inAdaptive, std::span<const float>(input.data(), 1024), std::span<const float>(output.data(), 1024));
     }
     for (int i = 0; i < 72; ++i) {
       adaptive.viz.pushSilentFrame(inAdaptive, adaptive.profiles);
@@ -1534,7 +1534,7 @@ private:
         .adaptiveNoise = false,
         .transientIntensity = 0.0f,
         .transientProtectionActive = false};
-    cold.viz.feed(inCold, input.data(), nullptr, input.size());
+    cold.viz.feed(inCold, std::span<const float>(input.data(), input.size()), std::span<const float>());
     expect(cold.viz.getNextFrame(frame),
            "feed without a delay line must still push");
   }
@@ -1719,35 +1719,6 @@ private:
 };
 
 ProcessorCoverageTest processorCoverageTest;
-
-// Extra coverage sweep: exercise boundary and fallback branches that survived
-// the first coverage pass (helps reach the >80% new-code gate).
-namespace {
-class CoverageSweepTest : public juce::UnitTest {
-public:
-  CoverageSweepTest() : juce::UnitTest("Processor Coverage Sweep", "NoiseRepellent") {}
-  void runTest() override {
-    NoiseRepellentAudioProcessor proc;
-    proc.prepareToPlay(96000.0, 256);
-    // 1) Curve boundary mutations.
-    proc.curve.setNodes({{0.0f, 0.0f}, {1.0f, 0.0f}});
-    proc.curve.removeNode(5);   // out of range ignored
-    proc.curve.updateNode(0, 0.0f, 6.0f);
-    proc.curve.updateNode(0, 1.25f, -12.0f);  // clamped X and bias
-    proc.curve.addNode(0.5f, 0.0f);
-    proc.curve.resetNodes();
-    // 2) Process blocks exercised through bypass + low-latency path.
-    juce::AudioBuffer<float> buf(2, 64);
-    juce::MidiBuffer midi;
-    for (int i = 0; i < 4; ++i) proc.processBlock(buf, midi);
-    // 3) Re-prepare at different sample rates to hit rate-change branches.
-    proc.prepareToPlay(44100.0, 128);
-    proc.releaseResources();
-    proc.prepareToPlay(192000.0, 1024);
-  }
-};
-CoverageSweepTest coverageSweepTest;
-}
 
 int main(int argc, char* argv[]) {
   juce::ignoreUnused(argc, argv);
