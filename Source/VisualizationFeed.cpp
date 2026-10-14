@@ -24,6 +24,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <span>
 
 namespace {
 
@@ -37,7 +38,7 @@ constexpr size_t kMaxTonalPeaks = VisualizationFeed::kMaxTonalPeaks;
 // Frame flags mirrored from the UI-facing parameters (shared by the silent and
 // FFT visualization paths).
 void fillFrameControlFlags(SpectralFrame& frame,
-                           juce::AudioProcessorValueTreeState& apvts) {
+                           const juce::AudioProcessorValueTreeState& apvts) {
   frame.isLinked = (apvts.getRawParameterValue("link_reduction")->load() > 0.5f);
   frame.isOffsetLinked =
       (apvts.getRawParameterValue("link_threshold_offset")->load() > 0.5f);
@@ -49,8 +50,8 @@ void fillFrameControlFlags(SpectralFrame& frame,
 // visualization grid.
 void computeSpectrumDb(const std::array<float, kFftSize>& accum,
                        std::array<float, kFftSize * 2>& work,
-                       juce::dsp::WindowingFunction<float>& window,
-                       juce::dsp::FFT& fft,
+                       const juce::dsp::WindowingFunction<float>& window,
+                       const juce::dsp::FFT& fft,
                        std::array<float, kFftBins>& magnitudeDB) {
   std::memcpy(work.data(), accum.data(), kFftSize * sizeof(float));
   std::fill(work.begin() + kFftSize, work.end(), 0.0f);
@@ -86,7 +87,7 @@ void fillNoiseFloorFromProfile(const float* profile, size_t profileBins,
 
 // Query libspecbleach directly for reported tonal peak frequencies computed on
 // the current noise profile.
-void fillTonalPeaks(SpectralFrame& frame, specbleach_stereo* group) {
+void fillTonalPeaks(SpectralFrame& frame, const specbleach_stereo* group) {
   std::array<float, kMaxTonalPeaks> peakBuf{};
   uint32_t numPeaks = 0;
   if (group != nullptr) {
@@ -119,7 +120,7 @@ struct VizProfile {
   bool floorEstimateAvailable = false;
 };
 
-VizProfile queryVisualizationProfile(specbleach_stereo* group, bool isLearning,
+VizProfile queryVisualizationProfile(const specbleach_stereo* group, bool isLearning,
                                      bool adaptiveNoise) {
   VizProfile vp;
   if (group == nullptr)
@@ -214,8 +215,9 @@ void pushFullSpectralFrame(VizState& viz) {
 
 // Accumulates samples into the FFT windows and pushes one spectral frame per
 // full window (hop = 75%). RT-safe: fixed buffers only.
-void feedVisualization(VizState& viz, const float* inputSrc,
-                       const float* outputSrc, size_t copySamples) {
+void feedVisualization(VizState& viz, std::span<const float> inputSrc,
+                       std::span<const float> outputSrc) {
+  const size_t copySamples = inputSrc.size();
   const size_t vBufSize = viz.delayBuffer.size();
   for (size_t s = 0; s < copySamples; ++s) {
     float inSample = inputSrc[s];
@@ -231,7 +233,7 @@ void feedVisualization(VizState& viz, const float* inputSrc,
 
     if (viz.accumCount < kFftSize) {
       viz.accumInput[viz.accumCount] = alignedInputSample;
-      viz.accumOutput[viz.accumCount] = outputSrc ? outputSrc[s] : 0.0f;
+      viz.accumOutput[viz.accumCount] = (s < outputSrc.size()) ? outputSrc[s] : 0.0f;
       viz.accumTransient[viz.accumCount] = viz.transientIntensity;
       viz.accumCount++;
     }
@@ -266,7 +268,8 @@ void fillFrozenProfileSection(VizState& viz, const ProfileStore& profiles,
     return;
   }
   juce::SpinLock::ScopedTryLockType profileTryLock(viz.profileLock);
-  if (!profileTryLock.isLocked() || viz.group == nullptr)
+  if (const bool profileLockHeld = profileTryLock.isLocked();
+      !profileLockHeld || viz.group == nullptr)
     return; // If the lock was busy, retain the previous frame's profile data.
   frame.hasNoiseProfile = true;
   frame.hasNoiseFloorEstimate = true;
@@ -274,9 +277,8 @@ void fillFrozenProfileSection(VizState& viz, const ProfileStore& profiles,
   // line stays frozen and responsive even before the next audio block.
   const float* morphedPtr =
       specbleach_stereo_get_active_noise_profile_for_channel(viz.group, 0u);
-  const uint32_t profileSize =
-      specbleach_stereo_get_noise_profile_size(viz.group);
-  if (morphedPtr != nullptr && profileSize > 0) {
+  if (const uint32_t profileSize = specbleach_stereo_get_noise_profile_size(viz.group);
+      morphedPtr != nullptr && profileSize > 0) {
     // Resample morphed profile to kFftBins and convert to dB
     fillNoiseFloorFromProfile(morphedPtr, profileSize, frame.noiseFloorDB);
   } else {
@@ -354,10 +356,10 @@ bool VisualizationFeed::getNextFrame(SpectralFrame& frame) {
   return false;
 }
 
-void VisualizationFeed::feed(const FeedInput& in, const float* inputSrc,
-                             const float* outputSrc, size_t copySamples) {
+void VisualizationFeed::feed(const FeedInput& in, std::span<const float> inputSrc,
+                             std::span<const float> outputSrc) {
   VizState viz = makeState(in);
-  feedVisualization(viz, inputSrc, outputSrc, copySamples);
+  feedVisualization(viz, inputSrc, outputSrc);
 }
 
 void VisualizationFeed::pushSilentFrame(const FeedInput& in,

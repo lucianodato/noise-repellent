@@ -121,7 +121,7 @@ struct ReductionCurveState {
   // Rebuilds the interpolated reduction curve when the nodes changed. Runs
   // from the per-block parameter snapshot: the try-lock stays off the GUI's
   // node-edit path and re-arms the dirty flag when the lock is busy.
-  void refreshIfDirty(bool curveEnabled, specbleach_stereo* group,
+  void refreshIfDirty(bool curveEnabled, const specbleach_stereo* group,
                       double sampleRate);
 
   const float* biasData() const {
@@ -181,12 +181,12 @@ struct ProfileStore {
     pendingProfiles.clear();
   }
 
-  bool has(specbleach_stereo* group) const;
+  bool has(const specbleach_stereo* group) const;
   void reset(specbleach_stereo* group);
 
   // Snapshots every per-channel/per-mode profile the live group holds, so an
   // engine rebuild can restore them.
-  static void captureLive(specbleach_stereo* group,
+  static void captureLive(const specbleach_stereo* group,
                           std::vector<SavedProfile>& out);
   // Restores a snapshot plus the retained pending entries into a rebuilt
   // group (the library resamples to the native spectrum size when the sample
@@ -246,7 +246,7 @@ struct EngineRuntime {
                : 0.0f;
   }
 
-  EngineParams buildParams(juce::AudioProcessorValueTreeState& parameters);
+  EngineParams buildParams(const juce::AudioProcessorValueTreeState& parameters);
   void run(juce::AudioBuffer<float>& buffer, const EngineParams& ep);
   // (Re)builds the engine group when the sample rate, channel count, frame
   // size or low-latency mode changed, restoring profiles across the rebuild.

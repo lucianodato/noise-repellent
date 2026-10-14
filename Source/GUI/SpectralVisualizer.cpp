@@ -157,9 +157,9 @@ void SpectralVisualizerComponent::timerCallback() {
 
   const bool spectrumAboveFloor =
       isSmoothedInitialized &&
-      (std::any_of(smoothedInputDB.begin(), smoothedInputDB.end(),
+      (std::ranges::any_of(smoothedInputDB,
                    [](float value) { return value > SpectralVisualizerComponent::kAxisMinDB + 0.1f; }) ||
-       std::any_of(smoothedOutputDB.begin(), smoothedOutputDB.end(),
+       std::ranges::any_of(smoothedOutputDB,
                    [](float value) { return value > SpectralVisualizerComponent::kAxisMinDB + 0.1f; }));
   if (frameReceived || (shouldDecay && spectrumAboveFloor) ||
       transientHoldTicks > 0 ||

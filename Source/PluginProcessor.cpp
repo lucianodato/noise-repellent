@@ -23,6 +23,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <algorithm>
 #include <cstddef>
 #include <memory>
+#include <span>
 
 namespace {
 
@@ -150,15 +151,14 @@ std::unique_ptr<juce::XmlElement> parsePlainXml(const std::byte* data,
                                                 int sizeInBytes) {
   if (data == nullptr || sizeInBytes <= 0)
     return nullptr;
-  const juce::String xmlString =
-      juce::String::createStringFromData(data, sizeInBytes);
-  if (xmlString.trim().startsWith("<"))
+  if (const juce::String xmlString = juce::String::createStringFromData(data, sizeInBytes);
+      xmlString.trim().startsWith("<"))
     return juce::XmlDocument::parse(xmlString);
   return nullptr;
 }
 
 // Transport state for the GUI; unknown when the host provides no position.
-void updateTransportFromHost(juce::AudioPlayHead* playHead,
+void updateTransportFromHost(const juce::AudioPlayHead* playHead,
                              std::atomic<bool>& playing,
                              std::atomic<bool>& stateKnown) {
   if (playHead == nullptr) {
@@ -183,7 +183,7 @@ bool detectSilence(const juce::AudioBuffer<float>& buffer, bool learnNoise,
   bool isSilent = true;
   const int numChannels = buffer.getNumChannels();
   const int numSamples = buffer.getNumSamples();
-  for (int ch = 0; ch < numChannels && isSilent; ++ch) {
+  for (int ch = 0; ch < numChannels; ++ch) {
     const float* d = buffer.getReadPointer(ch);
     for (int i = 0; i < numSamples; ++i) {
       if (std::abs(d[i]) > thresh) {
@@ -191,6 +191,8 @@ bool detectSilence(const juce::AudioBuffer<float>& buffer, bool learnNoise,
         break;
       }
     }
+    if (!isSilent)
+      break;
   }
   // Keep adaptive tracking alive when enabled — don't gate it as silent
   return isSilent && !adaptiveNoise;
@@ -444,12 +446,12 @@ void NoiseRepellentAudioProcessor::processBlock(
   juce::dsp::AudioBlock<float> audioBlock(buffer);
   dryWetMixer.pushDrySamples(audioBlock);
 
-  const bool hasProfile = hasNoiseProfile();
   // Sleep the engine on silence only after the streak outlasts the whole
   // pipeline (reported latency plus gain-release tails): the pipeline
   // holds over a full latency of future output, so an output-silence check
   // cannot tell "empty" from "still primed". Bypass always runs — see below.
-  if (engineCanSleep(isSilent, hasProfile, ep.learnNoise, ep.adaptiveNoise,
+  if (const bool hasProfile = hasNoiseProfile();
+      engineCanSleep(isSilent, hasProfile, ep.learnNoise, ep.adaptiveNoise,
                      status.silentBlocksStreak, status.currentLatency,
                      status.currentSampleRate, numSamples) &&
       !isBypassed) {
@@ -507,9 +509,10 @@ void NoiseRepellentAudioProcessor::processBlock(
 
   // ── FFT-based spectral frame for GUI visualization ──
   // Accumulate samples until we have a full FFT window (kFftSize samples)
-  viz.feed(vizInput, dryInputL.data(),
-           (numChannels >= 1) ? buffer.getReadPointer(0) : nullptr,
-           copySamples);
+  viz.feed(vizInput, std::span<const float>(dryInputL.data(), copySamples),
+           (numChannels >= 1)
+               ? std::span<const float>(buffer.getReadPointer(0), copySamples)
+               : std::span<const float>());
 }
 
 void NoiseRepellentAudioProcessor::processBlockBypassed(
@@ -564,8 +567,8 @@ void NoiseRepellentAudioProcessor::setStateInformation(const void* data,
     juce::ValueTree state = juce::ValueTree::fromXml(*xmlState);
 
     // Extract REDUCTION_CURVE if present
-    std::vector<CurveNode> loadedNodes;
-    if (ReductionCurveState::decodeNodesFrom(state, *xmlState, loadedNodes))
+    if (std::vector<CurveNode> loadedNodes;
+        ReductionCurveState::decodeNodesFrom(state, *xmlState, loadedNodes))
       curve.setNodes(loadedNodes);
 
     // Extract LEARNED_PROFILES before replaceState modifies state

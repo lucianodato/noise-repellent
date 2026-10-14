@@ -22,6 +22,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <span>
 #include <vector>
 
 #include <juce_audio_processors/juce_audio_processors.h>
@@ -102,8 +103,8 @@ struct VisualizationFeed {
   bool getNextFrame(SpectralFrame& frame);
   // Accumulates samples into the FFT windows and pushes one spectral frame per
   // full window (hop = 75%). RT-safe: fixed buffers only.
-  void feed(const FeedInput& in, const float* inputSrc, const float* outputSrc,
-            size_t copySamples);
+  void feed(const FeedInput& in, std::span<const float> inputSrc,
+            std::span<const float> outputSrc);
   // Silent-input visualization: skip the heavy 4096 FFT but push a cheap silent
   // frame so input/output fall to -120 dB while the learned noise profile stays
   // frozen (only reset clears it).

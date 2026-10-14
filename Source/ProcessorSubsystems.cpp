@@ -127,20 +127,17 @@ void interpolateCurveInto(const std::vector<CurveNode>& curveNodes,
     interpolatedCurveBias.resize(numBins, 0.0f);
 
   if (curveNodes.empty()) {
-    std::fill(interpolatedCurveBias.begin(), interpolatedCurveBias.end(),
-              0.0f);
+    std::ranges::fill(interpolatedCurveBias, 0.0f);
     return;
   }
 
   auto sortedNodes = curveNodes;
-  std::sort(
-      sortedNodes.begin(), sortedNodes.end(),
-      [](const CurveNode& a, const CurveNode& b) { return a.normX < b.normX; });
+  std::ranges::sort(sortedNodes,
+                    [](const CurveNode& a, const CurveNode& b) { return a.normX < b.normX; });
 
   const size_t numNodes = sortedNodes.size();
   if (numNodes == 1) {
-    std::fill(interpolatedCurveBias.begin(), interpolatedCurveBias.end(),
-              sortedNodes.front().biasDB);
+    std::ranges::fill(interpolatedCurveBias, sortedNodes.front().biasDB);
     return;
   }
 
@@ -299,9 +296,8 @@ void ReductionCurveState::addNode(float normX, float biasDB) {
   normX = std::clamp(normX, 0.0f, 1.0f);
   biasDB = std::clamp(biasDB, -24.0f, 24.0f);
   curveNodes.push_back({normX, biasDB});
-  std::sort(
-      curveNodes.begin(), curveNodes.end(),
-      [](const CurveNode& a, const CurveNode& b) { return a.normX < b.normX; });
+  std::ranges::sort(curveNodes,
+                    [](const CurveNode& a, const CurveNode& b) { return a.normX < b.normX; });
   curveNodesDirty = true;
 }
 
@@ -324,10 +320,10 @@ void ReductionCurveState::updateNode(int index, float normX, float biasDB) {
       curveNodes[index].normX = std::clamp(normX, 0.001f, 0.999f);
     }
     curveNodes[index].biasDB = std::clamp(biasDB, -24.0f, 24.0f);
-    std::sort(curveNodes.begin(), curveNodes.end(),
-              [](const CurveNode& a, const CurveNode& b) {
-                return a.normX < b.normX;
-              });
+    std::ranges::sort(curveNodes,
+                      [](const CurveNode& a, const CurveNode& b) {
+                        return a.normX < b.normX;
+                      });
     curveNodesDirty = true;
   }
 }
@@ -337,12 +333,12 @@ void ReductionCurveState::interpolate(uint32_t numBins, double sampleRate) {
 }
 
 void ReductionCurveState::refreshIfDirty(bool curveEnabled,
-                                         specbleach_stereo* group,
+                                         const specbleach_stereo* group,
                                          double sampleRate) {
   if (!curveEnabled || !curveNodesDirty.exchange(false))
     return;
-  juce::SpinLock::ScopedTryLockType tryLock(curveLock);
-  if (!tryLock.isLocked()) {
+  if (juce::SpinLock::ScopedTryLockType tryLock(curveLock);
+      !tryLock.isLocked()) {
     curveNodesDirty = true;
     return;
   }
@@ -394,7 +390,7 @@ bool ReductionCurveState::decodeNodesFrom(const juce::ValueTree& state,
   return true;
 }
 
-bool ProfileStore::has(specbleach_stereo* group) const {
+bool ProfileStore::has(const specbleach_stereo* group) const {
   if (group == nullptr)
     return false;
   return specbleach_stereo_has_any_profile_for_channel(group, 0u);
@@ -405,7 +401,7 @@ void ProfileStore::reset(specbleach_stereo* group) {
   pendingProfiles.clear();
 }
 
-void ProfileStore::captureLive(specbleach_stereo* group,
+void ProfileStore::captureLive(const specbleach_stereo* group,
                                std::vector<SavedProfile>& out) {
   if (group == nullptr)
     return;
@@ -532,7 +528,7 @@ ProfileStore::findProfilesTree(const juce::ValueTree& state,
 }
 
 EngineRuntime::EngineParams
-EngineRuntime::buildParams(juce::AudioProcessorValueTreeState& parameters) {
+EngineRuntime::buildParams(const juce::AudioProcessorValueTreeState& parameters) {
   EngineParams ep;
   // Low-latency uses a 512-sample frame: too coarse for independent
   // tonal/broadband control, so tonal follows broadband (forced link) and
