@@ -56,7 +56,7 @@ jobs:
 
       - name: Run Test Suite
         run: |
-          xvfb-run ctest --test-dir build-test --output-on-failure
+          xvfb-run -s "-screen 0 1920x1080x24 -ac +extension GLX +extension RENDER +extension RANDR +extension XTest" ctest --test-dir build-test --output-on-failure
 
       - name: Generate Coverage Report
         run: |
