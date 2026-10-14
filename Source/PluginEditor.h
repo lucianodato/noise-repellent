@@ -32,6 +32,8 @@ juce::PopupMenu buildEditorPreferencesMenu(
     NoiseRepellentAudioProcessor& processor,
     juce::LookAndFeel* menuLookAndFeel,
     const std::function<void()>& relayout);
+juce::PopupMenu buildAdaptiveMethodMenu(int currentMethod,
+                                        juce::LookAndFeel* menuLookAndFeel);
 juce::String buildAboutMessage();
 
 class NoiseRepellentAudioProcessorEditor
@@ -50,6 +52,10 @@ public:
   void mouseEnter(const juce::MouseEvent&) override;
   void mouseMove(const juce::MouseEvent&) override;
   void mouseExit(const juce::MouseEvent&) override;
+
+  // Applies an estimation-method choice made in the popup menu
+  // (headless-testable; showing the menu itself needs a display).
+  void applyAdaptiveMethodChoice(int result);
 
   void parameterChanged(const juce::String& parameterID,
                         float newValue) override;

@@ -314,6 +314,21 @@ juce::PopupMenu buildEditorPreferencesMenu(
 
 // Dialog text assembly is pure string building; only showing the alert
 // window needs a display.
+// Dialog text assembly is pure string building; only showing the alert
+// window needs a display.
+juce::PopupMenu buildAdaptiveMethodMenu(int currentMethod,
+                                        juce::LookAndFeel* menuLookAndFeel) {
+  juce::PopupMenu menu;
+  menu.addSectionHeader("ADAPTIVE ESTIMATION METHOD");
+  menu.addItem(1, "Speech-Focused (SPP-MMSE)", true, currentMethod == 1);
+  menu.addItem(2, "Slow, Steady (Brandt)", true, currentMethod == 2);
+  menu.addItem(3, "Balanced Tracking (Martin)", true, currentMethod == 3);
+  if (menuLookAndFeel != nullptr) {
+    menu.setLookAndFeel(menuLookAndFeel);
+  }
+  return menu;
+}
+
 juce::String buildAboutMessage() {
 #ifdef JucePlugin_VersionString
   const juce::String pluginVersion = JucePlugin_VersionString;
@@ -748,31 +763,23 @@ void NoiseRepellentAudioProcessorEditor::showPreferencesMenu() {
 }
 
 void NoiseRepellentAudioProcessorEditor::showAdaptiveMethodMenu() {
-  juce::PopupMenu menu;
-  auto currentMethod = advanced.comboMethod.getSelectedId();
+  buildAdaptiveMethodMenu(advanced.comboMethod.getSelectedId(), &getLookAndFeel())
+      .showMenuAsync(
+          juce::PopupMenu::Options().withTargetComponent(&profile.btnAdaptiveArrow),
+          [this](int result) { applyAdaptiveMethodChoice(result); });
+}
 
-  menu.addSectionHeader("ADAPTIVE ESTIMATION METHOD");
-  menu.addItem(1, "Speech-Focused (SPP-MMSE)", true, currentMethod == 1);
-  menu.addItem(2, "Slow, Steady (Brandt)", true, currentMethod == 2);
-  menu.addItem(3, "Balanced Tracking (Martin)", true, currentMethod == 3);
-
-  menu.setLookAndFeel(&getLookAndFeel());
-  menu.showMenuAsync(
-      juce::PopupMenu::Options().withTargetComponent(&profile.btnAdaptiveArrow),
-      [this](int result) {
-        if (result >= 1 && result <= 3) {
-          int methodIdx = result - 1;
-          advanced.comboMethod.setSelectedId(result, juce::sendNotification);
-          if (auto* p =
-                  audioProcessor.getAPVTS().getParameter("adaptive_method"))
-            p->setValueNotifyingHost(static_cast<float>(methodIdx) / 2.0f);
-          if (auto* p =
-                  audioProcessor.getAPVTS().getParameter("adaptive_noise"))
-            p->setValueNotifyingHost(1.0f);
-          updateLayout();
-          updateProfileStatus();
-        }
-      });
+void NoiseRepellentAudioProcessorEditor::applyAdaptiveMethodChoice(int result) {
+  if (result >= 1 && result <= 3) {
+    int methodIdx = result - 1;
+    advanced.comboMethod.setSelectedId(result, juce::sendNotification);
+    if (auto* p = audioProcessor.getAPVTS().getParameter("adaptive_method"))
+      p->setValueNotifyingHost(static_cast<float>(methodIdx) / 2.0f);
+    if (auto* p = audioProcessor.getAPVTS().getParameter("adaptive_noise"))
+      p->setValueNotifyingHost(1.0f);
+    updateLayout();
+    updateProfileStatus();
+  }
 }
 
 void NoiseRepellentAudioProcessorEditor::handleResetProfileClick() {

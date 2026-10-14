@@ -393,8 +393,51 @@ public:
     setParam(proc, "low_latency", 1.0f);
     pumpMessageLoop(5);
 
-    expect(buildEditorPreferencesMenu(proc, nullptr, nullptr).getNumItems() > 0,
-           "Preferences menu must contain items");
+    {
+      auto menu =
+          buildEditorPreferencesMenu(proc, nullptr, []() {});
+      expect(menu.getNumItems() > 0, "Preferences menu must contain items");
+
+      // Invoke each stored action directly: no native window is needed.
+      // Frame-size actions write i/4; the last frame item sets 1.0.
+      juce::PopupMenu::MenuItemIterator it(menu);
+      while (it.next()) {
+        if (it.getItem().action != nullptr) {
+          it.getItem().action();
+          pumpMessageLoop(5);
+        }
+      }
+      expectWithinAbsoluteError(
+          proc.getAPVTS().getParameter("frame_size")->getValue(), 1.0f,
+          0.0001f, "Frame-size item actions must write their index share");
+      expectWithinAbsoluteError(rawParam(proc, "show_tooltips"), 0.0f, 0.0001f,
+                       "Tooltip item action must toggle show_tooltips off");
+      expectWithinAbsoluteError(rawParam(proc, "show_hud"), 1.0f, 0.0001f,
+                       "HUD item action must toggle show_hud on");
+      expectWithinAbsoluteError(rawParam(proc, "low_latency"), 0.0f, 0.0001f,
+                       "Low latency item action must toggle it off");
+    }
+
+    {
+      NoiseRepellentAudioProcessor proc2;
+      proc2.prepareToPlay(48000.0, 512);
+      ScopedEditor ed(proc2);
+      auto* editor = dynamic_cast<NoiseRepellentAudioProcessorEditor*>(
+          ed.editor.get());
+      expect(editor != nullptr, "Editor must be constructible headless");
+      if (editor == nullptr) return;
+      editor->applyAdaptiveMethodChoice(2);
+      pumpMessageLoop(5);
+      expectWithinAbsoluteError(rawParam(proc2, "adaptive_method"), 1.0f,
+                                0.0001f,
+                       "Method choice must select the second estimator");
+      expectWithinAbsoluteError(rawParam(proc2, "adaptive_noise"), 1.0f,
+                                0.0001f,
+                                "Method choice must enable adaptive noise");
+    }
+
+    expect(buildAdaptiveMethodMenu(2, nullptr).getNumItems() >= 3,
+           "Adaptive method menu must list the three estimators");
 
     const auto about = buildAboutMessage();
     expect(about.contains("Noise Repellent"), "About text must name the plugin");
