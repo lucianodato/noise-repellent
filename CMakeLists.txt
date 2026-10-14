@@ -4,7 +4,7 @@ project(NoiseRepellent VERSION 0.4.1 LANGUAGES C CXX)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Enable Position Independent Code (-fPIC) globally for static libs linked into shared object plugins
@@ -41,7 +41,7 @@ endif()
 
 if(MSVC)
     add_compile_options($<$<COMPILE_LANGUAGE:C>:/std:c11>)
-    add_compile_options($<$<COMPILE_LANGUAGE:CXX>:/std:c++17>)
+    add_compile_options($<$<COMPILE_LANGUAGE:CXX>:/std:c++20>)
     add_compile_options(/experimental:c11atomics)
 endif()
 
