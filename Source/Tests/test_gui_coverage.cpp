@@ -382,6 +382,10 @@ public:
     beginTest("Editor State Matrix Extended");
     testEditorStateMatrixExtended();
 
+    beginTest("Visualizer Draw & Compact Editor Matrix");
+    testVisualizerDrawMatrix();
+    testEditorCompactSizes();
+
     beginTest("GUI Coverage Sweep");
     testGUILinuxSweep();
   }
@@ -504,6 +508,87 @@ public:
     expect(!proc.hasNoiseProfile(),
            "Entering low latency must drop the learned profile");
     proc.releaseResources();
+  }
+
+  // ── Visualizer draw states (adv/curve/tp combos) and compact-width editor
+  // chrome, all without native windows (Linux-safe) ──
+  void testVisualizerDrawMatrix() {
+    NoiseRepellentAudioProcessor proc;
+    proc.prepareToPlay(48000.0, 512);
+    juce::AudioBuffer<float> buffer(2, 512);
+    juce::MidiBuffer midi;
+    ScopedEditor ed(proc);
+    auto* editor =
+        dynamic_cast<NoiseRepellentAudioProcessorEditor*>(ed.editor.get());
+    expect(editor != nullptr, "Editor must be constructible headless");
+    if (editor == nullptr) return;
+
+    learnNoiseProfile(proc, false, buffer, midi);
+
+    SpectralVisualizerComponent viz(proc);
+    viz.stopTimer();
+    viz.setSize(820, 480);
+    viz.setProcessingAvailable(true);
+    viz.setAdvancedControlsVisible(true);
+    setParam(proc, "reduction_curve_enabled", 1.0f);
+    proc.curve.setNodes({{0.2f, 6.0f}, {0.8f, -3.0f}});
+    processBlocks(proc, buffer, midi, 12);
+    for (int i = 0; i < 8; ++i) {
+      viz.timerCallback();
+    }
+
+    auto paintViz = [&]() {
+      viz.timerCallback();
+      juce::Image img(juce::Image::RGB, viz.getWidth(), viz.getHeight(), true);
+      juce::Graphics g(img);
+      viz.paint(g);
+      pumpMessageLoop(5);
+    };
+
+    // Every advanced/curve combination must paint without rendering errors
+    for (int adv = 0; adv <= 1; ++adv)
+    for (int curve = 0; curve <= 1; ++curve) {
+      viz.setAdvancedControlsVisible(adv == 1);
+      setParam(proc, "reduction_curve_enabled", static_cast<float>(curve));
+      paintViz();
+      for (int i = 0; i < 4; ++i) {
+        viz.timerCallback();
+      }
+      paintViz();
+      expect(true);
+    }
+
+    // Toggle transient protection through the badge so both badge states draw
+    viz.setAdvancedControlsVisible(true);
+    const auto badge = viz.getTpBadgeBounds();
+    viz.mouseDown(makeEvent(viz, &viz, badge.getCentre()));
+    paintViz();
+    viz.mouseDown(makeEvent(viz, &viz, badge.getCentre()));
+    paintViz();
+    expect(true);
+  }
+
+  void testEditorCompactSizes() {
+    NoiseRepellentAudioProcessor proc;
+    proc.prepareToPlay(48000.0, 512);
+    for (int adv = 0; adv <= 1; ++adv)
+    for (int width = 0; width < 3; ++width) {
+      ScopedEditor ed(proc);
+      auto* editor = dynamic_cast<NoiseRepellentAudioProcessorEditor*>(
+          ed.editor.get());
+      if (editor == nullptr) return;
+      setParam(proc, "show_advanced", static_cast<float>(adv));
+      // 840-width compact chrome, middling width, and default width
+      editor->setSize(840 + width * 25, 500);
+      pumpMessageLoop(10);
+      juce::Image img(juce::Image::RGB, editor->getWidth(),
+                      editor->getHeight(), true);
+      juce::Graphics g(img);
+      editor->paint(g);
+      editor->timerCallback();
+      pumpMessageLoop(5);
+      expect(true);
+    }
   }
 
   void testGUILinuxSweep() {
