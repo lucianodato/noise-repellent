@@ -723,6 +723,12 @@ private:
                  "invoked method choice must enable adaptive noise");
     expectEquals(rawParam(proc, "adaptive_method"), 2.0f,
                  "last invoked method must select BM3D (index 2)");
+    // Out-of-range menu results (dismissed) must not move parameters.
+    editor->applyAdaptiveMethodChoice(0);
+    editor->applyAdaptiveMethodChoice(4);
+    pumpMessageLoop(10);
+    expectEquals(rawParam(proc, "adaptive_method"), 2.0f,
+                 "out-of-range choices must be ignored");
 
     // About box: blocking showMessageBoxAsync path auto-dismissed by the
     // modal-closer timer.
