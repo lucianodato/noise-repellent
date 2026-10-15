@@ -293,8 +293,8 @@ void NoiseRepellentAudioProcessor::rebuildForFrameSizeChange(
   // engine.group() under the profile lock (state save/restore). The try-lock
   // keeps the audio path lock-free: a contended rebuild is deferred one
   // block through the pending flag instead of spinning.
-  juce::SpinLock::ScopedTryLockType profileTryLock(profiles.lock());
-  if (!profileTryLock.isLocked()) {
+  if (juce::SpinLock::ScopedTryLockType profileTryLock(profiles.lock());
+      !profileTryLock.isLocked()) {
     status.frameSizeRebuildPending.store(true);
     return;
   }

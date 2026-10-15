@@ -216,8 +216,8 @@ void restoreProfilesOrRetain(specbleach_stereo* group,
 
 template <typename EntryT>
 bool hasChannelOne(const std::vector<EntryT>& entries) {
-  return std::any_of(entries.begin(), entries.end(),
-                     [](const EntryT& entry) { return entry.channel == 1; });
+  return std::ranges::any_of(
+      entries, [](const EntryT& entry) { return entry.channel == 1; });
 }
 
 template <typename EntryT>
@@ -340,8 +340,8 @@ void ReductionCurveState::refreshIfDirty(bool curveEnabled,
                                          double sampleRate) {
   if (!curveEnabled || !curveNodesDirty.exchange(false))
     return;
-  juce::SpinLock::ScopedTryLockType tryLock(curveLock);
-  if (!tryLock.isLocked()) {
+  if (juce::SpinLock::ScopedTryLockType tryLock(curveLock);
+      !tryLock.isLocked()) {
     curveNodesDirty = true;
     return;
   }

@@ -147,7 +147,7 @@ VizProfile queryVisualizationProfile(const specbleach_stereo* group, bool isLear
 // Fills the profile-derived part of a full spectral frame. Runs under the
 // profile try-lock so library profile reads stay serialized with state
 // restores (visualization try-lock in processBlock, getStateInformation).
-void fillFrameProfileSection(VizState& viz, SpectralFrame& frame) {
+void fillFrameProfileSection(const VizState& viz, SpectralFrame& frame) {
   juce::SpinLock::ScopedTryLockType profileTryLock(viz.profileLock);
   const bool lockHeld = profileTryLock.isLocked();
   const VizProfile profile =
@@ -249,7 +249,7 @@ void feedVisualization(VizState& viz, std::span<const float> inputSrc,
 // when playback starts/stops. Reads of the shared profile are guarded by the
 // same try-lock as the FFT path; if the lock is busy, retain the previous
 // frame's profile data.
-void fillFrozenProfileSection(VizState& viz, const ProfileStore& profiles,
+void fillFrozenProfileSection(const VizState& viz, const ProfileStore& profiles,
                               SpectralFrame& frame) {
   if (!profiles.has(viz.group)) {
     frame.noiseFloorDB.fill(-120.0f);
