@@ -142,12 +142,9 @@ void interpolateCurveInto(const std::vector<CurveNode>& curveNodes,
   const float logMax = std::log10(maxFreq);
   const float logRange = logMax - logMin;
 
-  // Scratch buffers are sized by the mutators/setup path; plain size checks
-  // mean the per-block refresh never allocates.
-  if (dX.size() != numNodes - 1)
-    dX.resize(numNodes - 1);
-  if (dY.size() != numNodes - 1)
-    dY.resize(numNodes - 1);
+  // dX/dY are pre-sized by resizeScratch for this node count (the refresh
+  // path re-arms when they lag), so this path never allocates.
+  jassert(dX.size() >= numNodes - 1 && dY.size() >= numNodes - 1);
   for (size_t i = 0; i < numNodes - 1; ++i) {
     dX[i] = curveNodes[i + 1].normX - curveNodes[i].normX;
     dY[i] = curveNodes[i + 1].biasDB - curveNodes[i].biasDB;

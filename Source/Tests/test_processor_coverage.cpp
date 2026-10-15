@@ -17,7 +17,9 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+#include <atomic>
 #include <cmath>
+#include <chrono>
 #include <cstring>
 #include <random>
 #include <thread>
@@ -251,6 +253,9 @@ public:
 
     beginTest("Rebuild And Restore Edge Matrix");
     testRebuildAndRestoreEdgeMatrix();
+
+    beginTest("Contended Rebuild Defers Pending");
+    testContendedRebuildDefersPending();
 
     beginTest("Visualization Feed Direct Paths");
     testVizFeedDirect();
@@ -1349,6 +1354,40 @@ private:
            "the deferred rebuild must have run");
     expect(proc.hasNoiseProfile(),
            "restored profile must survive the deferred rebuild [GH #221]");
+    proc.releaseResources();
+  }
+
+  void testContendedRebuildDefersPending() {
+    NoiseRepellentAudioProcessor proc;
+    proc.prepareToPlay(48000.0, 512);
+    pumpMessageLoop(10);
+
+    // A second thread holds the profile lock the way a live state
+    // serialization does, so the message-thread rebuild must defer through
+    // the pending flag instead of spinning the audio thread.
+    std::atomic<bool> lockHeld{false};
+    std::atomic<bool> releaseLock{false};
+    std::thread spoiler([&] {
+      juce::SpinLock::ScopedLockType guard(proc.profiles.lock());
+      lockHeld.store(true);
+      while (!releaseLock.load())
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    });
+    while (!lockHeld.load())
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+
+    setParam(proc, "frame_size", 0.0f);
+    for (int i = 0; i < 100 && !proc.status.frameSizeRebuildPending.load(); ++i)
+      std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    expect(proc.status.frameSizeRebuildPending.load(),
+           "contended rebuild must re-arm the pending flag");
+
+    releaseLock.store(true);
+    spoiler.join();
+    juce::AudioBuffer<float> buffer(2, 512);
+    processNoise(proc, buffer, 10, 9000);
+    expect(!proc.status.frameSizeRebuildPending.load(),
+           "free lock lets processBlock funnel the deferred rebuild");
     proc.releaseResources();
   }
 
