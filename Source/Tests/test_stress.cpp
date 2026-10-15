@@ -316,7 +316,7 @@ private:
             {0.3f, offDist(paramGen)},
             {0.7f, offDist(paramGen)},
             {1.0f, offDist(paramGen)}};
-        proc.setCurveNodes(nodes);
+        proc.curve.setNodes(nodes);
       }
 
       pumpMessageLoop(1);

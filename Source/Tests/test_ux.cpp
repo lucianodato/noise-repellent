@@ -144,12 +144,12 @@ private:
 
     // Now poll: FIFO should deliver a valid fresh frame without hang
     NoiseRepellentAudioProcessor::SpectralFrame frame;
-    bool gotFrame = proc.getNextSpectralFrame(frame);
+    bool gotFrame = proc.viz.getNextFrame(frame);
     expect(gotFrame, "Processor must return spectral frame after starvation");
 
     // 2. Satiation: Drain all frames
     int framesDrained = 0;
-    while (proc.getNextSpectralFrame(frame)) {
+    while (proc.viz.getNextFrame(frame)) {
       framesDrained++;
     }
     expect(framesDrained >= 0, "Frames drained successfully");
@@ -175,7 +175,7 @@ private:
 
     NoiseRepellentAudioProcessor::SpectralFrame frame;
     bool gotFrame = false;
-    while (proc.getNextSpectralFrame(frame)) {
+    while (proc.viz.getNextFrame(frame)) {
       gotFrame = true;
     }
 

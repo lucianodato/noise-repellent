@@ -73,7 +73,7 @@ bool pullLatestFrame(NoiseRepellentAudioProcessor& proc,
                      NoiseRepellentAudioProcessor::SpectralFrame& outFrame) {
   NoiseRepellentAudioProcessor::SpectralFrame temp;
   bool gotAny = false;
-  while (proc.getNextSpectralFrame(temp)) {
+  while (proc.viz.getNextFrame(temp)) {
     outFrame = temp;
     gotAny = true;
   }
@@ -603,7 +603,7 @@ private:
                  unlinkedFrame.tonalPeaksHz.size(),
                  "Peak set must be preserved across mode switch");
 
-    proc.setCurveNodes({{0.0f, 6.0f}, {1.0f, -6.0f}});
+    proc.curve.setNodes({{0.0f, 6.0f}, {1.0f, -6.0f}});
     setParam(proc, "reduction_curve_enabled", 1.0f);
     processSilentBlocks(proc, buffer, midi, 12);
 

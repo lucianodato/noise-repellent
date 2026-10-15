@@ -73,7 +73,8 @@ void NoiseRepellentLookAndFeel::drawLinearSlider(
 
   if (style == juce::Slider::LinearVertical) {
     float trackW = 4.0f;
-    float trackX = x + (width - trackW) * 0.5f;
+    float trackX =
+        static_cast<float>(x) + (static_cast<float>(width) - trackW) * 0.5f;
 
     // Background track
     g.setColour(juce::Colour(0xff1c2028));
@@ -87,7 +88,8 @@ void NoiseRepellentLookAndFeel::drawLinearSlider(
     // Thumb Cap
     float thumbW = 18.0f;
     float thumbH = 12.0f;
-    float thumbX = x + (width - thumbW) * 0.5f;
+    float thumbX =
+        static_cast<float>(x) + (static_cast<float>(width) - thumbW) * 0.5f;
     float thumbY = sliderPos - thumbH * 0.5f;
 
     g.setColour(juce::Colour(0xff525c70));
@@ -100,7 +102,8 @@ void NoiseRepellentLookAndFeel::drawLinearSlider(
     g.fillRect(thumbX + 5.0f, thumbY + 5.0f, 8.0f, 2.0f);
   } else if (style == juce::Slider::LinearHorizontal) {
     float trackH = 4.0f;
-    float trackY = y + (height - trackH) * 0.5f;
+    float trackY =
+        static_cast<float>(y) + (static_cast<float>(height) - trackH) * 0.5f;
 
     g.setColour(juce::Colour(0xff1c2028));
     g.fillRoundedRectangle((float)x, trackY, (float)width, trackH, 2.0f);
@@ -112,7 +115,8 @@ void NoiseRepellentLookAndFeel::drawLinearSlider(
     float thumbW = 12.0f;
     float thumbH = 16.0f;
     float thumbX = sliderPos - thumbW * 0.5f;
-    float thumbY = y + (height - thumbH) * 0.5f;
+    float thumbY =
+        static_cast<float>(y) + (static_cast<float>(height) - thumbH) * 0.5f;
 
     g.setColour(juce::Colour(0xff525c70));
     g.fillRoundedRectangle(thumbX, thumbY, thumbW, thumbH, 2.0f);
@@ -143,10 +147,13 @@ void NoiseRepellentLookAndFeel::drawButtonBackground(
   } else {
     auto offCol =
         button.findColour(juce::TextButton::buttonColourId, false);
-    base = (offCol.isOpaque() && !offCol.isTransparent())
-               ? offCol
-               : (backgroundColour.isTransparent() ? kColorButtonOff
-                                                   : backgroundColour);
+    if (offCol.isOpaque() && !offCol.isTransparent()) {
+      base = offCol;
+    } else if (backgroundColour.isTransparent()) {
+      base = kColorButtonOff;
+    } else {
+      base = backgroundColour;
+    }
   }
 
   if (shouldDrawButtonAsDown)
@@ -236,7 +243,7 @@ void NoiseRepellentLookAndFeel::drawComboBox(juce::Graphics& g, int width,
                                              int buttonW, int buttonH,
                                              juce::ComboBox& box) {
   auto cornerSize = 4.0f;
-  juce::Rectangle<float> boxBounds(0.0f, 0.0f, (float)width, (float)height);
+  juce::Rectangle boxBounds(0.0f, 0.0f, (float)width, (float)height);
 
   g.setColour(findColour(juce::ComboBox::backgroundColourId));
   g.fillRoundedRectangle(boxBounds, cornerSize);

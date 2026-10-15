@@ -4,7 +4,7 @@ project(NoiseRepellent VERSION 0.4.1 LANGUAGES C CXX)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Enable Position Independent Code (-fPIC) globally for static libs linked into shared object plugins
@@ -41,7 +41,7 @@ endif()
 
 if(MSVC)
     add_compile_options($<$<COMPILE_LANGUAGE:C>:/std:c11>)
-    add_compile_options($<$<COMPILE_LANGUAGE:CXX>:/std:c++17>)
+    add_compile_options($<$<COMPILE_LANGUAGE:CXX>:/std:c++20>)
     add_compile_options(/experimental:c11atomics)
 endif()
 
@@ -179,6 +179,10 @@ target_include_directories(NoiseRepellent PRIVATE
 target_sources(NoiseRepellent PRIVATE
     Source/PluginProcessor.cpp
     Source/PluginProcessor.h
+    Source/ProcessorSubsystems.cpp
+    Source/ProcessorSubsystems.h
+    Source/VisualizationFeed.cpp
+    Source/VisualizationFeed.h
     Source/PluginEditor.cpp
     Source/PluginEditor.h
     Source/GUI/LookAndFeel.cpp
@@ -408,6 +412,8 @@ if(ENABLE_PLUGIN_TESTS OR BUILD_TESTING)
     add_executable(test_ux_invariants
         Source/Tests/test_ux_invariants.cpp
         Source/PluginProcessor.cpp
+        Source/ProcessorSubsystems.cpp
+        Source/VisualizationFeed.cpp
         Source/PluginEditor.cpp
         Source/GUI/LookAndFeel.cpp
         Source/GUI/SpectralVisualizer.cpp
@@ -446,6 +452,8 @@ if(ENABLE_PLUGIN_TESTS OR BUILD_TESTING)
     add_executable(test_performance
         Source/Tests/test_performance.cpp
         Source/PluginProcessor.cpp
+        Source/ProcessorSubsystems.cpp
+        Source/VisualizationFeed.cpp
         Source/PluginEditor.cpp
         Source/GUI/LookAndFeel.cpp
         Source/GUI/SpectralVisualizer.cpp
@@ -484,6 +492,8 @@ if(ENABLE_PLUGIN_TESTS OR BUILD_TESTING)
     add_executable(test_stress
         Source/Tests/test_stress.cpp
         Source/PluginProcessor.cpp
+        Source/ProcessorSubsystems.cpp
+        Source/VisualizationFeed.cpp
         Source/PluginEditor.cpp
         Source/GUI/LookAndFeel.cpp
         Source/GUI/SpectralVisualizer.cpp
@@ -522,6 +532,8 @@ if(ENABLE_PLUGIN_TESTS OR BUILD_TESTING)
     add_executable(test_integration
         Source/Tests/test_integration.cpp
         Source/PluginProcessor.cpp
+        Source/ProcessorSubsystems.cpp
+        Source/VisualizationFeed.cpp
         Source/PluginEditor.cpp
         Source/GUI/LookAndFeel.cpp
         Source/GUI/SpectralVisualizer.cpp
@@ -560,6 +572,8 @@ if(ENABLE_PLUGIN_TESTS OR BUILD_TESTING)
     add_executable(test_ux
         Source/Tests/test_ux.cpp
         Source/PluginProcessor.cpp
+        Source/ProcessorSubsystems.cpp
+        Source/VisualizationFeed.cpp
         Source/PluginEditor.cpp
         Source/GUI/LookAndFeel.cpp
         Source/GUI/SpectralVisualizer.cpp
@@ -594,6 +608,55 @@ if(ENABLE_PLUGIN_TESTS OR BUILD_TESTING)
         endif()
     endif()
     add_test(NAME test_ux COMMAND test_ux)
+
+    # Shared setup for the editor-aware coverage tests (differ only in target
+    # name and test source: same sources, definitions, include dir, linkage).
+    function(nr_add_coverage_test test_target test_source)
+        add_executable(${test_target}
+            ${test_source}
+            Source/PluginProcessor.cpp
+            Source/ProcessorSubsystems.cpp
+            Source/VisualizationFeed.cpp
+            Source/PluginEditor.cpp
+            Source/GUI/LookAndFeel.cpp
+            Source/GUI/SpectralVisualizer.cpp
+        )
+        target_compile_definitions(${test_target} PRIVATE
+            JUCE_MODAL_LOOPS_PERMITTED=1
+            JucePlugin_Name="Noise Repellent"
+            JUCE_WEB_BROWSER=0
+            JUCE_USE_CURL=0
+            JUCE_VST3_CAN_REPLACE_VST2=0
+        )
+        target_include_directories(${test_target} PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/Source
+        )
+        target_link_libraries(${test_target} PRIVATE
+            ${SPECBLEACH_TARGET}
+            ${SPECBLEACH_EXTRAS_TARGET}
+            juce::juce_audio_utils
+            juce::juce_audio_processors
+            juce::juce_dsp
+            juce::juce_gui_extra
+            juce::juce_gui_basics
+            juce::juce_graphics
+            juce::juce_events
+            juce::juce_core
+        )
+        if(UNIX AND NOT APPLE)
+            if(USE_SYSTEM_FREETYPE)
+                target_link_libraries(${test_target} PRIVATE Freetype::Freetype)
+            elseif(NOT USE_SYSTEM_JUCE)
+                target_link_libraries(${test_target} PRIVATE freetype)
+            endif()
+        endif()
+        add_test(NAME ${test_target} COMMAND ${test_target})
+    endfunction()
+
+    nr_add_coverage_test(test_gui_coverage
+        Source/Tests/test_gui_coverage.cpp)
+    nr_add_coverage_test(test_processor_coverage
+        Source/Tests/test_processor_coverage.cpp)
 endif()
 
 
