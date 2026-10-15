@@ -414,6 +414,10 @@ private:
     step("masking_depth", 100.0f);
     step("whitening_factor", 100.0f);
     step("whitening_factor", 0.0f);
+    // Neighborhood weighting ("Reduction Blend") at range ends; also runs
+    // combined with the 2D smoothing modes above
+    step("reduction_blend", 100.0f);
+    step("reduction_blend", 0.0f);
     step("residual_listen", 1.0f);
     step("residual_listen", 0.0f);
     step("transient_protection_enable", 1.0f);
@@ -1787,6 +1791,7 @@ private:
     miss([](EngineRuntime::EngineParams& p) {
       p.p.tonal_noise_profile_scale *= 1.01f;
     });
+    miss([](EngineRuntime::EngineParams& p) { p.p.reduction_blend += 0.05f; });
     static float dummyBias = 0.0f;
     miss([](EngineRuntime::EngineParams& p) {
       p.p.reduction_curve_bias = &dummyBias;

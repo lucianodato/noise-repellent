@@ -142,6 +142,10 @@ createParameterLayout() {
   params.push_back(std::make_unique<juce::AudioParameterBool>(
       "reduction_curve_enabled", "Reduction Curve", false));
 
+  params.push_back(std::make_unique<juce::AudioParameterFloat>(
+      "reduction_blend", "Reduction Blend",
+      juce::NormalisableRange<float>(0.0f, 100.0f, 1.0f), 0.0f));
+
   return {params.begin(), params.end()};
 }
 

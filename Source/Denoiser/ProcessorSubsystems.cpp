@@ -571,6 +571,12 @@ EngineRuntime::buildParams(const juce::AudioProcessorValueTreeState& parameters)
   const float smoothing =
       parameters.getRawParameterValue("smoothing_factor")->load();
 
+  // Neighborhood weighting ("Reduction Blend") of the gain statistic. In
+  // low-latency frames the frequency-only neighborhood needs no buffering,
+  // so the setting carries over unchanged (no forced clamp).
+  const float blendNorm =
+      parameters.getRawParameterValue("reduction_blend")->load() / 100.0f;
+
   // Masking: apply cubic curve mapping (matches original LV2 behavior)
   const float maskingRaw =
       parameters.getRawParameterValue("masking_depth")->load() / 100.0f;
@@ -638,6 +644,7 @@ EngineRuntime::buildParams(const juce::AudioProcessorValueTreeState& parameters)
   ep.p.reduction_curve_enabled = ep.curveEnabled;
   ep.p.reduction_curve_size = ep.curveEnabled ? curve.biasSize() : 0;
   ep.p.tonal_noise_profile_scale = tonalProfileScale;
+  ep.p.reduction_blend = blendNorm;
   return ep;
 }
 
@@ -693,7 +700,8 @@ void EngineRuntime::loadParametersIfChanged(
       norm.reduction_curve_bias == cached.reduction_curve_bias &&
       norm.reduction_curve_enabled == cached.reduction_curve_enabled &&
       norm.reduction_curve_size == cached.reduction_curve_size &&
-      norm.tonal_noise_profile_scale == cached.tonal_noise_profile_scale;
+      norm.tonal_noise_profile_scale == cached.tonal_noise_profile_scale &&
+      norm.reduction_blend == cached.reduction_blend;
   bool sameCurve = true;
   if (curveEnabled && p.reduction_curve_bias != nullptr &&
       p.reduction_curve_size > 0) {
