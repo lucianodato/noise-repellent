@@ -1255,32 +1255,19 @@ void NoiseRepellentAudioProcessorEditor::paint(juce::Graphics& g) {
     float topY = (float)advanced.groupAdvanced.getY() + 22.0f;
     float bottomY = (float)advanced.groupAdvanced.getBottom() - 10.0f;
 
-    // 4 Separator lines between 5 controls in Advanced Controls (left to
-    // right: Reduction Blend, Smoothing, Masking, Whitening,
-    // Aggressiveness — no wrap-around pair between the last and first)
-    if (advanced.sliderReductionBlend.getWidth() > 0 &&
-        advanced.sliderSmoothing.getWidth() > 0) {
-      float x0 =
-          (float)(advanced.sliderReductionBlend.getRight() +
-                  advanced.sliderSmoothing.getX()) /
-          2.0f;
-      g.drawVerticalLine(juce::roundToInt(x0), topY, bottomY);
-    }
-    if (advanced.sliderSmoothing.getWidth() > 0 && advanced.sliderMasking.getWidth() > 0) {
-      float x0 =
-          (float)(advanced.sliderSmoothing.getRight() + advanced.sliderMasking.getX()) / 2.0f;
-      g.drawVerticalLine(juce::roundToInt(x0), topY, bottomY);
-    }
-    if (advanced.sliderMasking.getWidth() > 0 && advanced.sliderWhitening.getWidth() > 0) {
-      float x1 =
-          (float)(advanced.sliderMasking.getRight() + advanced.sliderWhitening.getX()) / 2.0f;
-      g.drawVerticalLine(juce::roundToInt(x1), topY, bottomY);
-    }
-    if (advanced.sliderWhitening.getWidth() > 0 && advanced.sliderAggressiveness.getWidth() > 0) {
-      float x2 =
-          (float)(advanced.sliderWhitening.getRight() + advanced.sliderAggressiveness.getX()) /
-          2.0f;
-      g.drawVerticalLine(juce::roundToInt(x2), topY, bottomY);
+    // 4 Separator lines between the 5 controls in Advanced Controls (left
+    // to right: Reduction Blend, Smoothing, Masking, Whitening,
+    // Aggressiveness). Bounds are always valid once the panel is laid out,
+    // so the midpoints draw unconditionally and the pair list only encodes
+    // the adjacency order (no wrap-around between the last and first).
+    const juce::Slider* const kColumns[] = {
+        &advanced.sliderReductionBlend, &advanced.sliderSmoothing,
+        &advanced.sliderMasking,        &advanced.sliderWhitening,
+        &advanced.sliderAggressiveness};
+    for (int i = 0; i < 4; ++i) {
+      const float x = (float)(kColumns[i]->getRight() + kColumns[i + 1]->getX()) /
+                      2.0f;
+      g.drawVerticalLine(juce::roundToInt(x), topY, bottomY);
     }
   }
 }
