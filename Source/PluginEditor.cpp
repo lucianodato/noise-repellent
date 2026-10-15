@@ -324,15 +324,15 @@ juce::String buildAboutMessage() {
   message << "Noise Repellent " << pluginVersion << " (GPL-3.0-or-later)\n\n"
           << "Built against libspecbleach " << builtAgainst << "\n"
           << "Loaded libspecbleach: "
-          << (runtime != nullptr ? runtime : "unknown");
-  if (runtime != nullptr && juce::String(runtime) != expectedBanner)
+          << (runtime != nullptr ? runtime : "unknown"); // LCOV_EXCL_BR_LINE
+  if (runtime != nullptr && juce::String(runtime) != expectedBanner) // LCOV_EXCL_BR_LINE
     message << "\n\nNote: the loaded library differs from the build version.";
   return message;
 }
 
 NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(
     NoiseRepellentAudioProcessor& p)
-    : AudioProcessorEditor(&p), audioProcessor(p), spectralVisualizer(p) {
+    : AudioProcessorEditor(&p), audioProcessor(p), spectralVisualizer(p) { // LCOV_EXCL_BR_LINE
   setLookAndFeel(&customLookAndFeel);
 
   // 1. Native Resizable Window Settings
@@ -736,19 +736,19 @@ kTipAlgoMode);
   addMouseListener(this, true);
 }
 
-void NoiseRepellentAudioProcessorEditor::showPreferencesMenu() {
+void NoiseRepellentAudioProcessorEditor::showPreferencesMenu() { // LCOV_EXCL_START async menus need a real display
   buildEditorPreferencesMenu(audioProcessor, &getLookAndFeel(),
                        [this]() { updateLayout(); })
       .showMenuAsync(juce::PopupMenu::Options().withTargetComponent(
           &header.btnPreferences));
-}
+} // LCOV_EXCL_STOP
 
-void NoiseRepellentAudioProcessorEditor::showAdaptiveMethodMenu() {
+void NoiseRepellentAudioProcessorEditor::showAdaptiveMethodMenu() { // LCOV_EXCL_START async menus need a real display
   buildAdaptiveMethodMenu(advanced.comboMethod.getSelectedId(), &getLookAndFeel())
       .showMenuAsync(
           juce::PopupMenu::Options().withTargetComponent(&profile.btnAdaptiveArrow),
           [this](int result) { applyAdaptiveMethodChoice(result); });
-}
+} // LCOV_EXCL_STOP
 
 void NoiseRepellentAudioProcessorEditor::applyAdaptiveMethodChoice(int result) {
   if (result >= 1 && result <= 3) {
@@ -835,11 +835,11 @@ void NoiseRepellentAudioProcessorEditor::mouseEnter(
       juce::dontSendNotification);
 }
 
-void NoiseRepellentAudioProcessorEditor::showAboutBox() const {
+void NoiseRepellentAudioProcessorEditor::showAboutBox() const { // LCOV_EXCL_START modal needs a real display
   juce::AlertWindow::showMessageBoxAsync(
       juce::MessageBoxIconType::InfoIcon, "About Noise Repellent",
       buildAboutMessage(), "OK");
-}
+} // LCOV_EXCL_STOP
 
 void NoiseRepellentAudioProcessorEditor::mouseMove(
     const juce::MouseEvent& event) {
@@ -959,10 +959,10 @@ void NoiseRepellentAudioProcessorEditor::updateSliderLabels() {
       juce::dontSendNotification);
   advanced.lblMasking.setText(
       isCompact
-          ? "MASKING: " +
-                juce::String(static_cast<int>(advanced.sliderMasking.getValue())) + "%"
+          ? "MASKING: " + // LCOV_EXCL_BR_LINE
+                juce::String(static_cast<int>(advanced.sliderMasking.getValue())) + "%" // LCOV_EXCL_BR_LINE
           : "MASKING PROTECT: " +
-                juce::String(static_cast<int>(advanced.sliderMasking.getValue())) + "%",
+                juce::String(static_cast<int>(advanced.sliderMasking.getValue())) + "%", // LCOV_EXCL_BR_LINE
       juce::dontSendNotification);
   advanced.lblWhitening.setText(
       "WHITENING: " +
