@@ -69,6 +69,14 @@ jobs:
             --gcov-ignore-errors=no_working_dir_found \
             --gcov-ignore-parse-errors=all
 
+      - name: Publish Coverage Report Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: build-test/coverage.xml
+          retention-days: 5
+          if-no-files-found: warn
+
       - name: Cache SonarQube packages
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         uses: actions/cache@v4.3.0
