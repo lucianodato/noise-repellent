@@ -52,9 +52,16 @@ bool loadProfileResampledChecked(specbleach_stereo* group, int channel,
       group, static_cast<uint32_t>(channel), data, size, blockCount, mode);
 }
 
-// Evaluates the piecewise Hermite spline at binNormX. The sorted, contiguous
-// node list always brackets an interior point, so this never fails; there is
-// deliberately no fallback branch (it would be unreachable).
+// Evaluates the piecewise Hermite spline at binNormX. The node list is kept
+// normX-sorted and boundary-clamped by the mutators, so the segment always
+// exists; the helper walks one monotone walk instead of a loop + fallback.
+size_t bracketIndex(const std::vector<CurveNode>& nodes, float x) {
+  size_t idx = 0;
+  while (idx + 1 < nodes.size() && nodes[idx + 1].normX <= x)
+    ++idx;
+  return idx;
+}
+
 bool evaluateSpline(const std::vector<CurveNode>& sortedNodes,
                     const std::vector<float>& dX, const std::vector<float>& m,
                     float binNormX, float& biasDB) {
@@ -66,26 +73,21 @@ bool evaluateSpline(const std::vector<CurveNode>& sortedNodes,
     biasDB = sortedNodes.back().biasDB;
     return true;
   }
-  for (size_t i = 0; i + 1 < sortedNodes.size(); ++i) {
-    if (binNormX < sortedNodes[i].normX || binNormX > sortedNodes[i + 1].normX)
-      continue;
-    const float dx = dX[i];
-    const float t = (dx > kSplineParamEpsilon)
-                        ? (binNormX - sortedNodes[i].normX) / dx
-                        : 0.0f;
-    const float t2 = t * t;
-    const float t3 = t2 * t;
+  const size_t i = bracketIndex(sortedNodes, binNormX);
+  const float dx = dX[i];
+  const float t = (dx > kSplineParamEpsilon)
+                      ? (binNormX - sortedNodes[i].normX) / dx
+                      : 0.0f;
+  const float t2 = t * t;
+  const float t3 = t2 * t;
 
-    const float h00 = 2.0f * t3 - 3.0f * t2 + 1.0f;
-    const float h10 = t3 - 2.0f * t2 + t;
-    const float h01 = -2.0f * t3 + 3.0f * t2;
-    const float h11 = t3 - t2;
+  const float h00 = 2.0f * t3 - 3.0f * t2 + 1.0f;
+  const float h10 = t3 - 2.0f * t2 + t;
+  const float h01 = -2.0f * t3 + 3.0f * t2;
+  const float h11 = t3 - t2;
 
-    biasDB = h00 * sortedNodes[i].biasDB + h10 * dx * m[i] +
-             h01 * sortedNodes[i + 1].biasDB + h11 * dx * m[i + 1];
-    return true;
-  }
-  // Unreachable: contiguity above guarantees a bracketing segment.
+  biasDB = h00 * sortedNodes[i].biasDB + h10 * dx * m[i] +
+           h01 * sortedNodes[i + 1].biasDB + h11 * dx * m[i + 1];
   return true;
 }
 

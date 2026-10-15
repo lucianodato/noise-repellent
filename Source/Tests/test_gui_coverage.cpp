@@ -731,26 +731,32 @@ private:
                  "out-of-range choices must be ignored");
 
     // Toggle-item actions headlessly: gesture begin/end, both value arms,
-    // param-null guard, and the relayout-null variant.
+    // param-null guard, and the relayout-null variant. A stand-alone
+    // parameter object keeps this synchronous and immune to APVTS message
+    // pumping.
     {
-      auto* toggleParam =
-          proc.getAPVTS().getParameter("show_tooltips");
+      juce::AudioParameterBool standalone("headless_tips", "Tooltips", true);
+      auto* toggleParam = &standalone;
       auto tickedItem = makeToggleItem(1, "Tooltips", toggleParam, true, [] {});
       tickedItem.action();
-      expectEquals(rawParam(proc, "show_tooltips"), 0.0f,
-                   "invoked ticked item must disable the parameter");
+      expectEquals(static_cast<int>(standalone.get()), 0,
+                   "invoked ticked item must set the parameter false");
       auto untickedItem =
           makeToggleItem(2, "Tooltips", toggleParam, false, {});
       untickedItem.action();
-      expectEquals(rawParam(proc, "show_tooltips"), 1.0f,
-                   "invoked unticked item must enable the parameter");
+      expectEquals(static_cast<int>(standalone.get()), 1,
+                   "invoked unticked item must set the parameter true");
       makeToggleItem(3, "Missing", nullptr, true, {}).action();
-      auto brokenRelayout =
-          makeToggleItem(4, "Stale", toggleParam, true, nullptr);
-      brokenRelayout.action();
-      expectEquals(rawParam(proc, "show_tooltips"), 0.0f,
-                   "null relayout must still flip the parameter");
-      setParam(proc, "show_tooltips", 1.0f);
+      int relayoutCalls = 0;
+      auto linked = makeToggleItem(4, "Stale", toggleParam, false,
+                                   [&relayoutCalls] { ++relayoutCalls; });
+      linked.action();
+      expectEquals(static_cast<int>(standalone.get()), 1,
+                   "relayout hook must not block the gesture");
+      expectEquals(relayoutCalls, 1, "non-null relayout must be invoked");
+      makeToggleItem(5, "Null", toggleParam, true, nullptr).action();
+      expectEquals(relayoutCalls, 1,
+                   "null relayout must not be invoked");
     }
 
     // About box: blocking showMessageBoxAsync path auto-dismissed by the
