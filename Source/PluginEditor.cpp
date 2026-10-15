@@ -235,6 +235,25 @@ void setProfileStatusText(juce::Label& lbl, bool isBypassed, bool isDelta,
 
 // Menu construction without showing it: PopupMenu building needs no display,
 // so Linux tests can exercise it (only showMenuAsync requires X11).
+juce::PopupMenu::Item makeToggleItem(int itemID, const juce::String& label,
+                                     juce::AudioProcessorParameter* param,
+                                     bool ticked,
+                                     const std::function<void()>& relayout) {
+  juce::PopupMenu::Item item(label);
+  item.itemID = itemID;
+  item.isTicked = ticked;
+  item.action = [param, ticked, relayout]() {
+    if (param == nullptr)
+      return;
+    param->beginChangeGesture();
+    param->setValueNotifyingHost(ticked ? 0.0f : 1.0f);
+    param->endChangeGesture();
+    if (relayout != nullptr)
+      relayout();
+  };
+  return item;
+}
+
 juce::PopupMenu buildEditorPreferencesMenu(
     NoiseRepellentAudioProcessor& processor,
     juce::LookAndFeel* menuLookAndFeel,
@@ -259,49 +278,13 @@ juce::PopupMenu buildEditorPreferencesMenu(
 
   juce::PopupMenu menu;
 
-  juce::PopupMenu::Item item1("Show Tooltips");
-  item1.itemID = 1;
-  item1.isTicked = tooltipVal;
-  item1.action = [tooltipParam, tooltipVal, relayout]() {
-    if (tooltipParam != nullptr) {
-      tooltipParam->beginChangeGesture();
-      tooltipParam->setValueNotifyingHost(tooltipVal ? 0.0f : 1.0f);
-      tooltipParam->endChangeGesture();
-      if (relayout != nullptr) {
-        relayout();
-      }
-    }
-  };
-  menu.addItem(item1);
-
-  juce::PopupMenu::Item item2("Show HUD Status");
-  item2.itemID = 2;
-  item2.isTicked = hudVal;
-  item2.action = [hudParam, hudVal, relayout]() {
-    if (hudParam != nullptr) {
-      hudParam->beginChangeGesture();
-      hudParam->setValueNotifyingHost(hudVal ? 0.0f : 1.0f);
-      hudParam->endChangeGesture();
-      if (relayout != nullptr) {
-        relayout();
-      }
-    }
-  };
-  menu.addItem(item2);
-
+  menu.addItem(makeToggleItem(1, "Show Tooltips", tooltipParam, tooltipVal,
+                              relayout));
+  menu.addItem(makeToggleItem(2, "Show HUD Status", hudParam, hudVal,
+                              relayout));
   menu.addSeparator();
-  juce::PopupMenu::Item lowLatItem("Low Latency (512, live use)");
-  lowLatItem.itemID = 8;
-  lowLatItem.isTicked = lowLatencyVal;
-  lowLatItem.action = [lowLatencyParam, lowLatencyVal]() {
-    if (lowLatencyParam != nullptr) {
-      lowLatencyParam->beginChangeGesture();
-      lowLatencyParam->setValueNotifyingHost(lowLatencyVal ? 0.0f : 1.0f);
-      lowLatencyParam->endChangeGesture();
-    }
-  };
-  menu.addItem(lowLatItem);
-
+  menu.addItem(makeToggleItem(8, "Low Latency (512, live use)",
+                              lowLatencyParam, lowLatencyVal, {}));
   menu.addSeparator();
   menu.addSectionHeader("FRAME SIZE (BIGGER = FINER DETAIL + MORE LATENCY)");
   addFrameSizeMenuItems(menu, frameSizeParam, frameSizeIdx, lowLatencyVal);
@@ -312,8 +295,6 @@ juce::PopupMenu buildEditorPreferencesMenu(
   return menu;
 }
 
-// Dialog text assembly is pure string building; only showing the alert
-// window needs a display.
 // Dialog text assembly is pure string building; only showing the alert
 // window needs a display.
 juce::PopupMenu buildAdaptiveMethodMenu(int currentMethod,
