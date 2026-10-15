@@ -143,6 +143,22 @@ struct ReductionCurveState {
                               std::vector<CurveNode>& out);
 
 private:
+  // Interpolation scratch: sized by mutators/setup (message thread), so the
+  // per-block refresh only reads — never allocates.
+  std::vector<float> curveSlopes;
+  std::vector<float> dXScratch;
+  std::vector<float> dYScratch;
+
+  void resizeScratch(const std::vector<CurveNode>& nodes) {
+    const size_t segments = nodes.size() >= 2 ? nodes.size() - 1 : 0;
+    if (dXScratch.size() != segments)
+      dXScratch.resize(segments);
+    if (dYScratch.size() != segments)
+      dYScratch.resize(segments);
+    if (curveSlopes.size() != nodes.size())
+      curveSlopes.resize(nodes.size());
+  }
+
   // Thread-safe reduction curve data
   juce::SpinLock curveLock;
   std::vector<CurveNode> curveNodes{{0.0f, 0.0f}, {1.0f, 0.0f}};

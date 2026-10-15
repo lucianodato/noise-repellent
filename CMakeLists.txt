@@ -609,85 +609,54 @@ if(ENABLE_PLUGIN_TESTS OR BUILD_TESTING)
     endif()
     add_test(NAME test_ux COMMAND test_ux)
 
-    add_executable(test_gui_coverage
-        Source/Tests/test_gui_coverage.cpp
-        Source/PluginProcessor.cpp
-        Source/ProcessorSubsystems.cpp
-        Source/VisualizationFeed.cpp
-        Source/PluginEditor.cpp
-        Source/GUI/LookAndFeel.cpp
-        Source/GUI/SpectralVisualizer.cpp
-    )
-    target_compile_definitions(test_gui_coverage PRIVATE
-        JUCE_MODAL_LOOPS_PERMITTED=1
-        JucePlugin_Name="Noise Repellent"
-        JUCE_WEB_BROWSER=0
-        JUCE_USE_CURL=0
-        JUCE_VST3_CAN_REPLACE_VST2=0
-    )
-    target_include_directories(test_gui_coverage PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/Source
-    )
-    target_link_libraries(test_gui_coverage PRIVATE
-        ${SPECBLEACH_TARGET}
-        ${SPECBLEACH_EXTRAS_TARGET}
-        juce::juce_audio_utils
-        juce::juce_audio_processors
-        juce::juce_dsp
-        juce::juce_gui_extra
-        juce::juce_gui_basics
-        juce::juce_graphics
-        juce::juce_events
-        juce::juce_core
-    )
-    if(UNIX AND NOT APPLE)
-        if(USE_SYSTEM_FREETYPE)
-            target_link_libraries(test_gui_coverage PRIVATE Freetype::Freetype)
-        elseif(NOT USE_SYSTEM_JUCE)
-            target_link_libraries(test_gui_coverage PRIVATE freetype)
+    # Shared setup for the editor-aware coverage tests (differ only in target
+    # name and test source: same sources, definitions, include dir, linkage).
+    function(nr_add_coverage_test test_target test_source)
+        add_executable(${test_target}
+            ${test_source}
+            Source/PluginProcessor.cpp
+            Source/ProcessorSubsystems.cpp
+            Source/VisualizationFeed.cpp
+            Source/PluginEditor.cpp
+            Source/GUI/LookAndFeel.cpp
+            Source/GUI/SpectralVisualizer.cpp
+        )
+        target_compile_definitions(${test_target} PRIVATE
+            JUCE_MODAL_LOOPS_PERMITTED=1
+            JucePlugin_Name="Noise Repellent"
+            JUCE_WEB_BROWSER=0
+            JUCE_USE_CURL=0
+            JUCE_VST3_CAN_REPLACE_VST2=0
+        )
+        target_include_directories(${test_target} PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/Source
+        )
+        target_link_libraries(${test_target} PRIVATE
+            ${SPECBLEACH_TARGET}
+            ${SPECBLEACH_EXTRAS_TARGET}
+            juce::juce_audio_utils
+            juce::juce_audio_processors
+            juce::juce_dsp
+            juce::juce_gui_extra
+            juce::juce_gui_basics
+            juce::juce_graphics
+            juce::juce_events
+            juce::juce_core
+        )
+        if(UNIX AND NOT APPLE)
+            if(USE_SYSTEM_FREETYPE)
+                target_link_libraries(${test_target} PRIVATE Freetype::Freetype)
+            elseif(NOT USE_SYSTEM_JUCE)
+                target_link_libraries(${test_target} PRIVATE freetype)
+            endif()
         endif()
-    endif()
-    add_test(NAME test_gui_coverage COMMAND test_gui_coverage)
+        add_test(NAME ${test_target} COMMAND ${test_target})
+    endfunction()
 
-    add_executable(test_processor_coverage
-        Source/Tests/test_processor_coverage.cpp
-        Source/PluginProcessor.cpp
-        Source/ProcessorSubsystems.cpp
-        Source/VisualizationFeed.cpp
-        Source/PluginEditor.cpp
-        Source/GUI/LookAndFeel.cpp
-        Source/GUI/SpectralVisualizer.cpp
-    )
-    target_compile_definitions(test_processor_coverage PRIVATE
-        JUCE_MODAL_LOOPS_PERMITTED=1
-        JucePlugin_Name="Noise Repellent"
-        JUCE_WEB_BROWSER=0
-        JUCE_USE_CURL=0
-        JUCE_VST3_CAN_REPLACE_VST2=0
-    )
-    target_include_directories(test_processor_coverage PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/Source
-    )
-    target_link_libraries(test_processor_coverage PRIVATE
-        ${SPECBLEACH_TARGET}
-        ${SPECBLEACH_EXTRAS_TARGET}
-        juce::juce_audio_utils
-        juce::juce_audio_processors
-        juce::juce_dsp
-        juce::juce_gui_extra
-        juce::juce_gui_basics
-        juce::juce_graphics
-        juce::juce_events
-        juce::juce_core
-    )
-    if(UNIX AND NOT APPLE)
-        if(USE_SYSTEM_FREETYPE)
-            target_link_libraries(test_processor_coverage PRIVATE Freetype::Freetype)
-        elseif(NOT USE_SYSTEM_JUCE)
-            target_link_libraries(test_processor_coverage PRIVATE freetype)
-        endif()
-    endif()
-    add_test(NAME test_processor_coverage COMMAND test_processor_coverage)
+    nr_add_coverage_test(test_gui_coverage
+        Source/Tests/test_gui_coverage.cpp)
+    nr_add_coverage_test(test_processor_coverage
+        Source/Tests/test_processor_coverage.cpp)
 endif()
 
 

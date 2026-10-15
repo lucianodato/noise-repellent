@@ -694,15 +694,18 @@ private:
       expect(xml != nullptr, "state must serialize to XML");
       if (xml != nullptr) {
         const juce::ValueTree tree = juce::ValueTree::fromXml(*xml);
-        // appendToState appends the fresh tree; a LEARNED_PROFILES child
-        // carried over from an earlier restore shadows it for findProfilesTree,
-        // so assert on the freshly appended (last) tree.
-        juce::ValueTree fresh;
+        // The restore path scrubs saved copies before replaceState and
+        // appendToState never appends twice, so the fresh tree is the only
+        // LEARNED_PROFILES child.
+        int profileTrees = 0;
         for (int i = 0; i < tree.getNumChildren(); ++i) {
-          if (tree.getChild(i).hasType("LEARNED_PROFILES")) {
-            fresh = tree.getChild(i);
-          }
+          if (tree.getChild(i).hasType("LEARNED_PROFILES"))
+            ++profileTrees;
         }
+        const juce::ValueTree fresh =
+            tree.getChildWithName("LEARNED_PROFILES");
+        expectEquals(profileTrees, 1,
+                     "exactly one LEARNED_PROFILES child must serialize");
         expect(fresh.isValid() && fresh.getNumChildren() >= 2,
                "legacy single-channel profile must serialize both channels");
       }

@@ -88,16 +88,15 @@ bool evaluateSpline(const std::vector<CurveNode>& sortedNodes,
 }
 
 // Slopes for the Hermite spline (endpoints and centered secant averages).
-std::vector<float> computeSplineSlopes(size_t numNodes,
-                                       const std::vector<float>& dX,
-                                       const std::vector<float>& dY) {
-  std::vector m(numNodes, 0.0f);
+void computeSplineSlopes(size_t numNodes, const std::vector<float>& dX,
+                         const std::vector<float>& dY, std::vector<float>& m) {
+  m.resize(numNodes, 0.0f);
   if (numNodes <= 2) {
     const float secant =
         (dX.front() > kSplineSlopeEpsilon) ? dY.front() / dX.front() : 0.0f;
     m[0] = secant;
     m[1] = secant;
-    return m;
+    return;
   }
   m.front() =
       (dX.front() > kSplineSlopeEpsilon) ? dY.front() / dX.front() : 0.0f;
@@ -112,15 +111,17 @@ std::vector<float> computeSplineSlopes(size_t numNodes,
       m[i] = 0.5f * (secant1 + secant2);
     }
   }
-  return m;
 }
 
 // Hermite-spline interpolation of the reduction-curve nodes onto numBins
-// log-spaced frequency bins. Callers hold ReductionCurveState::lock().
+// log-spaced frequency bins. Callers hold ReductionCurveState::lock(), keep
+// curveNodes normX-sorted, and pass scratch buffers sized by the mutators, so
+// the per-block refresh path never allocates.
 void interpolateCurveInto(const std::vector<CurveNode>& curveNodes,
                           double sampleRate,
                           std::vector<float>& interpolatedCurveBias,
-                          uint32_t numBins) {
+                          uint32_t numBins, std::vector<float>& dX,
+                          std::vector<float>& dY, std::vector<float>& m) {
   if (numBins == 0)
     return;
   if (interpolatedCurveBias.size() != numBins)
@@ -128,11 +129,7 @@ void interpolateCurveInto(const std::vector<CurveNode>& curveNodes,
 
   // setNodes/resetNodes/addNode/updateNode always keep a boundary pair, so
   // empty and single-node fills are unreachable.
-  auto sortedNodes = curveNodes;
-  std::ranges::sort(sortedNodes,
-                    [](const CurveNode& a, const CurveNode& b) { return a.normX < b.normX; });
-
-  const size_t numNodes = sortedNodes.size();
+  const size_t numNodes = curveNodes.size();
 
   double sr = sampleRate;
   if (sr <= 0.0)
@@ -145,14 +142,18 @@ void interpolateCurveInto(const std::vector<CurveNode>& curveNodes,
   const float logMax = std::log10(maxFreq);
   const float logRange = logMax - logMin;
 
-  std::vector<float> dX(numNodes - 1);
-  std::vector<float> dY(numNodes - 1);
+  // Scratch buffers are sized by the mutators/setup path; plain size checks
+  // mean the per-block refresh never allocates.
+  if (dX.size() != numNodes - 1)
+    dX.resize(numNodes - 1);
+  if (dY.size() != numNodes - 1)
+    dY.resize(numNodes - 1);
   for (size_t i = 0; i < numNodes - 1; ++i) {
-    dX[i] = sortedNodes[i + 1].normX - sortedNodes[i].normX;
-    dY[i] = sortedNodes[i + 1].biasDB - sortedNodes[i].biasDB;
+    dX[i] = curveNodes[i + 1].normX - curveNodes[i].normX;
+    dY[i] = curveNodes[i + 1].biasDB - curveNodes[i].biasDB;
   }
 
-  const std::vector<float> m = computeSplineSlopes(numNodes, dX, dY);
+  computeSplineSlopes(numNodes, dX, dY, m);
 
   for (uint32_t k = 0; k < numBins; ++k) {
     float freqHz =
@@ -168,7 +169,7 @@ void interpolateCurveInto(const std::vector<CurveNode>& curveNodes,
     }
 
     float biasDB = 0.0f;
-    if (evaluateSpline(sortedNodes, dX, m, binNormX, biasDB))
+    if (evaluateSpline(curveNodes, dX, m, binNormX, biasDB))
       interpolatedCurveBias[k] = biasDB;
   }
 }
@@ -275,12 +276,16 @@ void ReductionCurveState::setNodes(const std::vector<CurveNode>& nodes) {
     curveNodes.insert(curveNodes.begin(), {0.0f, 0.0f});
   if (curveNodes.back().normX < 0.999f)
     curveNodes.push_back({1.0f, 0.0f});
+  std::ranges::sort(curveNodes,
+                    [](const CurveNode& a, const CurveNode& b) { return a.normX < b.normX; });
+  resizeScratch(curveNodes);
   curveNodesDirty = true;
 }
 
 void ReductionCurveState::resetNodes() {
   juce::SpinLock::ScopedLockType lock(curveLock);
   curveNodes = {{0.0f, 0.0f}, {1.0f, 0.0f}};
+  resizeScratch(curveNodes);
   curveNodesDirty = true;
 }
 
@@ -291,6 +296,7 @@ void ReductionCurveState::addNode(float normX, float biasDB) {
   curveNodes.push_back({normX, biasDB});
   std::ranges::sort(curveNodes,
                     [](const CurveNode& a, const CurveNode& b) { return a.normX < b.normX; });
+  resizeScratch(curveNodes);
   curveNodesDirty = true;
 }
 
@@ -298,6 +304,7 @@ void ReductionCurveState::removeNode(int index) {
   juce::SpinLock::ScopedLockType lock(curveLock);
   if (index > 0 && index < static_cast<int>(curveNodes.size()) - 1) {
     curveNodes.erase(curveNodes.begin() + index);
+    resizeScratch(curveNodes);
     curveNodesDirty = true;
   }
 }
@@ -322,7 +329,9 @@ void ReductionCurveState::updateNode(int index, float normX, float biasDB) {
 }
 
 void ReductionCurveState::interpolate(uint32_t numBins, double sampleRate) {
-  interpolateCurveInto(curveNodes, sampleRate, interpolatedCurveBias, numBins);
+  resizeScratch(curveNodes);
+  interpolateCurveInto(curveNodes, sampleRate, interpolatedCurveBias, numBins,
+                       dXScratch, dYScratch, curveSlopes);
 }
 
 void ReductionCurveState::refreshIfDirty(bool curveEnabled,
@@ -330,8 +339,16 @@ void ReductionCurveState::refreshIfDirty(bool curveEnabled,
                                          double sampleRate) {
   if (!curveEnabled || !curveNodesDirty.exchange(false))
     return;
-  if (juce::SpinLock::ScopedTryLockType tryLock(curveLock);
-      !tryLock.isLocked()) {
+  juce::SpinLock::ScopedTryLockType tryLock(curveLock);
+  if (!tryLock.isLocked()) {
+    curveNodesDirty = true;
+    return;
+  }
+  // Scratch is sized on the mutators/setup path; if it is somehow behind
+  // (unprepared plugin), re-arm instead of allocating on the audio thread.
+  if (curveNodes.size() < 2 || dXScratch.size() != curveNodes.size() - 1 ||
+      curveSlopes.size() != curveNodes.size() ||
+      dYScratch.size() != curveNodes.size() - 1) {
     curveNodesDirty = true;
     return;
   }
@@ -340,7 +357,7 @@ void ReductionCurveState::refreshIfDirty(bool curveEnabled,
     profileSize = specbleach_stereo_get_noise_profile_size(group);
   if (profileSize > 0)
     interpolateCurveInto(curveNodes, sampleRate, interpolatedCurveBias,
-                         profileSize);
+                         profileSize, dXScratch, dYScratch, curveSlopes);
 }
 
 void ReductionCurveState::appendToState(juce::ValueTree& state) {
@@ -354,6 +371,8 @@ void ReductionCurveState::appendToState(juce::ValueTree& state) {
       curveTree.appendChild(nodeTree, nullptr);
     }
   }
+  // Idempotent: mirror ProfileStore::appendToState — never append twice.
+  state.removeChild(state.getChildWithName("REDUCTION_CURVE"), nullptr);
   state.appendChild(curveTree, nullptr);
 }
 
@@ -502,6 +521,9 @@ void ProfileStore::appendToState(specbleach_stereo* group,
     }
   }
 
+  // Idempotent: a state restored earlier by replaceState can no longer carry
+  // this child (the restore path scrubs it), but never append twice.
+  state.removeChild(state.getChildWithName("LEARNED_PROFILES"), nullptr);
   state.appendChild(profilesTree, nullptr);
 }
 

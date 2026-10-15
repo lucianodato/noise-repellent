@@ -1074,6 +1074,7 @@ void NoiseRepellentAudioProcessorEditor::applyReductionStates(
 
   if (!canUnlink && !denoising.btnLink.getToggleState()) {
     denoising.btnLink.setToggleState(true, juce::dontSendNotification);
+    denoising.btnLink.setButtonText("Linked");
     if (auto* linkParam =
             audioProcessor.getAPVTS().getParameter("link_reduction"))
       linkParam->setValueNotifyingHost(1.0f);

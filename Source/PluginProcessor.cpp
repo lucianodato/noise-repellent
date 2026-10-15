@@ -293,6 +293,15 @@ void NoiseRepellentAudioProcessor::rebuildForFrameSizeChange(
     bool onAudioThread) {
   if (status.currentSampleRate <= 0.0 || engine.group() == nullptr)
     return; // not prepared yet — next prepareToPlay picks up the new value
+  // Serialize the group swap with message-thread engine readers that publish
+  // engine.group() under the profile lock (state save/restore). The try-lock
+  // keeps the audio path lock-free: a contended rebuild is deferred one
+  // block through the pending flag instead of spinning.
+  juce::SpinLock::ScopedTryLockType profileTryLock(profiles.lock());
+  if (!profileTryLock.isLocked()) {
+    status.frameSizeRebuildPending.store(true);
+    return;
+  }
   // Auto-stop an in-progress Learn: a half-rolled mean must not migrate
   // across resolutions.
   if (auto* learn = parameters.getParameter("learn_noise"))
@@ -576,6 +585,12 @@ void NoiseRepellentAudioProcessor::setStateInformation(const void* data,
         ProfileStore::findProfilesTree(state, *xmlState);
 
     if (state.isValid()) {
+      // Profiles and the curve are restored through their dedicated stores
+      // below. Scrub saved copies so replaceState never leaves a stale
+      // snapshot inside the APVTS that a later getStateInformation would
+      // save (and findProfilesTree would prefer) first.
+      state.removeChild(state.getChildWithName("LEARNED_PROFILES"), nullptr);
+      state.removeChild(state.getChildWithName("REDUCTION_CURVE"), nullptr);
       // Mark the APVTS swap so parameterChanged can tell a structural change
       // from a session restore apart from live automation (GH #221).
       status.replacingStateForRestore.store(true);
