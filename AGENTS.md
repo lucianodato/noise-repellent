@@ -9,6 +9,7 @@ This file contains foundational mandates and architectural context for AI agents
 3. **APVTS & Parameter Management**: Parameter changes must go through `juce::AudioProcessorValueTreeState`. Parameter IDs defined in `PluginProcessor` layout must match key strings used in state serialization and GUI attachments.
 4. **License**: Code in `Source/` is licensed under GPL-3.0-or-later. Include standard license headers on all new source files.
 5. **UX & Invariant Preservation**: All changes must preserve the contracts defined in [docs/UX_INVARIANTS.md](docs/UX_INVARIANTS.md). Always verify with `test_ux_invariants` (`-DENABLE_PLUGIN_TESTS=ON`).
+6. **macOS Install Method**: Never `cp -R` a built `.vst3` over an installed one — it invalidates the bundle signature and hosts exit 0 on load. Always `rm -rf <installed> && ditto <fresh.vst3> <installed>`, then verify with `md5` (build artefact vs installed) and one headless `plugprobe render` before any verdict.
 
 ## Project Structure & Workflow
 

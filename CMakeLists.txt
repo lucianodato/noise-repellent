@@ -168,6 +168,23 @@ juce_add_plugin(NoiseRepellent
     PRODUCT_NAME "Noise Repellent"
 )
 
+# Zero-latency time-domain sibling plugin (live/monitoring use case)
+juce_add_plugin(NoiseRepellentLive
+    COMPANY_NAME "Luciano Dato"
+    BUNDLE_ID "com.lucianodato.NoiseRepellentLive"
+    LV2URI "https://github.com/lucianodato/noise-repellent-live#v0"
+    IS_SYNTH FALSE
+    NEEDS_MIDI_INPUT FALSE
+    NEEDS_MIDI_OUTPUT FALSE
+    IS_MIDI_EFFECT FALSE
+    EDITOR_WANTS_KEYBOARD_FOCUS FALSE
+    COPY_PLUGIN_AFTER_BUILD FALSE
+    PLUGIN_MANUFACTURER_CODE LdNR
+    PLUGIN_CODE Nrlv
+    FORMATS VST3 AU LV2
+    PRODUCT_NAME "Noise Repellent Live"
+)
+
 if(APPLE)
     set(CMAKE_OSX_DEPLOYMENT_TARGET "10.13" CACHE STRING "Minimum macOS version")
 endif()
@@ -194,6 +211,27 @@ target_sources(NoiseRepellent PRIVATE
 )
 
 target_compile_definitions(NoiseRepellent PRIVATE
+    JUCE_WEB_BROWSER=0
+    JUCE_USE_CURL=0
+    JUCE_VST3_CAN_REPLACE_VST2=0
+)
+
+target_include_directories(NoiseRepellentLive PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/Source
+)
+
+target_sources(NoiseRepellentLive PRIVATE
+    Source/LiveDenoiser/PluginProcessor.cpp
+    Source/LiveDenoiser/PluginProcessor.h
+    Source/LiveDenoiser/PluginEditor.cpp
+    Source/LiveDenoiser/PluginEditor.h
+    Source/Shared/GUI/LookAndFeel.cpp
+    Source/Shared/GUI/LookAndFeel.h
+    Source/LiveDenoiser/GUI/LiveSpectralVisualizer.cpp
+    Source/LiveDenoiser/GUI/LiveSpectralVisualizer.h
+)
+
+target_compile_definitions(NoiseRepellentLive PRIVATE
     JUCE_WEB_BROWSER=0
     JUCE_USE_CURL=0
     JUCE_VST3_CAN_REPLACE_VST2=0
@@ -269,14 +307,14 @@ endif()
 # ==============================================================================
 # 7. Target Linkage & Symbol Visibility Properties
 # ==============================================================================
-set_target_properties(NoiseRepellent PROPERTIES
+set_target_properties(NoiseRepellent NoiseRepellentLive PROPERTIES
     C_VISIBILITY_PRESET hidden
     CXX_VISIBILITY_PRESET hidden
     VISIBILITY_INLINES_HIDDEN YES
 )
 
 # JUCE core modules (always)
-target_link_libraries(NoiseRepellent PRIVATE
+set(JUCE_PLUGIN_MODULES
     juce::juce_audio_utils
     juce::juce_audio_processors
     juce::juce_dsp
@@ -285,6 +323,9 @@ target_link_libraries(NoiseRepellent PRIVATE
     juce::juce_graphics
     juce::juce_core
 )
+
+target_link_libraries(NoiseRepellent PRIVATE ${JUCE_PLUGIN_MODULES})
+target_link_libraries(NoiseRepellentLive PRIVATE ${JUCE_PLUGIN_MODULES})
 
 # Statically embed libspecbleach into a JUCE plugin target (main target +
 # SharedCode + per-format targets).
@@ -339,13 +380,16 @@ function(link_specbleach plugin_target)
 endfunction()
 
 link_specbleach(NoiseRepellent)
+link_specbleach(NoiseRepellentLive)
 
 if(UNIX AND NOT APPLE)
-    if(USE_SYSTEM_FREETYPE)
-        target_link_libraries(NoiseRepellent PRIVATE Freetype::Freetype)
-    elseif(NOT USE_SYSTEM_JUCE)
-        target_link_libraries(NoiseRepellent PRIVATE freetype)
-    endif()
+    foreach(_tgt IN ITEMS NoiseRepellent NoiseRepellentLive)
+        if(USE_SYSTEM_FREETYPE)
+            target_link_libraries(${_tgt} PRIVATE Freetype::Freetype)
+        elseif(NOT USE_SYSTEM_JUCE)
+            target_link_libraries(${_tgt} PRIVATE freetype)
+        endif()
+    endforeach()
 endif()
 
 # ==============================================================================
@@ -394,6 +438,30 @@ endif()
 
 if(TARGET NoiseRepellent_LV2)
     install(DIRECTORY "$<TARGET_GENEX_EVAL:NoiseRepellent_LV2,$<TARGET_PROPERTY:NoiseRepellent_LV2,JUCE_PLUGIN_ARTEFACT_FILE>>"
+        DESTINATION "${INSTALL_LV2_DIR}"
+        USE_SOURCE_PERMISSIONS
+        COMPONENT LV2
+    )
+endif()
+
+if(TARGET NoiseRepellentLive_VST3)
+    install(DIRECTORY "$<TARGET_PROPERTY:NoiseRepellentLive_VST3,JUCE_PLUGIN_ARTEFACT_FILE>"
+        DESTINATION "${INSTALL_VST3_DIR}"
+        USE_SOURCE_PERMISSIONS
+        COMPONENT VST3
+    )
+endif()
+
+if(TARGET NoiseRepellentLive_AU)
+    install(DIRECTORY "$<TARGET_PROPERTY:NoiseRepellentLive_AU,JUCE_PLUGIN_ARTEFACT_FILE>"
+        DESTINATION "${INSTALL_AU_DIR}"
+        USE_SOURCE_PERMISSIONS
+        COMPONENT AU
+    )
+endif()
+
+if(TARGET NoiseRepellentLive_LV2)
+    install(DIRECTORY "$<TARGET_PROPERTY:NoiseRepellentLive_LV2,JUCE_PLUGIN_ARTEFACT_FILE>"
         DESTINATION "${INSTALL_LV2_DIR}"
         USE_SOURCE_PERMISSIONS
         COMPONENT LV2
@@ -664,6 +732,46 @@ if(ENABLE_PLUGIN_TESTS OR BUILD_TESTING)
         Source/Tests/test_gui_coverage.cpp)
     nr_add_coverage_test(test_processor_coverage
         Source/Tests/test_processor_coverage.cpp)
+
+    # Live plugin test: compiles the LiveDenoiser sources with the shared
+    # LookAndFeel and links only the time-domain engine entry points.
+    add_executable(test_live_ux
+        Source/Tests/test_live_ux.cpp
+        Source/LiveDenoiser/PluginProcessor.cpp
+        Source/LiveDenoiser/PluginEditor.cpp
+        Source/Shared/GUI/LookAndFeel.cpp
+        Source/LiveDenoiser/GUI/LiveSpectralVisualizer.cpp
+    )
+    target_compile_definitions(test_live_ux PRIVATE
+        JUCE_MODAL_LOOPS_PERMITTED=1
+        JucePlugin_Name="Noise Repellent Live"
+        JUCE_WEB_BROWSER=0
+        JUCE_USE_CURL=0
+        JUCE_VST3_CAN_REPLACE_VST2=0
+    )
+    target_include_directories(test_live_ux PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/Source
+        ${SPECBLEACH_SRC}/include
+    )
+    target_link_libraries(test_live_ux PRIVATE
+        ${SPECBLEACH_TARGET}
+        juce::juce_audio_utils
+        juce::juce_audio_processors
+        juce::juce_dsp
+        juce::juce_gui_extra
+        juce::juce_gui_basics
+        juce::juce_graphics
+        juce::juce_events
+        juce::juce_core
+    )
+    if(UNIX AND NOT APPLE)
+        if(USE_SYSTEM_FREETYPE)
+            target_link_libraries(test_live_ux PRIVATE Freetype::Freetype)
+        elseif(NOT USE_SYSTEM_JUCE)
+            target_link_libraries(test_live_ux PRIVATE freetype)
+        endif()
+    endif()
+    add_test(NAME test_live_ux COMMAND test_live_ux)
 endif()
 
 
