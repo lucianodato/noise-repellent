@@ -279,8 +279,10 @@ else()
         FetchContent_Declare(
             libspecbleach
             GIT_REPOSITORY https://github.com/lucianodato/libspecbleach.git
-            # Pinned to the matching libspecbleach release (keep in sync).
-            GIT_TAG        v0.4.1
+            # Temporarily pinned to the live-denoiser branch while its PR is
+            # unmerged: NoiseRepellentLive needs specbleach_live_denoiser.h.
+            # Update to the released tag once it ships.
+            GIT_TAG        feature/live-plugin
         )
         FetchContent_MakeAvailable(libspecbleach)
         set(SPECBLEACH_SRC "${libspecbleach_SOURCE_DIR}")
