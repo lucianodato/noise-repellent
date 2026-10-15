@@ -174,21 +174,23 @@ endif()
 
 target_include_directories(NoiseRepellent PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/Source
+    ${CMAKE_CURRENT_SOURCE_DIR}/Source/Denoiser
+    ${CMAKE_CURRENT_SOURCE_DIR}/Source/Shared
 )
 
 target_sources(NoiseRepellent PRIVATE
-    Source/PluginProcessor.cpp
-    Source/PluginProcessor.h
-    Source/ProcessorSubsystems.cpp
-    Source/ProcessorSubsystems.h
-    Source/VisualizationFeed.cpp
-    Source/VisualizationFeed.h
-    Source/PluginEditor.cpp
-    Source/PluginEditor.h
-    Source/GUI/LookAndFeel.cpp
-    Source/GUI/LookAndFeel.h
-    Source/GUI/SpectralVisualizer.cpp
-    Source/GUI/SpectralVisualizer.h
+    Source/Denoiser/PluginProcessor.cpp
+    Source/Denoiser/PluginProcessor.h
+    Source/Denoiser/ProcessorSubsystems.cpp
+    Source/Denoiser/ProcessorSubsystems.h
+    Source/Denoiser/VisualizationFeed.cpp
+    Source/Denoiser/VisualizationFeed.h
+    Source/Denoiser/PluginEditor.cpp
+    Source/Denoiser/PluginEditor.h
+    Source/Shared/GUI/LookAndFeel.cpp
+    Source/Shared/GUI/LookAndFeel.h
+    Source/Denoiser/GUI/SpectralVisualizer.cpp
+    Source/Denoiser/GUI/SpectralVisualizer.h
 )
 
 target_compile_definitions(NoiseRepellent PRIVATE
@@ -284,66 +286,59 @@ target_link_libraries(NoiseRepellent PRIVATE
     juce::juce_core
 )
 
+# Statically embed libspecbleach into a JUCE plugin target (main target +
+# SharedCode + per-format targets).
 # On MSVC, static archives linked into a SHARED module are pruned by
 # /OPT:REF unless wrapped in /WHOLEARCHIVE. Without this, libspecbleach
 # objects are silently dropped from the final .vst3/.dll,
 # while import-table verification still passes.
 # Use LINK_LIBRARY:WHOLE_ARCHIVE on CMake >=3.24, fallback to
 # LINKER:/WHOLEARCHIVE on older CMake.
-if(NOT USE_SYSTEM_SPECBLEACH)
-    if(MSVC)
-        if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.24")
-            target_link_libraries(NoiseRepellent PRIVATE "$<LINK_LIBRARY:WHOLE_ARCHIVE,${SPECBLEACH_TARGET};${SPECBLEACH_EXTRAS_TARGET}>")
-        else()
-            target_link_libraries(NoiseRepellent PRIVATE ${SPECBLEACH_TARGET} ${SPECBLEACH_EXTRAS_TARGET})
-            target_link_options(NoiseRepellent PRIVATE "LINKER:/WHOLEARCHIVE,$<TARGET_FILE:${SPECBLEACH_TARGET}>" "LINKER:/WHOLEARCHIVE,$<TARGET_FILE:${SPECBLEACH_EXTRAS_TARGET}>")
-        endif()
-    else()
-        target_link_libraries(NoiseRepellent PRIVATE ${SPECBLEACH_TARGET} ${SPECBLEACH_EXTRAS_TARGET})
-    endif()
-else()
-    target_link_libraries(NoiseRepellent PRIVATE ${SPECBLEACH_TARGET} ${SPECBLEACH_EXTRAS_TARGET})
-endif()
-
-# Explicitly propagate the static DSP libs to JUCE format targets.
-# juce_add_plugin creates NoiseRepellent_SharedCode + per-format modules
-# (VST3/LV2/AU/Standalone). Linking only to NoiseRepellent is not
-# sufficient on MSVC where SharedCode is a STATIC archive that does not
-# itself embed its PRIVATE dependencies.
-foreach(_fmt IN ITEMS VST3 LV2 AU Standalone)
-    if(TARGET NoiseRepellent_${_fmt})
-        if(NOT USE_SYSTEM_SPECBLEACH)
-            if(MSVC)
-                if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.24")
-                    target_link_libraries(NoiseRepellent_${_fmt} PRIVATE "$<LINK_LIBRARY:WHOLE_ARCHIVE,${SPECBLEACH_TARGET};${SPECBLEACH_EXTRAS_TARGET}>")
+function(link_specbleach plugin_target)
+    foreach(_tgt IN ITEMS ${plugin_target} ${plugin_target}_SharedCode)
+        if(TARGET ${_tgt})
+            if(NOT USE_SYSTEM_SPECBLEACH)
+                if(MSVC)
+                    if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.24")
+                        target_link_libraries(${_tgt} PRIVATE "$<LINK_LIBRARY:WHOLE_ARCHIVE,${SPECBLEACH_TARGET};${SPECBLEACH_EXTRAS_TARGET}>")
+                    else()
+                        target_link_libraries(${_tgt} PRIVATE ${SPECBLEACH_TARGET} ${SPECBLEACH_EXTRAS_TARGET})
+                        target_link_options(${_tgt} PRIVATE "LINKER:/WHOLEARCHIVE,$<TARGET_FILE:${SPECBLEACH_TARGET}>" "LINKER:/WHOLEARCHIVE,$<TARGET_FILE:${SPECBLEACH_EXTRAS_TARGET}>")
+                    endif()
                 else()
-                    target_link_libraries(NoiseRepellent_${_fmt} PRIVATE ${SPECBLEACH_TARGET} ${SPECBLEACH_EXTRAS_TARGET})
-                    target_link_options(NoiseRepellent_${_fmt} PRIVATE "LINKER:/WHOLEARCHIVE,$<TARGET_FILE:${SPECBLEACH_TARGET}>" "LINKER:/WHOLEARCHIVE,$<TARGET_FILE:${SPECBLEACH_EXTRAS_TARGET}>")
+                    target_link_libraries(${_tgt} PRIVATE ${SPECBLEACH_TARGET} ${SPECBLEACH_EXTRAS_TARGET})
                 endif()
             else()
-                target_link_libraries(NoiseRepellent_${_fmt} PRIVATE ${SPECBLEACH_TARGET} ${SPECBLEACH_EXTRAS_TARGET})
+                target_link_libraries(${_tgt} PRIVATE ${SPECBLEACH_TARGET} ${SPECBLEACH_EXTRAS_TARGET})
             endif()
-        else()
-            target_link_libraries(NoiseRepellent_${_fmt} PRIVATE ${SPECBLEACH_TARGET} ${SPECBLEACH_EXTRAS_TARGET})
         endif()
-    endif()
-endforeach()
-if(TARGET NoiseRepellent_SharedCode)
-    if(NOT USE_SYSTEM_SPECBLEACH)
-        if(MSVC)
-            if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.24")
-                target_link_libraries(NoiseRepellent_SharedCode PRIVATE "$<LINK_LIBRARY:WHOLE_ARCHIVE,${SPECBLEACH_TARGET};${SPECBLEACH_EXTRAS_TARGET}>")
+    endforeach()
+    # Explicitly propagate the static DSP libs to JUCE format targets.
+    # juce_add_plugin creates <target>_SharedCode + per-format modules
+    # (VST3/LV2/AU/Standalone). Linking only to the main target is not
+    # sufficient on MSVC where SharedCode is a STATIC archive that does not
+    # itself embed its PRIVATE dependencies.
+    foreach(_fmt IN ITEMS VST3 LV2 AU Standalone)
+        if(TARGET ${plugin_target}_${_fmt})
+            if(NOT USE_SYSTEM_SPECBLEACH)
+                if(MSVC)
+                    if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.24")
+                        target_link_libraries(${plugin_target}_${_fmt} PRIVATE "$<LINK_LIBRARY:WHOLE_ARCHIVE,${SPECBLEACH_TARGET};${SPECBLEACH_EXTRAS_TARGET}>")
+                    else()
+                        target_link_libraries(${plugin_target}_${_fmt} PRIVATE ${SPECBLEACH_TARGET} ${SPECBLEACH_EXTRAS_TARGET})
+                        target_link_options(${plugin_target}_${_fmt} PRIVATE "LINKER:/WHOLEARCHIVE,$<TARGET_FILE:${SPECBLEACH_TARGET}>" "LINKER:/WHOLEARCHIVE,$<TARGET_FILE:${SPECBLEACH_EXTRAS_TARGET}>")
+                    endif()
+                else()
+                    target_link_libraries(${plugin_target}_${_fmt} PRIVATE ${SPECBLEACH_TARGET} ${SPECBLEACH_EXTRAS_TARGET})
+                endif()
             else()
-                target_link_libraries(NoiseRepellent_SharedCode PRIVATE ${SPECBLEACH_TARGET} ${SPECBLEACH_EXTRAS_TARGET})
-                target_link_options(NoiseRepellent_SharedCode PRIVATE "LINKER:/WHOLEARCHIVE,$<TARGET_FILE:${SPECBLEACH_TARGET}>" "LINKER:/WHOLEARCHIVE,$<TARGET_FILE:${SPECBLEACH_EXTRAS_TARGET}>")
+                target_link_libraries(${plugin_target}_${_fmt} PRIVATE ${SPECBLEACH_TARGET} ${SPECBLEACH_EXTRAS_TARGET})
             endif()
-        else()
-            target_link_libraries(NoiseRepellent_SharedCode PRIVATE ${SPECBLEACH_TARGET} ${SPECBLEACH_EXTRAS_TARGET})
         endif()
-    else()
-        target_link_libraries(NoiseRepellent_SharedCode PRIVATE ${SPECBLEACH_TARGET} ${SPECBLEACH_EXTRAS_TARGET})
-    endif()
-endif()
+    endforeach()
+endfunction()
+
+link_specbleach(NoiseRepellent)
 
 if(UNIX AND NOT APPLE)
     if(USE_SYSTEM_FREETYPE)
@@ -411,12 +406,12 @@ endif()
 if(ENABLE_PLUGIN_TESTS OR BUILD_TESTING)
     add_executable(test_ux_invariants
         Source/Tests/test_ux_invariants.cpp
-        Source/PluginProcessor.cpp
-        Source/ProcessorSubsystems.cpp
-        Source/VisualizationFeed.cpp
-        Source/PluginEditor.cpp
-        Source/GUI/LookAndFeel.cpp
-        Source/GUI/SpectralVisualizer.cpp
+        Source/Denoiser/PluginProcessor.cpp
+        Source/Denoiser/ProcessorSubsystems.cpp
+        Source/Denoiser/VisualizationFeed.cpp
+        Source/Denoiser/PluginEditor.cpp
+        Source/Shared/GUI/LookAndFeel.cpp
+        Source/Denoiser/GUI/SpectralVisualizer.cpp
     )
     target_compile_definitions(test_ux_invariants PRIVATE
         JUCE_MODAL_LOOPS_PERMITTED=1
@@ -427,6 +422,8 @@ if(ENABLE_PLUGIN_TESTS OR BUILD_TESTING)
     )
     target_include_directories(test_ux_invariants PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/Source
+        ${CMAKE_CURRENT_SOURCE_DIR}/Source/Denoiser
+        ${CMAKE_CURRENT_SOURCE_DIR}/Source/Shared
     )
     target_link_libraries(test_ux_invariants PRIVATE
         ${SPECBLEACH_TARGET}
@@ -451,12 +448,12 @@ if(ENABLE_PLUGIN_TESTS OR BUILD_TESTING)
 
     add_executable(test_performance
         Source/Tests/test_performance.cpp
-        Source/PluginProcessor.cpp
-        Source/ProcessorSubsystems.cpp
-        Source/VisualizationFeed.cpp
-        Source/PluginEditor.cpp
-        Source/GUI/LookAndFeel.cpp
-        Source/GUI/SpectralVisualizer.cpp
+        Source/Denoiser/PluginProcessor.cpp
+        Source/Denoiser/ProcessorSubsystems.cpp
+        Source/Denoiser/VisualizationFeed.cpp
+        Source/Denoiser/PluginEditor.cpp
+        Source/Shared/GUI/LookAndFeel.cpp
+        Source/Denoiser/GUI/SpectralVisualizer.cpp
     )
     target_compile_definitions(test_performance PRIVATE
         JUCE_MODAL_LOOPS_PERMITTED=1
@@ -467,6 +464,8 @@ if(ENABLE_PLUGIN_TESTS OR BUILD_TESTING)
     )
     target_include_directories(test_performance PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/Source
+        ${CMAKE_CURRENT_SOURCE_DIR}/Source/Denoiser
+        ${CMAKE_CURRENT_SOURCE_DIR}/Source/Shared
     )
     target_link_libraries(test_performance PRIVATE
         ${SPECBLEACH_TARGET}
@@ -491,12 +490,12 @@ if(ENABLE_PLUGIN_TESTS OR BUILD_TESTING)
 
     add_executable(test_stress
         Source/Tests/test_stress.cpp
-        Source/PluginProcessor.cpp
-        Source/ProcessorSubsystems.cpp
-        Source/VisualizationFeed.cpp
-        Source/PluginEditor.cpp
-        Source/GUI/LookAndFeel.cpp
-        Source/GUI/SpectralVisualizer.cpp
+        Source/Denoiser/PluginProcessor.cpp
+        Source/Denoiser/ProcessorSubsystems.cpp
+        Source/Denoiser/VisualizationFeed.cpp
+        Source/Denoiser/PluginEditor.cpp
+        Source/Shared/GUI/LookAndFeel.cpp
+        Source/Denoiser/GUI/SpectralVisualizer.cpp
     )
     target_compile_definitions(test_stress PRIVATE
         JUCE_MODAL_LOOPS_PERMITTED=1
@@ -507,6 +506,8 @@ if(ENABLE_PLUGIN_TESTS OR BUILD_TESTING)
     )
     target_include_directories(test_stress PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/Source
+        ${CMAKE_CURRENT_SOURCE_DIR}/Source/Denoiser
+        ${CMAKE_CURRENT_SOURCE_DIR}/Source/Shared
     )
     target_link_libraries(test_stress PRIVATE
         ${SPECBLEACH_TARGET}
@@ -531,12 +532,12 @@ if(ENABLE_PLUGIN_TESTS OR BUILD_TESTING)
 
     add_executable(test_integration
         Source/Tests/test_integration.cpp
-        Source/PluginProcessor.cpp
-        Source/ProcessorSubsystems.cpp
-        Source/VisualizationFeed.cpp
-        Source/PluginEditor.cpp
-        Source/GUI/LookAndFeel.cpp
-        Source/GUI/SpectralVisualizer.cpp
+        Source/Denoiser/PluginProcessor.cpp
+        Source/Denoiser/ProcessorSubsystems.cpp
+        Source/Denoiser/VisualizationFeed.cpp
+        Source/Denoiser/PluginEditor.cpp
+        Source/Shared/GUI/LookAndFeel.cpp
+        Source/Denoiser/GUI/SpectralVisualizer.cpp
     )
     target_compile_definitions(test_integration PRIVATE
         JUCE_MODAL_LOOPS_PERMITTED=1
@@ -547,6 +548,8 @@ if(ENABLE_PLUGIN_TESTS OR BUILD_TESTING)
     )
     target_include_directories(test_integration PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/Source
+        ${CMAKE_CURRENT_SOURCE_DIR}/Source/Denoiser
+        ${CMAKE_CURRENT_SOURCE_DIR}/Source/Shared
     )
     target_link_libraries(test_integration PRIVATE
         ${SPECBLEACH_TARGET}
@@ -571,12 +574,12 @@ if(ENABLE_PLUGIN_TESTS OR BUILD_TESTING)
 
     add_executable(test_ux
         Source/Tests/test_ux.cpp
-        Source/PluginProcessor.cpp
-        Source/ProcessorSubsystems.cpp
-        Source/VisualizationFeed.cpp
-        Source/PluginEditor.cpp
-        Source/GUI/LookAndFeel.cpp
-        Source/GUI/SpectralVisualizer.cpp
+        Source/Denoiser/PluginProcessor.cpp
+        Source/Denoiser/ProcessorSubsystems.cpp
+        Source/Denoiser/VisualizationFeed.cpp
+        Source/Denoiser/PluginEditor.cpp
+        Source/Shared/GUI/LookAndFeel.cpp
+        Source/Denoiser/GUI/SpectralVisualizer.cpp
     )
     target_compile_definitions(test_ux PRIVATE
         JUCE_MODAL_LOOPS_PERMITTED=1
@@ -587,6 +590,8 @@ if(ENABLE_PLUGIN_TESTS OR BUILD_TESTING)
     )
     target_include_directories(test_ux PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/Source
+        ${CMAKE_CURRENT_SOURCE_DIR}/Source/Denoiser
+        ${CMAKE_CURRENT_SOURCE_DIR}/Source/Shared
     )
     target_link_libraries(test_ux PRIVATE
         ${SPECBLEACH_TARGET}
@@ -614,12 +619,12 @@ if(ENABLE_PLUGIN_TESTS OR BUILD_TESTING)
     function(nr_add_coverage_test test_target test_source)
         add_executable(${test_target}
             ${test_source}
-            Source/PluginProcessor.cpp
-            Source/ProcessorSubsystems.cpp
-            Source/VisualizationFeed.cpp
-            Source/PluginEditor.cpp
-            Source/GUI/LookAndFeel.cpp
-            Source/GUI/SpectralVisualizer.cpp
+            Source/Denoiser/PluginProcessor.cpp
+            Source/Denoiser/ProcessorSubsystems.cpp
+            Source/Denoiser/VisualizationFeed.cpp
+            Source/Denoiser/PluginEditor.cpp
+            Source/Shared/GUI/LookAndFeel.cpp
+            Source/Denoiser/GUI/SpectralVisualizer.cpp
         )
         target_compile_definitions(${test_target} PRIVATE
             JUCE_MODAL_LOOPS_PERMITTED=1
@@ -630,6 +635,8 @@ if(ENABLE_PLUGIN_TESTS OR BUILD_TESTING)
         )
         target_include_directories(${test_target} PRIVATE
             ${CMAKE_CURRENT_SOURCE_DIR}/Source
+            ${CMAKE_CURRENT_SOURCE_DIR}/Source/Denoiser
+            ${CMAKE_CURRENT_SOURCE_DIR}/Source/Shared
         )
         target_link_libraries(${test_target} PRIVATE
             ${SPECBLEACH_TARGET}
