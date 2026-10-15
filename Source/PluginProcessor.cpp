@@ -222,10 +222,7 @@ bool engineCanSleep(bool isSilent, bool hasProfile, bool learnNoise,
 } // namespace
 
 NoiseRepellentAudioProcessor::NoiseRepellentAudioProcessor()
-    : AudioProcessor(
-          BusesProperties()
-              .withInput("Input", juce::AudioChannelSet::stereo(), true)
-              .withOutput("Output", juce::AudioChannelSet::stereo(), true)),
+    : AudioProcessor(BusesProperties().withInput("Input", juce::AudioChannelSet::stereo(), true).withOutput("Output", juce::AudioChannelSet::stereo(), true)),
       parameters(*this, nullptr, "PARAMETERS", createParameterLayout()) {
   bypassParameter = dynamic_cast<juce::AudioParameterBool*>(
       parameters.getParameter("bypass"));

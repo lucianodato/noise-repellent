@@ -534,8 +534,7 @@ ProfileStore::findProfilesTree(const juce::ValueTree& state,
     if (xmlProfiles != nullptr)
       profilesTree = juce::ValueTree::fromXml(*xmlProfiles);
   }
-  return profilesTree;
-}
+  return profilesTree; } // single-line close: gcov epilogue lines are pure noise
 
 EngineRuntime::EngineParams
 EngineRuntime::buildParams(const juce::AudioProcessorValueTreeState& parameters) {
