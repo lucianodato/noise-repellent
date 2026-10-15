@@ -730,6 +730,29 @@ private:
     expectEquals(rawParam(proc, "adaptive_method"), 2.0f,
                  "out-of-range choices must be ignored");
 
+    // Toggle-item actions headlessly: gesture begin/end, both value arms,
+    // param-null guard, and the relayout-null variant.
+    {
+      auto* toggleParam =
+          proc.getAPVTS().getParameter("show_tooltips");
+      auto tickedItem = makeToggleItem(1, "Tooltips", toggleParam, true, [] {});
+      tickedItem.action();
+      expectEquals(rawParam(proc, "show_tooltips"), 0.0f,
+                   "invoked ticked item must disable the parameter");
+      auto untickedItem =
+          makeToggleItem(2, "Tooltips", toggleParam, false, {});
+      untickedItem.action();
+      expectEquals(rawParam(proc, "show_tooltips"), 1.0f,
+                   "invoked unticked item must enable the parameter");
+      makeToggleItem(3, "Missing", nullptr, true, {}).action();
+      auto brokenRelayout =
+          makeToggleItem(4, "Stale", toggleParam, true, nullptr);
+      brokenRelayout.action();
+      expectEquals(rawParam(proc, "show_tooltips"), 0.0f,
+                   "null relayout must still flip the parameter");
+      setParam(proc, "show_tooltips", 1.0f);
+    }
+
     // About box: blocking showMessageBoxAsync path auto-dismissed by the
     // modal-closer timer.
     ModalCloser closer;

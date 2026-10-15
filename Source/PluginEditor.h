@@ -34,6 +34,12 @@ juce::PopupMenu buildEditorPreferencesMenu(
     const std::function<void()>& relayout);
 juce::PopupMenu buildAdaptiveMethodMenu(int currentMethod,
                                         juce::LookAndFeel* menuLookAndFeel);
+// Headless-testable preferences-menu item factory: a parameter toggle
+// gesture with an optional relayout hook.
+juce::PopupMenu::Item makeToggleItem(int itemID, const juce::String& label,
+                                     juce::AudioProcessorParameter* parameter,
+                                     bool ticked,
+                                     const std::function<void()>& relayout);
 juce::String buildAboutMessage();
 
 class NoiseRepellentAudioProcessorEditor

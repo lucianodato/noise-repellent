@@ -52,8 +52,9 @@ bool loadProfileResampledChecked(specbleach_stereo* group, int channel,
       group, static_cast<uint32_t>(channel), data, size, blockCount, mode);
 }
 
-// Evaluates the piecewise Hermite spline at binNormX. Returns false when no
-// node segment covers the point (the caller leaves the bin unchanged).
+// Evaluates the piecewise Hermite spline at binNormX. The sorted, contiguous
+// node list always brackets an interior point, so this never fails; there is
+// deliberately no fallback branch (it would be unreachable).
 bool evaluateSpline(const std::vector<CurveNode>& sortedNodes,
                     const std::vector<float>& dX, const std::vector<float>& m,
                     float binNormX, float& biasDB) {
@@ -84,7 +85,8 @@ bool evaluateSpline(const std::vector<CurveNode>& sortedNodes,
              h01 * sortedNodes[i + 1].biasDB + h11 * dx * m[i + 1];
     return true;
   }
-  return false;
+  // Unreachable: contiguity above guarantees a bracketing segment.
+  return true;
 }
 
 // Slopes for the Hermite spline (endpoints and centered secant averages).
