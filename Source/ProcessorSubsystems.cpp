@@ -341,14 +341,8 @@ void ReductionCurveState::refreshIfDirty(bool curveEnabled,
     curveNodesDirty = true;
     return;
   }
-  // Scratch is sized on the mutators/setup path; if it is somehow behind
-  // (unprepared plugin), re-arm instead of allocating on the audio thread.
-  if (curveNodes.size() < 2 || dXScratch.size() != curveNodes.size() - 1 ||
-      curveSlopes.size() != curveNodes.size() ||
-      dYScratch.size() != curveNodes.size() - 1) {
-    curveNodesDirty = true;
-    return;
-  }
+  // Scratch is pre-sized by the mutators/setup path; the debug jassert in
+  // interpolateCurveInto trips any caller that skips it.
   uint32_t profileSize = 0;
   if (group != nullptr)
     profileSize = specbleach_stereo_get_noise_profile_size(group);

@@ -253,19 +253,18 @@ NoiseRepellentAudioProcessor::getBypassParameter() const {
 }
 
 float NoiseRepellentAudioProcessor::getFrameSizeMs() const {
-  if (const auto* choice = dynamic_cast<juce::AudioParameterChoice*>(
-          parameters.getParameter("frame_size"))) {
-    const int index = choice->getIndex();
-    if (index >= 0 && index < 5)
-      return kFrameSizeOptionsMs[static_cast<size_t>(index)];
-  }
-  return kFrameSizeOptionsMs[kDefaultFrameSizeIndex];
+  // The frame_size APVTS choice always exists with an index in [0, 4].
+  const auto* choice = dynamic_cast<juce::AudioParameterChoice*>(
+      parameters.getParameter("frame_size"));
+  jassert(choice != nullptr);
+  const int index = choice->getIndex();
+  return kFrameSizeOptionsMs[static_cast<size_t>(
+      std::clamp(index, 0, static_cast<int>(kFrameSizeOptionsMs.size()) - 1))];
 }
 
 bool NoiseRepellentAudioProcessor::isLowLatency() const {
-  if (const auto* p = parameters.getRawParameterValue("low_latency"))
-    return p->load() > 0.5f;
-  return false;
+  // APVTS always owns the low_latency raw parameter.
+  return parameters.getRawParameterValue("low_latency")->load() > 0.5f;
 }
 
 void NoiseRepellentAudioProcessor::parameterChanged(

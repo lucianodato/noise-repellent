@@ -715,6 +715,15 @@ private:
     expectEquals(rawParam(proc, "adaptive_noise"), 0.0f,
                  "dismissing the adaptive menu must not enable adaptive noise");
 
+    // The menu result handler is headless-testable without a native popup.
+    for (int choice = 1; choice <= 3; ++choice)
+      editor->applyAdaptiveMethodChoice(choice);
+    pumpMessageLoop(10);
+    expectEquals(rawParam(proc, "adaptive_noise"), 1.0f,
+                 "invoked method choice must enable adaptive noise");
+    expectEquals(rawParam(proc, "adaptive_method"), 2.0f,
+                 "last invoked method must select BM3D (index 2)");
+
     // About box: blocking showMessageBoxAsync path auto-dismissed by the
     // modal-closer timer.
     ModalCloser closer;
@@ -1204,6 +1213,17 @@ private:
     setParam(proc, "show_tooltips", 1.0f);
     setParam(proc, "show_hud", 1.0f);
     editor->handleAsyncUpdate();
+
+    // updateSliderLabels crosses the compact threshold: label wording swaps
+    editor->setSize(860, 700);
+    editor->updateSliderLabels();
+    expect(editor->advanced.lblMasking.getText().contains("MASKING") &&
+               !editor->advanced.lblMasking.getText().contains("PROTECT"),
+           "Compact width must use the short masking label");
+    editor->setSize(960, 700);
+    editor->updateSliderLabels();
+    expect(editor->advanced.lblMasking.getText().contains("PROTECT"),
+           "Wide width must use the full masking label");
 
     // Advanced panel open with linked faders: tonal faders hidden
     setParam(proc, "show_advanced", 1.0f);
