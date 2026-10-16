@@ -130,11 +130,14 @@ private:
                                  juce::Slider::NoTextBox};
     juce::Slider sliderAggressiveness{juce::Slider::LinearHorizontal,
                                       juce::Slider::NoTextBox};
+    juce::Slider sliderReductionBlend{juce::Slider::LinearHorizontal,
+                                      juce::Slider::NoTextBox};
     juce::Label lblMethod{"lblMethod", "ESTIMATION METHOD"};
     juce::Label lblSmoothing{"lblSmoothing", "SMOOTHING"};
     juce::Label lblMasking{"lblMasking", "MASKING PROTECT"};
     juce::Label lblWhitening{"lblWhitening", "WHITENING"};
     juce::Label lblAggressiveness{"lblAggressiveness", "AGGRESSIVENESS"};
+    juce::Label lblReductionBlend{"lblReductionBlend", "REDUCTION BLEND"};
   };
 
   struct Attachments {
@@ -156,6 +159,7 @@ private:
     std::unique_ptr<SliderAttachment> attachMasking;
     std::unique_ptr<SliderAttachment> attachWhitening;
     std::unique_ptr<SliderAttachment> attachAggressiveness;
+    std::unique_ptr<SliderAttachment> attachReductionBlend;
   };
 
   NoiseRepellentAudioProcessor& audioProcessor;

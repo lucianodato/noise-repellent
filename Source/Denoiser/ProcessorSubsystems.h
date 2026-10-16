@@ -198,7 +198,7 @@ struct ProfileStore {
   }
 
   bool has(const specbleach_stereo* group) const;
-  void reset(specbleach_stereo* group);
+  void reset(const specbleach_stereo* group);
 
   // Snapshots every per-channel/per-mode profile the live group holds, so an
   // engine rebuild can restore them.
@@ -218,7 +218,7 @@ struct ProfileStore {
                        specbleach_stereo* group);
   // Serializes every channel/mode profile into state's LEARNED_PROFILES
   // child, filling per-channel/per-mode gaps before serialization.
-  void appendToState(specbleach_stereo* group, juce::ValueTree& state) const;
+  void appendToState(const specbleach_stereo* group, juce::ValueTree& state) const;
   // Extracts LEARNED_PROFILES (state tree first, then the raw XML fallback).
   static juce::ValueTree findProfilesTree(const juce::ValueTree& state,
                                           const juce::XmlElement& xmlState);

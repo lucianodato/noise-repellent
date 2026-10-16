@@ -241,8 +241,9 @@ else()
         FetchContent_Declare(
             libspecbleach
             GIT_REPOSITORY https://github.com/lucianodato/libspecbleach.git
-            # Pinned to the matching libspecbleach release (keep in sync).
-            GIT_TAG        v0.4.1
+            # Pinned to the matching libspecbleach revision (keep in sync):
+            # main head carrying the reduction_blend feature (PR #193).
+            GIT_TAG        f3f9c1765a4f1a79ac0b75a661e1651a4958900d
         )
         FetchContent_MakeAvailable(libspecbleach)
         set(SPECBLEACH_SRC "${libspecbleach_SOURCE_DIR}")

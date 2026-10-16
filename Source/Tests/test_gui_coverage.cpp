@@ -1297,6 +1297,47 @@ private:
     expect(!parts.resetCurve->isVisible(),
            "Curve reset button must hide while the curve is disabled");
 
+    // --- Reduction Blend panel (5 advanced controls) ---
+    setParam(proc, "reduction_blend", 25.0f);
+    setParam(proc, "show_advanced", 1.0f);
+    editor->handleAsyncUpdate();
+    editor->setSize(1240, 800);
+    editor->updateSliderLabels();
+    expect(editor->advanced.sliderReductionBlend.isVisible() &&
+               editor->advanced.lblReductionBlend.isVisible(),
+           "Blend slider and label must be visible in the advanced panel");
+    expect(
+        editor->advanced.lblReductionBlend.getText().contains(
+            "REDUCTION BLEND: 25%"),
+        "Wide layout must label the blend control in full");
+    expect(editor->advanced.sliderReductionBlend.getX() <
+               editor->advanced.sliderSmoothing.getX(),
+           "Blend slider must sit first among the advanced controls");
+
+    // Toggle click drives the collapse/expand lambda + full layout update
+    // (the click handler is invoked directly so headless tests exercise it)
+    editor->header.btnAdvancedToggle.setToggleState(false,
+                                                    juce::sendNotification);
+    editor->header.btnAdvancedToggle.onClick();
+    editor->updateLayout();
+    expect(!editor->advanced.sliderReductionBlend.isVisible(),
+           "Collapsing the panel must hide the blend slider");
+    editor->header.btnAdvancedToggle.setToggleState(true,
+                                                    juce::sendNotification);
+    editor->header.btnAdvancedToggle.onClick();
+    editor->updateLayout();
+    expect(editor->advanced.sliderReductionBlend.isVisible(),
+           "Reopening the panel must show the blend slider again");
+
+    // Compact threshold wording for the blend label
+    setParam(proc, "reduction_blend", 90.0f);
+    editor->setSize(860, 700);
+    editor->updateSliderLabels();
+    expect(editor->advanced.lblReductionBlend.getText().contains("BLEND: 90%"),
+           "Compact width must use the short blend label");
+    editor->setSize(1240, 800);
+    editor->updateSliderLabels();
+
     // Paint with advanced panel open (separator lines drawn) and closed
     {
       auto img = paintComponent(*editor);

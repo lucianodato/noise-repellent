@@ -116,6 +116,9 @@ const juce::String kTipMasking =
 const juce::String kTipWhitening =
     "Spectral whitening factor to equalize\nthe residual noise floor "
     "spectrum.";
+const juce::String kTipReductionBlend =
+    "Blend bin-wise reduction with neighborhood-wide gains\nto tame "
+    "musical noise; high values keep residual noise bursts.";
 const juce::String kTipMorphingUnavailable =
     "Profile Morphing is available in Advanced Controls\nwhen a manual "
     "learned noise profile is captured.";
@@ -596,10 +599,14 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(
                           NoiseRepellentLookAndFeel::kColorDenoising);
   advanced.sliderWhitening.setColour(juce::Slider::rotarySliderFillColourId,
                             NoiseRepellentLookAndFeel::kColorDenoising);
+  advanced.sliderReductionBlend.setColour(
+      juce::Slider::rotarySliderFillColourId,
+      NoiseRepellentLookAndFeel::kColorDenoising);
 
   addAndMakeVisible(advanced.sliderSmoothing);
   addAndMakeVisible(advanced.sliderMasking);
   addAndMakeVisible(advanced.sliderWhitening);
+  addAndMakeVisible(advanced.sliderReductionBlend);
 
   advanced.lblSmoothing.setFont(juce::FontOptions(
       NoiseRepellentLookAndFeel::kFontSizeLabel, juce::Font::bold));
@@ -621,6 +628,14 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(
                          NoiseRepellentLookAndFeel::kColorDenoising);
   advanced.lblWhitening.setJustificationType(juce::Justification::centred);
   addAndMakeVisible(advanced.lblWhitening);
+
+  advanced.lblReductionBlend.setFont(juce::FontOptions(
+      NoiseRepellentLookAndFeel::kFontSizeLabel, juce::Font::bold));
+  advanced.lblReductionBlend.setColour(juce::Label::textColourId,
+                              NoiseRepellentLookAndFeel::kColorDenoising);
+  advanced.lblReductionBlend.setJustificationType(
+      juce::Justification::centred);
+  addAndMakeVisible(advanced.lblReductionBlend);
 
   // Advanced Controls Toggle Button
   header.btnAdvancedToggle.setClickingTogglesState(true);
@@ -668,6 +683,8 @@ NoiseRepellentAudioProcessorEditor::NoiseRepellentAudioProcessorEditor(
       apvts, "whitening_factor", advanced.sliderWhitening);
   attachments.attachAggressiveness = std::make_unique<SliderAttachment>(
       apvts, "aggressiveness", advanced.sliderAggressiveness);
+  attachments.attachReductionBlend = std::make_unique<SliderAttachment>(
+      apvts, "reduction_blend", advanced.sliderReductionBlend);
 
   // Control Tooltip Descriptions
   header.btnPreferences.setTooltip(kTipPreferencesMenu);
@@ -700,6 +717,8 @@ kTipAlgoMode);
   advanced.sliderSmoothing.setTooltip(kTipSmoothing);
   advanced.sliderMasking.setTooltip(kTipMasking);
   advanced.sliderWhitening.setTooltip(kTipWhitening);
+  advanced.sliderReductionBlend.setTooltip(kTipReductionBlend);
+  advanced.lblReductionBlend.setTooltip(kTipReductionBlend);
   denoising.btnLink.setTooltip(kTipLink);
   denoising.btnCurveToggle.setTooltip(kTipCurveOverlay);
   denoising.btnResetCurve.setTooltip(kTipResetCurve);
@@ -925,6 +944,8 @@ void NoiseRepellentAudioProcessorEditor::updateLayout() {
   advanced.lblMasking.setVisible(isAdvancedVisible);
   advanced.sliderWhitening.setVisible(isAdvancedVisible);
   advanced.lblWhitening.setVisible(isAdvancedVisible);
+  advanced.sliderReductionBlend.setVisible(isAdvancedVisible);
+  advanced.lblReductionBlend.setVisible(isAdvancedVisible);
 
   spectralVisualizer.setAdvancedControlsVisible(isAdvancedVisible);
 
@@ -967,6 +988,12 @@ void NoiseRepellentAudioProcessorEditor::updateSliderLabels() {
   advanced.lblWhitening.setText(
       "WHITENING: " +
           juce::String(static_cast<int>(advanced.sliderWhitening.getValue())) + "%",
+      juce::dontSendNotification);
+  advanced.lblReductionBlend.setText(isCompact
+          ? "BLEND: " +
+                juce::String(static_cast<int>(advanced.sliderReductionBlend.getValue())) + "%"
+          : "REDUCTION BLEND: " +
+                juce::String(static_cast<int>(advanced.sliderReductionBlend.getValue())) + "%",
       juce::dontSendNotification);
 }
 
@@ -1170,9 +1197,11 @@ void NoiseRepellentAudioProcessorEditor::applyAdvancedStates(
   advanced.sliderSmoothing.setEnabled(controlsActive);
   advanced.sliderMasking.setEnabled(controlsActive);
   advanced.sliderWhitening.setEnabled(controlsActive);
+  advanced.sliderReductionBlend.setEnabled(controlsActive);
   advanced.lblSmoothing.setEnabled(controlsActive);
   advanced.lblMasking.setEnabled(controlsActive);
   advanced.lblWhitening.setEnabled(controlsActive);
+  advanced.lblReductionBlend.setEnabled(controlsActive);
   advanced.comboMethod.setEnabled(controlsActive);
   advanced.lblMethod.setEnabled(controlsActive);
   advanced.groupAdvanced.setEnabled(controlsActive);
@@ -1226,22 +1255,19 @@ void NoiseRepellentAudioProcessorEditor::paint(juce::Graphics& g) {
     float topY = (float)advanced.groupAdvanced.getY() + 22.0f;
     float bottomY = (float)advanced.groupAdvanced.getBottom() - 10.0f;
 
-    // 3 Separator lines between 4 controls in Advanced Controls
-    if (advanced.sliderSmoothing.getWidth() > 0 && advanced.sliderMasking.getWidth() > 0) {
-      float x0 =
-          (float)(advanced.sliderSmoothing.getRight() + advanced.sliderMasking.getX()) / 2.0f;
-      g.drawVerticalLine(juce::roundToInt(x0), topY, bottomY);
-    }
-    if (advanced.sliderMasking.getWidth() > 0 && advanced.sliderWhitening.getWidth() > 0) {
-      float x1 =
-          (float)(advanced.sliderMasking.getRight() + advanced.sliderWhitening.getX()) / 2.0f;
-      g.drawVerticalLine(juce::roundToInt(x1), topY, bottomY);
-    }
-    if (advanced.sliderWhitening.getWidth() > 0 && advanced.sliderAggressiveness.getWidth() > 0) {
-      float x2 =
-          (float)(advanced.sliderWhitening.getRight() + advanced.sliderAggressiveness.getX()) /
-          2.0f;
-      g.drawVerticalLine(juce::roundToInt(x2), topY, bottomY);
+    // 4 Separator lines between the 5 controls in Advanced Controls (left
+    // to right: Reduction Blend, Smoothing, Masking, Whitening,
+    // Aggressiveness). Bounds are always valid once the panel is laid out,
+    // so the midpoints draw unconditionally and the pair list only encodes
+    // the adjacency order (no wrap-around between the last and first).
+    const std::array<const juce::Slider*, 5> kColumns = {
+        &advanced.sliderReductionBlend, &advanced.sliderSmoothing,
+        &advanced.sliderMasking,        &advanced.sliderWhitening,
+        &advanced.sliderAggressiveness};
+    for (int i = 0; i < 4; ++i) {
+      const float x = (float)(kColumns[i]->getRight() + kColumns[i + 1]->getX()) /
+                      2.0f;
+      g.drawVerticalLine(juce::roundToInt(x), topY, bottomY);
     }
   }
 }
@@ -1405,8 +1431,8 @@ void NoiseRepellentAudioProcessorEditor::resized() {
   // Footer bar
   layoutFooterBar(area);
 
-  // Bottom Collapsible Advanced Panel (4 Controls: Smoothing, Masking,
-  // Whitening, Aggressiveness)
+  // Bottom Collapsible Advanced Panel (5 Controls: Reduction Blend,
+  // Smoothing, Masking, Whitening, Aggressiveness)
   if (isAdvancedVisible) {
     auto advArea = area.removeFromBottom(kAdvPanelH);
     advanced.groupAdvanced.setBounds(advArea);
@@ -1414,37 +1440,54 @@ void NoiseRepellentAudioProcessorEditor::resized() {
     auto advInner = advArea.reduced(kInnerPad, kGroupPadY);
     advInner.removeFromTop(kAdvTitleH);
 
-    constexpr int kNumGaps = 3;
+    constexpr int kNumGaps = 4;
     constexpr int kGapW = 14;
+    // Columns stay full width for the labels, but each slider track is
+    // inset so an end-stop thumb never pokes into the separator gap
+    // between two adjacent sliders.
+    constexpr int kTrackInset = kGapW / 2 + 1;
     int totalAvailWidth = advInner.getWidth() - (kNumGaps * kGapW);
-    int itemW = totalAvailWidth / 4;
+    int itemW = totalAvailWidth / 5;
 
-    // 1. Smoothing Slider
+    // 1. Reduction Blend Slider
     auto s1 = advInner.removeFromLeft(itemW);
-    advanced.lblSmoothing.setBounds(s1.removeFromTop(kAdvLabelH));
+    advanced.lblReductionBlend.setBounds(s1.removeFromTop(kAdvLabelH));
     s1.removeFromTop(kAdvLabelGap);
-    advanced.sliderSmoothing.setBounds(s1.removeFromTop(kAdvSliderH));
+    advanced.sliderReductionBlend.setBounds(
+        s1.removeFromTop(kAdvSliderH).reduced(kTrackInset, 0));
 
-    // 2. Masking Slider
+    // 2. Smoothing Slider
     advInner.removeFromLeft(kGapW);
     auto s2 = advInner.removeFromLeft(itemW);
-    advanced.lblMasking.setBounds(s2.removeFromTop(kAdvLabelH));
+    advanced.lblSmoothing.setBounds(s2.removeFromTop(kAdvLabelH));
     s2.removeFromTop(kAdvLabelGap);
-    advanced.sliderMasking.setBounds(s2.removeFromTop(kAdvSliderH));
+    advanced.sliderSmoothing.setBounds(
+        s2.removeFromTop(kAdvSliderH).reduced(kTrackInset, 0));
 
-    // 3. Whitening Slider
+    // 3. Masking Slider
     advInner.removeFromLeft(kGapW);
     auto s3 = advInner.removeFromLeft(itemW);
-    advanced.lblWhitening.setBounds(s3.removeFromTop(kAdvLabelH));
+    advanced.lblMasking.setBounds(s3.removeFromTop(kAdvLabelH));
     s3.removeFromTop(kAdvLabelGap);
-    advanced.sliderWhitening.setBounds(s3.removeFromTop(kAdvSliderH));
+    advanced.sliderMasking.setBounds(
+        s3.removeFromTop(kAdvSliderH).reduced(kTrackInset, 0));
 
-    // 4. Aggressiveness Slider
+    // 4. Whitening Slider
     advInner.removeFromLeft(kGapW);
-    auto s4 = advInner;
-    advanced.lblAggressiveness.setBounds(s4.removeFromTop(kAdvLabelH));
+    auto s4 = advInner.removeFromLeft(itemW);
+    advanced.lblWhitening.setBounds(s4.removeFromTop(kAdvLabelH));
     s4.removeFromTop(kAdvLabelGap);
-    advanced.sliderAggressiveness.setBounds(s4.removeFromTop(kAdvSliderH));
+    advanced.sliderWhitening.setBounds(
+        s4.removeFromTop(kAdvSliderH).reduced(kTrackInset, 0));
+
+    // 5. Aggressiveness Slider (fills the remainder, absorbing rounding
+    // leftovers from the integer division)
+    advInner.removeFromLeft(kGapW);
+    auto s5 = advInner;
+    advanced.lblAggressiveness.setBounds(s5.removeFromTop(kAdvLabelH));
+    s5.removeFromTop(kAdvLabelGap);
+    advanced.sliderAggressiveness.setBounds(
+        s5.removeFromTop(kAdvSliderH).reduced(kTrackInset, 0));
 
     area.removeFromBottom(kSectionGap);
   }
