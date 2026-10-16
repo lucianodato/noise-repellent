@@ -1260,7 +1260,7 @@ void NoiseRepellentAudioProcessorEditor::paint(juce::Graphics& g) {
     // Aggressiveness). Bounds are always valid once the panel is laid out,
     // so the midpoints draw unconditionally and the pair list only encodes
     // the adjacency order (no wrap-around between the last and first).
-    const juce::Slider* const kColumns[] = {
+    const std::array<const juce::Slider*, 5> kColumns = {
         &advanced.sliderReductionBlend, &advanced.sliderSmoothing,
         &advanced.sliderMasking,        &advanced.sliderWhitening,
         &advanced.sliderAggressiveness};

@@ -39,7 +39,7 @@ using PendingProfile = ProfileStore::PendingProfile;
 // Bounds-checked profile restore. Returns false (without touching the engine)
 // when the group is null/narrow for the requested channel, so callers can
 // retain the entry for a later, wider rebuild instead of dropping it.
-bool loadProfileResampledChecked(specbleach_stereo* group, int channel,
+bool loadProfileResampledChecked(const specbleach_stereo* group, int channel,
                                  const float* data, uint32_t size,
                                  uint32_t blockCount,
                                  SpecbleachProfileMode mode) {
@@ -403,7 +403,7 @@ bool ProfileStore::has(const specbleach_stereo* group) const {
   return specbleach_stereo_has_any_profile_for_channel(group, 0u);
 }
 
-void ProfileStore::reset(specbleach_stereo* group) {
+void ProfileStore::reset(const specbleach_stereo* group) {
   specbleach_stereo_reset_profiles(group);
   pendingProfiles.clear();
 }
@@ -476,7 +476,7 @@ void ProfileStore::restoreFromTree(const juce::ValueTree& profilesTree,
   specbleach_stereo_sync_profiles(group);
 }
 
-void ProfileStore::appendToState(specbleach_stereo* group,
+void ProfileStore::appendToState(const specbleach_stereo* group,
                                  juce::ValueTree& state) const {
   // Fill per-channel/per-mode gaps before serialization
   specbleach_stereo_sync_profiles(group);
