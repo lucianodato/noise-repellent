@@ -1305,16 +1305,22 @@ void NoiseRepellentAudioProcessorEditor::paint(juce::Graphics& g) {
     float topY = (float)advanced.groupAdvanced.getY() + 22.0f;
     float bottomY = (float)advanced.groupAdvanced.getBottom() - 10.0f;
 
-    // 4 Separator lines between the 5 controls in Advanced Controls (left
+    // Separator lines between adjacent columns in Advanced Controls (left
     // to right: Reduction Blend, Smoothing, Masking, Whitening,
-    // Aggressiveness). Bounds are always valid once the panel is laid out,
-    // so the midpoints draw unconditionally and the pair list only encodes
-    // the adjacency order (no wrap-around between the last and first).
-    const std::array<const juce::Slider*, 5> kColumns = {
+    // Aggressiveness — low latency swaps Masking for a second pair gap).
+    // Bounds are always valid once the panel is laid out, so the midpoints
+    // draw unconditionally and the pair list only encodes the adjacency
+    // order of the ACTIVE columns (both are visible, no wrap-around).
+    const juce::Slider* kColumns[5] = {
         &advanced.sliderReductionBlend, &advanced.sliderSmoothing,
         &advanced.sliderMasking, &advanced.sliderWhitening,
         &advanced.sliderAggressiveness};
-    for (int i = 0; i < 4; ++i) {
+    int numColumns = lastAdvancedLowLatency ? 4 : 5;
+    if (lastAdvancedLowLatency) {
+      kColumns[2] = kColumns[3]; // whitening shifts into Masking's slot
+      kColumns[3] = kColumns[4]; // aggressiveness into Whitening's slot
+    }
+    for (int i = 0; i < numColumns - 1; ++i) {
       const float x =
           (float)(kColumns[i]->getRight() + kColumns[i + 1]->getX()) / 2.0f;
       g.drawVerticalLine(juce::roundToInt(x), topY, bottomY);
