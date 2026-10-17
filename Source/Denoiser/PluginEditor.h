@@ -29,8 +29,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 // Headless-testable content builders: they assemble menu items / dialog text
 // without showing native windows (which crash under Linux CI Xvfb).
 juce::PopupMenu buildEditorPreferencesMenu(
-    NoiseRepellentAudioProcessor& processor,
-    juce::LookAndFeel* menuLookAndFeel,
+    NoiseRepellentAudioProcessor& processor, juce::LookAndFeel* menuLookAndFeel,
     const std::function<void()>& relayout);
 juce::PopupMenu buildAdaptiveMethodMenu(int currentMethod,
                                         juce::LookAndFeel* menuLookAndFeel);
@@ -74,7 +73,8 @@ private:
   using ComboBoxAttachment =
       juce::AudioProcessorValueTreeState::ComboBoxAttachment;
 
-  friend class GuiCoverageTest; // headless coverage tests poke internal controls
+  friend class GuiCoverageTest; // headless coverage tests poke internal
+                                // controls
 
   // Controls are grouped in one struct per UI section
   struct HeaderControls {
@@ -180,6 +180,10 @@ private:
 
   bool isAdvancedVisible = true;
   bool wasOfflineRendering = false;
+  // Low-latency state of the last advanced-panel layout: applyAdvancedStates
+  // re-runs resized() only when the Masking↔Reduction-Blend column swap
+  // changes the panel's column count.
+  bool lastAdvancedLowLatency = false;
   // Last observed offline block count — the overlay shows only while this
   // advances (real render in progress), not on a stale host offline flag.
   uint64_t lastSeenOfflineBlockCount = 0;
@@ -206,7 +210,8 @@ private:
                             bool lowLatency, bool isAdaptive, bool hasProfile);
   void applyOffsetStates(bool controlsActive, bool processingAvailable,
                          bool lowLatency, bool isAdaptive, bool hasProfile);
-  void applyAdvancedStates(bool controlsActive, bool processingAvailable);
+  void applyAdvancedStates(bool controlsActive, bool processingAvailable,
+                           bool lowLatency);
 
   void layoutFooterBar(juce::Rectangle<int>& area);
 

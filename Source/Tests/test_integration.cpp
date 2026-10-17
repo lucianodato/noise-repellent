@@ -1116,6 +1116,12 @@ private:
     learnProfile(proc, sampleRate, blockSize, 20);
     expect(proc.hasNoiseProfile(), "Profile must exist before the switch");
 
+    // Masking and reduction blend must survive the transition untouched:
+    // their sliders stay available in low latency, so nothing may push
+    // defaults over user values.
+    setParam(proc, "masking_depth", 30.0f);
+    setParam(proc, "reduction_blend", 70.0f);
+
     // Enable low latency: clean slate like a frame-size switch,
     // 512-sample latency.
     setParam(proc, "low_latency", 1.0f);
@@ -1133,8 +1139,11 @@ private:
         proc.getAPVTS().getRawParameterValue("aggressiveness")->load() == 1.0f,
         "Low latency must set aggressiveness to 1");
     expect(
-        proc.getAPVTS().getRawParameterValue("masking_depth")->load() == 0.0f,
-        "Low latency must set masking to 0");
+        proc.getAPVTS().getRawParameterValue("masking_depth")->load() == 30.0f,
+        "Low latency must not change masking");
+    expect(proc.getAPVTS().getRawParameterValue("reduction_blend")->load() ==
+               70.0f,
+           "Low latency must not change reduction blend");
 
     // Audio must keep flowing without NaNs after the rebuild, including
     // at extreme smoothing (capped release must not pad or blow up).
@@ -1166,8 +1175,11 @@ private:
         proc.getAPVTS().getRawParameterValue("aggressiveness")->load() == 0.5f,
         "Leaving low latency must restore aggressiveness default");
     expect(
-        proc.getAPVTS().getRawParameterValue("masking_depth")->load() == 100.0f,
-        "Leaving low latency must restore masking default");
+        proc.getAPVTS().getRawParameterValue("masking_depth")->load() == 30.0f,
+        "Leaving low latency must not change masking");
+    expect(proc.getAPVTS().getRawParameterValue("reduction_blend")->load() ==
+               70.0f,
+           "Leaving low latency must not change reduction blend");
 
     proc.releaseResources();
   }
@@ -1313,7 +1325,8 @@ private:
     juce::MidiBuffer midi;
     generateNoiseBuffer(buffer, 0.05f, 777);
 
-    expect(proc.status.getNonRealtimeBlockCount() == 0, "Counter must start at zero");
+    expect(proc.status.getNonRealtimeBlockCount() == 0,
+           "Counter must start at zero");
 
     proc.processBlock(buffer, midi);
     expect(proc.status.getNonRealtimeBlockCount() == 0,

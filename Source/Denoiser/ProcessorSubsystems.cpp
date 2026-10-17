@@ -577,10 +577,12 @@ EngineRuntime::buildParams(const juce::AudioProcessorValueTreeState& parameters)
   const float blendNorm =
       parameters.getRawParameterValue("reduction_blend")->load() / 100.0f;
 
-  // Masking: apply cubic curve mapping (matches original LV2 behavior)
+  // Masking: soft power curve — mid-slider is a genuinely partial relief
+  // instead of nearly-full (the old cubic made every high setting almost
+  // max the veto bite)
   const float maskingRaw =
       parameters.getRawParameterValue("masking_depth")->load() / 100.0f;
-  const float masking = 1.0f - std::pow(1.0f - maskingRaw, 3.0f);
+  const float masking = std::sqrt(maskingRaw);
 
   const float whitening =
       parameters.getRawParameterValue("whitening_factor")->load();

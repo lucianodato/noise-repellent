@@ -37,8 +37,7 @@ constexpr float kSilenceAmplitudeFloor = 1e-5f;
 // member state they need is passed by reference.
 // ---------------------------------------------------------------------------
 
-juce::AudioProcessorValueTreeState::ParameterLayout
-createParameterLayout() {
+juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout() {
   std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
 
   params.push_back(std::make_unique<juce::AudioParameterChoice>(
@@ -99,7 +98,7 @@ createParameterLayout() {
 
   params.push_back(std::make_unique<juce::AudioParameterFloat>(
       "masking_depth", "Masking Protect",
-      juce::NormalisableRange<float>(0.0f, 100.0f, 1.0f), 100.0f));
+      juce::NormalisableRange<float>(0.0f, 100.0f, 1.0f), 50.0f));
 
   params.push_back(std::make_unique<juce::AudioParameterFloat>(
       "whitening_factor", "Whitening",
@@ -144,7 +143,7 @@ createParameterLayout() {
 
   params.push_back(std::make_unique<juce::AudioParameterFloat>(
       "reduction_blend", "Reduction Blend",
-      juce::NormalisableRange<float>(0.0f, 100.0f, 1.0f), 0.0f));
+      juce::NormalisableRange<float>(0.0f, 100.0f, 1.0f), 50.0f));
 
   return {params.begin(), params.end()};
 }
@@ -155,7 +154,8 @@ std::unique_ptr<juce::XmlElement> parsePlainXml(const std::byte* data,
                                                 int sizeInBytes) {
   if (data == nullptr || sizeInBytes <= 0)
     return nullptr;
-  if (const juce::String xmlString = juce::String::createStringFromData(data, sizeInBytes);
+  if (const juce::String xmlString =
+          juce::String::createStringFromData(data, sizeInBytes);
       xmlString.trim().startsWith("<"))
     return juce::XmlDocument::parse(xmlString);
   return nullptr;
@@ -226,7 +226,10 @@ bool engineCanSleep(bool isSilent, bool hasProfile, bool learnNoise,
 } // namespace
 
 NoiseRepellentAudioProcessor::NoiseRepellentAudioProcessor()
-    : AudioProcessor(BusesProperties().withInput("Input", juce::AudioChannelSet::stereo(), true).withOutput("Output", juce::AudioChannelSet::stereo(), true)),
+    : AudioProcessor(
+          BusesProperties()
+              .withInput("Input", juce::AudioChannelSet::stereo(), true)
+              .withOutput("Output", juce::AudioChannelSet::stereo(), true)),
       parameters(*this, nullptr, "PARAMETERS", createParameterLayout()) {
   bypassParameter = dynamic_cast<juce::AudioParameterBool*>(
       parameters.getParameter("bypass"));
@@ -307,9 +310,11 @@ void NoiseRepellentAudioProcessor::rebuildForFrameSizeChange(
   if (auto* learn = parameters.getParameter("learn_noise"))
     learn->setValueNotifyingHost(0.0f);
   // Low-latency transitions install control defaults: on entry smoothing
-  // 30, full aggressiveness, no masking veto; on exit the parameter
-  // defaults return. Applied once per transition (currentLowLatency still
-  // holds the old value here); the user stays free to adjust afterwards.
+  // 30, full aggressiveness; on exit the parameter defaults return.
+  // Masking and reduction blend are left untouched: both sliders stay
+  // available in low latency, so their values must not jump. Applied once
+  // per transition (currentLowLatency still holds the old value here); the
+  // user stays free to adjust afterwards.
   auto pushValue = [this](const char* id, float denormalized) {
     if (auto* p = parameters.getParameter(id))
       p->setValueNotifyingHost(p->convertTo0to1(denormalized));
@@ -321,11 +326,9 @@ void NoiseRepellentAudioProcessor::rebuildForFrameSizeChange(
   if (isLowLatency() && !status.currentLowLatency) {
     pushValue("smoothing_factor", 30.0f);
     pushValue("aggressiveness", 1.0f);
-    pushValue("masking_depth", 0.0f);
   } else if (!isLowLatency() && status.currentLowLatency) {
     pushDefault("smoothing_factor");
     pushDefault("aggressiveness");
-    pushDefault("masking_depth");
   }
   // On the audio thread the rebuild is serialized with the engine run in
   // processBlock, so no suspend dance is needed (that only guards
