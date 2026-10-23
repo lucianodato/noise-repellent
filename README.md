@@ -7,9 +7,10 @@
 A multi-format audio plugin (VST3, AU, LV2) for real-time spectral noise reduction, built with [JUCE](https://juce.com/) and powered by the [libspecbleach](https://github.com/lucianodato/libspecbleach) DSP engine.
 
 ## Screenshots
-![Basic Controls](<Images/Screenshot 1.png>)
-![Advanced Controls](<Images/Screenshot 2.png>)
-![Reduction Curve](<Images/Screenshot 3.png>)
+
+![Basic controls: visualizer passing through with live input and output spectra](<Images/Screenshot 1.png>)
+![Advanced controls: learned stationary noise profile with tonal peak markers and unlinked broadband/tonal controls](<Images/Screenshot 2.png>)
+![Reduction curve editor over the live input/output spectrum](<Images/Screenshot 3.png>)
 
 ## Features
 
@@ -29,17 +30,19 @@ A multi-format audio plugin (VST3, AU, LV2) for real-time spectral noise reducti
 ### Precision Controls
 * **Tonal separation**: Independent reduction of harmonic content and tonal noise (hum, resonance), with unlinkable tonal threshold offset and engine-detected peak markers.
 * **Threshold Offsets & Reduction Curve**: Broadband and tonal threshold offsets plus a custom per-bin reduction bias curve for fine-grained control.
+* **Reduction Blend**: Neighborhood gain-statistic blend that widens reduction decisions to time-frequency neighbors for smoother, more consistent suppression across bins.
 * **Stepped STFT Frame Sizes**: 23 / 32 / 46 / 64 / 93 ms options from the Options menu (short frames for transient material, long frames for frequency resolution). Switching rebuilds from a clean slate and re-reports latency (~2x frame); latency stays constant across smoothing modes for a given frame size.
 * **Intelligent Steering**: Adjustable aggressiveness to balance between different noise profile statistics (Mean, Median, Max).
 * **Adaptive Whitening**: Reshapes the residual noise floor to prevent coloring and artifacts.
 * **Masking Transparency (Veto)**: Protects transients and delicate details by balancing reduction against signal energy.
 * **Adjustable Smoothing**: Fine-tune the balance between artifact suppression and transient clarity.
-    * **Standard Denoising**: Uses temporal smoothing for stable noise reduction.
-    * **Patch-Based Denoising**: Uses NLM smoothing for pattern-based artifact removal.
-    * **Patch-Based + Refinement**: Adds the post-NLM DFTT refinement stage for maximum quality.
+    * **Temporal (Fast / Low CPU)**: Temporal smoothing for stable noise reduction.
+    * **Patch-Based NLM (Texture & Detail)**: NLM smoothing for pattern-based artifact removal.
+    * **NLM + DFTT Refinement (Tonal / Difficult)**: Adds the post-NLM DFTT refinement stage for maximum quality.
+    * **Collaborative BM3D (Smooth / Steady)**: Block-matching collaborative smoothing for steady noise.
 
 ### Workflow & Integration
-* **Low-Latency Mode**: Causal 1D-only path with a fixed 512-sample frame for live scenarios (~10.7 ms at 48 kHz / ~11.6 ms at 44.1 kHz). Enable it from the Options menu: the smoothing selector locks to Standard, the frame-size menu is disabled, and reduction/threshold links are forced on (the short frame is too coarse for independent tonal/broadband control). Entering it installs control defaults (smoothing floor 30, full aggressiveness) and leaves masking and reduction blend untouched; the advanced panel swaps the Masking slider for Reduction Blend. The smoothing slider's top half maps to ~130 ms max release instead of 500 ms (long releases smear coarse LF bins into pad artifacts). Toggling rebuilds the engine from a clean slate (profile dropped, Learn auto-stopped) and re-reports host delay compensation.
+* **Low-Latency Mode**: Causal 1D-only path with a fixed 512-sample frame for live scenarios (~10.7 ms at 48 kHz / ~11.6 ms at 44.1 kHz). Enable it from the Options menu: the smoothing selector locks to Temporal, the frame-size menu is disabled, and reduction/threshold links are forced on (the short frame is too coarse for independent tonal/broadband control). Entering it installs control defaults (smoothing floor 30, full aggressiveness) and leaves masking and reduction blend untouched; the advanced panel swaps the Masking slider for Reduction Blend. The smoothing slider's top half maps to ~130 ms max release instead of 500 ms (long releases smear coarse LF bins into pad artifacts). Toggling rebuilds the engine from a clean slate (profile dropped, Learn auto-stopped) and re-reports host delay compensation.
 * **Interactive Spectral Visualizer**: Real-time FFT visualization of input, noise floor profile, and processed output spectrums with detected tonal peak markers. The noise profile renders live while learning, and aggressiveness/threshold adjustments stay responsive while silent or stopped.
 * **Residual Listening**: Hear exactly what is being filtered out to fine-tune your settings.
 * **Soft Bypass**: Seamless, click-free A/B testing with cross-faded bypass and latency compensation — the engine keeps running while bypassed so toggles never time-travel.
