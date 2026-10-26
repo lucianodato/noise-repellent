@@ -187,6 +187,11 @@ void NoiseRepellentLookAndFeel::drawButtonText(
                juce::Justification::centredLeft);
     return;
   }
+  const auto buttonText = button.getButtonText();
+  const bool isArrow = (buttonText == juce::String(juce::CharPointer_UTF8("\xe2\x96\xbc")));
+  const bool isReset = (buttonText == juce::String(juce::CharPointer_UTF8("\xe2\x86\xba")));
+  const bool isAdvanced = (buttonText == "ADVANCED");
+
   juce::Font font(getTextButtonFont(button, button.getHeight()));
   g.setFont(font);
 
@@ -210,6 +215,53 @@ void NoiseRepellentLookAndFeel::drawButtonText(
     textColour = textColour.withAlpha(0.4f);
 
   g.setColour(textColour);
+
+  if (isArrow || isReset) {
+    auto bounds = button.getLocalBounds().toFloat();
+    float cx = bounds.getCentreX();
+    float cy = bounds.getCentreY();
+    if (isArrow) {
+      juce::Path p;
+      p.addTriangle(cx - 4.0f, cy - 2.0f, cx + 4.0f, cy - 2.0f, cx, cy + 3.0f);
+      g.fillPath(p);
+    } else {
+      float r = 5.0f;
+      juce::Path p;
+      p.addCentredArc(cx, cy, r, r, 0.0f, 0.0f,
+                      juce::MathConstants<float>::twoPi * 0.75f);
+      g.strokePath(p, juce::PathStrokeType(1.5f));
+      float endAngle = juce::MathConstants<float>::twoPi * 0.75f;
+      float ax = cx + r * std::sin(endAngle);
+      float ay = cy - r * std::cos(endAngle);
+      juce::Path head;
+      head.addTriangle(ax, ay - 4.0f, ax - 3.0f, ay + 2.0f, ax + 3.0f, ay + 2.0f);
+      g.fillPath(head);
+    }
+    return;
+  }
+
+  if (isAdvanced) {
+    g.drawText("ADVANCED", button.getLocalBounds(),
+               juce::Justification::centred);
+    auto bounds = button.getLocalBounds().toFloat();
+    float cx = bounds.getCentreX();
+    float cy = bounds.getCentreY();
+    juce::GlyphArrangement ga;
+    ga.addLineOfText(font, "ADVANCED", 0.0f, 0.0f);
+    float tw = ga.getBoundingBox(0, -1, true).getWidth();
+    float ax = cx + tw * 0.5f + 6.0f;
+    juce::Path p;
+    if (button.getToggleState()) {
+      // Up arrow
+      p.addTriangle(ax - 4.0f, cy + 2.0f, ax + 4.0f, cy + 2.0f, ax, cy - 3.0f);
+    } else {
+      // Down arrow
+      p.addTriangle(ax - 4.0f, cy - 2.0f, ax + 4.0f, cy - 2.0f, ax, cy + 3.0f);
+    }
+    g.fillPath(p);
+    return;
+  }
+
   g.drawText(button.getButtonText(), button.getLocalBounds(),
              juce::Justification::centred);
 }
