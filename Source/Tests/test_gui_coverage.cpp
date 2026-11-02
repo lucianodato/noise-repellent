@@ -910,8 +910,7 @@ private:
     pumpMessageLoop(30);
     expectEquals(rawParam(proc, "show_advanced"), 1.0f,
                  "Advanced toggle must persist show_advanced");
-    expect(parts.advancedToggle->getButtonText().contains(
-               juce::String(juce::CharPointer_UTF8("\xe2\x96\xb2"))),
+    expect(parts.advancedToggle->getButtonText().contains("ADVANCED"),
            "Advanced button must show the collapse arrow when open");
     parts.advancedToggle->triggerClick();
     pumpMessageLoop(30);
@@ -1649,6 +1648,34 @@ private:
     lnf.drawButtonText(g, learnBtn, false, false);
     learnBtn.setEnabled(true);
 
+  // Arrow / reset glyph buttons exercise the vector-drawn path branch
+  juce::TextButton arrowBtn(juce::CharPointer_UTF8("\xe2\x96\xbc"));
+  arrowBtn.setSize(22, 24);
+  lnf.drawButtonText(g, arrowBtn, false, false);
+  arrowBtn.setColour(juce::TextButton::buttonColourId,
+                     NoiseRepellentLookAndFeel::kColorLearnCTA);
+  lnf.drawButtonText(g, arrowBtn, true, true);
+  arrowBtn.setToggleState(true, juce::dontSendNotification);
+  arrowBtn.setColour(juce::TextButton::buttonOnColourId,
+                     NoiseRepellentLookAndFeel::kColorNoiseProfile);
+  lnf.drawButtonText(g, arrowBtn, false, false);
+  arrowBtn.setEnabled(false);
+  lnf.drawButtonText(g, arrowBtn, false, false);
+  arrowBtn.setEnabled(true);
+
+  juce::TextButton resetBtn(juce::CharPointer_UTF8("\xe2\x86\xba"));
+  resetBtn.setSize(22, 24);
+  lnf.drawButtonText(g, resetBtn, false, false);
+  resetBtn.setColour(juce::TextButton::buttonColourId,
+                     NoiseRepellentLookAndFeel::kColorLearnActive);
+  lnf.drawButtonText(g, resetBtn, true, true);
+  resetBtn.setToggleState(true, juce::dontSendNotification);
+  resetBtn.setColour(juce::TextButton::buttonOnColourId,
+                     NoiseRepellentLookAndFeel::kColorNoiseProfile);
+  lnf.drawButtonText(g, resetBtn, false, false);
+  resetBtn.setEnabled(false);
+  lnf.drawButtonText(g, resetBtn, false, false);
+  resetBtn.setEnabled(true);
     // Toggle buttons: on, off, disabled
     juce::ToggleButton toggle("Linked");
     toggle.setSize(100, 24);

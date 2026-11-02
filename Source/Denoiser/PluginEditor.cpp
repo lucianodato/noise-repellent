@@ -977,8 +977,7 @@ void NoiseRepellentAudioProcessorEditor::updateLayout() {
 
   spectralVisualizer.setAdvancedControlsVisible(isAdvancedVisible);
 
-  header.btnAdvancedToggle.setButtonText(juce::CharPointer_UTF8(
-      isAdvancedVisible ? "ADVANCED \xe2\x96\xb2" : "ADVANCED \xe2\x96\xbc"));
+  header.btnAdvancedToggle.setButtonText("ADVANCED");
 
   const auto* showTooltipsParam =
       audioProcessor.getAPVTS().getRawParameterValue("show_tooltips");

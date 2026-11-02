@@ -143,7 +143,11 @@ if(UNIX AND NOT APPLE)
         # The interceptor gave JUCE an empty PkgConfig target.
         # Now we inject our static freetype build directly into JUCE's graphics module.
         if(TARGET juce_graphics)
-            target_link_libraries(juce_graphics INTERFACE freetype)
+            # Force the static FreeType archive to resolve all FT_* references
+            # (e.g. juce::GlyphArrangement) and hide its symbols from the plugin ABI.
+            target_link_libraries(juce_graphics INTERFACE
+                -Wl,--whole-archive freetype -Wl,--no-whole-archive)
+            target_link_options(juce_graphics INTERFACE -Wl,--exclude-libs,ALL)
         endif()
     endif()
 endif()
