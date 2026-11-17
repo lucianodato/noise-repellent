@@ -51,7 +51,7 @@ include(FetchContent)
 # 1. FreeType Handling (Portable Static Build via FetchContent)
 # ==============================================================================
 if(UNIX AND NOT APPLE AND NOT USE_SYSTEM_FREETYPE AND NOT USE_SYSTEM_JUCE)
-    message(STATUS "Building static FreeType 2.13.2 via FetchContent...")
+    message(STATUS "Building static FreeType 2.13.3 via FetchContent...")
     
     set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
     set(FT_DISABLE_ZLIB ON CACHE BOOL "" FORCE)
@@ -67,7 +67,7 @@ if(UNIX AND NOT APPLE AND NOT USE_SYSTEM_FREETYPE AND NOT USE_SYSTEM_JUCE)
     FetchContent_Declare(
         freetype
         GIT_REPOSITORY https://gitlab.freedesktop.org/freetype/freetype.git
-        GIT_TAG        VER-2-13-2
+        GIT_TAG        VER-2-13-3
     )
     FetchContent_MakeAvailable(freetype)
 
@@ -91,7 +91,7 @@ if(UNIX AND NOT APPLE AND NOT USE_SYSTEM_FREETYPE AND NOT USE_SYSTEM_JUCE)
         if [ \"$IS_TARGET\" = \"1\" ]; then
             for arg in \"$@\"; do
                 if [ \"$arg\" = \"--modversion\" ]; then
-                    echo \"2.13.2\"
+                    echo \"2.13.3\"
                     exit 0
                 fi
             done
